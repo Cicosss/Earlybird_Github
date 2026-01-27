@@ -1,0 +1,138 @@
+# Implementation Plan
+
+- [x] 1. Setup e dipendenze
+  - [x] 1.1 Aggiungere httpx a requirements.txt
+    - Aggiungere `httpx[http2]>=0.27.0` per supporto HTTP/2 e connection pooling
+    - _Requirements: 1.1_
+  - [x] 1.2 Aggiungere hypothesis a requirements.txt (dev dependency)
+    - Aggiungere `hypothesis>=6.0.0` per property-based testing
+    - _Requirements: Testing Strategy_
+
+- [x] 2. Implementare Browser Fingerprint Manager
+  - [x] 2.1 Creare `src/utils/browser_fingerprint.py` con BrowserProfile dataclass
+    - Definire dataclass BrowserProfile con tutti i campi (user_agent, accept_language, sec_fetch_*, etc.)
+    - Definire lista BROWSER_PROFILES con 5+ profili (Chrome Win, Firefox Win, Safari Mac, Edge Win, Chrome Linux)
+    - _Requirements: 2.1, 2.2_
+  - [ ]* 2.2 Write property test for fingerprint profile count
+    - **Property 4: Fingerprint Profile Count**
+    - **Validates: Requirements 2.1**
+  - [x] 2.3 Implementare classe BrowserFingerprint con get_headers()
+    - Implementare selezione profilo iniziale random
+    - Implementare get_headers() che ritorna dict completo di headers
+    - Implementare _should_rotate() con threshold 8-25
+    - _Requirements: 2.2, 2.3_
+  - [ ]* 2.4 Write property test for header completeness
+    - **Property 5: Header Completeness**
+    - **Validates: Requirements 2.2**
+  - [x] 2.5 Implementare force_rotate() e rotation logic
+    - Implementare force_rotate() che cambia profilo immediatamente
+    - Implementare _select_new_profile() che sceglie profilo diverso dal corrente
+    - Aggiungere thread lock per thread-safety
+    - _Requirements: 2.4_
+  - [ ]* 2.6 Write property test for rotation threshold
+    - **Property 6: Fingerprint Rotation Threshold**
+    - **Validates: Requirements 2.3**
+  - [ ]* 2.7 Write property test for error-triggered rotation
+    - **Property 7: Error-Triggered Rotation**
+    - **Validates: Requirements 2.4**
+  - [ ]* 2.8 Write property test for header consistency
+    - **Property 8: Header Consistency**
+    - **Validates: Requirements 2.5**
+
+- [x] 3. Checkpoint - Verificare fingerprint module
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 4. Implementare HTTP Client Centralizzato
+  - [x] 4.1 Creare `src/utils/http_client.py` con RateLimiter dataclass
+    - Definire dataclass RateLimiter con min_interval, jitter_min, jitter_max, last_request_time
+    - Implementare metodo wait() async con calcolo delay e jitter
+    - Definire RATE_LIMIT_CONFIGS dict con configurazioni per duckduckgo, brave, serper, rsshub
+    - _Requirements: 1.2_
+  - [ ]* 4.2 Write property test for rate limiting jitter range
+    - **Property 2: Rate Limiting Jitter Range**
+    - **Validates: Requirements 1.2**
+  - [x] 4.3 Implementare EarlyBirdHTTPClient singleton
+    - Implementare pattern singleton con get_instance()
+    - Inizializzare HTTPX AsyncClient con limits (max_connections=10, max_keepalive_connections=5)
+    - Inizializzare BrowserFingerprint instance
+    - Inizializzare dict di RateLimiter per-domain
+    - _Requirements: 1.1_
+  - [ ]* 4.4 Write property test for singleton identity
+    - **Property 1: Singleton HTTP Client Instance**
+    - **Validates: Requirements 1.1**
+  - [x] 4.5 Implementare get_async() con retry logic
+    - Implementare rate limiting pre-request
+    - Implementare fingerprint header injection
+    - Implementare retry con exponential backoff su 429, 503, timeout
+    - Implementare fingerprint rotation su 403, 429
+    - Aggiungere logging di duration, status, profile
+    - _Requirements: 1.3, 1.4, 2.4, 7.1, 7.2_
+  - [ ]* 4.6 Write property test for retry on transient errors
+    - **Property 3: Retry on Transient Errors**
+    - **Validates: Requirements 1.3, 1.4**
+  - [x] 4.7 Implementare post_async() con stessa logica di get_async()
+    - Riutilizzare logica di retry e fingerprinting
+    - _Requirements: 1.3, 1.4_
+  - [x] 4.8 Implementare wrapper sync (get_sync, post_sync)
+    - Creare HTTPX Client sync separato
+    - Wrappare chiamate async con asyncio.run() o loop esistente
+    - _Requirements: 1.5, 6.1_
+  - [x] 4.9 Implementare fallback a requests se HTTPX non disponibile
+    - Aggiungere try/except su import httpx
+    - Implementare fallback class che usa requests
+    - _Requirements: 6.3_
+  - [ ]* 4.10 Write property test for logging on request completion
+    - **Property 12: Logging on Request Completion**
+    - **Validates: Requirements 7.1, 7.2, 7.3, 7.4**
+
+- [x] 5. Checkpoint - Verificare HTTP client module
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 6. Migrare SearchProvider
+  - [x] 6.1 Aggiornare SearchProvider per usare EarlyBirdHTTPClient
+    - Importare get_http_client() da src/utils/http_client
+    - Sostituire requests.get/post con client.get_sync/post_sync
+    - Rimuovere _anti_ban_jitter() locale, delegare a HTTP client
+    - Configurare rate_limit_key="duckduckgo" per DDG calls
+    - _Requirements: 3.1, 3.4_
+  - [x] 6.2 Aggiornare _search_serper() per usare HTTP client
+    - Usare client.post_sync() con rate_limit_key="serper"
+    - Mantenere headers API key separati
+    - _Requirements: 3.2_
+  - [ ]* 6.3 Write property test for session reuse across fallbacks
+    - **Property 9: Session Reuse Across Fallbacks**
+    - **Validates: Requirements 3.3, 5.3**
+  - [ ]* 6.4 Write property test for return type compatibility
+    - **Property 11: Return Type Compatibility**
+    - **Validates: Requirements 6.2**
+
+- [x] 7. Migrare BraveProvider
+  - [x] 7.1 Aggiornare BraveProvider per usare EarlyBirdHTTPClient
+    - Importare get_http_client()
+    - Sostituire requests.get con client.get_sync()
+    - Rimuovere _enforce_rate_limit() locale
+    - Configurare rate_limit_key="brave" con min_interval=1.1
+    - _Requirements: 4.1, 4.2_
+  - [ ]* 7.2 Write property test for Brave rate limit configuration
+    - **Property 10: Brave Rate Limit Configuration**
+    - **Validates: Requirements 4.2**
+  - [x] 7.3 Aggiornare gestione 429 per usare retry del client
+    - Rimuovere logica _rate_limited locale
+    - Lasciare che HTTP client gestisca retry
+    - _Requirements: 4.3_
+
+- [x] 8. Migrare RSSHubProvider
+  - [x] 8.1 Aggiornare RSSHubProvider per usare EarlyBirdHTTPClient
+    - Importare get_http_client()
+    - Sostituire requests.get con client.get_sync()
+    - Configurare rate_limit_key="rsshub"
+    - _Requirements: 5.1_
+  - [x] 8.2 Aggiornare _is_rsshub_available() con timeout corto
+    - Usare client.get_sync() con timeout=5
+    - _Requirements: 5.2_
+
+- [x] 9. Checkpoint - Verificare migrazione provider
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 10. Final Checkpoint - Verificare integrazione completa
+  - Ensure all tests pass, ask the user if questions arise.

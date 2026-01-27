@@ -1,0 +1,145 @@
+# Implementation Plan
+
+- [x] 1. Create core data models and DTOs
+  - [x] 1.1 Create VerificationRequest dataclass with all input fields
+    - Define match info, alert data, injury data, and optional FotMob data fields
+    - Include validation for required fields
+    - _Requirements: 1.1, 6.1_
+  - [x] 1.2 Create VerifiedData dataclass with parsed stats structures
+    - Define PlayerImpact, FormStats, H2HStats, RefereeStats nested dataclasses
+    - Include confidence levels for each data category
+    - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1_
+  - [x] 1.3 Create VerificationResult dataclass with output fields
+    - Define VerificationStatus enum (CONFIRM, REJECT, CHANGE_MARKET)
+    - Include score adjustment, market recommendations, inconsistencies, reasoning
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+  - [x] 1.4 Write property test for key player classification
+    - **Property 1: Key player classification threshold**
+    - **Validates: Requirements 1.2**
+
+- [x] 2. Implement TavilyVerifier API client
+  - [x] 2.1 Create TavilyVerifier class with query builder
+    - Build structured query from VerificationRequest
+    - Include player names, match date, league context
+    - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1_
+  - [x] 2.2 Implement Tavily API call with error handling
+    - Handle timeouts, rate limits, API errors
+    - Log all calls for cost tracking
+    - _Requirements: 7.2, 7.3_
+  - [x] 2.3 Implement response parser for VerifiedData extraction
+    - Parse player impact scores from response
+    - Extract form stats, H2H stats, referee info, corner data
+    - Handle missing data with defaults
+    - _Requirements: 1.1, 1.4, 2.4, 3.5, 4.4, 5.4_
+  - [x] 2.4 Write property test for provider fallback
+    - **Property 13: Provider fallback**
+    - **Validates: Requirements 7.3**
+
+- [x] 3. Implement Perplexity fallback provider
+  - [x] 3.1 Create PerplexityVerifier as fallback
+    - Reuse existing perplexity_provider.py integration
+    - Adapt query format for Perplexity API
+    - _Requirements: 7.3_
+  - [x] 3.2 Implement fallback logic in verification flow
+    - Try Tavily first, fallback to Perplexity on failure
+    - Return CONFIRM with LOW confidence if both fail
+    - _Requirements: 7.3, 7.4_
+
+- [x] 4. Implement LogicValidator
+  - [x] 4.1 Create LogicValidator class with validation methods
+    - Implement _check_injury_market_consistency
+    - Implement _check_form_consistency
+    - Implement _suggest_alternative_markets
+    - _Requirements: 8.1, 8.2, 8.3, 8.4_
+  - [x] 4.2 Implement injury-market consistency check
+    - Detect CRITICAL injury + Over market inconsistency
+    - Apply score penalty when detected
+    - Suggest Under/BTTS as alternatives
+    - _Requirements: 8.1, 8.2_
+  - [x] 4.3 Write property test for critical injury Over penalty
+    - **Property 14: Critical injury Over penalty**
+    - **Validates: Requirements 8.1**
+  - [x] 4.4 Implement form consistency check
+    - Calculate deviation from season average
+    - Flag form_warning if deviation > 30%
+    - Recommend Under if both teams < 1.0 goals in last 5
+    - _Requirements: 2.2, 2.3_
+  - [x] 4.5 Write property test for form deviation warning
+    - **Property 3: Form deviation warning**
+    - **Validates: Requirements 2.2**
+  - [x] 4.6 Implement H2H validation
+    - Compare H2H goals avg with suggested Over/Under line
+    - Flag Over Cards if H2H cards avg >= 4.5
+    - Flag Over Corners if H2H corners avg >= 10
+    - _Requirements: 3.2, 3.3, 3.4_
+  - [x] 4.7 Write property test for H2H cards market flag
+    - **Property 5: H2H cards market flag**
+    - **Validates: Requirements 3.3**
+  - [x] 4.8 Implement referee validation
+    - Classify referee as strict/average/lenient
+    - Boost Over Cards confidence if strict
+    - Veto Over Cards if lenient
+    - _Requirements: 4.2, 4.3_
+  - [x] 4.9 Write property test for referee strict classification
+    - **Property 7: Referee strict classification**
+    - **Validates: Requirements 4.2**
+  - [x] 4.10 Implement corner validation
+    - Flag Over 9.5 Corners if combined avg >= 10.5
+    - Prefer H2H corner data over season average
+    - _Requirements: 5.2, 5.3_
+  - [x] 4.11 Write property test for combined corners threshold
+    - **Property 9: Combined corners threshold**
+    - **Validates: Requirements 5.2**
+
+- [x] 5. Checkpoint - Make sure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 6. Implement main verification flow
+  - [x] 6.1 Create verify_alert function as main entry point
+    - Accept VerificationRequest, return VerificationResult
+    - Orchestrate Tavily query, parsing, validation
+    - _Requirements: 6.1_
+  - [x] 6.2 Implement score threshold gating
+    - Skip verification if preliminary_score < 7.5
+    - Return early with original alert data
+    - _Requirements: 7.1_
+  - [x] 6.3 Write property test for score threshold gating
+    - **Property 12: Score threshold gating**
+    - **Validates: Requirements 7.1**
+  - [x] 6.4 Implement result builder with Italian reasoning
+    - Generate human-readable reasoning in Italian
+    - Include all inconsistencies and recommendations
+    - _Requirements: 6.5_
+  - [x] 6.5 Write property test for reasoning presence
+    - **Property 11: Reasoning presence**
+    - **Validates: Requirements 6.5**
+
+- [x] 7. Integrate with main.py
+  - [x] 7.1 Add verification layer call after alert threshold check
+    - Call verify_alert when score >= ALERT_THRESHOLD
+    - Handle CONFIRM/REJECT/CHANGE_MARKET statuses
+    - _Requirements: 7.1_
+  - [x] 7.2 Update alert sending logic based on verification result
+    - Skip alert if status == REJECT
+    - Update market if status == CHANGE_MARKET
+    - Adjust score based on verification
+    - _Requirements: 6.2, 6.3, 6.4_
+  - [x] 7.3 Add verification result to alert message
+    - Include verification confidence in alert
+    - Add reasoning summary to alert text
+    - _Requirements: 6.5_
+
+- [x] 8. Add configuration and logging
+  - [x] 8.1 Add verification settings to config/settings.py
+    - VERIFICATION_ENABLED, VERIFICATION_SCORE_THRESHOLD
+    - TAVILY_API_KEY, thresholds for all validations
+    - _Requirements: 7.1_
+  - [x] 8.2 Implement cost tracking logging
+    - Log all API calls with provider, latency, result
+    - Enable monitoring of verification costs
+    - _Requirements: 7.2_
+
+- [x] 9. Final Checkpoint - Make sure all tests pass
+  - All 27 verification layer tests pass
+  - Integration tests for main.py helper added and passing
+  - Settings configuration tests added and passing

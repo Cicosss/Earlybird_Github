@@ -1,0 +1,151 @@
+# Implementation Plan
+
+- [x] 1. Create DeepSeekIntelProvider core structure
+  - [x] 1.1 Create `src/ingestion/deepseek_intel_provider.py` with class skeleton
+    - Import dependencies (logging, typing, os, time)
+    - Import existing modules (BraveSearchProvider, CooldownManager, parse_ai_json)
+    - Define OPENROUTER_API_KEY, DEEPSEEK_MODEL, rate limit constants
+    - Create class with `__init__`, `is_available()`, `is_available_ignore_cooldown()`
+    - _Requirements: 1.1, 1.2, 1.3, 1.4_
+  - [x] 1.2 Write property test for disabled provider returns None
+    - **Property 1: Disabled Provider Returns None**
+    - **Validates: Requirements 1.3**
+  - [x] 1.3 Write property test for availability reflects state
+    - **Property 2: Availability Reflects State**
+    - **Validates: Requirements 1.4**
+
+- [ ] 2. Implement Brave Search integration
+  - [ ] 2.1 Implement `_search_brave()` method
+    - Use existing BraveSearchProvider singleton
+    - Handle errors gracefully (return empty list on failure)
+    - Log search queries and results count
+    - _Requirements: 3.1, 3.3, 3.4_
+  - [ ] 2.2 Implement `_format_brave_results()` method
+    - Format results as numbered list with title, URL, snippet
+    - Handle empty results (return empty string)
+    - _Requirements: 3.2, 3.5_
+  - [ ] 2.3 Write property test for Brave results formatting
+    - **Property 4: Brave Results Formatting**
+    - **Validates: Requirements 3.5**
+
+- [ ] 3. Implement OpenRouter/DeepSeek API integration
+  - [ ] 3.1 Implement `_call_deepseek()` method
+    - Use httpx for HTTP requests to OpenRouter
+    - Implement rate limiting (2s interval)
+    - Handle 429 errors with CooldownManager activation
+    - Parse JSON response with parse_ai_json
+    - _Requirements: 4.2, 4.3, 7.2_
+  - [ ] 3.2 Implement `_build_prompt_with_context()` method
+    - Remove Google Search references from base prompts
+    - Add Brave results section when available
+    - Add instruction to use training knowledge when no results
+    - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - [ ] 3.3 Write property test for prompts without Google references
+    - **Property 6: Prompts Without Google References**
+    - **Validates: Requirements 5.1**
+  - [ ] 3.4 Write property test for prompts include Brave context
+    - **Property 7: Prompts Include Brave Context**
+    - **Validates: Requirements 5.2, 5.3**
+
+- [ ] 4. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 5. Implement public API methods (Part 1)
+  - [ ] 5.1 Implement `get_match_deep_dive()` method
+    - Validate inputs (home_team, away_team required)
+    - Build search query for match analysis
+    - Call Brave Search, format results
+    - Build prompt using build_deep_dive_prompt with Brave context
+    - Call DeepSeek, normalize response
+    - _Requirements: 2.1, 7.1_
+  - [ ] 5.2 Implement `get_betting_stats()` method
+    - Validate inputs (home_team, away_team, match_date required)
+    - Build search query for betting statistics
+    - Call Brave Search, format results
+    - Build prompt using build_betting_stats_prompt with Brave context
+    - Call DeepSeek, normalize response with `_normalize_betting_stats()`
+    - _Requirements: 2.2, 7.1_
+  - [ ] 5.3 Implement `verify_news_item()` method
+    - Validate inputs (news_title or news_snippet, team_name required)
+    - Build search query for news verification
+    - Call Brave Search, format results
+    - Build prompt using build_news_verification_prompt with Brave context
+    - Call DeepSeek, normalize response with `_normalize_verification_result()`
+    - _Requirements: 2.3, 7.1_
+  - [ ] 5.4 Write property test for invalid input returns None
+    - **Property 8: Invalid Input Returns None**
+    - **Validates: Requirements 7.1**
+
+- [ ] 6. Implement public API methods (Part 2)
+  - [ ] 6.1 Implement `verify_news_batch()` method
+    - Filter items needing verification (MEDIUM/LOW confidence with critical keywords)
+    - Loop through items calling verify_news_item()
+    - Boost confidence for verified items
+    - _Requirements: 2.4_
+  - [ ] 6.2 Implement `confirm_biscotto()` method
+    - Validate inputs (home_team, away_team, draw_odds required)
+    - Build search query for biscotto investigation
+    - Call Brave Search, format results
+    - Build prompt using build_biscotto_confirmation_prompt with Brave context
+    - Call DeepSeek, normalize response with `_normalize_biscotto_confirmation()`
+    - _Requirements: 2.5, 7.1_
+  - [ ] 6.3 Implement `enrich_match_context()` method
+    - Validate inputs (home_team, away_team required)
+    - Build search query for match context
+    - Call Brave Search, format results
+    - Build prompt using build_match_context_enrichment_prompt with Brave context
+    - Call DeepSeek, normalize response with `_normalize_match_enrichment()`
+    - _Requirements: 2.6, 7.1_
+  - [ ] 6.4 Implement `extract_twitter_intel()` method
+    - Validate inputs (handles required)
+    - Build search query for Twitter posts
+    - Call Brave Search with Twitter-specific query
+    - Build prompt for tweet extraction with Brave context
+    - Call DeepSeek, parse response
+    - _Requirements: 2.7, 7.1_
+
+- [ ] 7. Implement formatting and utility methods
+  - [ ] 7.1 Implement `format_for_prompt()` method
+    - Copy implementation from GeminiAgentProvider
+    - Format deep dive results for AI prompt injection
+    - _Requirements: 2.8_
+  - [ ] 7.2 Implement `format_enrichment_for_prompt()` method
+    - Copy implementation from GeminiAgentProvider
+    - Format enrichment results for AI prompt injection
+    - _Requirements: 2.8_
+  - [ ] 7.3 Implement singleton pattern
+    - Create `_deepseek_instance` module variable
+    - Implement `get_deepseek_provider()` function
+    - _Requirements: 8.1, 8.2, 8.3_
+  - [ ] 7.4 Write property test for singleton consistency
+    - **Property 11: Singleton Consistency**
+    - **Validates: Requirements 8.1**
+
+- [ ] 8. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 9. Implement error handling and edge cases
+  - [ ] 9.1 Add comprehensive exception handling to all methods
+    - Wrap API calls in try/except
+    - Log errors with sufficient detail
+    - Return None on any exception
+    - _Requirements: 7.3, 7.4, 7.5_
+  - [ ] 9.2 Write property test for invalid JSON handled gracefully
+    - **Property 9: Invalid JSON Handled Gracefully**
+    - **Validates: Requirements 7.2**
+  - [ ] 9.3 Write property test for exceptions return None
+    - **Property 10: Exceptions Return None**
+    - **Validates: Requirements 7.5**
+  - [ ] 9.4 Write property test for cooldown blocks all methods
+    - **Property 5: Cooldown Blocks All Methods**
+    - **Validates: Requirements 4.4**
+
+- [ ] 10. Implement interface compatibility verification
+  - [ ] 10.1 Write property test for interface compatibility
+    - **Property 3: Interface Compatibility**
+    - **Validates: Requirements 2.1-2.8**
+    - Verify all methods accept same parameters as GeminiAgentProvider
+    - Verify return types match expected Dict structures
+
+- [ ] 11. Final Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.

@@ -1,0 +1,156 @@
+# Implementation Plan
+
+- [x] 1. Create configuration schema and loader
+  - [x] 1.1 Create `config/browser_sources.json` with initial sources for Elite 7 leagues
+    - Define JSON schema with sources array and global_settings
+    - Add sample sources for Turkey (fanatik.com.tr), Argentina (ole.com.ar), Mexico, Greece, Scotland, Australia, Poland
+    - _Requirements: 2.1, 2.2_
+  - [x] 1.2 Create MonitorSourceConfig dataclass and loader in `src/services/browser_monitor.py`
+    - Implement `MonitoredSource` dataclass with url, league_key, scan_interval_minutes, priority
+    - Implement `load_sources()` function to parse JSON config
+    - Implement `reload_sources()` for hot reload capability
+    - _Requirements: 2.1, 2.2, 2.3_
+  - [x] 1.3 Write property test for configuration schema validity
+    - **Property 1: Configuration Schema Validity**
+    - **Validates: Requirements 2.2**
+
+- [x] 2. Implement content cache with deduplication
+  - [x] 2.1 Create ContentCache class with hash-based deduplication
+    - Implement `compute_hash(content: str)` using first 1000 chars
+    - Implement `is_cached(content: str)` to check if hash exists
+    - Implement `cache(content: str)` to store hash with timestamp
+    - Implement `evict_expired()` to remove entries older than 24h
+    - Implement LRU eviction when cache exceeds 10000 entries
+    - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - [x] 2.2 Write property test for content deduplication
+    - **Property 6: Content Deduplication**
+    - **Validates: Requirements 5.1, 5.2, 5.3**
+  - [x] 2.3 Write property test for cache size limit
+    - **Property 7: Cache Size Limit**
+    - **Validates: Requirements 5.4**
+
+- [x] 3. Implement BrowserMonitor core class
+  - [x] 3.1 Create BrowserMonitor class skeleton with lifecycle methods
+    - Implement `__init__` with config_file and on_news_discovered callback
+    - Implement `start()` to launch async scanning loop
+    - Implement `stop()` for graceful shutdown
+    - Implement `is_running()` and `is_paused()` status methods
+    - _Requirements: 1.1, 1.4_
+  - [x] 3.2 Implement Playwright integration for content extraction
+    - Reuse existing BrowserAutomationProvider's Playwright setup
+    - Implement `extract_content(url: str)` with 30s timeout
+    - Limit extracted text to 30k chars
+    - Implement semaphore for max 2 concurrent pages
+    - _Requirements: 3.1, 6.1, 6.4_
+  - [x] 3.3 Write property test for content extraction length limit
+    - **Property 2: Content Extraction Length Limit**
+    - **Validates: Requirements 3.1**
+  - [x] 3.4 Write property test for concurrent page limit
+    - **Property 8: Concurrent Page Limit**
+    - **Validates: Requirements 6.1**
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 5. Implement Gemini Free API relevance analysis
+  - [x] 5.1 Create relevance analysis prompt template
+    - Build prompt with article text and league context
+    - Request JSON response with is_relevant, category, affected_team, confidence, summary
+    - _Requirements: 3.2, 3.3_
+  - [x] 5.2 Implement `analyze_relevance()` method
+    - Send content to Gemini Free API (gemini-2.0-flash)
+    - Parse JSON response and validate schema
+    - Handle rate limiting with 60s pause on 429
+    - Implement escalating backoff (10min after 3 consecutive 429s)
+    - _Requirements: 3.2, 3.3, 7.1, 7.2_
+  - [x] 5.3 Write property test for Gemini response schema validity
+    - **Property 3: Gemini Response Schema Validity**
+    - **Validates: Requirements 3.3**
+  - [x] 5.4 Write property test for rate limit backoff
+    - **Property 11: Rate Limit Backoff**
+    - **Validates: Requirements 7.1, 7.2**
+
+- [x] 6. Implement scan cycle and callback logic
+  - [x] 6.1 Implement `scan_cycle()` main loop
+    - Iterate through sources due for scanning
+    - Enforce 10s minimum interval between navigations
+    - Check memory usage before each navigation (pause if > 80%)
+    - Wait configurable interval between cycles (default 5 min)
+    - _Requirements: 1.2, 1.3, 6.2, 6.3_
+  - [x] 6.2 Implement `scan_source()` with callback invocation
+    - Extract content from URL
+    - Check content cache (skip if duplicate)
+    - Analyze relevance with Gemini
+    - If relevant (is_relevant=true AND confidence >= 0.7): invoke callback
+    - If not relevant: skip silently
+    - _Requirements: 3.4, 3.5, 4.1_
+  - [x] 6.3 Write property test for relevant content triggers callback
+    - **Property 4: Relevant Content Triggers Callback**
+    - **Validates: Requirements 3.4, 4.1**
+  - [x] 6.4 Write property test for non-relevant content skipped
+    - **Property 5: Non-Relevant Content Skipped**
+    - **Validates: Requirements 3.5**
+  - [x] 6.5 Write property test for navigation rate limit
+    - **Property 9: Navigation Rate Limit**
+    - **Validates: Requirements 6.2**
+  - [x] 6.6 Write property test for memory pause behavior
+    - **Property 10: Memory Pause Behavior**
+    - **Validates: Requirements 6.3**
+
+- [x] 7. Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 8. Integrate with news_hunter.py
+  - [x] 8.1 Add browser monitor discovery storage to news_hunter.py
+    - Create `_browser_monitor_discoveries` global dict
+    - Implement `register_browser_monitor_discovery(news)` callback function
+    - Implement `get_browser_monitor_news(match_id, team_names)` retrieval function
+    - _Requirements: 4.1, 4.2_
+  - [x] 8.2 Modify `run_hunter_for_match()` to include browser monitor as TIER 0
+    - Call `get_browser_monitor_news()` at the beginning of the function
+    - Add results to all_news with search_type='browser_monitor'
+    - Ensure browser monitor results appear before other TIER 0 sources
+    - _Requirements: 4.3, 4.4_
+  - [x] 8.3 Write property test for news item schema validity
+    - **Property 13: News Item Schema Validity**
+    - **Validates: Requirements 4.3**
+  - [x] 8.4 Write property test for TIER 0 priority
+    - **Property 14: TIER 0 Priority**
+    - **Validates: Requirements 4.4**
+
+- [x] 9. Implement startup integration
+  - [x] 9.1 Add BrowserMonitor startup to `src/main.py`
+    - Import and instantiate BrowserMonitor with callback
+    - Start monitor during initialization (after database init)
+    - Stop monitor during shutdown
+    - _Requirements: 1.1, 1.4_
+  - [x] 9.2 Add BrowserMonitor to launcher.py process list
+    - Add browser_monitor as optional process candidate
+    - Ensure auto-restart on crash
+    - _Requirements: 1.1_
+
+- [x] 10. Implement monitoring and observability
+  - [x] 10.1 Add logging for key events
+    - Log discovery: "🌐 [BROWSER-MONITOR] Discovered: {title} for {team}"
+    - Log cycle complete: "🌐 [BROWSER-MONITOR] Cycle complete: {urls} URLs, {news} items"
+    - Log pause: "⏸️ [BROWSER-MONITOR] Paused: {reason}"
+    - Log resume: "▶️ [BROWSER-MONITOR] Resumed"
+    - _Requirements: 8.2, 8.3, 8.4_
+  - [x] 10.2 Add `get_stats()` method for status reporting
+    - Return running, paused, urls_scanned, news_discovered, last_cycle_time
+    - _Requirements: 8.1_
+  - [x] 10.3 Integrate with Telegram bot /status command
+    - Add browser monitor status to status response
+    - _Requirements: 8.1_
+
+- [x] 11. Implement cooldown isolation
+  - [x] 11.1 Ensure Gemini Free 429 does not affect Direct API cooldown
+    - Use separate rate limit tracking for Gemini Free
+    - Do not call CooldownManager on Gemini Free 429
+    - _Requirements: 7.4_
+  - [x] 11.2 Write property test for cooldown isolation
+    - **Property 12: Cooldown Isolation**
+    - **Validates: Requirements 7.4**
+
+- [x] 12. Final Checkpoint - Ensure all tests pass
+  - Ensure all tests pass, ask the user if questions arise.

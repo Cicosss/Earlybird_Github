@@ -1,0 +1,19 @@
+{
+  "name": "Python Quality & Debug Agent",
+  "description": "Analizza modifiche Python per bug, code smell e genera test mirati",
+  "enabled": true,
+  "trigger": {
+    "type": "file_saved",
+    "filePattern": "{src,app}/**/*.py",
+    "excludePattern": "**/{__pycache__,*.pyc,venv,node_modules}/**"
+  },
+  "cooldown": 30,
+  "action": {
+    "type": "send_message",
+    "message": "🔍 **Python Quality & Debug Agent** - Analisi automatica\n\n**Ruolo**: Analizzatore qualità codice Python\n\n**Task**:\n1. Analizza le modifiche nel diff del file salvato\n2. Identifica potenziali bug (tipi sbagliati, edge case, error handling mancante)\n3. Evidenzia code smell rilevanti (duplicazione, logica complessa, side effects)\n4. Genera test mirati solo per le funzioni modificate\n\n**Formato output richiesto**:\n\n### 📁 File: `{fileName}`\n\n#### 🐛 Possibili Bug:\n- **Riga X**: [Motivo specifico del bug]\n- **Riga Y**: [Altro potenziale problema]\n\n#### 🧼 Code Smell:\n- [Smell 1]: Breve descrizione\n- [Smell 2]: Breve descrizione\n\n#### 🧪 Test Suggeriti:\n```python\n# Test mirati per le funzioni modificate\ndef test_function_name():\n    # Test case specifico\n    assert expected == actual\n```\n\n**Vincoli**:\n- ✅ Analizza SOLO il codice nel diff/modifiche recenti\n- ❌ NON toccare codice fuori dalle modifiche\n- ❌ NON proporre refactoring strutturali (solo se necessari per bug evidenti)\n- 🎯 Focus su problemi pratici e actionable\n\n**Istruzioni**:\nUsa #Git Diff per vedere le modifiche recenti e analizza solo quelle parti del codice."
+  },
+  "conditions": {
+    "maxFileSize": 5000,
+    "minChangeLines": 1
+  }
+}
