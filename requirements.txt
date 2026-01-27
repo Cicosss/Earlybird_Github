@@ -1,0 +1,59 @@
+# EarlyBird V6.0 - Headless Mode Dependencies
+# Core (pinned for stability)
+requests==2.32.3
+orjson>=3.9.0  # Rust-based JSON parser (3-10x faster than stdlib)
+uvloop>=0.19.0; sys_platform != 'win32'  # Rust-based event loop (Linux/macOS only)
+python-dotenv==1.0.1
+sqlalchemy==2.0.36
+tenacity==9.0.0
+pydantic>=2.0.0
+python-dateutil==2.9.0  # For robust datetime parsing (timezone handling)
+thefuzz[speedup]==0.22.1  # Fuzzy string matching for team names (token_set_ratio)
+
+# AI/LLM
+openai>=1.0.0  # Used by Perplexity fallback (OpenAI-compatible API)
+
+# Telegram
+telethon==1.37.0
+
+# Image Processing (OCR)
+pytesseract
+Pillow
+
+# Web Scraping
+beautifulsoup4
+lxml  # Fast C-based HTML parser (10x faster than html.parser)
+
+# HTTP Client (HTTPX - async/sync with connection pooling)
+httpx[http2]>=0.27.0  # HTTP/2 support, connection pooling, async
+
+# Testing (Property-Based Testing)
+hypothesis>=6.0.0  # PBT for correctness properties
+pytest>=8.0.0  # Test framework (required for test monitor)
+
+# System Monitoring
+psutil
+
+# Browser Automation (V7.0 - Stealth + Trafilatura)
+playwright>=1.40.0
+playwright-stealth>=1.0.6  # Anti-detection for Playwright (installed: 2.0.0)
+trafilatura>=1.6.0  # Clean article extraction (88-92% accuracy, installed: 2.0.0)
+
+# Stats Dashboard
+matplotlib>=3.8.0
+
+# Search (DuckDuckGo primary, Serper fallback)
+ddgs>=6.0
+
+# Google Gemini API (DEPRECATED - kept for backward compatibility)
+google-genai>=1.0.0
+
+# Timezone handling (Europe/Rome for alerts)
+pytz
+
+# V6.2: Optional async compatibility (for nested event loops)
+nest_asyncio>=1.5.0  # Allows nested asyncio.run() calls (used by Nitter fallback)
+
+# V8.2: Hybrid Verifier System Dependencies
+dataclasses>=0.6; python_version < '3.7'  # For dataclasses (Python 3.7+ has built-in)
+typing-extensions>=4.0.0  # Extended typing support

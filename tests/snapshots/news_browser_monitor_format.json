@@ -1,0 +1,17 @@
+{
+  "fields": [
+    "category",
+    "confidence",
+    "link",
+    "match_id",
+    "priority_boost",
+    "search_type",
+    "snippet",
+    "source",
+    "source_type",
+    "team",
+    "title"
+  ],
+  "search_type": "browser_monitor",
+  "source_type": "browser_monitor"
+}

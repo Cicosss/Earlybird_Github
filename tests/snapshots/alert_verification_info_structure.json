@@ -1,0 +1,8 @@
+{
+  "fields": [
+    "confidence",
+    "inconsistencies_count",
+    "reasoning",
+    "status"
+  ]
+}

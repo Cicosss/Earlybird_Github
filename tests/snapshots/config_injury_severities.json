@@ -1,0 +1,9 @@
+{
+  "valid_severities": [
+    "CRITICAL",
+    "HIGH",
+    "LOW",
+    "MEDIUM",
+    "NONE"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "required_fields": [
+    "league",
+    "match_obj",
+    "news_summary",
+    "news_url",
+    "score"
+  ],
+  "optional_fields": [
+    "combo_reasoning",
+    "combo_suggestion",
+    "financial_risk",
+    "intel_source",
+    "is_update",
+    "math_edge",
+    "recommended_market",
+    "referee_intel",
+    "twitter_intel",
+    "validated_away_team",
+    "validated_home_team",
+    "verification_info"
+  ]
+}

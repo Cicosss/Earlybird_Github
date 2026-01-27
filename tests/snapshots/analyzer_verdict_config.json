@@ -1,0 +1,14 @@
+{
+  "valid_verdicts": [
+    "BET",
+    "MONITOR",
+    "NO BET"
+  ],
+  "valid_drivers": [
+    "CONTEXT_PLAY",
+    "CONTRARIAN",
+    "INJURY_INTEL",
+    "MATH_VALUE",
+    "SHARP_MONEY"
+  ]
+}

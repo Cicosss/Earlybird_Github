@@ -1,0 +1,9 @@
+{
+  "status": "reject",
+  "original_score": 8.0,
+  "adjusted_score": 0.0,
+  "original_market": "Over 2.5 Goals",
+  "recommended_market": null,
+  "alternative_markets": [],
+  "overall_confidence": "HIGH"
+}

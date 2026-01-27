@@ -1,0 +1,29 @@
+{
+  "valid_search_types": [
+    "aleague_scraper",
+    "beat_writer_cache",
+    "beat_writer_priority",
+    "browser_monitor",
+    "ddg_generic",
+    "ddg_local",
+    "ddg_twitter",
+    "dynamic_country",
+    "exotic_aleagues_official",
+    "exotic_dongqiudi",
+    "exotic_foxsports_au",
+    "exotic_globo_esporte",
+    "exotic_keepup",
+    "exotic_lance_ticker",
+    "exotic_nikkansports",
+    "exotic_official_releases",
+    "exotic_twitter_proxy",
+    "generic",
+    "insider_beat_writer",
+    "local_site_dork",
+    "serper_news",
+    "serper_search",
+    "twitter_intel",
+    "twitter_intel_cache"
+  ],
+  "count": 24
+}

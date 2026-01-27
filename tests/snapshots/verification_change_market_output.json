@@ -1,0 +1,9 @@
+{
+  "status": "change_market",
+  "original_score": 8.0,
+  "adjusted_score": 7.5,
+  "original_market": "Over 2.5 Goals",
+  "recommended_market": "Over 9.5 Corners",
+  "overall_confidence": "MEDIUM",
+  "rejection_reason": null
+}

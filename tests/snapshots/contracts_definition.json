@@ -1,0 +1,110 @@
+{
+  "news_item": {
+    "producer": "news_hunter",
+    "consumer": "main.py",
+    "fields": [
+      "confidence",
+      "date",
+      "freshness_tag",
+      "link",
+      "match_id",
+      "minutes_old",
+      "priority_boost",
+      "search_type",
+      "snippet",
+      "source",
+      "team",
+      "title"
+    ],
+    "required_fields": [
+      "link",
+      "search_type",
+      "snippet",
+      "source",
+      "team",
+      "title"
+    ]
+  },
+  "snippet_data": {
+    "producer": "main.py",
+    "consumer": "analyzer",
+    "fields": [
+      "away_context",
+      "away_team",
+      "current_away_odd",
+      "current_draw_odd",
+      "current_home_odd",
+      "home_context",
+      "home_team",
+      "league_id",
+      "link",
+      "match_id",
+      "snippet",
+      "team"
+    ],
+    "required_fields": [
+      "away_team",
+      "home_team",
+      "match_id",
+      "team"
+    ]
+  },
+  "analysis_result": {
+    "producer": "analyzer",
+    "consumer": "main.py",
+    "fields": [
+      "category",
+      "combo_reasoning",
+      "combo_suggestion",
+      "primary_driver",
+      "recommended_market",
+      "score",
+      "summary"
+    ],
+    "required_fields": [
+      "score",
+      "summary"
+    ]
+  },
+  "verification_result": {
+    "producer": "verification_layer",
+    "consumer": "main.py",
+    "fields": [
+      "adjusted_score",
+      "inconsistencies",
+      "original_market",
+      "original_score",
+      "overall_confidence",
+      "reasoning",
+      "recommended_market",
+      "rejection_reason",
+      "status"
+    ],
+    "required_fields": [
+      "adjusted_score",
+      "original_score",
+      "status"
+    ]
+  },
+  "alert_payload": {
+    "producer": "main.py",
+    "consumer": "notifier",
+    "fields": [
+      "combo_suggestion",
+      "league",
+      "match_obj",
+      "news_summary",
+      "news_url",
+      "recommended_market",
+      "score",
+      "verification_info"
+    ],
+    "required_fields": [
+      "league",
+      "match_obj",
+      "news_summary",
+      "news_url",
+      "score"
+    ]
+  }
+}

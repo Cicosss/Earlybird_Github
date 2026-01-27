@@ -1,0 +1,13 @@
+2026-01-18 21:10:38,368 - INFO - ==================================================
+2026-01-18 21:10:38,368 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-01-18 21:10:38,368 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:10:38,368 - INFO - ==================================================
+2026-01-18 21:10:38,374 - INFO - ✅ Database initialized
+2026-01-18 21:10:38,435 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-01-18 21:10:39,774 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-01-19 00:36:28,832 - INFO - 🔌 Disconnessione client...
+2026-01-19 00:36:28,837 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-01-19 00:36:28,838 - WARNING - Server closed the connection: 0 bytes read on a total of 8 expected bytes
+2026-01-19 00:36:28,840 - INFO - Connection closed while receiving data: 0 bytes read on a total of 8 expected bytes
+2026-01-19 00:36:28,841 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-01-19 00:36:28,856 - INFO - ✅ Client disconnesso

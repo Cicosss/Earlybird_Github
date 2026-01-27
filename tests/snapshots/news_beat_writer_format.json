@@ -1,0 +1,18 @@
+{
+  "fields": [
+    "beat_writer_name",
+    "beat_writer_outlet",
+    "confidence",
+    "link",
+    "match_id",
+    "priority_boost",
+    "search_type",
+    "snippet",
+    "source",
+    "source_type",
+    "team",
+    "title"
+  ],
+  "search_type": "beat_writer_cache",
+  "source_type": "beat_writer"
+}

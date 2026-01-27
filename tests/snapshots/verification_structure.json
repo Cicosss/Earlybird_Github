@@ -1,0 +1,28 @@
+{
+  "fields": [
+    "adjusted_score",
+    "alternative_markets",
+    "inconsistencies",
+    "original_market",
+    "original_score",
+    "overall_confidence",
+    "reasoning",
+    "recommended_market",
+    "rejection_reason",
+    "score_adjustment_reason",
+    "status"
+  ],
+  "field_types": {
+    "status": "str",
+    "original_score": "float",
+    "adjusted_score": "float",
+    "score_adjustment_reason": "str",
+    "original_market": "str",
+    "recommended_market": "NoneType",
+    "alternative_markets": "list",
+    "inconsistencies": "list",
+    "overall_confidence": "str",
+    "reasoning": "str",
+    "rejection_reason": "NoneType"
+  }
+}

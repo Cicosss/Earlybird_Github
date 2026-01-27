@@ -1,0 +1,10 @@
+{
+  "available_validators": [
+    "validate_alert_payload",
+    "validate_analysis_result",
+    "validate_batch",
+    "validate_news_item",
+    "validate_verification_request",
+    "validate_verification_result"
+  ]
+}

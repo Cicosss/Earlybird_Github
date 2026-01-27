@@ -1,0 +1,325 @@
+{
+  "sources": [
+    {
+      "url": "https://www.bbc.com/sport/football",
+      "name": "BBC Sport Football",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/sport/football/'], a[href*='/article/']"
+    },
+    {
+      "url": "https://www.flashscore.com/news/football/",
+      "name": "Flashscore News",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a[href*='/article/']"
+    },
+    {
+      "url": "https://betzona.ru/en/bets-sport/prognozi-na-football",
+      "name": "Betzona Predictions",
+      "priority": 1,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/match/'], a[href*='/prognoz/'], a.match-link"
+    },
+    {
+      "url": "https://www.gazetaesportiva.com/",
+      "name": "Gazeta Esportiva Brazil",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/times/'], a[href*='/campeonatos/'], a.post-link"
+    },
+    {
+      "url": "https://jogada10.com.br",
+      "name": "Jogada 10 Brazil",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/noticia/'], a[href*='/futebol/'], article a"
+    },
+    {
+      "url": "https://www.correiodopovo.com.br/esportes/inter",
+      "name": "Correio do Povo Inter",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/esportes/'], a[href*='/inter/'], article a"
+    },
+    {
+      "url": "https://chesterfield-fc.co.uk/news",
+      "name": "Chesterfield FC News",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a.news-item"
+    },
+    {
+      "url": "https://96fmbauru.com.br/",
+      "name": "96FM Bauru Brazil",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/noticia/'], a[href*='/esporte/'], article a"
+    },
+    {
+      "url": "https://ge.globo.com/sp/tem-esporte/",
+      "name": "Globo Esporte SP",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/futebol/'], a[href*='/noticia/'], a.feed-post-link"
+    },
+    {
+      "url": "https://news.stv.tv/section/sport/football",
+      "name": "STV Scotland Football",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/sport/'], a[href*='/football/'], article a"
+    },
+    {
+      "url": "https://www.besoccer.com/news",
+      "name": "BeSoccer News",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a[href*='/new/'], a.news-link"
+    },
+    {
+      "url": "https://www.ysscores.com/en/news",
+      "name": "YSScores News",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/league/'], a[href*='/competition/'], a[href*='/news/']"
+    },
+    {
+      "url": "https://palembang.tribunnews.com/superball/",
+      "name": "Tribun Palembang Superball",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/superball/'], a[href*='/bola/'], article a"
+    },
+    {
+      "url": "https://www.hondudiario.com/category/deportes/",
+      "name": "Hondudiario Deportes",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/deportes/'], a[href*='/futbol/'], article a"
+    },
+    {
+      "url": "https://www.elheraldo.hn/deportes",
+      "name": "El Heraldo Honduras Deportes",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/deportes/'], a[href*='/futbol/'], article a"
+    },
+    {
+      "url": "https://www.tuttomercatoweb.com/calcio-estero/",
+      "name": "TuttoMercatoWeb Estero",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a[href*='/?action=read']"
+    },
+    {
+      "url": "https://supersport.com/football/news",
+      "name": "SuperSport Football",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/football/'], a[href*='/news/'], article a"
+    },
+    {
+      "url": "https://brila.net/",
+      "name": "Brila Nigeria",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/football/'], a[href*='/news/'], article a"
+    },
+    {
+      "url": "https://www.panafricafootball.com/",
+      "name": "Pan Africa Football",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a[href*='/article/'], article a"
+    },
+    {
+      "url": "https://english.ahram.org.eg/Category/6/51/Sports/Egyptian-Football.aspx",
+      "name": "Ahram Egypt Football",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/News/'], a[href*='/Sports/'], article a"
+    },
+    {
+      "url": "https://www.liga3-online.de/",
+      "name": "Liga3 Online Germany",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a[href*='/artikel/'], article a"
+    },
+    {
+      "url": "https://www.sportytrader.it/pronostici/calcio/",
+      "name": "SportyTrader Italy",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/pronostici/'], a[href*='/partita/'], article a"
+    },
+    {
+      "url": "https://www.straitstimes.com/sport/football/",
+      "name": "Straits Times Football",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/sport/'], a[href*='/football/'], article a"
+    },
+    {
+      "url": "https://www.europacalcio.it/pronostici-calcio/",
+      "name": "Europa Calcio Pronostici",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/pronostici/'], a[href*='/partita/'], article a"
+    },
+    {
+      "url": "https://www.thisdaylive.com/category/sport/",
+      "name": "ThisDay Nigeria Sport",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/sport/'], a[href*='/index.php/'], article a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/",
+      "name": "All Nigeria Soccer Main",
+      "priority": 1,
+      "scan_interval_minutes": 5,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a[href*='/category/'], article a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/australia-asia",
+      "name": "All Nigeria Soccer Australia-Asia",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/belgian-championship",
+      "name": "All Nigeria Soccer Belgium",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/danish-football",
+      "name": "All Nigeria Soccer Denmark",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/russian-championship",
+      "name": "All Nigeria Soccer Russia",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/polish-football",
+      "name": "All Nigeria Soccer Poland",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/norwegian-football",
+      "name": "All Nigeria Soccer Norway",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/swedish-championship",
+      "name": "All Nigeria Soccer Sweden",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/ukrainian-football",
+      "name": "All Nigeria Soccer Ukraine",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://allnigeriasoccer.com/category/turkish-championship",
+      "name": "All Nigeria Soccer Turkey",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/20'], article a, h2 a"
+    },
+    {
+      "url": "https://www.athletico.com.br/noticia",
+      "name": "Athletico Paranaense News",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/noticia/'], a[href*='/noticias/'], article a"
+    },
+    {
+      "url": "https://ric.com.br/esportes/futebol/",
+      "name": "RIC Esportes Brazil",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/esportes/'], a[href*='/futebol/'], article a"
+    },
+    {
+      "url": "https://www.sakaryahaber.com/spor",
+      "name": "Sakarya Haber Turkey",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/spor/'], a[href*='/haber/'], article a"
+    },
+    {
+      "url": "https://ge.globo.com/sp/campinas-e-regiao/futebol/times/ponte-preta/",
+      "name": "Globo Esporte Ponte Preta",
+      "priority": 2,
+      "scan_interval_minutes": 10,
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/futebol/'], a[href*='/noticia/'], a.feed-post-link"
+    }
+  ],
+  "global_settings": {
+    "default_scan_interval_minutes": 5,
+    "page_timeout_seconds": 30,
+    "cache_ttl_hours": 24,
+    "deepseek_confidence_threshold": 0.5,
+    "alert_confidence_threshold": 0.7,
+    "navigation_delay_seconds": 3,
+    "max_links_per_paginated_source": 10
+  }
+}

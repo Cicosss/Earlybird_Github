@@ -1,0 +1,12 @@
+{
+  "valid_statuses": [
+    "change_market",
+    "confirm",
+    "reject"
+  ],
+  "valid_confidences": [
+    "HIGH",
+    "LOW",
+    "MEDIUM"
+  ]
+}

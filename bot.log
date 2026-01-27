@@ -1,0 +1,80 @@
+2026-01-18 21:08:02,216 - INFO - ==================================================
+2026-01-18 21:08:02,217 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:08:02,217 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:08:02,217 - INFO - ==================================================
+2026-01-18 21:08:02,237 - INFO - ✅ Database initialized
+2026-01-18 21:08:10,388 - INFO - ==================================================
+2026-01-18 21:08:10,388 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:08:10,388 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:08:10,389 - INFO - ==================================================
+2026-01-18 21:08:10,394 - INFO - ✅ Database initialized
+2026-01-18 21:08:20,781 - INFO - ==================================================
+2026-01-18 21:08:20,782 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:08:20,782 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:08:20,782 - INFO - ==================================================
+2026-01-18 21:08:20,788 - INFO - ✅ Database initialized
+2026-01-18 21:08:37,760 - INFO - ==================================================
+2026-01-18 21:08:37,760 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:08:37,760 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:08:37,760 - INFO - ==================================================
+2026-01-18 21:08:37,764 - INFO - ✅ Database initialized
+2026-01-18 21:09:06,885 - INFO - ==================================================
+2026-01-18 21:09:06,885 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:09:06,885 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:09:06,885 - INFO - ==================================================
+2026-01-18 21:09:06,889 - INFO - ✅ Database initialized
+2026-01-18 21:09:59,809 - INFO - ==================================================
+2026-01-18 21:09:59,809 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:09:59,810 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:09:59,810 - INFO - ==================================================
+2026-01-18 21:09:59,812 - INFO - ✅ Database initialized
+2026-01-18 21:10:35,211 - INFO - ==================================================
+2026-01-18 21:10:35,211 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-18 21:10:35,212 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-18 21:10:35,212 - INFO - ==================================================
+2026-01-18 21:10:35,220 - INFO - ✅ Database initialized
+2026-01-18 21:10:35,302 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-01-18 21:10:36,503 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-01-18 21:10:36,652 - INFO - Phone migrated to 4
+2026-01-18 21:10:36,652 - INFO - Reconnecting to new data center 4
+2026-01-18 21:10:36,688 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-01-18 21:10:36,689 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-01-18 21:10:36,690 - INFO - Connecting to 149.154.167.92:443/TcpFull...
+2026-01-18 21:10:37,858 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
+2026-01-18 21:10:37,976 - INFO - ✅ Command handlers registrati
+2026-01-18 21:10:37,976 - INFO - ✅ Bot connesso e in ascolto...
+2026-01-18 22:06:32,160 - INFO - ✅ /ping da 890390162
+2026-01-18 22:06:37,602 - INFO - 🔍 /debug da 890390162
+2026-01-18 22:06:37,679 - INFO - ✅ Debug log inviato
+2026-01-18 22:32:50,903 - INFO - 🔍 /debug da 890390162
+2026-01-18 22:32:50,979 - INFO - ✅ Debug log inviato
+2026-01-18 22:39:12,710 - INFO - ✅ /ping da 890390162
+2026-01-18 23:31:17,405 - INFO - 🔍 /debug da 890390162
+2026-01-18 23:31:17,491 - INFO - ✅ Debug log inviato
+2026-01-18 23:58:23,467 - INFO - ✅ /ping da 890390162
+2026-01-18 23:58:26,994 - INFO - 🔍 /debug da 890390162
+2026-01-18 23:58:27,106 - INFO - ✅ Debug log inviato
+2026-01-18 23:59:13,980 - INFO - 💰 /settle da 890390162
+2026-01-18 23:59:14,281 - INFO - 🌙 STARTING BET SETTLEMENT...
+2026-01-18 23:59:14,333 - INFO - 📋 Found 0 matches to settle
+2026-01-18 23:59:14,334 - INFO - 🌐 Fetching results for 0 matches (no DB lock)...
+2026-01-18 23:59:14,334 - INFO - 💾 Saving 0 results to DB...
+2026-01-18 23:59:14,334 - INFO - 📊 SETTLEMENT COMPLETE: 0W / 0L | ROI: 0.0%
+2026-01-18 23:59:14,372 - INFO - ✅ Settlement completato: 0W/0L, ROI 0.0%
+2026-01-19 00:14:44,699 - INFO - 🔍 /debug da 890390162
+2026-01-19 00:14:44,780 - INFO - ✅ Debug log inviato
+2026-01-19 00:17:57,880 - INFO - ✅ /ping da 890390162
+2026-01-19 00:18:03,634 - INFO - ✅ /ping da 890390162
+2026-01-19 00:19:51,320 - INFO - ✅ /ping da 890390162
+2026-01-19 00:20:59,051 - INFO - ✅ /ping da 890390162
+2026-01-19 00:21:00,545 - INFO - ✅ /ping da 890390162
+2026-01-19 00:23:16,366 - INFO - ✅ /ping da 890390162
+2026-01-19 00:24:13,667 - INFO - ✅ /ping da 890390162
+2026-01-19 00:26:53,513 - INFO - ✅ /ping da 890390162
+2026-01-19 00:29:00,603 - INFO - ✅ /ping da 890390162
+2026-01-19 00:29:08,065 - INFO - 🔍 /debug da 890390162
+2026-01-19 00:29:08,178 - INFO - ✅ Debug log inviato
+2026-01-19 00:32:13,824 - INFO - ✅ /ping da 890390162
+2026-01-19 00:32:20,086 - INFO - 🛑 /stop da 890390162
+2026-01-19 00:32:20,143 - INFO - ✅ Sistema in pausa (pause.lock creato)
+2026-01-19 00:32:24,567 - INFO - ✅ /ping da 890390162

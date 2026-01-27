@@ -1,0 +1,22 @@
+{
+  "fields": [
+    "combo_reasoning",
+    "combo_suggestion",
+    "confidence",
+    "final_verdict",
+    "primary_driver",
+    "primary_market",
+    "reasoning",
+    "recommended_market"
+  ],
+  "field_types": {
+    "final_verdict": "str",
+    "confidence": "int",
+    "recommended_market": "str",
+    "primary_market": "str",
+    "primary_driver": "str",
+    "combo_suggestion": "str",
+    "combo_reasoning": "str",
+    "reasoning": "str"
+  }
+}

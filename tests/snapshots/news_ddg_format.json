@@ -1,0 +1,13 @@
+{
+  "fields": [
+    "date",
+    "link",
+    "match_id",
+    "search_type",
+    "snippet",
+    "source",
+    "team",
+    "title"
+  ],
+  "search_type": "ddg_local"
+}
