@@ -11,7 +11,7 @@
       "id": "2",
       "title": "Refactoring BMad di src/analysis/analyzer.py",
       "file": "src/analysis/analyzer.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "3",
