@@ -83,7 +83,7 @@
       "id": "14",
       "title": "Refactoring BMad di src/ingestion/tavily_provider.py",
       "file": "src/ingestion/tavily_provider.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "15",
