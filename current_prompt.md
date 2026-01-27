@@ -1,10 +1,10 @@
 Agisci come un Senior AI Developer esperto in BMad Framework.
-Il file target è: src/utils/validators.py
+Il file target è: src/analysis/alert_feedback_loop.py
 
 Esegui queste 4 fasi rigorosamente:
 
 FASE 1: ANALISI PROFONDA
-Analizza il codice di src/utils/validators.py cercando:
+Analizza il codice di src/analysis/alert_feedback_loop.py cercando:
 - Errori di logica e codice troncato/incompleto.
 - Formattazione illeggibile o incoerente.
 - Duplicazioni e bug silenziosi.
