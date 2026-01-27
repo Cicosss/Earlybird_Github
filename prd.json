@@ -113,7 +113,7 @@
       "id": "19",
       "title": "Refactoring BMad di src/utils/validators.py",
       "file": "src/utils/validators.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "20",

@@ -1,10 +1,10 @@
 Agisci come un Senior AI Developer esperto in BMad Framework.
-Il file target è: src/analysis/telegram_trust_score.py
+Il file target è: src/utils/validators.py
 
 Esegui queste 4 fasi rigorosamente:
 
 FASE 1: ANALISI PROFONDA
-Analizza il codice di src/analysis/telegram_trust_score.py cercando:
+Analizza il codice di src/utils/validators.py cercando:
 - Errori di logica e codice troncato/incompleto.
 - Formattazione illeggibile o incoerente.
 - Duplicazioni e bug silenziosi.
