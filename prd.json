@@ -59,7 +59,7 @@
       "id": "10",
       "title": "Refactoring BMad di src/analysis/injury_impact_engine.py",
       "file": "src/analysis/injury_impact_engine.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "11",
