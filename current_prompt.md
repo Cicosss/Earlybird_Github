@@ -1,10 +1,10 @@
 Agisci come un Senior AI Developer esperto in BMad Framework.
-Il file target è: src/database/models.py
+Il file target è: src/database/db.py
 
 Esegui queste 4 fasi rigorosamente:
 
 FASE 1: ANALISI PROFONDA
-Analizza il codice di src/database/models.py cercando:
+Analizza il codice di src/database/db.py cercando:
 - Errori di logica e codice troncato/incompleto.
 - Formattazione illeggibile o incoerente.
 - Duplicazioni e bug silenziosi.

@@ -23,7 +23,7 @@
       "id": "4",
       "title": "Refactoring BMad di src/database/db.py",
       "file": "src/database/db.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "5",
