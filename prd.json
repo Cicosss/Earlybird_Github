@@ -95,7 +95,7 @@
       "id": "16",
       "title": "Refactoring BMad di src/analysis/verification_layer.py",
       "file": "src/analysis/verification_layer.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "17",
