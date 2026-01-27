@@ -1,10 +1,10 @@
 Agisci come un Senior AI Developer esperto in BMad Framework.
-Il file target è: src/ingestion/opportunity_radar.py
+Il file target è: src/processing/news_hunter.py
 
 Esegui queste 4 fasi rigorosamente:
 
 FASE 1: ANALISI PROFONDA
-Analizza il codice di src/ingestion/opportunity_radar.py cercando:
+Analizza il codice di src/processing/news_hunter.py cercando:
 - Errori di logica e codice troncato/incompleto.
 - Formattazione illeggibile o incoerente.
 - Duplicazioni e bug silenziosi.
