@@ -1,10 +1,10 @@
 Agisci come un Senior AI Developer esperto in BMad Framework.
-Il file target è: src/ingestion/tavily_provider.py
+Il file target è: src/ingestion/deepseek_intel_provider.py
 
 Esegui queste 4 fasi rigorosamente:
 
 FASE 1: ANALISI PROFONDA
-Analizza il codice di src/ingestion/tavily_provider.py cercando:
+Analizza il codice di src/ingestion/deepseek_intel_provider.py cercando:
 - Errori di logica e codice troncato/incompleto.
 - Formattazione illeggibile o incoerente.
 - Duplicazioni e bug silenziosi.

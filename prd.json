@@ -89,7 +89,7 @@
       "id": "15",
       "title": "Refactoring BMad di src/ingestion/deepseek_intel_provider.py",
       "file": "src/ingestion/deepseek_intel_provider.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "16",
