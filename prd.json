@@ -71,7 +71,7 @@
       "id": "12",
       "title": "Refactoring BMad di src/ingestion/opportunity_radar.py",
       "file": "src/ingestion/opportunity_radar.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "13",
