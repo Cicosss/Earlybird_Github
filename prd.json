@@ -35,7 +35,7 @@
       "id": "6",
       "title": "Refactoring BMad di src/services/intelligence_router.py",
       "file": "src/services/intelligence_router.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "7",
