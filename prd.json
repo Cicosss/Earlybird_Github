@@ -53,7 +53,7 @@
       "id": "9",
       "title": "Refactoring BMad di src/analysis/market_intelligence.py",
       "file": "src/analysis/market_intelligence.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "10",
