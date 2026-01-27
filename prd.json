@@ -125,7 +125,7 @@
       "id": "21",
       "title": "Refactoring BMad di src/alerting/notifier.py",
       "file": "src/alerting/notifier.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "22",
