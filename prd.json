@@ -1,0 +1,281 @@
+{
+  "branchName": "feature/ai-refactoring",
+  "userStories": [
+    {
+      "id": "1",
+      "title": "Refactoring BMad di src/main.py",
+      "file": "src/main.py",
+      "passes": true
+    },
+    {
+      "id": "2",
+      "title": "Refactoring BMad di src/analysis/analyzer.py",
+      "file": "src/analysis/analyzer.py",
+      "passes": false
+    },
+    {
+      "id": "3",
+      "title": "Refactoring BMad di src/database/models.py",
+      "file": "src/database/models.py",
+      "passes": false
+    },
+    {
+      "id": "4",
+      "title": "Refactoring BMad di src/database/db.py",
+      "file": "src/database/db.py",
+      "passes": false
+    },
+    {
+      "id": "5",
+      "title": "Refactoring BMad di src/processing/telegram_listener.py",
+      "file": "src/processing/telegram_listener.py",
+      "passes": false
+    },
+    {
+      "id": "6",
+      "title": "Refactoring BMad di src/services/intelligence_router.py",
+      "file": "src/services/intelligence_router.py",
+      "passes": false
+    },
+    {
+      "id": "7",
+      "title": "Refactoring BMad di src/analysis/settler.py",
+      "file": "src/analysis/settler.py",
+      "passes": false
+    },
+    {
+      "id": "8",
+      "title": "Refactoring BMad di src/analysis/final_alert_verifier.py",
+      "file": "src/analysis/final_alert_verifier.py",
+      "passes": false
+    },
+    {
+      "id": "9",
+      "title": "Refactoring BMad di src/analysis/market_intelligence.py",
+      "file": "src/analysis/market_intelligence.py",
+      "passes": false
+    },
+    {
+      "id": "10",
+      "title": "Refactoring BMad di src/analysis/injury_impact_engine.py",
+      "file": "src/analysis/injury_impact_engine.py",
+      "passes": false
+    },
+    {
+      "id": "11",
+      "title": "Refactoring BMad di src/ingestion/data_provider.py",
+      "file": "src/ingestion/data_provider.py",
+      "passes": false
+    },
+    {
+      "id": "12",
+      "title": "Refactoring BMad di src/ingestion/opportunity_radar.py",
+      "file": "src/ingestion/opportunity_radar.py",
+      "passes": false
+    },
+    {
+      "id": "13",
+      "title": "Refactoring BMad di src/processing/news_hunter.py",
+      "file": "src/processing/news_hunter.py",
+      "passes": false
+    },
+    {
+      "id": "14",
+      "title": "Refactoring BMad di src/ingestion/tavily_provider.py",
+      "file": "src/ingestion/tavily_provider.py",
+      "passes": false
+    },
+    {
+      "id": "15",
+      "title": "Refactoring BMad di src/ingestion/deepseek_intel_provider.py",
+      "file": "src/ingestion/deepseek_intel_provider.py",
+      "passes": false
+    },
+    {
+      "id": "16",
+      "title": "Refactoring BMad di src/analysis/verification_layer.py",
+      "file": "src/analysis/verification_layer.py",
+      "passes": false
+    },
+    {
+      "id": "17",
+      "title": "Refactoring BMad di src/analysis/enhanced_verifier.py",
+      "file": "src/analysis/enhanced_verifier.py",
+      "passes": false
+    },
+    {
+      "id": "18",
+      "title": "Refactoring BMad di src/analysis/telegram_trust_score.py",
+      "file": "src/analysis/telegram_trust_score.py",
+      "passes": false
+    },
+    {
+      "id": "19",
+      "title": "Refactoring BMad di src/utils/validators.py",
+      "file": "src/utils/validators.py",
+      "passes": false
+    },
+    {
+      "id": "20",
+      "title": "Refactoring BMad di src/analysis/alert_feedback_loop.py",
+      "file": "src/analysis/alert_feedback_loop.py",
+      "passes": false
+    },
+    {
+      "id": "21",
+      "title": "Refactoring BMad di src/alerting/notifier.py",
+      "file": "src/alerting/notifier.py",
+      "passes": false
+    },
+    {
+      "id": "22",
+      "title": "Refactoring BMad di src/alerting/health_monitor.py",
+      "file": "src/alerting/health_monitor.py",
+      "passes": false
+    },
+    {
+      "id": "23",
+      "title": "Refactoring BMad di src/analysis/reporter.py",
+      "file": "src/analysis/reporter.py",
+      "passes": false
+    },
+    {
+      "id": "24",
+      "title": "Refactoring BMad di config/settings.py",
+      "file": "config/settings.py",
+      "passes": false
+    },
+    {
+      "id": "25",
+      "title": "Refactoring BMad di requirements.txt",
+      "file": "requirements.txt",
+      "passes": false
+    },
+    {
+      "id": "26",
+      "title": "Refactoring BMad di pytest.ini",
+      "file": "pytest.ini",
+      "passes": false
+    },
+    {
+      "id": "27",
+      "title": "Refactoring BMad di config/browser_sources.json",
+      "file": "config/browser_sources.json",
+      "passes": false
+    },
+    {
+      "id": "28",
+      "title": "Refactoring BMad di config/news_radar_sources.json",
+      "file": "config/news_radar_sources.json",
+      "passes": false
+    },
+    {
+      "id": "29",
+      "title": "Refactoring BMad di src/utils/shared_cache.py",
+      "file": "src/utils/shared_cache.py",
+      "passes": false
+    },
+    {
+      "id": "30",
+      "title": "Refactoring BMad di src/utils/smart_cache.py",
+      "file": "src/utils/smart_cache.py",
+      "passes": false
+    },
+    {
+      "id": "31",
+      "title": "Refactoring BMad di src/utils/http_client.py",
+      "file": "src/utils/http_client.py",
+      "passes": false
+    },
+    {
+      "id": "32",
+      "title": "Refactoring BMad di src/utils/text_normalizer.py",
+      "file": "src/utils/text_normalizer.py",
+      "passes": false
+    },
+    {
+      "id": "33",
+      "title": "Refactoring BMad di src/utils/url_normalizer.py",
+      "file": "src/utils/url_normalizer.py",
+      "passes": false
+    },
+    {
+      "id": "34",
+      "title": "Refactoring BMad di src/services/news_radar.py",
+      "file": "src/services/news_radar.py",
+      "passes": false
+    },
+    {
+      "id": "35",
+      "title": "Refactoring BMad di src/services/twitter_intel_cache.py",
+      "file": "src/services/twitter_intel_cache.py",
+      "passes": false
+    },
+    {
+      "id": "36",
+      "title": "Refactoring BMad di src/ingestion/league_manager.py",
+      "file": "src/ingestion/league_manager.py",
+      "passes": false
+    },
+    {
+      "id": "37",
+      "title": "Refactoring BMad di src/ingestion/ingest_fixtures.py",
+      "file": "src/ingestion/ingest_fixtures.py",
+      "passes": false
+    },
+    {
+      "id": "38",
+      "title": "Refactoring BMad di src/analysis/math_engine.py",
+      "file": "src/analysis/math_engine.py",
+      "passes": false
+    },
+    {
+      "id": "39",
+      "title": "Refactoring BMad di go_live.py",
+      "file": "go_live.py",
+      "passes": false
+    },
+    {
+      "id": "40",
+      "title": "Refactoring BMad di run_telegram_monitor.py",
+      "file": "run_telegram_monitor.py",
+      "passes": false
+    },
+    {
+      "id": "41",
+      "title": "Refactoring BMad di run_news_radar.py",
+      "file": "run_news_radar.py",
+      "passes": false
+    },
+    {
+      "id": "42",
+      "title": "Refactoring BMad di start_system.sh",
+      "file": "start_system.sh",
+      "passes": false
+    },
+    {
+      "id": "43",
+      "title": "Refactoring BMad di show_errors.py",
+      "file": "show_errors.py",
+      "passes": false
+    },
+    {
+      "id": "44",
+      "title": "Refactoring BMad di README.md",
+      "file": "README.md",
+      "passes": false
+    },
+    {
+      "id": "45",
+      "title": "Refactoring BMad di ARCHITECTURE.md",
+      "file": "ARCHITECTURE.md",
+      "passes": false
+    },
+    {
+      "id": "46",
+      "title": "Refactoring BMad di DEPLOY_INSTRUCTIONS.md",
+      "file": "DEPLOY_INSTRUCTIONS.md",
+      "passes": false
+    }
+  ]
+}
