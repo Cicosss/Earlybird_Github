@@ -29,7 +29,7 @@
       "id": "5",
       "title": "Refactoring BMad di src/processing/telegram_listener.py",
       "file": "src/processing/telegram_listener.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "6",
