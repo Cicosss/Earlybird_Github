@@ -41,7 +41,7 @@
       "id": "7",
       "title": "Refactoring BMad di src/analysis/settler.py",
       "file": "src/analysis/settler.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "8",

@@ -1,10 +1,10 @@
 Agisci come un Senior AI Developer esperto in BMad Framework.
-Il file target è: src/services/intelligence_router.py
+Il file target è: src/analysis/settler.py
 
 Esegui queste 4 fasi rigorosamente:
 
 FASE 1: ANALISI PROFONDA
-Analizza il codice di src/services/intelligence_router.py cercando:
+Analizza il codice di src/analysis/settler.py cercando:
 - Errori di logica e codice troncato/incompleto.
 - Formattazione illeggibile o incoerente.
 - Duplicazioni e bug silenziosi.
