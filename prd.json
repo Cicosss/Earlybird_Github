@@ -65,7 +65,7 @@
       "id": "11",
       "title": "Refactoring BMad di src/ingestion/data_provider.py",
       "file": "src/ingestion/data_provider.py",
-      "passes": false
+      "passes": true
     },
     {
       "id": "12",
