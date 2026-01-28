@@ -13,9 +13,11 @@ Features:
 - Both sync and async interfaces
 - Fallback to requests library if HTTPX unavailable
 - V7.2: Domain-sticky fingerprinting for session consistency
+- V8.0: Improved error handling and VPS compatibility
 
 Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 6.1, 6.3, 7.1, 7.2, 7.3, 7.4
 """
+
 import asyncio
 import logging
 import random
@@ -33,11 +35,11 @@ logger = logging.getLogger(__name__)
 try:
     import httpx
     _HTTPX_AVAILABLE = True
-    logger.debug("✅ HTTPX library available")
+    logger.debug("HTTPX library available")
 except ImportError:
     _HTTPX_AVAILABLE = False
     httpx = None
-    logger.warning("⚠️ HTTPX not installed, falling back to requests")
+    logger.warning("HTTPX not installed, falling back to requests")
 
 # Fallback to requests
 try:
@@ -48,7 +50,14 @@ except ImportError:
     requests = None
 
 # Import fingerprint manager
-from src.utils.browser_fingerprint import get_fingerprint, BrowserFingerprint
+try:
+    from src.utils.browser_fingerprint import get_fingerprint, BrowserFingerprint
+    _FINGERPRINT_AVAILABLE = True
+except ImportError:
+    _FINGERPRINT_AVAILABLE = False
+    get_fingerprint = None
+    BrowserFingerprint = None
+    logger.warning("BrowserFingerprint not available")
 
 
 # ============================================
@@ -89,7 +98,7 @@ class RateLimiter:
         """
         now = time.time()
         elapsed = now - self.last_request_time
-        base_delay = max(0, self.min_interval - elapsed)
+        base_delay = max(0.0, self.min_interval - elapsed)
         
         # Add jitter
         jitter = 0.0
@@ -110,7 +119,7 @@ class RateLimiter:
         with self._lock:
             delay = self.get_delay()
             if delay > 0:
-                logger.debug(f"⏱️ Rate limit: sleeping {delay:.2f}s")
+                logger.debug(f"Rate limit: sleeping {delay:.2f}s")
                 time.sleep(delay)
             self.last_request_time = time.time()
             return delay
@@ -119,7 +128,7 @@ class RateLimiter:
         """
         Wait for rate limit (asynchronous).
         
-        FIX: Uses asyncio.Lock to properly serialize async requests.
+        Uses asyncio.Lock to properly serialize async requests.
         The lock is held during the entire wait to prevent race conditions.
         
         Returns:
@@ -129,7 +138,7 @@ class RateLimiter:
         async with async_lock:
             delay = self.get_delay()
             if delay > 0:
-                logger.debug(f"⏱️ Rate limit: sleeping {delay:.2f}s (async)")
+                logger.debug(f"Rate limit: sleeping {delay:.2f}s (async)")
                 await asyncio.sleep(delay)
             self.last_request_time = time.time()
             return delay
@@ -139,7 +148,7 @@ class RateLimiter:
 # RATE LIMIT CONFIGURATIONS
 # ============================================
 RATE_LIMIT_CONFIGS: Dict[str, Dict] = {
-    "duckduckgo": {"min_interval": 1.0, "jitter_min": 1.0, "jitter_max": 2.0},  # V7.6: Reduced from 3-6s to 1-2s (saves 20-40s per 10 requests)
+    "duckduckgo": {"min_interval": 1.0, "jitter_min": 1.0, "jitter_max": 2.0},
     "brave": {"min_interval": 2.0, "jitter_min": 0.0, "jitter_max": 0.0},
     "serper": {"min_interval": 0.3, "jitter_min": 0.0, "jitter_max": 0.0},
     "fotmob": {"min_interval": 1.0, "jitter_min": 0.0, "jitter_max": 0.0},
@@ -182,9 +191,9 @@ class EarlyBirdHTTPClient:
     
     def __init__(self):
         """Initialize HTTP client (called only once via singleton)."""
-        self._async_client: Optional['httpx.AsyncClient'] = None
-        self._sync_client: Optional['httpx.Client'] = None
-        self._fingerprint: BrowserFingerprint = get_fingerprint()
+        self._async_client: Optional[Any] = None
+        self._sync_client: Optional[Any] = None
+        self._fingerprint: Optional[Any] = None
         self._rate_limiters: Dict[str, RateLimiter] = {}
         self._request_count: int = 0
         self._initialized = False
@@ -193,7 +202,14 @@ class EarlyBirdHTTPClient:
         for key, config in RATE_LIMIT_CONFIGS.items():
             self._rate_limiters[key] = RateLimiter(**config)
         
-        logger.info("✅ EarlyBirdHTTPClient initialized (HTTPX mode)")
+        # Initialize fingerprint if available
+        if _FINGERPRINT_AVAILABLE and get_fingerprint:
+            try:
+                self._fingerprint = get_fingerprint()
+            except Exception as e:
+                logger.warning(f"Failed to initialize fingerprint: {e}")
+        
+        logger.info("EarlyBirdHTTPClient initialized (HTTPX mode)")
     
     @classmethod
     def get_instance(cls) -> 'EarlyBirdHTTPClient':
@@ -214,7 +230,13 @@ class EarlyBirdHTTPClient:
                     try:
                         cls._instance._sync_client.close()
                     except Exception as e:
-                        logger.debug(f"Errore chiusura sync_client: {e}")
+                        logger.debug(f"Error closing sync_client: {e}")
+                if cls._instance._async_client:
+                    try:
+                        # Async client needs to be closed in async context
+                        pass
+                    except Exception as e:
+                        logger.debug(f"Error closing async_client: {e}")
                 cls._instance = None
     
     def _get_rate_limiter(self, key: str) -> RateLimiter:
@@ -245,9 +267,9 @@ class EarlyBirdHTTPClient:
             jitter_min=jitter_min,
             jitter_max=jitter_max
         )
-        logger.debug(f"⚙️ Rate limit configured: {key} = {min_interval}s + jitter({jitter_min}-{jitter_max}s)")
+        logger.debug(f"Rate limit configured: {key} = {min_interval}s + jitter({jitter_min}-{jitter_max}s)")
     
-    def _get_sync_client(self) -> 'httpx.Client':
+    def _get_sync_client(self) -> Any:
         """Get or create sync HTTPX client."""
         if not _HTTPX_AVAILABLE:
             raise RuntimeError("HTTPX not available")
@@ -279,22 +301,31 @@ class EarlyBirdHTTPClient:
             extra_headers: Additional headers to include
             domain: Optional domain for sticky fingerprint (V7.2)
         """
-        if use_fingerprint:
-            if domain:
-                # V7.2: Use domain-sticky fingerprint
-                headers = self._fingerprint.get_headers_for_domain(domain)
-            else:
-                headers = self._fingerprint.get_headers()
+        if use_fingerprint and self._fingerprint:
+            try:
+                if domain:
+                    # V7.2: Use domain-sticky fingerprint
+                    headers = self._fingerprint.get_headers_for_domain(domain)
+                else:
+                    headers = self._fingerprint.get_headers()
+            except Exception as e:
+                logger.warning(f"Fingerprint failed, using default headers: {e}")
+                headers = self._default_headers()
         else:
-            headers = {
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "en-US,en;q=0.9",
-            }
+            headers = self._default_headers()
         
         if extra_headers:
             headers.update(extra_headers)
         
         return headers
+    
+    def _default_headers(self) -> Dict[str, str]:
+        """Return default headers when fingerprint is unavailable."""
+        return {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": "EarlyBot/1.0 (Betting Intelligence System)",
+        }
     
     def _on_error(self, status_code: int, domain: Optional[str] = None):
         """
@@ -305,11 +336,15 @@ class EarlyBirdHTTPClient:
             domain: Optional domain for domain-specific rotation (V7.2)
         """
         if status_code in FINGERPRINT_ROTATE_CODES:
-            logger.warning(f"⚠️ HTTP {status_code} - rotating fingerprint")
-            if domain:
-                self._fingerprint.force_rotate_domain(domain)
-            else:
-                self._fingerprint.force_rotate()
+            logger.warning(f"HTTP {status_code} - rotating fingerprint")
+            if self._fingerprint:
+                try:
+                    if domain:
+                        self._fingerprint.force_rotate_domain(domain)
+                    else:
+                        self._fingerprint.force_rotate()
+                except Exception as e:
+                    logger.warning(f"Failed to rotate fingerprint: {e}")
     
     def _calculate_backoff(self, attempt: int) -> float:
         """Calculate exponential backoff delay."""
@@ -321,11 +356,11 @@ class EarlyBirdHTTPClient:
         *,
         rate_limit_key: str = "default",
         use_fingerprint: bool = True,
-        timeout: float = None,
-        max_retries: int = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
         headers: Optional[Dict] = None,
         **kwargs
-    ) -> 'httpx.Response':
+    ) -> Any:
         """
         Synchronous GET with rate limiting, fingerprinting, and retry.
         
@@ -344,12 +379,15 @@ class EarlyBirdHTTPClient:
         Raises:
             httpx.HTTPError: On request failure after retries
         """
+        if not _HTTPX_AVAILABLE:
+            raise RuntimeError("HTTPX not available")
+        
         timeout = timeout or self.DEFAULT_TIMEOUT
         max_retries = max_retries if max_retries is not None else self.DEFAULT_MAX_RETRIES
         
         # Apply rate limiting
         rate_limiter = self._get_rate_limiter(rate_limit_key)
-        delay = rate_limiter.wait_sync()
+        rate_limiter.wait_sync()
         
         # Build headers
         request_headers = self._build_headers(use_fingerprint, headers)
@@ -359,7 +397,12 @@ class EarlyBirdHTTPClient:
         
         start_time = time.time()
         last_error = None
-        profile_name = self._fingerprint.get_current_profile_name()
+        profile_name = "default"
+        if self._fingerprint:
+            try:
+                profile_name = self._fingerprint.get_current_profile_name()
+            except Exception:
+                pass
         
         for attempt in range(max_retries + 1):
             try:
@@ -375,7 +418,7 @@ class EarlyBirdHTTPClient:
                 
                 # Log request completion
                 logger.debug(
-                    f"📡 GET {url[:60]}... | {response.status_code} | "
+                    f"GET {url[:60]}... | {response.status_code} | "
                     f"{duration_ms:.0f}ms | profile={profile_name}"
                 )
                 
@@ -386,13 +429,17 @@ class EarlyBirdHTTPClient:
                     if attempt < max_retries:
                         backoff = self._calculate_backoff(attempt)
                         logger.warning(
-                            f"⚠️ HTTP {response.status_code} - retry {attempt + 1}/{max_retries} "
+                            f"HTTP {response.status_code} - retry {attempt + 1}/{max_retries} "
                             f"in {backoff:.1f}s"
                         )
                         time.sleep(backoff)
                         # Refresh headers after fingerprint rotation
                         request_headers = self._build_headers(use_fingerprint, headers)
-                        profile_name = self._fingerprint.get_current_profile_name()
+                        if self._fingerprint:
+                            try:
+                                profile_name = self._fingerprint.get_current_profile_name()
+                            except Exception:
+                                pass
                         continue
                 
                 # Handle 403 with fingerprint rotation
@@ -400,10 +447,14 @@ class EarlyBirdHTTPClient:
                     self._on_error(403)
                     if attempt < max_retries:
                         backoff = self._calculate_backoff(attempt)
-                        logger.warning(f"⚠️ HTTP 403 - rotating fingerprint, retry in {backoff:.1f}s")
+                        logger.warning(f"HTTP 403 - rotating fingerprint, retry in {backoff:.1f}s")
                         time.sleep(backoff)
                         request_headers = self._build_headers(use_fingerprint, headers)
-                        profile_name = self._fingerprint.get_current_profile_name()
+                        if self._fingerprint:
+                            try:
+                                profile_name = self._fingerprint.get_current_profile_name()
+                            except Exception:
+                                pass
                         continue
                 
                 return response
@@ -412,7 +463,7 @@ class EarlyBirdHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = self._calculate_backoff(attempt)
-                    logger.warning(f"⚠️ Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
                     
@@ -420,18 +471,18 @@ class EarlyBirdHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = self._calculate_backoff(attempt)
-                    logger.warning(f"⚠️ Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
                     
             except Exception as e:
                 last_error = e
-                logger.error(f"❌ Request error: {e}")
+                logger.error(f"Request error: {e}")
                 break
         
         # All retries exhausted
         duration_ms = (time.time() - start_time) * 1000
-        logger.error(f"❌ GET {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
+        logger.error(f"GET {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
         raise last_error or httpx.HTTPError(f"Request failed: {url}")
     
     @staticmethod
@@ -458,11 +509,11 @@ class EarlyBirdHTTPClient:
         url: str,
         *,
         rate_limit_key: str = "default",
-        timeout: float = None,
-        max_retries: int = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
         headers: Optional[Dict] = None,
         **kwargs
-    ) -> 'httpx.Response':
+    ) -> Any:
         """
         V7.2: GET with domain-sticky fingerprinting.
         
@@ -480,6 +531,9 @@ class EarlyBirdHTTPClient:
         Returns:
             httpx.Response object
         """
+        if not _HTTPX_AVAILABLE:
+            raise RuntimeError("HTTPX not available")
+        
         domain = self._extract_domain(url)
         
         timeout = timeout or self.DEFAULT_TIMEOUT
@@ -511,7 +565,7 @@ class EarlyBirdHTTPClient:
                 self._request_count += 1
                 
                 logger.debug(
-                    f"📡 GET {url[:60]}... | {response.status_code} | "
+                    f"GET {url[:60]}... | {response.status_code} | "
                     f"{duration_ms:.0f}ms | domain={domain}"
                 )
                 
@@ -522,7 +576,7 @@ class EarlyBirdHTTPClient:
                     if attempt < max_retries:
                         backoff = self._calculate_backoff(attempt)
                         logger.warning(
-                            f"⚠️ HTTP {response.status_code} - retry {attempt + 1}/{max_retries} "
+                            f"HTTP {response.status_code} - retry {attempt + 1}/{max_retries} "
                             f"in {backoff:.1f}s"
                         )
                         time.sleep(backoff)
@@ -533,7 +587,7 @@ class EarlyBirdHTTPClient:
                     self._on_error(403, domain=domain)
                     if attempt < max_retries:
                         backoff = self._calculate_backoff(attempt)
-                        logger.warning(f"⚠️ HTTP 403 - rotating domain fingerprint, retry in {backoff:.1f}s")
+                        logger.warning(f"HTTP 403 - rotating domain fingerprint, retry in {backoff:.1f}s")
                         time.sleep(backoff)
                         request_headers = self._build_headers(use_fingerprint=True, extra_headers=headers, domain=domain)
                         continue
@@ -544,7 +598,7 @@ class EarlyBirdHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = self._calculate_backoff(attempt)
-                    logger.warning(f"⚠️ Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
                     
@@ -552,17 +606,17 @@ class EarlyBirdHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = self._calculate_backoff(attempt)
-                    logger.warning(f"⚠️ Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
                     
             except Exception as e:
                 last_error = e
-                logger.error(f"❌ Request error: {e}")
+                logger.error(f"Request error: {e}")
                 break
         
         duration_ms = (time.time() - start_time) * 1000
-        logger.error(f"❌ GET {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
+        logger.error(f"GET {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
         raise last_error or httpx.HTTPError(f"Request failed: {url}")
 
     def post_sync(
@@ -571,13 +625,13 @@ class EarlyBirdHTTPClient:
         *,
         rate_limit_key: str = "default",
         use_fingerprint: bool = True,
-        timeout: float = None,
-        max_retries: int = None,
+        timeout: Optional[float] = None,
+        max_retries: Optional[int] = None,
         headers: Optional[Dict] = None,
         json: Optional[Dict] = None,
         data: Optional[Any] = None,
         **kwargs
-    ) -> 'httpx.Response':
+    ) -> Any:
         """
         Synchronous POST with rate limiting, fingerprinting, and retry.
         
@@ -595,12 +649,15 @@ class EarlyBirdHTTPClient:
         Returns:
             httpx.Response object
         """
+        if not _HTTPX_AVAILABLE:
+            raise RuntimeError("HTTPX not available")
+        
         timeout = timeout or self.DEFAULT_TIMEOUT
         max_retries = max_retries if max_retries is not None else self.DEFAULT_MAX_RETRIES
         
         # Apply rate limiting
         rate_limiter = self._get_rate_limiter(rate_limit_key)
-        delay = rate_limiter.wait_sync()
+        rate_limiter.wait_sync()
         
         # Build headers
         request_headers = self._build_headers(use_fingerprint, headers)
@@ -610,7 +667,12 @@ class EarlyBirdHTTPClient:
         
         start_time = time.time()
         last_error = None
-        profile_name = self._fingerprint.get_current_profile_name()
+        profile_name = "default"
+        if self._fingerprint:
+            try:
+                profile_name = self._fingerprint.get_current_profile_name()
+            except Exception:
+                pass
         
         for attempt in range(max_retries + 1):
             try:
@@ -627,7 +689,7 @@ class EarlyBirdHTTPClient:
                 self._request_count += 1
                 
                 logger.debug(
-                    f"📡 POST {url[:60]}... | {response.status_code} | "
+                    f"POST {url[:60]}... | {response.status_code} | "
                     f"{duration_ms:.0f}ms | profile={profile_name}"
                 )
                 
@@ -638,12 +700,16 @@ class EarlyBirdHTTPClient:
                     if attempt < max_retries:
                         backoff = self._calculate_backoff(attempt)
                         logger.warning(
-                            f"⚠️ HTTP {response.status_code} - retry {attempt + 1}/{max_retries} "
+                            f"HTTP {response.status_code} - retry {attempt + 1}/{max_retries} "
                             f"in {backoff:.1f}s"
                         )
                         time.sleep(backoff)
                         request_headers = self._build_headers(use_fingerprint, headers)
-                        profile_name = self._fingerprint.get_current_profile_name()
+                        if self._fingerprint:
+                            try:
+                                profile_name = self._fingerprint.get_current_profile_name()
+                            except Exception:
+                                pass
                         continue
                 
                 return response
@@ -652,7 +718,7 @@ class EarlyBirdHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = self._calculate_backoff(attempt)
-                    logger.warning(f"⚠️ Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
                     
@@ -660,27 +726,34 @@ class EarlyBirdHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = self._calculate_backoff(attempt)
-                    logger.warning(f"⚠️ Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
                     
             except Exception as e:
                 last_error = e
-                logger.error(f"❌ POST error: {e}")
+                logger.error(f"POST error: {e}")
                 break
         
         duration_ms = (time.time() - start_time) * 1000
-        logger.error(f"❌ POST {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
+        logger.error(f"POST {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
         raise last_error or httpx.HTTPError(f"Request failed: {url}")
     
     def get_stats(self) -> Dict:
         """Get client statistics for monitoring."""
-        return {
+        stats = {
             "request_count": self._request_count,
-            "fingerprint_stats": self._fingerprint.get_stats(),
             "rate_limiters": list(self._rate_limiters.keys()),
             "httpx_available": _HTTPX_AVAILABLE,
         }
+        
+        if self._fingerprint:
+            try:
+                stats["fingerprint_stats"] = self._fingerprint.get_stats()
+            except Exception as e:
+                stats["fingerprint_stats"] = f"Error: {e}"
+        
+        return stats
 
 
 # ============================================
@@ -698,7 +771,7 @@ class FallbackHTTPClient:
     _lock: threading.Lock = threading.Lock()
     
     def __init__(self):
-        self._fingerprint: BrowserFingerprint = get_fingerprint()
+        self._fingerprint: Optional[Any] = None
         self._rate_limiters: Dict[str, RateLimiter] = {}
         self._request_count: int = 0
         self._session = requests.Session() if _REQUESTS_AVAILABLE else None
@@ -706,7 +779,14 @@ class FallbackHTTPClient:
         for key, config in RATE_LIMIT_CONFIGS.items():
             self._rate_limiters[key] = RateLimiter(**config)
         
-        logger.info("✅ FallbackHTTPClient initialized (requests mode)")
+        # Initialize fingerprint if available
+        if _FINGERPRINT_AVAILABLE and get_fingerprint:
+            try:
+                self._fingerprint = get_fingerprint()
+            except Exception as e:
+                logger.warning(f"Failed to initialize fingerprint: {e}")
+        
+        logger.info("FallbackHTTPClient initialized (requests mode)")
     
     @classmethod
     def get_instance(cls) -> 'FallbackHTTPClient':
@@ -719,7 +799,8 @@ class FallbackHTTPClient:
     @classmethod
     def reset_instance(cls):
         with cls._lock:
-            cls._instance = None
+            if cls._instance is not None:
+                cls._instance = None
     
     def _get_rate_limiter(self, key: str) -> RateLimiter:
         if key not in self._rate_limiters:
@@ -729,6 +810,40 @@ class FallbackHTTPClient:
     
     def configure_rate_limit(self, key: str, min_interval: float, jitter_min: float = 0.0, jitter_max: float = 0.0):
         self._rate_limiters[key] = RateLimiter(min_interval=min_interval, jitter_min=jitter_min, jitter_max=jitter_max)
+    
+    def _build_headers(self, use_fingerprint: bool, extra_headers: Optional[Dict] = None) -> Dict[str, str]:
+        """Build request headers with optional fingerprinting."""
+        if use_fingerprint and self._fingerprint:
+            try:
+                headers = self._fingerprint.get_headers()
+            except Exception as e:
+                logger.warning(f"Fingerprint failed: {e}")
+                headers = self._default_headers()
+        else:
+            headers = self._default_headers()
+        
+        if extra_headers:
+            headers.update(extra_headers)
+        
+        return headers
+    
+    def _default_headers(self) -> Dict[str, str]:
+        """Return default headers when fingerprint is unavailable."""
+        return {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": "EarlyBot/1.0 (Betting Intelligence System)",
+        }
+    
+    def _on_error(self, status_code: int):
+        """Handle error response - triggers fingerprint rotation on 403/429."""
+        if status_code in FINGERPRINT_ROTATE_CODES:
+            logger.warning(f"HTTP {status_code} - rotating fingerprint")
+            if self._fingerprint:
+                try:
+                    self._fingerprint.force_rotate()
+                except Exception as e:
+                    logger.warning(f"Failed to rotate fingerprint: {e}")
     
     def get_sync(
         self,
@@ -748,14 +863,12 @@ class FallbackHTTPClient:
         rate_limiter = self._get_rate_limiter(rate_limit_key)
         rate_limiter.wait_sync()
         
-        request_headers = self._fingerprint.get_headers() if use_fingerprint else {}
-        if headers:
-            request_headers.update(headers)
+        request_headers = self._build_headers(use_fingerprint, headers)
         
         start_time = time.time()
         last_error = None
         
-        # FIX: Include 403 in retry logic (was missing, unlike EarlyBirdHTTPClient)
+        # Include 403 in retry logic
         retry_codes = RETRY_STATUS_CODES | {403}
         
         for attempt in range(max_retries + 1):
@@ -764,17 +877,15 @@ class FallbackHTTPClient:
                 duration_ms = (time.time() - start_time) * 1000
                 self._request_count += 1
                 
-                logger.debug(f"📡 GET {url[:60]}... | {response.status_code} | {duration_ms:.0f}ms")
+                logger.debug(f"GET {url[:60]}... | {response.status_code} | {duration_ms:.0f}ms")
                 
                 if response.status_code in retry_codes and attempt < max_retries:
                     if response.status_code in FINGERPRINT_ROTATE_CODES:
-                        self._fingerprint.force_rotate()
+                        self._on_error(response.status_code)
                     backoff = min(2 ** attempt, 30)
-                    logger.warning(f"⚠️ HTTP {response.status_code} - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"HTTP {response.status_code} - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
-                    request_headers = self._fingerprint.get_headers() if use_fingerprint else {}
-                    if headers:
-                        request_headers.update(headers)
+                    request_headers = self._build_headers(use_fingerprint, headers)
                     continue
                 
                 return response
@@ -783,23 +894,23 @@ class FallbackHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = min(2 ** attempt, 30)
-                    logger.warning(f"⚠️ Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
             except requests.exceptions.ConnectionError as e:
                 last_error = e
                 if attempt < max_retries:
                     backoff = min(2 ** attempt, 30)
-                    logger.warning(f"⚠️ Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
             except Exception as e:
                 last_error = e
-                logger.error(f"❌ Request error: {e}")
+                logger.error(f"Request error: {e}")
                 break
         
         duration_ms = (time.time() - start_time) * 1000
-        logger.error(f"❌ GET {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
+        logger.error(f"GET {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
         raise last_error or Exception(f"Request failed: {url}")
     
     def post_sync(
@@ -822,14 +933,12 @@ class FallbackHTTPClient:
         rate_limiter = self._get_rate_limiter(rate_limit_key)
         rate_limiter.wait_sync()
         
-        request_headers = self._fingerprint.get_headers() if use_fingerprint else {}
-        if headers:
-            request_headers.update(headers)
+        request_headers = self._build_headers(use_fingerprint, headers)
         
         start_time = time.time()
         last_error = None
         
-        # FIX: Include 403 in retry logic (consistent with EarlyBirdHTTPClient)
+        # Include 403 in retry logic (consistent with EarlyBirdHTTPClient)
         retry_codes = RETRY_STATUS_CODES | {403}
         
         for attempt in range(max_retries + 1):
@@ -838,17 +947,15 @@ class FallbackHTTPClient:
                 duration_ms = (time.time() - start_time) * 1000
                 self._request_count += 1
                 
-                logger.debug(f"📡 POST {url[:60]}... | {response.status_code} | {duration_ms:.0f}ms")
+                logger.debug(f"POST {url[:60]}... | {response.status_code} | {duration_ms:.0f}ms")
                 
                 if response.status_code in retry_codes and attempt < max_retries:
                     if response.status_code in FINGERPRINT_ROTATE_CODES:
-                        self._fingerprint.force_rotate()
+                        self._on_error(response.status_code)
                     backoff = min(2 ** attempt, 30)
-                    logger.warning(f"⚠️ HTTP {response.status_code} - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"HTTP {response.status_code} - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
-                    request_headers = self._fingerprint.get_headers() if use_fingerprint else {}
-                    if headers:
-                        request_headers.update(headers)
+                    request_headers = self._build_headers(use_fingerprint, headers)
                     continue
                 
                 return response
@@ -857,33 +964,40 @@ class FallbackHTTPClient:
                 last_error = e
                 if attempt < max_retries:
                     backoff = min(2 ** attempt, 30)
-                    logger.warning(f"⚠️ Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Timeout - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
             except requests.exceptions.ConnectionError as e:
                 last_error = e
                 if attempt < max_retries:
                     backoff = min(2 ** attempt, 30)
-                    logger.warning(f"⚠️ Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
+                    logger.warning(f"Connection error - retry {attempt + 1}/{max_retries} in {backoff:.1f}s")
                     time.sleep(backoff)
                     continue
             except Exception as e:
                 last_error = e
-                logger.error(f"❌ POST error: {e}")
+                logger.error(f"POST error: {e}")
                 break
         
         duration_ms = (time.time() - start_time) * 1000
-        logger.error(f"❌ POST {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
+        logger.error(f"POST {url[:60]}... failed after {max_retries} retries | {duration_ms:.0f}ms")
         raise last_error or Exception(f"Request failed: {url}")
     
     def get_stats(self) -> Dict:
-        return {
+        stats = {
             "request_count": self._request_count,
-            "fingerprint_stats": self._fingerprint.get_stats(),
             "rate_limiters": list(self._rate_limiters.keys()),
             "httpx_available": False,
             "fallback_mode": True,
         }
+        
+        if self._fingerprint:
+            try:
+                stats["fingerprint_stats"] = self._fingerprint.get_stats()
+            except Exception as e:
+                stats["fingerprint_stats"] = f"Error: {e}"
+        
+        return stats
 
 
 # ============================================
@@ -915,6 +1029,11 @@ def is_httpx_available() -> bool:
     return _HTTPX_AVAILABLE
 
 
+def is_requests_available() -> bool:
+    """Check if requests is available."""
+    return _REQUESTS_AVAILABLE
+
+
 # ============================================
 # CLI TEST
 # ============================================
@@ -925,41 +1044,50 @@ if __name__ == "__main__":
     )
     
     print("=" * 60)
-    print("📡 HTTP CLIENT TEST")
+    print("HTTP CLIENT TEST")
     print("=" * 60)
     
-    client = get_http_client()
-    
-    print(f"\n🔍 Client type: {type(client).__name__}")
-    print(f"   HTTPX available: {_HTTPX_AVAILABLE}")
-    
-    # Test rate limiter
-    print("\n⏱️ Testing rate limiter...")
-    rl = RateLimiter(min_interval=1.0, jitter_min=0.5, jitter_max=1.0)
-    delay1 = rl.get_delay()
-    print(f"   First delay: {delay1:.2f}s (should be ~0.5-1.0s jitter)")
-    rl.wait_sync()
-    delay2 = rl.get_delay()
-    print(f"   Second delay: {delay2:.2f}s (should be ~1.5-2.0s)")
-    
-    # Test GET request
-    print("\n📡 Testing GET request...")
     try:
-        response = client.get_sync(
-            "https://httpbin.org/get",
-            rate_limit_key="default",
-            use_fingerprint=True,
-            timeout=10
-        )
-        print(f"   Status: {response.status_code}")
-        print(f"   Headers sent: {response.json().get('headers', {}).get('User-Agent', 'N/A')[:60]}...")
+        client = get_http_client()
+        
+        print(f"\nClient type: {type(client).__name__}")
+        print(f"   HTTPX available: {_HTTPX_AVAILABLE}")
+        print(f"   Requests available: {_REQUESTS_AVAILABLE}")
+        print(f"   Fingerprint available: {_FINGERPRINT_AVAILABLE}")
+        
+        # Test rate limiter
+        print("\nTesting rate limiter...")
+        rl = RateLimiter(min_interval=1.0, jitter_min=0.5, jitter_max=1.0)
+        delay1 = rl.get_delay()
+        print(f"   First delay: {delay1:.2f}s (should be ~0.5-1.0s jitter)")
+        rl.wait_sync()
+        delay2 = rl.get_delay()
+        print(f"   Second delay: {delay2:.2f}s (should be ~1.5-2.0s)")
+        
+        # Test GET request
+        print("\nTesting GET request...")
+        try:
+            response = client.get_sync(
+                "https://httpbin.org/get",
+                rate_limit_key="default",
+                use_fingerprint=True,
+                timeout=10
+            )
+            print(f"   Status: {response.status_code}")
+            if hasattr(response, 'json'):
+                print(f"   Headers sent: {response.json().get('headers', {}).get('User-Agent', 'N/A')[:60]}...")
+        except Exception as e:
+            print(f"   Error: {e}")
+        
+        # Test stats
+        print("\nClient stats:")
+        stats = client.get_stats()
+        for k, v in stats.items():
+            print(f"   {k}: {v}")
+        
+        print("\nHTTP Client test complete")
+        
     except Exception as e:
-        print(f"   Error: {e}")
-    
-    # Test stats
-    print("\n📊 Client stats:")
-    stats = client.get_stats()
-    for k, v in stats.items():
-        print(f"   {k}: {v}")
-    
-    print("\n✅ HTTP Client test complete")
+        print(f"Test failed: {e}")
+        import traceback
+        traceback.print_exc()

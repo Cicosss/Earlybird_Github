@@ -1,10 +1,36 @@
+"""
+EarlyBird Configuration Module
+
+Centralized configuration for the EarlyBird betting intelligence system.
+All environment-specific settings are loaded from .env file.
+
+VPS Compatibility Notes:
+- All paths use relative paths (data/, logs/)
+- File operations include proper error handling
+- Environment variables have sensible defaults
+"""
+
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
 load_dotenv()
 
-# Native Keywords for OSINT
+# ========================================
+# PROJECT PATHS (VPS Compatible)
+# ========================================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+LOGS_DIR = os.path.join(BASE_DIR, "logs")
+
+# Ensure directories exist (VPS safety)
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# ========================================
+# NATIVE KEYWORDS FOR OSINT (Multi-language)
+# ========================================
 NATIVE_KEYWORDS: Dict[str, List[str]] = {
     "pt": ["escalação", "poupados", "reservas", "sub-20", "desfalques", "time misto"],
     "tr": ["kadro", "yedek", "sakat", "rotasyon", "gençler", "eksik"],
@@ -13,24 +39,51 @@ NATIVE_KEYWORDS: Dict[str, List[str]] = {
     "es": ["nómina", "alterna", "bajas", "lesionados", "suplentes", "rotación"],
 }
 
-# API Configuration
-ODDS_API_KEY = os.getenv("ODDS_API_KEY", "YOUR_ODDS_API_KEY")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY", "YOUR_SERPER_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
+# ========================================
+# API CONFIGURATION
+# ========================================
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
+SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
-MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")  # Free tier: unlimited requests
+MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")
 
-# Telegram Configuration (centralized)
+# ========================================
+# TELEGRAM CONFIGURATION (Centralized)
+# ========================================
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 TELEGRAM_API_ID = os.getenv("TELEGRAM_API_ID", "")
 TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "") or os.getenv("TELEGRAM_TOKEN", "")
 
-# FotMob team mapping (no API key required - free service)
-from src.ingestion.fotmob_team_mapping import TEAM_FOTMOB_IDS
+# ========================================
+# FOTMOB TEAM MAPPING (Lazy Import)
+# ========================================
+_TEAM_FOTMOB_IDS: Optional[Dict] = None
 
-# Thresholds
+
+def get_team_fotmob_ids() -> Dict:
+    """Lazy load FotMob team mapping to avoid circular imports."""
+    global _TEAM_FOTMOB_IDS
+    if _TEAM_FOTMOB_IDS is None:
+        try:
+            from src.ingestion.fotmob_team_mapping import TEAM_FOTMOB_IDS
+            _TEAM_FOTMOB_IDS = TEAM_FOTMOB_IDS
+        except ImportError:
+            _TEAM_FOTMOB_IDS = {}
+    return _TEAM_FOTMOB_IDS
+
+
+# ========================================
+# THRESHOLDS & TIME WINDOWS
+# ========================================
 MATCH_LOOKAHEAD_HOURS = 96  # Extended to 4 days for early odds tracking
+ANALYSIS_WINDOW_HOURS = 72  # 72h = 3 days (captures weekend fixtures early)
+
+# Alert thresholds
+ALERT_THRESHOLD_HIGH = 8.6      # Minimum score for standard alerts ("Cream of the Crop")
+ALERT_THRESHOLD_RADAR = 7.0     # Lower threshold when forced_narrative present (Radar boost)
+SETTLEMENT_MIN_SCORE = 7.0      # Minimum highest_score_sent to include in settlement
 
 # ========================================
 # HOME ADVANTAGE BY LEAGUE (V4.3 - Deep Research)
@@ -87,8 +140,16 @@ DEFAULT_HOME_ADVANTAGE = 0.30  # Default for leagues not in map
 
 
 def get_home_advantage(league_key: str) -> float:
-    """Get league-specific home advantage value."""
-    if not league_key:
+    """
+    Get league-specific home advantage value.
+    
+    Args:
+        league_key: League identifier string
+        
+    Returns:
+        Home advantage factor (float)
+    """
+    if not league_key or not isinstance(league_key, str):
         return DEFAULT_HOME_ADVANTAGE
     return HOME_ADVANTAGE_BY_LEAGUE.get(league_key, DEFAULT_HOME_ADVANTAGE)
 
@@ -150,7 +211,7 @@ def get_news_decay_lambda(league_key: str) -> float:
     Returns:
         Decay lambda value
     """
-    if not league_key:
+    if not league_key or not isinstance(league_key, str):
         return NEWS_DECAY_LAMBDA_ELITE
     
     if league_key in TIER1_LEAGUES:
@@ -172,7 +233,7 @@ def get_source_decay_modifier(source_type: str) -> float:
     Returns:
         Decay modifier (< 1.0 = slower decay, > 1.0 = faster decay)
     """
-    if not source_type:
+    if not source_type or not isinstance(source_type, str):
         return 1.0
     
     return SOURCE_DECAY_MODIFIERS.get(source_type.lower(), 1.0)
@@ -188,25 +249,6 @@ BISCOTTO_SUSPICIOUS_LOW = 2.50    # Draw odd below this is suspicious
 BISCOTTO_EXTREME_LOW = 2.00      # Draw odd below this is VERY suspicious
 BISCOTTO_SIGNIFICANT_DROP = 15.0  # % drop from opening that triggers alert
 
-# ========================================
-# FATIGUE ENGINE V2.0 THRESHOLDS
-# ========================================
-# Advanced fatigue analysis with exponential decay model
-
-FATIGUE_CRITICAL_HOURS = 72       # Less than 3 days = CRITICAL fatigue
-FATIGUE_OPTIMAL_HOURS = 96        # 4 days = full recovery
-FATIGUE_WINDOW_DAYS = 21          # Analyze matches in last 21 days
-FATIGUE_LATE_GAME_THRESHOLD = 0.40  # Probability threshold for late-game alert
-
-# ========================================
-# BISCOTTO ENGINE V2.0 THRESHOLDS
-# ========================================
-# Enhanced biscotto detection with Z-Score and end-of-season analysis
-
-BISCOTTO_ZSCORE_THRESHOLD = 1.5   # Z-Score above this triggers analysis
-BISCOTTO_END_SEASON_ROUNDS = 5    # Last N rounds considered "end of season"
-BISCOTTO_LEAGUE_AVG_DRAW = 0.28   # League average draw probability (~28%)
-
 # Biscotto keywords for news validation (multi-language)
 BISCOTTO_KEYWORDS: Dict[str, List[str]] = {
     "en": ["convenient draw", "mutually beneficial", "both teams need", "point for both", 
@@ -221,12 +263,34 @@ BISCOTTO_KEYWORDS: Dict[str, List[str]] = {
 
 
 # ========================================
+# FATIGUE ENGINE V2.0 THRESHOLDS
+# ========================================
+# Advanced fatigue analysis with exponential decay model
+
+FATIGUE_CRITICAL_HOURS = 72       # Less than 3 days = CRITICAL fatigue
+FATIGUE_OPTIMAL_HOURS = 96        # 4 days = full recovery
+FATIGUE_WINDOW_DAYS = 21          # Analyze matches in last 21 days
+FATIGUE_LATE_GAME_THRESHOLD = 0.40  # Probability threshold for late-game alert
+
+
+# ========================================
+# BISCOTTO ENGINE V2.0 THRESHOLDS
+# ========================================
+# Enhanced biscotto detection with Z-Score and end-of-season analysis
+
+BISCOTTO_ZSCORE_THRESHOLD = 1.5   # Z-Score above this triggers analysis
+BISCOTTO_END_SEASON_ROUNDS = 5    # Last N rounds considered "end of season"
+BISCOTTO_LEAGUE_AVG_DRAW = 0.28   # League average draw probability (~28%)
+
+
+# ========================================
 # DEEPSEEK INTEL PROVIDER CONFIGURATION (V6.0 - Primary)
 # ========================================
 # DeepSeek Intel Provider for deep match analysis using OpenRouter + Brave Search
 # High rate limits, no cooldown management needed
 # Requires: OPENROUTER_API_KEY + BRAVE_API_KEY in .env
 DEEPSEEK_INTEL_ENABLED = os.getenv("DEEPSEEK_INTEL_ENABLED", "true").lower() == "true"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # ========================================
 # PERPLEXITY PROVIDER CONFIGURATION (V4.2 - Fallback)
@@ -245,25 +309,10 @@ PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY", "")
 REDDIT_ENABLED = False  # Permanently disabled
 
 # ========================================
-# ANALYSIS THRESHOLDS
-# ========================================
-# Centralized thresholds for alert scoring and settlement
-
-ALERT_THRESHOLD_HIGH = 8.6      # Minimum score for standard alerts ("Cream of the Crop")
-ALERT_THRESHOLD_RADAR = 7.0     # Lower threshold when forced_narrative present (Radar boost)
-SETTLEMENT_MIN_SCORE = 7.0      # Minimum highest_score_sent to include in settlement
-
-# ========================================
-# TIME WINDOWS
-# ========================================
-# Analysis window: how far ahead to look for matches to analyze
-ANALYSIS_WINDOW_HOURS = 72      # 72h = 3 days (captures weekend fixtures early)
-
-# ========================================
 # PAUSE/RESUME CONTROL
 # ========================================
 # Semaphore file for /stop and /resume commands
-PAUSE_FILE = "data/pause.lock"
+PAUSE_FILE = os.path.join(DATA_DIR, "pause.lock")
 
 # ========================================
 # ANALYZER LIMITS (V6.1)
@@ -351,3 +400,114 @@ REFEREE_LENIENT_THRESHOLD = 3.0      # Cards/game <= 3 = lenient referee
 CRITICAL_INJURY_OVER_PENALTY = 1.5   # Points to subtract for critical injury + Over
 FORM_WARNING_PENALTY = 0.5           # Points to subtract for form warning
 INCONSISTENCY_PENALTY = 0.3          # Points to subtract per inconsistency
+
+
+# ========================================
+# DATABASE CONFIGURATION
+# ========================================
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    f"sqlite:///{os.path.join(DATA_DIR, 'earlybird.db')}"
+)
+
+# ========================================
+# LOGGING CONFIGURATION
+# ========================================
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_FILE = os.path.join(LOGS_DIR, "earlybird.log")
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# ========================================
+# MONITORING & HEALTH CHECKS
+# ========================================
+HEALTH_CHECK_INTERVAL = 300  # 5 minutes
+MAX_ALERTS_PER_HOUR = 10     # Rate limiting for alerts
+
+# ========================================
+# VALIDATION FUNCTIONS
+# ========================================
+def validate_config() -> List[str]:
+    """
+    Validate configuration and return list of missing critical settings.
+    
+    Returns:
+        List of error messages for missing/invalid configurations
+    """
+    errors = []
+    
+    # Critical API keys
+    if not ODDS_API_KEY:
+        errors.append("Missing ODDS_API_KEY - required for match data")
+    
+    if not TELEGRAM_BOT_TOKEN:
+        errors.append("Missing TELEGRAM_BOT_TOKEN - required for notifications")
+    
+    if not TELEGRAM_CHAT_ID:
+        errors.append("Missing TELEGRAM_CHAT_ID - required for notifications")
+    
+    # Check data directory is writable
+    try:
+        test_file = os.path.join(DATA_DIR, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+    except Exception as e:
+        errors.append(f"Data directory not writable: {e}")
+    
+    return errors
+
+
+def is_config_valid() -> bool:
+    """Check if configuration is valid for operation."""
+    return len(validate_config()) == 0
+
+
+# ========================================
+# MODULE EXPORTS
+# ========================================
+__all__ = [
+    # Paths
+    "BASE_DIR", "DATA_DIR", "LOGS_DIR",
+    # API Keys
+    "ODDS_API_KEY", "SERPER_API_KEY", "GEMINI_API_KEY", "BRAVE_API_KEY",
+    "MEDIASTACK_API_KEY", "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY",
+    # Telegram
+    "TELEGRAM_CHAT_ID", "TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_BOT_TOKEN",
+    # Thresholds
+    "ALERT_THRESHOLD_HIGH", "ALERT_THRESHOLD_RADAR", "SETTLEMENT_MIN_SCORE",
+    "MATCH_LOOKAHEAD_HOURS", "ANALYSIS_WINDOW_HOURS",
+    # Home Advantage
+    "HOME_ADVANTAGE_BY_LEAGUE", "DEFAULT_HOME_ADVANTAGE", "get_home_advantage",
+    # News Decay
+    "TIER1_LEAGUES", "NEWS_DECAY_LAMBDA_TIER1", "NEWS_DECAY_LAMBDA_ELITE",
+    "SOURCE_DECAY_MODIFIERS", "get_news_decay_lambda", "get_source_decay_modifier",
+    # Biscotto
+    "BISCOTTO_SUSPICIOUS_LOW", "BISCOTTO_EXTREME_LOW", "BISCOTTO_SIGNIFICANT_DROP",
+    "BISCOTTO_KEYWORDS", "BISCOTTO_ZSCORE_THRESHOLD", "BISCOTTO_END_SEASON_ROUNDS",
+    "BISCOTTO_LEAGUE_AVG_DRAW",
+    # Fatigue
+    "FATIGUE_CRITICAL_HOURS", "FATIGUE_OPTIMAL_HOURS", "FATIGUE_WINDOW_DAYS",
+    "FATIGUE_LATE_GAME_THRESHOLD",
+    # Providers
+    "DEEPSEEK_INTEL_ENABLED", "PERPLEXITY_ENABLED", "REDDIT_ENABLED", "TAVILY_ENABLED",
+    # Tavily Config
+    "TAVILY_API_KEYS", "TAVILY_RATE_LIMIT_SECONDS", "TAVILY_CACHE_TTL_SECONDS",
+    "TAVILY_BUDGET_ALLOCATION", "TAVILY_MONTHLY_BUDGET",
+    "TAVILY_DEGRADED_THRESHOLD", "TAVILY_DISABLED_THRESHOLD",
+    # Verification
+    "VERIFICATION_ENABLED", "VERIFICATION_SCORE_THRESHOLD", "VERIFICATION_TIMEOUT",
+    "PLAYER_KEY_IMPACT_THRESHOLD", "CRITICAL_IMPACT_THRESHOLD",
+    "FORM_DEVIATION_THRESHOLD", "LOW_SCORING_THRESHOLD",
+    "H2H_CARDS_THRESHOLD", "H2H_CORNERS_THRESHOLD", "COMBINED_CORNERS_THRESHOLD",
+    "REFEREE_STRICT_THRESHOLD", "REFEREE_LENIENT_THRESHOLD",
+    "CRITICAL_INJURY_OVER_PENALTY", "FORM_WARNING_PENALTY", "INCONSISTENCY_PENALTY",
+    # Database
+    "DATABASE_URL",
+    # Logging
+    "LOG_LEVEL", "LOG_FILE", "LOG_FORMAT", "LOG_DATE_FORMAT",
+    # Monitoring
+    "HEALTH_CHECK_INTERVAL", "MAX_ALERTS_PER_HOUR",
+    # Validation
+    "validate_config", "is_config_valid",
+]
