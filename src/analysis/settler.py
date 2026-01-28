@@ -9,12 +9,13 @@ V4.2: Added CLV (Closing Line Value) calculation for edge validation.
 """
 import logging
 import re
+import math
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Tuple
 from sqlalchemy import and_
 from sqlalchemy.orm import joinedload
 
-from src.database.models import Match, NewsLog, SessionLocal
+from src.database.models import Match, NewsLog
 from src.database.db import get_db_context
 from src.ingestion.data_provider import get_data_provider
 from config.settings import SETTLEMENT_MIN_SCORE
@@ -126,17 +127,13 @@ def calculate_clv(odds_taken: float, closing_odds: float, margin: float = 0.05) 
         - Returns None if closing_odds is None
         - Returns None if odds are unreasonably high (> 1000) or infinite
     """
-    import math
-    
     # Validate inputs
     if not odds_taken or not closing_odds:
         return None
     if odds_taken <= 1.0 or closing_odds <= 1.0:
         return None
-    # V5.0 FIX: Guard against infinity and unreasonably high odds
     if math.isinf(odds_taken) or math.isinf(closing_odds):
         return None
-    # V5.3 FIX: Guard against NaN values
     if math.isnan(odds_taken) or math.isnan(closing_odds):
         return None
     if odds_taken > 1000 or closing_odds > 1000:
@@ -147,8 +144,6 @@ def calculate_clv(odds_taken: float, closing_odds: float, margin: float = 0.05) 
         implied_prob = 1.0 / closing_odds
         
         # Remove margin (proportional method)
-        # Fair probability = implied_prob / (1 + margin)
-        # This assumes margin is distributed proportionally
         fair_prob = implied_prob / (1.0 + margin)
         
         # Clamp to valid range
@@ -178,38 +173,33 @@ def evaluate_over_under(market_string: str, actual_total: int, stat_available: b
     Returns:
         Tuple of (result_status, explanation)
         
-    V5.1 FIX: Pattern regex ora richiede esplicitamente .5 per evitare match errati.
-    Supporta anche formati interi (Over 9 Corners) per backward compatibility.
+    V5.1 FIX: Pattern regex now explicitly requires .5 to avoid wrong matches.
+    Supports integer formats (Over 9 Corners) for backward compatibility.
     """
     if not stat_available:
         return RESULT_PENDING, f"⏳ Stats non disponibili per: {market_string}"
     
-    # V5.1 FIX: Pattern più preciso per Over/Under
-    # Cattura: "Over 9.5 Corners", "Under 2.5 Goals", "Over 4 Cards"
-    # Formato: (over|under) + spazio + numero (con .5 opzionale) + spazio + tipo
-    # Il numero deve essere: cifre + opzionalmente ".5" (non ".?5?" che catturava "95")
+    # V5.1 FIX: More precise pattern for Over/Under
     pattern = r'(over|under)\s+(\d+(?:\.5)?)\s*(corner|card|goal)'
     match = re.search(pattern, market_string.lower())
     
     if not match:
         return RESULT_PENDING, f"Formato mercato non riconosciuto: {market_string}"
     
-    direction = match.group(1)  # "over" or "under"
-    limit = float(match.group(2))  # e.g., 9.5, 4.5, 2.5, 9
-    stat_type = match.group(3)  # "corner", "card", "goal"
+    direction = match.group(1)
+    limit = float(match.group(2))
+    stat_type = match.group(3)
     
-    # V5.1: Validazione actual_total - deve essere un numero non negativo
     if not isinstance(actual_total, (int, float)) or actual_total < 0:
         logger.warning(f"⚠️ actual_total non valido: {actual_total} per {market_string}")
         return RESULT_PENDING, f"⏳ Valore stats non valido: {actual_total}"
     
-    # Evaluate
     if direction == "over":
         if actual_total > limit:
             return RESULT_WIN, f"✅ Over {limit} {stat_type.title()}s Preso ({actual_total} totali)"
         else:
             return RESULT_LOSS, f"❌ Under {limit} {stat_type.title()}s ({actual_total} totali)"
-    else:  # under
+    else:
         if actual_total < limit:
             return RESULT_WIN, f"✅ Under {limit} {stat_type.title()}s Preso ({actual_total} totali)"
         else:
@@ -234,41 +224,31 @@ def get_match_result(home_team: str, away_team: str, match_time: datetime) -> Op
         if not fotmob:
             return None
         
-        # Search for the match via team
         team_id, _ = fotmob.search_team_id(home_team)
         if not team_id:
             logger.debug(f"Could not find team ID for {home_team}")
             return None
         
-        # Get team details to find recent matches
         team_data = fotmob.get_team_details(team_id)
         if not team_data:
             return None
         
-        # Look in fixtures for completed matches
         fixtures = team_data.get('fixtures', {})
         all_fixtures = fixtures.get('allFixtures', {})
-        
-        # Check previous matches
-        # V4.4 FIX: FotMob uses 'fixtures' key, not 'previousMatches'
         previous = all_fixtures.get('fixtures', [])
         
         for match in previous:
             match_home = match.get('home', {}).get('name', '')
             match_away = match.get('away', {}).get('name', '')
             
-            # Fuzzy match team names
             if (home_team.lower() in match_home.lower() or match_home.lower() in home_team.lower()) and \
                (away_team.lower() in match_away.lower() or match_away.lower() in away_team.lower()):
                 
-                # Get match ID for stats fetching (V3.7)
                 match_id = match.get('id')
                 
-                # Check for cancelled/postponed status
                 match_status = match.get('status', {})
                 if isinstance(match_status, dict):
                     is_cancelled = match_status.get('cancelled', False)
-                    # V4.4 FIX: reason can be a dict {'short': 'FT', 'long': 'Full-Time'} or string
                     reason_raw = match_status.get('reason', '')
                     if isinstance(reason_raw, dict):
                         reason = reason_raw.get('long', reason_raw.get('short', '')).lower()
@@ -327,12 +307,10 @@ def evaluate_combo_bet(combo_suggestion: str, home_score: int, away_score: int, 
     if not combo_suggestion or "+" not in combo_suggestion:
         return RESULT_PENDING, "Formato combo non valido", "unknown"
     
-    # Normalize and split components
     components = [c.strip() for c in combo_suggestion.split("+")]
     if len(components) != 2:
         return RESULT_PENDING, f"Combo con {len(components)} componenti non supportata", "unknown"
     
-    # Evaluate each component
     outcomes = []
     explanations = []
     expansion_type = "unknown"
@@ -342,7 +320,6 @@ def evaluate_combo_bet(combo_suggestion: str, home_score: int, away_score: int, 
         outcomes.append(outcome)
         explanations.append(f"{component}: {explanation}")
         
-        # Identify expansion type (second component is usually the expansion)
         if i == 1:
             component_lower = component.lower()
             if "over" in component_lower or "under" in component_lower:
@@ -357,24 +334,14 @@ def evaluate_combo_bet(combo_suggestion: str, home_score: int, away_score: int, 
             elif "btts" in component_lower or "both teams" in component_lower:
                 expansion_type = "btts"
     
-    # Combo logic: ALL components must WIN for combo to WIN
-    # If ANY component LOSES, combo LOSES
-    # If ANY component PENDING, combo PENDING
-    
     if all(o == RESULT_WIN for o in outcomes):
-        final_outcome = RESULT_WIN
-        final_explanation = f"✅ COMBO VINCENTE | {' | '.join(explanations)}"
+        return RESULT_WIN, f"✅ COMBO VINCENTE | {' | '.join(explanations)}", expansion_type
     elif any(o == RESULT_LOSS for o in outcomes):
-        final_outcome = RESULT_LOSS
-        final_explanation = f"❌ COMBO PERDENTE | {' | '.join(explanations)}"
+        return RESULT_LOSS, f"❌ COMBO PERDENTE | {' | '.join(explanations)}", expansion_type
     elif any(o == RESULT_PENDING for o in outcomes):
-        final_outcome = RESULT_PENDING
-        final_explanation = f"⏳ COMBO IN ATTESA | {' | '.join(explanations)}"
+        return RESULT_PENDING, f"⏳ COMBO IN ATTESA | {' | '.join(explanations)}", expansion_type
     else:
-        final_outcome = RESULT_PENDING
-        final_explanation = f"⏳ COMBO STATO SCONOSCIUTO | {' | '.join(explanations)}"
-    
-    return final_outcome, final_explanation, expansion_type
+        return RESULT_PENDING, f"⏳ COMBO STATO SCONOSCIUTO | {' | '.join(explanations)}", expansion_type
 
 
 def evaluate_bet(
@@ -399,16 +366,13 @@ def evaluate_bet(
     Returns:
         Tuple of (result_status, explanation)
     """
-    # Handle cancelled/postponed matches - return stake (PUSH)
     if match_status in ('CANCELLED', 'POSTPONED'):
         return RESULT_PUSH, f"⚠️ Match {match_status.lower()} - Scommessa Annullata"
     
-    # V5.3 FIX: Validate score parameters
     if home_score is None or away_score is None:
         logger.warning(f"⚠️ evaluate_bet called with None score: home={home_score}, away={away_score}")
         return RESULT_PENDING, "⏳ Score non disponibile"
     
-    # V5.3 FIX: Ensure scores are integers
     try:
         home_score = int(home_score)
         away_score = int(away_score)
@@ -420,19 +384,14 @@ def evaluate_bet(
     market_lower = recommended_market.lower() if recommended_market else ""
     match_stats = match_stats or {}
     
-    # ============================================
-    # CORNERS MARKET (V4.2 - Equal Citizen)
-    # V5.1 FIX: Validazione robusta dei valori numerici
-    # ============================================
+    # CORNERS MARKET
     if "corner" in market_lower:
         home_corners = match_stats.get('home_corners')
         away_corners = match_stats.get('away_corners')
         
-        # Check if stats are available
         if home_corners is None or away_corners is None:
             return RESULT_PENDING, f"⏳ Corner stats non disponibili"
         
-        # V5.1 FIX: Validazione tipo - converti a int se possibile
         try:
             home_corners = int(home_corners)
             away_corners = int(away_corners)
@@ -440,7 +399,6 @@ def evaluate_bet(
             logger.warning(f"⚠️ Corner stats non numerici: home={home_corners}, away={away_corners}")
             return RESULT_PENDING, f"⏳ Corner stats non validi"
         
-        # V5.1: Sanity check - valori negativi non sono validi
         if home_corners < 0 or away_corners < 0:
             logger.warning(f"⚠️ Corner stats negativi: home={home_corners}, away={away_corners}")
             return RESULT_PENDING, f"⏳ Corner stats non validi (negativi)"
@@ -448,12 +406,8 @@ def evaluate_bet(
         total_corners = home_corners + away_corners
         return evaluate_over_under(recommended_market, total_corners, stat_available=True)
     
-    # ============================================
-    # CARDS MARKET (V4.2 - Equal Citizen)
-    # V5.1 FIX: Validazione robusta dei valori numerici
-    # ============================================
+    # CARDS MARKET
     if "card" in market_lower:
-        # V5.1 FIX: Helper per parsing sicuro di valori card
         def safe_int(val, default=0):
             if val is None:
                 return default
@@ -468,17 +422,13 @@ def evaluate_bet(
         home_red = safe_int(match_stats.get('home_red_cards'))
         away_red = safe_int(match_stats.get('away_red_cards'))
         
-        # Check if stats are available (at least yellow cards must be present, not just default 0)
         if match_stats.get('home_yellow_cards') is None and match_stats.get('away_yellow_cards') is None:
             return RESULT_PENDING, f"⏳ Card stats non disponibili"
         
-        # Total cards = yellows + reds (reds count as 1, not 2)
         total_cards = home_yellow + away_yellow + home_red + away_red
         return evaluate_over_under(recommended_market, total_cards, stat_available=True)
     
-    # ============================================
     # GOALS MARKET (Over/Under X.5 Goals format)
-    # ============================================
     if "goal" in market_lower and ("over" in market_lower or "under" in market_lower):
         return evaluate_over_under(recommended_market, total_goals, stat_available=True)
     
@@ -588,9 +538,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
         'details': []
     }
     
-    # ============================================
     # PHASE 1: Query DB (fast, minimal lock time)
-    # ============================================
     matches_to_settle = []
     
     with get_db_context() as db:
@@ -611,7 +559,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             
             logger.info(f"📋 Found {len(matches)} matches to settle")
             
-            # Extract data we need (detach from session)
             for match in matches:
                 sent_logs = [nl for nl in match.news_logs if nl.sent and nl.recommended_market]
                 news_log = max(sent_logs, key=lambda x: x.score, default=None) if sent_logs else None
@@ -622,7 +569,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                 
                 matches_to_settle.append({
                     'match_id': match.id,
-                    'news_log_id': news_log.id,  # V4.2: Need this to update CLV
+                    'news_log_id': news_log.id,
                     'home_team': match.home_team,
                     'away_team': match.away_team,
                     'start_time': match.start_time,
@@ -631,10 +578,10 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     'current_away_odd': match.current_away_odd,
                     'current_draw_odd': match.current_draw_odd,
                     'recommended_market': news_log.recommended_market,
-                    'combo_suggestion': getattr(news_log, 'combo_suggestion', None),  # V7.4: Combo tracking
+                    'combo_suggestion': getattr(news_log, 'combo_suggestion', None),
                     'news_log_score': news_log.score,
                     'closing_odds': getattr(news_log, 'closing_odds', None),
-                    'odds_taken': getattr(news_log, 'odds_taken', None),  # V4.2: CLV
+                    'odds_taken': getattr(news_log, 'odds_taken', None),
                     'primary_driver': getattr(news_log, 'primary_driver', None) or 'UNKNOWN'
                 })
                 
@@ -643,9 +590,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             stats['errors'] += 1
             return stats
     
-    # ============================================
     # PHASE 2: Fetch results from FotMob (NO DB LOCK)
-    # ============================================
     logger.info(f"🌐 Fetching results for {len(matches_to_settle)} matches (no DB lock)...")
     
     results_cache = []
@@ -653,7 +598,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
     for match_data in matches_to_settle:
         stats['total_checked'] += 1
         
-        # Network call OUTSIDE DB context
         result = get_match_result(
             match_data['home_team'],
             match_data['away_team'],
@@ -665,7 +609,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             logger.debug(f"Result not available for {match_data['home_team']} vs {match_data['away_team']}")
             continue
         
-        # Fetch match stats if available (also outside DB context)
         match_stats = None
         fotmob_match_id = result.get('match_id')
         if fotmob_match_id and result.get('status') == 'FINISHED':
@@ -675,17 +618,15 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             except Exception as e:
                 logger.warning(f"⚠️ Could not fetch stats: {e}")
         
-        # Evaluate bet (V4.2: pass match_stats for Corners/Cards settlement)
         outcome, explanation = evaluate_bet(
             match_data['recommended_market'],
             result['home_score'],
             result['away_score'],
             match_data['current_home_odd'],
             result.get('status', 'FINISHED'),
-            match_stats  # V4.2: Corners/Cards stats
+            match_stats
         )
         
-        # V7.4: Evaluate combo expansion if present
         combo_outcome = None
         combo_explanation = None
         expansion_type = None
@@ -705,14 +646,12 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             'match_stats': match_stats,
             'outcome': outcome,
             'explanation': explanation,
-            'combo_outcome': combo_outcome,  # V7.4: Track combo outcome
-            'combo_explanation': combo_explanation,  # V7.4: Track combo explanation
-            'expansion_type': expansion_type  # V7.4: Track expansion type
+            'combo_outcome': combo_outcome,
+            'combo_explanation': combo_explanation,
+            'expansion_type': expansion_type
         })
     
-    # ============================================
     # PHASE 3: Save to DB (fast batch update)
-    # ============================================
     logger.info(f"💾 Saving {len(results_cache)} results to DB...")
     
     total_stake = 0
@@ -726,11 +665,10 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                 match_stats = item['match_stats']
                 outcome = item['outcome']
                 explanation = item['explanation']
-                combo_outcome = item.get('combo_outcome')  # V7.4: Combo outcome
-                combo_explanation = item.get('combo_explanation')  # V7.4: Combo explanation
-                expansion_type = item.get('expansion_type')  # V7.4: Expansion type
+                combo_outcome = item.get('combo_outcome')
+                combo_explanation = item.get('combo_explanation')
+                expansion_type = item.get('expansion_type')
                 
-                # Update match stats if available
                 if match_stats:
                     match = db.query(Match).filter(Match.id == match_data['match_id']).first()
                     if match:
@@ -751,7 +689,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                         match.home_fouls = match_stats.get('home_fouls')
                         match.away_fouls = match_stats.get('away_fouls')
                 
-                # V7.4: Update combo tracking in NewsLog
                 if combo_outcome:
                     news_log = db.query(NewsLog).filter(NewsLog.id == match_data['news_log_id']).first()
                     if news_log:
@@ -767,7 +704,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                 stake = 1.0
                 total_stake += stake
                 
-                # Handle PUSH (void)
                 if outcome == RESULT_PUSH:
                     stats['pushes'] = stats.get('pushes', 0) + 1
                     total_return += stake
@@ -785,7 +721,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     })
                     continue
                 
-                # Determine odds
                 bet_odds = None
                 market_lower = match_data['recommended_market'].lower()
                 
@@ -801,10 +736,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                         bet_odds = match_data['current_draw_odd'] if match_data['current_draw_odd'] and match_data['current_draw_odd'] > 1.0 else None
                 
                 if bet_odds is None:
-                    # V5.1 NOTE: Fallback a 1.9 è la media storica delle quote per mercati
-                    # principali (1X2, O/U 2.5). Questo valore è usato SOLO per calcolo ROI
-                    # quando le quote non sono disponibili nel DB. Non influenza il settlement
-                    # WIN/LOSS, solo la metrica ROI aggregata.
                     bet_odds = 1.9
                     logger.warning(f"⚠️ Quote non disponibili per {match_data['home_team']} vs {match_data['away_team']}. Uso default 1.9")
                 
@@ -816,23 +747,21 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     stats['losses'] += 1
                     logger.info(f"❌ LOSS: {match_data['home_team']} vs {match_data['away_team']} | {match_data['recommended_market']} @{bet_odds:.2f} | {explanation}")
                 
-                # V4.2: Calculate and save CLV
                 clv_value = None
                 odds_taken = match_data.get('odds_taken')
-                closing_odds = match_data.get('closing_odds') or bet_odds  # Use bet_odds as proxy if no closing
+                closing_odds = match_data.get('closing_odds') or bet_odds
                 
                 if odds_taken and closing_odds:
                     clv_value = calculate_clv(odds_taken, closing_odds)
                     if clv_value is not None:
-                        # Update NewsLog with CLV
                         news_log_id = match_data.get('news_log_id')
                         if news_log_id:
                             news_log = db.query(NewsLog).filter(NewsLog.id == news_log_id).first()
                             if news_log:
                                 news_log.clv_percent = clv_value
-                        
-                        clv_emoji = "📈" if clv_value > 0 else "📉"
-                        logger.info(f"   {clv_emoji} CLV: {clv_value:+.2f}% (taken @{odds_taken:.2f} vs closing @{closing_odds:.2f})")
+                    
+                    clv_emoji = "📈" if clv_value > 0 else "📉"
+                    logger.info(f"   {clv_emoji} CLV: {clv_value:+.2f}% (taken @{odds_taken:.2f} vs closing @{closing_odds:.2f})")
                 
                 stats['details'].append({
                     'match': f"{match_data['home_team']} vs {match_data['away_team']}",
@@ -844,14 +773,13 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     'explanation': explanation,
                     'odds': bet_odds,
                     'driver': match_data['primary_driver'],
-                    'clv': clv_value,  # V4.2: Include CLV in details
-                    'combo_suggestion': match_data.get('combo_suggestion'),  # V7.4: Track combo
-                    'combo_outcome': combo_outcome,  # V7.4: Track combo outcome
-                    'combo_explanation': combo_explanation,  # V7.4: Track combo explanation
-                    'expansion_type': expansion_type  # V7.4: Track expansion type
+                    'clv': clv_value,
+                    'combo_suggestion': match_data.get('combo_suggestion'),
+                    'combo_outcome': combo_outcome,
+                    'combo_explanation': combo_explanation,
+                    'expansion_type': expansion_type
                 })
                 
-                # V7.0: Fetch Tavily post-match insights for learning
                 tavily_insights = _tavily_post_match_search(
                     match_data['home_team'],
                     match_data['away_team'],
@@ -860,32 +788,27 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                 if tavily_insights:
                     stats['details'][-1]['tavily_insights'] = tavily_insights
             
-            # Commit all changes at once
             db.commit()
             
         except Exception as e:
             logger.error(f"Settlement save error: {e}", exc_info=True)
             stats['errors'] += 1
     
-    # Calculate ROI
     if total_stake > 0:
         profit = total_return - total_stake
         stats['roi_pct'] = (profit / total_stake) * 100
     
-    # V4.2: Calculate average CLV
     clv_values = [d.get('clv') for d in stats['details'] if d.get('clv') is not None]
     if clv_values:
         stats['avg_clv'] = round(sum(clv_values) / len(clv_values), 2)
         stats['clv_positive_rate'] = round(len([c for c in clv_values if c > 0]) / len(clv_values) * 100, 1)
         logger.info(f"📈 CLV SUMMARY: Avg {stats['avg_clv']:+.2f}% | Positive CLV: {stats['clv_positive_rate']}% ({len(clv_values)} bets tracked)")
     
-    # V7.3 FIX: False Positive Rate Monitoring
     total_bets = stats['wins'] + stats['losses']
-    if total_bets >= 10:  # Only monitor if we have meaningful sample size
+    if total_bets >= 10:
         false_positive_rate = (stats['losses'] / total_bets) * 100
         stats['false_positive_rate'] = round(false_positive_rate, 1)
 
-    # V7.4: Combo Expansion Statistics
     combo_bets = [d for d in stats['details'] if d.get('combo_suggestion')]
     if combo_bets:
         combo_wins = len([c for c in combo_bets if c.get('combo_outcome') == 'WIN'])
@@ -900,7 +823,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             'combo_win_rate': round((combo_wins / (combo_wins + combo_losses)) * 100, 1) if (combo_wins + combo_losses) > 0 else 0
         }
 
-        # Performance by expansion type
         expansion_performance = {}
         for bet in combo_bets:
             exp_type = bet.get('expansion_type', 'unknown')
@@ -913,7 +835,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             elif bet.get('combo_outcome') == 'LOSS':
                 expansion_performance[exp_type]['losses'] += 1
 
-        # Calculate win rates by expansion type
         for exp_type, data in expansion_performance.items():
             if data['wins'] + data['losses'] > 0:
                 data['win_rate'] = round((data['wins'] / (data['wins'] + data['losses'])) * 100, 1)
@@ -926,7 +847,6 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
         for exp_type, data in expansion_performance.items():
             logger.info(f"   {exp_type}: {data['wins']}W/{data['losses']}L ({data['win_rate']}%)")
 
-    # Alert if false positive rate is too high (>40% loss rate)
     if total_bets >= 10 and false_positive_rate > 40.0:
         alert_msg = (
             f" <b>ALERT: False Positive Rate Alto</b>\n\n"
@@ -955,11 +875,11 @@ def get_league_performance(days: int = 30) -> Dict[str, Dict]:
     """
     Calculate performance by league for optimizer weighting.
     
-    DEPRECATED V5.1: Questa funzione non è più utilizzata.
-    L'optimizer ora calcola le performance direttamente da optimizer_weights.json
-    tramite StrategyOptimizer.record_bet_result().
+    DEPRECATED V5.1: This function is no longer used.
+    The optimizer now calculates performance directly from optimizer_weights.json
+    via StrategyOptimizer.record_bet_result().
     
-    Mantenuta per backward compatibility ma ritorna sempre dict vuoto.
+    Kept for backward compatibility but always returns empty dict.
     
     Args:
         days: Lookback period in days (ignored)

@@ -80,6 +80,7 @@ async def _tavily_verify_intel(intel_text: str, team_name: str) -> Optional[Dict
         budget = get_budget_manager()
         
         if not tavily or not tavily.is_available():
+            logging.debug("📊 [TELEGRAM] Tavily provider not available")
             return None
         
         if not budget or not budget.can_call("telegram_monitor"):
@@ -172,10 +173,14 @@ TEAM_SUFFIXES = ['FC', 'SK', 'AS', 'AC', 'FK', 'SC', 'CF', 'CD', 'SD', 'UD', 'RC
 
 def normalize_datetime(dt: datetime) -> datetime:
     """Convert datetime to naive UTC for comparison."""
-    if dt.tzinfo is not None:
-        # Convert to UTC then remove timezone
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt
+    try:
+        if dt.tzinfo is not None:
+            # Convert to UTC then remove timezone
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    except Exception as e:
+        logger.error(f"Error normalizing datetime: {e}")
+        return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def is_message_fresh(msg_date: datetime, max_age_hours: int = MAX_MESSAGE_AGE_HOURS) -> bool:
@@ -189,13 +194,22 @@ def is_message_fresh(msg_date: datetime, max_age_hours: int = MAX_MESSAGE_AGE_HO
     Returns:
         True if message is fresh, False if too old
     """
-    now = datetime.now(timezone.utc)
-    msg_time = normalize_datetime(msg_date)
-    # Normalize 'now' to naive UTC for consistent comparison
-    now_naive = now.replace(tzinfo=None)
-    cutoff = now_naive - timedelta(hours=max_age_hours)
-    
-    return msg_time >= cutoff
+    try:
+        now = datetime.now(timezone.utc)
+        msg_time = normalize_datetime(msg_date)
+        # Normalize 'now' to naive UTC for consistent comparison
+        now_naive = now.replace(tzinfo=None)
+        cutoff = now_naive - timedelta(hours=max_age_hours)
+        
+        is_fresh = msg_time >= cutoff
+        if not is_fresh:
+            age_hours = (now_naive - msg_time).total_seconds() / 3600
+            logger.debug(f"📅 [TELEGRAM] Message too old: {age_hours:.1f} hours (max: {max_age_hours}h)")
+            
+        return is_fresh
+    except Exception as e:
+        logger.error(f"Error checking message freshness: {e}")
+        return False
 
 
 def extract_team_names_from_text(text: str) -> List[str]:
@@ -252,11 +266,11 @@ def has_upcoming_match(team_name: str, lookahead_hours: int = MATCH_LOOKAHEAD_HO
     Returns:
         Tuple of (has_match, match_object)
     """
-    # Import Elite leagues for filtering
-    from src.ingestion.league_manager import ELITE_LEAGUES
-    from src.database.models import get_db_session
-    
     try:
+        # Import Elite leagues for filtering
+        from src.ingestion.league_manager import ELITE_LEAGUES
+        from src.database.models import get_db_session
+        
         with get_db_session() as db:
             now = datetime.now(timezone.utc)
             min_time = now + timedelta(hours=MIN_MATCH_TIME_HOURS)  # Match not started yet
@@ -283,15 +297,17 @@ def has_upcoming_match(team_name: str, lookahead_hours: int = MATCH_LOOKAHEAD_HO
                     # ELITE FILTER: Only process matches from Elite leagues
                     match_league = match.league if hasattr(match, 'league') else None
                     if match_league and match_league not in ELITE_LEAGUES:
-                        logging.debug(f"⏭️ Skipping non-Elite league: {match_league}")
+                        logger.debug(f"⏭️ Skipping non-Elite league: {match_league}")
                         continue
                     
+                    logger.debug(f"🏆 [TELEGRAM] Found upcoming match: {match.home_team} vs {match.away_team}")
                     return True, match
             
+            logger.debug(f"🏆 [TELEGRAM] No upcoming matches for {team_name}")
             return False, None
         
     except Exception as e:
-        logging.error(f"Error checking upcoming match: {e}")
+        logger.error(f"Error checking upcoming match for {team_name}: {e}")
         return False, None
 
 
@@ -310,26 +326,39 @@ def should_process_message(msg_date: datetime, text: str) -> Tuple[bool, Optiona
     Returns:
         Tuple of (should_process, match_object, reason)
     """
-    # Gate 1: Message freshness
-    if not is_message_fresh(msg_date):
-        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-        msg_naive = normalize_datetime(msg_date)
-        age_hours = (now_naive - msg_naive).total_seconds() / 3600
-        return False, None, f"Message too old ({age_hours:.1f}h > {MAX_MESSAGE_AGE_HOURS}h)"
-    
-    # Gate 2: Extract team names and check for upcoming matches
-    team_names = extract_team_names_from_text(text)
-    
-    if not team_names:
-        return False, None, "No team names detected in message"
-    
-    # Check each potential team name
-    for team_name in team_names:
-        has_match, match = has_upcoming_match(team_name)
-        if has_match:
-            return True, match, f"Team '{team_name}' has upcoming match"
-    
-    return False, None, f"No upcoming matches for detected teams: {team_names[:3]}"
+    try:
+        # Gate 1: Message freshness
+        if not is_message_fresh(msg_date):
+            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+            msg_naive = normalize_datetime(msg_date)
+            age_hours = (now_naive - msg_naive).total_seconds() / 3600
+            reason = f"Message too old ({age_hours:.1f}h > {MAX_MESSAGE_AGE_HOURS}h)"
+            logger.debug(f"⏭️ [TELEGRAM] {reason}")
+            return False, None, reason
+        
+        # Gate 2: Extract team names and check for upcoming matches
+        team_names = extract_team_names_from_text(text)
+        
+        if not team_names:
+            reason = "No team names detected in message"
+            logger.debug(f"⏭️ [TELEGRAM] {reason}")
+            return False, None, reason
+        
+        # Check each potential team name
+        for team_name in team_names:
+            has_match, match = has_upcoming_match(team_name)
+            if has_match:
+                reason = f"Team '{team_name}' has upcoming match"
+                logger.debug(f"✅ [TELEGRAM] {reason}")
+                return True, match, reason
+        
+        reason = f"No upcoming matches for detected teams: {team_names[:3]}"
+        logger.debug(f"⏭️ [TELEGRAM] {reason}")
+        return False, None, reason
+        
+    except Exception as e:
+        logger.error(f"Error checking if message should be processed: {e}")
+        return False, None, "Error checking message validity"
 
 
 async def get_channel_entity_safe(client: TelegramClient, channel: str):

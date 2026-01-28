@@ -8,7 +8,8 @@ Triangulation Engine that correlates:
 
 Uses DeepSeek V3.2 with reasoning capabilities for high-quality analysis.
 """
-import json  # Always import for JSONDecodeError (used in call_deepseek)
+
+import json
 import logging
 import os
 import re
@@ -20,21 +21,28 @@ from src.database.models import NewsLog
 from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
 
+# Configure logger
+logger = logging.getLogger(__name__)
+
 # ============================================
 # ORJSON OPTIMIZATION (Rust-based JSON parser)
 # 3-10x faster than stdlib json - consistent with ai_parser.py
 # ============================================
 try:
     import orjson
+    
     def _json_loads(s):
         """orjson.loads wrapper - returns dict from bytes or str."""
         if isinstance(s, str):
             s = s.encode('utf-8')
         return orjson.loads(s)
+    
     _ORJSON_ENABLED = True
+    logger.info("✅ ORJSON parser enabled for faster JSON processing")
 except ImportError:
     _json_loads = json.loads
     _ORJSON_ENABLED = False
+    logger.debug("⚠️ ORJSON parser not available, using standard json module")
 
 # ============================================
 # INTELLIGENCE ROUTER (V5.0 - Gemini/Perplexity Fallback)
@@ -45,10 +53,10 @@ try:
         is_intelligence_available
     )
     INTELLIGENCE_ROUTER_AVAILABLE = True
-    logging.info("✅ Intelligence Router module loaded")
+    logger.info("✅ Intelligence Router module loaded")
 except ImportError as e:
     INTELLIGENCE_ROUTER_AVAILABLE = False
-    logging.warning(f"⚠️ Intelligence Router not available: {e}")
+    logger.warning(f"⚠️ Intelligence Router not available: {e}")
 
 # ============================================
 # PERPLEXITY PROVIDER (Fallback - Safe Import)
@@ -61,6 +69,7 @@ try:
     PERPLEXITY_AVAILABLE = True
 except ImportError as e:
     PERPLEXITY_AVAILABLE = False
+    logger.debug(f"⚠️ Perplexity provider not available: {e}")
 
 # ============================================
 # INJURY IMPACT ENGINE (V5.3.1 - Context-Aware Injury Assessment)
@@ -71,10 +80,10 @@ try:
         InjuryDifferential
     )
     INJURY_IMPACT_AVAILABLE = True
-    logging.info("✅ Injury Impact Engine loaded")
+    logger.info("✅ Injury Impact Engine loaded")
 except ImportError as e:
     INJURY_IMPACT_AVAILABLE = False
-    logging.warning(f"⚠️ Injury Impact Engine not available: {e}")
+    logger.warning(f"⚠️ Injury Impact Engine not available: {e}")
 
 # ============================================
 # OPENROUTER CONFIGURATION (DeepSeek V3.2)
@@ -93,7 +102,9 @@ if OPENROUTER_API_KEY:
         api_key=OPENROUTER_API_KEY,
         base_url=OPENROUTER_BASE_URL
     )
-    logging.info(f"✅ OpenRouter client initialized with model: {DEEPSEEK_V3_2}")
+    logger.info(f"✅ OpenRouter client initialized with model: {DEEPSEEK_V3_2}")
+else:
+    logger.warning("⚠️ OpenRouter API key not configured")
 
 
 # ============================================

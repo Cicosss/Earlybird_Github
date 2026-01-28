@@ -1,3 +1,9 @@
+"""
+EarlyBird Main Application
+==========================
+Main entry point for the EarlyBird football betting intelligence system.
+"""
+
 import logging
 import sys
 import os
@@ -6,6 +12,17 @@ import argparse
 from datetime import datetime, timedelta, timezone
 from typing import List
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('earlybird_main.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # CRITICAL: Load .env BEFORE any other imports that read env vars
 from dotenv import load_dotenv
 load_dotenv()
@@ -13,13 +30,15 @@ load_dotenv()
 # Setup path to import modules
 sys.path.append(os.getcwd())
 
+# ============================================
+# CORE IMPORTS
+# ============================================
 from src.ingestion.ingest_fixtures import ingest_fixtures
 from src.ingestion.data_provider import get_data_provider
 from src.ingestion.fotmob_team_mapping import get_fotmob_team_id, get_fotmob_league_id
 from src.ingestion.league_manager import (
     get_active_niche_leagues, get_quota_status, is_elite_league, is_tier2_league, 
     ELITE_LEAGUES, TIER_2_LEAGUES,
-    # Tier 2 Fallback System V4.3
     should_activate_tier2_fallback, get_tier2_fallback_batch, record_tier2_activation,
     increment_cycle, get_tier2_fallback_status
 )
@@ -32,16 +51,18 @@ from src.analysis.math_engine import MathPredictor, format_math_context
 from src.analysis.settler import settle_pending_bets
 from src.analysis.optimizer import get_optimizer, get_dynamic_alert_threshold
 
-# V5.0: Use IntelligenceRouter instead of direct GeminiAgentProvider
-# V6.1: Unified import with availability flag (removed duplicate import)
+# ============================================
+# INTELLIGENCE ROUTER (V5.0)
+# ============================================
 try:
     from src.services.intelligence_router import get_intelligence_router, is_intelligence_available
     _INTELLIGENCE_ROUTER_AVAILABLE = True
-except ImportError:
+    logger.info("✅ Intelligence Router module loaded")
+except ImportError as e:
     _INTELLIGENCE_ROUTER_AVAILABLE = False
     get_intelligence_router = None
     is_intelligence_available = lambda: False
-    logging.debug("Intelligence Router not available")
+    logger.warning(f"⚠️ Intelligence Router not available: {e}")
 
 # ============================================
 # INTELLIGENT DEDUPLICATION (V4.4)
@@ -49,8 +70,10 @@ except ImportError:
 try:
     from src.utils.url_normalizer import normalize_url, are_articles_similar
     _SMART_DEDUP_AVAILABLE = True
-except ImportError:
+    logger.info("✅ Intelligent Deduplication module loaded")
+except ImportError as e:
     _SMART_DEDUP_AVAILABLE = False
+    logger.warning(f"⚠️ Intelligent Deduplication not available: {e}")
 
 # ============================================
 # MARKET INTELLIGENCE (Steam Move, Reverse Line, News Decay)
@@ -62,9 +85,10 @@ try:
         cleanup_old_snapshots
     )
     _MARKET_INTEL_AVAILABLE = True
-except ImportError:
+    logger.info("✅ Market Intelligence module loaded")
+except ImportError as e:
     _MARKET_INTEL_AVAILABLE = False
-    logging.debug("Market Intelligence module not available")
+    logger.warning(f"⚠️ Market Intelligence not available: {e}")
 
 # ============================================
 # FATIGUE ENGINE V2.0 (Advanced Fatigue Analysis)
@@ -75,9 +99,10 @@ try:
         FatigueDifferential
     )
     _FATIGUE_ENGINE_AVAILABLE = True
-except ImportError:
+    logger.info("✅ Fatigue Engine V2.0 loaded")
+except ImportError as e:
     _FATIGUE_ENGINE_AVAILABLE = False
-    logging.debug("Fatigue Engine V2.0 not available")
+    logger.warning(f"⚠️ Fatigue Engine V2.0 not available: {e}")
 
 # ============================================
 # BISCOTTO ENGINE V2.0 (Enhanced Detection)
@@ -88,9 +113,10 @@ try:
         BiscottoSeverity
     )
     _BISCOTTO_ENGINE_AVAILABLE = True
-except ImportError:
+    logger.info("✅ Biscotto Engine V2.0 loaded")
+except ImportError as e:
     _BISCOTTO_ENGINE_AVAILABLE = False
-    logging.debug("Biscotto Engine V2.0 not available")
+    logger.warning(f"⚠️ Biscotto Engine V2.0 not available: {e}")
 
 # ============================================
 # TWITTER INTEL CACHE V4.5 (Search Grounding)
@@ -98,6 +124,7 @@ except ImportError:
 try:
     from src.services.twitter_intel_cache import get_twitter_intel_cache
     _TWITTER_INTEL_AVAILABLE = True
+    logger.info("✅ Twitter Intel Cache loaded")
 except ImportError:
     _TWITTER_INTEL_AVAILABLE = False
     logging.debug("Twitter Intel Cache not available")

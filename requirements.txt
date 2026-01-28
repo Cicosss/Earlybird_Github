@@ -30,6 +30,7 @@ httpx[http2]>=0.27.0  # HTTP/2 support, connection pooling, async
 # Testing (Property-Based Testing)
 hypothesis>=6.0.0  # PBT for correctness properties
 pytest>=8.0.0  # Test framework (required for test monitor)
+pytest-asyncio>=1.3.0  # For running async tests
 
 # System Monitoring
 psutil

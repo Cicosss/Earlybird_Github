@@ -82,7 +82,6 @@ class FinalAlertVerifier:
             logger.debug("Final verifier disabled, allowing alert")
             return True, {"status": "disabled", "reason": "Verifier not available"}
         
-        # Build comprehensive verification prompt
         prompt = self._build_verification_prompt(
             match=match,
             analysis=analysis,
@@ -93,13 +92,11 @@ class FinalAlertVerifier:
         logger.info(f"🔍 [FINAL VERIFIER] Verifying alert: {match.home_team} vs {match.away_team}")
         
         try:
-            # Query Perplexity with structured prompt
             response = self._query_perplexity(prompt)
             
             if response:
                 result = self._process_verification_response(response)
                 
-                # Log result
                 status = result.get('verification_status', 'UNKNOWN')
                 confidence = result.get('confidence_level', 'LOW')
                 should_send = result.get('should_send', False)
@@ -119,7 +116,6 @@ class FinalAlertVerifier:
                 
         except Exception as e:
             logger.error(f"❌ [FINAL VERIFIER] Verification failed: {e}")
-            # On error, allow alert to proceed (fail-safe)
             return True, {"status": "error", "reason": str(e)}
     
     def _build_verification_prompt(
@@ -140,13 +136,11 @@ class FinalAlertVerifier:
         5. Output Format: Structured JSON with clear fields
         """
         
-        # Extract key information
         home_team = match.home_team
         away_team = match.away_team
         league = match.league
         match_date = match.start_time.strftime('%Y-%m-%d') if match.start_time else "Unknown"
         
-        # Build context section
         context_lines = [
             f"MATCH: {home_team} vs {away_team}",
             f"LEAGUE: {league}",
@@ -154,7 +148,6 @@ class FinalAlertVerifier:
             f"ALERT SCORE: {alert_data.get('score', 0)}/10",
         ]
         
-        # Add odds information
         if match.opening_home_odd and match.current_home_odd:
             context_lines.append(f"HOME ODDS: {match.opening_home_odd:.2f} → {match.current_home_odd:.2f}")
         if match.opening_draw_odd and match.current_draw_odd:
@@ -162,20 +155,17 @@ class FinalAlertVerifier:
         if match.opening_away_odd and match.current_away_odd:
             context_lines.append(f"AWAY ODDS: {match.opening_away_odd:.2f} → {match.current_away_odd:.2f}")
         
-        # Add betting recommendations
         if alert_data.get('recommended_market'):
             context_lines.append(f"PRIMARY MARKET: {alert_data['recommended_market']}")
         if alert_data.get('combo_suggestion'):
             context_lines.append(f"COMBO SUGGESTION: {alert_data['combo_suggestion']}")
         
-        # Add verification layer results if available
         if context_data.get('verification_info'):
             ver_info = context_data['verification_info']
             context_lines.append(f"PRELIMINARY VERIFICATION: {ver_info.get('status', 'Unknown')}")
             if ver_info.get('inconsistencies_count', 0) > 0:
                 context_lines.append(f"INCONSISTENCIES FOUND: {ver_info['inconsistencies_count']}")
         
-        # Add injury intelligence
         if context_data.get('injury_intel'):
             injury = context_data['injury_intel']
             context_lines.append(f"HOME SEVERITY: {injury.get('home_severity', 'Unknown')}")
@@ -185,7 +175,6 @@ class FinalAlertVerifier:
             if injury.get('away_missing_starters', 0) > 0:
                 context_lines.append(f"AWAY MISSING STARTERS: {injury['away_missing_starters']}")
         
-        # Build analysis section
         analysis_lines = [
             "NEWS SUMMARY:",
             alert_data.get('news_summary', ''),
@@ -197,16 +186,13 @@ class FinalAlertVerifier:
             alert_data.get('reasoning', ''),
         ]
         
-        # Add extracted data
         extracted_lines = ["EXTRACTED DATA:"]
         
-        # Injuries from analysis
         if hasattr(analysis, 'home_injuries') and analysis.home_injuries:
             extracted_lines.append(f"HOME INJURIES: {analysis.home_injuries}")
         if hasattr(analysis, 'away_injuries') and analysis.away_injuries:
             extracted_lines.append(f"AWAY INJURIES: {analysis.away_injuries}")
         
-        # Add math edge if available
         if context_data.get('math_edge'):
             math_edge = context_data['math_edge']
             extracted_lines.append(
@@ -216,13 +202,11 @@ class FinalAlertVerifier:
                 f"KELLY STAKE: {math_edge.get('kelly_stake', 0):.1f}%"
             )
         
-        # Add verification layer inconsistencies
         if context_data.get('verification_info', {}).get('inconsistencies'):
             extracted_lines.append("INCONSISTENCIES:")
             for inc in context_data['verification_info']['inconsistencies'][:3]:
                 extracted_lines.append(f"  - {inc}")
         
-        # Add news source verification if available
         source_verification_lines = []
         if context_data.get('news_source_verification'):
             source_ver = context_data['news_source_verification']
@@ -239,7 +223,6 @@ class FinalAlertVerifier:
                 ""
             ]
         
-        # Add FotMob vs Perplexity comparison instruction
         extracted_lines.append("")
         extracted_lines.append("DATA VERIFICATION TASK:")
         extracted_lines.append("Compare the extracted data above with your web search results.")
@@ -255,7 +238,6 @@ class FinalAlertVerifier:
         extracted_lines.append("- Effect on betting recommendation")
         extracted_lines.append("- Whether to REJECT, MODIFY, or CONFIRM with adjusted confidence")
         
-        # Add news source verification task
         if source_verification_lines:
             extracted_lines.extend([
                 "",
@@ -270,7 +252,6 @@ class FinalAlertVerifier:
                 "- Adjust confidence based on source verification"
             ])
         
-        # Build the complete prompt
         prompt = f"""ROLE: Act as a professional betting analyst and fact-checker with 10+ years of experience in sports betting and football analysis.
 
 TASK: Analyze and validate this betting alert for accuracy, logic, and reliability. Verify that all reasoning is sound, data extraction is correct, and the betting recommendation is justified.
@@ -360,7 +341,6 @@ Begin your analysis now."""
     def _query_perplexity(self, prompt: str) -> Optional[Dict]:
         """Query Perplexity API with verification prompt."""
         try:
-            # Use Perplexity provider's raw query method
             response = self._perplexity._query_api_raw(prompt)
             return response
         except Exception as e:
@@ -373,7 +353,6 @@ Begin your analysis now."""
         
         Ensures all required fields are present and valid.
         """
-        # Default values
         processed = {
             "verification_status": "NEEDS_REVIEW",
             "confidence_level": "LOW",
@@ -397,7 +376,6 @@ Begin your analysis now."""
         if not response:
             return processed
         
-        # Extract and validate fields
         try:
             processed.update({
                 "verification_status": response.get("verification_status", "NEEDS_REVIEW"),
@@ -418,7 +396,6 @@ Begin your analysis now."""
                 "adjusted_score_if_discrepancy": max(0, min(10, int(response.get("adjusted_score_if_discrepancy", 5))))
             })
             
-            # NEW: Process source verification results
             source_verification = response.get("source_verification", {})
             if source_verification:
                 processed["source_verification"] = {
@@ -429,12 +406,10 @@ Begin your analysis now."""
                     "verification_issues": source_verification.get("verification_issues", [])
                 }
                 
-                # Log source verification results
                 logger.info(f"🔍 [SOURCE VERIFICATION] Confirmed: {processed['source_verification']['source_confirmed']}, "
                            f"Cross-source: {processed['source_verification']['cross_source_found']}, "
                            f"Reliability: {processed['source_verification']['source_reliability_adjusted']}")
             else:
-                # Default source verification if not provided
                 processed["source_verification"] = {
                     "source_confirmed": False,
                     "cross_source_found": False,
@@ -443,22 +418,18 @@ Begin your analysis now."""
                     "verification_issues": ["No source verification provided"]
                 }
             
-            # Validate status
             valid_statuses = ["CONFIRMED", "REJECTED", "NEEDS_REVIEW"]
             if processed["verification_status"] not in valid_statuses:
                 processed["verification_status"] = "NEEDS_REVIEW"
             
-            # Validate confidence
             valid_confidences = ["HIGH", "MEDIUM", "LOW"]
             if processed["confidence_level"] not in valid_confidences:
                 processed["confidence_level"] = "LOW"
             
-            # Handle discrepancies intelligently
             discrepancies = processed["data_discrepancies"]
             if discrepancies:
                 processed = self._handle_discrepancies_intelligently(processed, discrepancies)
             
-            # NEW: Adjust confidence based on source verification
             if source_verification:
                 processed = self._adjust_confidence_based_on_source_verification(processed, source_verification)
             
@@ -491,15 +462,12 @@ Begin your analysis now."""
                    f"Confirmed: {source_confirmed}, Cross-source: {cross_source_found}, "
                    f"Bias: {source_bias_detected}")
         
-        # Adjust confidence based on source verification
         current_confidence = processed.get("confidence_level", "LOW")
         new_confidence = current_confidence
         
-        # Calculate net impact: positive factors vs negative factors
         positive_factors = 0
         negative_factors = 0
         
-        # Positive factors (increase confidence)
         if source_confirmed:
             positive_factors += 1
         if cross_source_found:
@@ -507,7 +475,6 @@ Begin your analysis now."""
         if reliability_adjusted in ["VERY_HIGH", "HIGH"]:
             positive_factors += 1
         
-        # Negative factors (decrease confidence)
         if not source_confirmed:
             negative_factors += 1
         if source_bias_detected:
@@ -515,11 +482,9 @@ Begin your analysis now."""
         if len(verification_issues) > 0:
             negative_factors += len(verification_issues)
         
-        # Intelligent confidence adjustment based on net balance
         net_impact = positive_factors - negative_factors
         
-        if net_impact >= 2:  # Strong positive signal
-            # Upgrade confidence
+        if net_impact >= 2:
             if current_confidence == "LOW":
                 new_confidence = "MEDIUM"
             elif current_confidence == "MEDIUM" and reliability_adjusted == "VERY_HIGH":
@@ -528,25 +493,21 @@ Begin your analysis now."""
             logger.info(f"🔍 [CONFIDENCE ADJUSTMENT] Upgraded {current_confidence} → {new_confidence} "
                        f"due to strong source verification (+{net_impact})")
         
-        elif net_impact <= -1:  # Negative signal
-            # Downgrade confidence
+        elif net_impact <= -1:
             if current_confidence == "HIGH":
                 new_confidence = "MEDIUM"
             elif current_confidence == "MEDIUM":
                 new_confidence = "LOW"
             
             logger.warning(f"🔍 [CONFIDENCE ADJUSTMENT] Downgraded {current_confidence} → {new_confidence} "
-                          f"due to source verification issues ({net_impact}): {verification_issues}")
+                         f"due to source verification issues ({net_impact}): {verification_issues}")
         
-        else:  # Neutral or mixed signals (-1 < net_impact < 2)
-            # Keep current confidence but log for transparency
+        else:
             logger.debug(f"🔍 [CONFIDENCE ADJUSTMENT] Confidence unchanged {current_confidence} "
                          f"(neutral net impact: {net_impact})")
         
-        # Update processed result
         processed["confidence_level"] = new_confidence
         
-        # Add source verification impact to reasoning
         if new_confidence != current_confidence:
             impact_reason = f"Confidence adjusted from {current_confidence} to {new_confidence} based on source verification"
             if processed.get("rejection_reason"):
@@ -570,7 +531,6 @@ Begin your analysis now."""
         if not discrepancies:
             return processed
         
-        # Count discrepancies by impact
         high_impact_count = len([d for d in discrepancies if d.get("impact") == "HIGH"])
         medium_impact_count = len([d for d in discrepancies if d.get("impact") == "MEDIUM"])
         low_impact_count = len([d for d in discrepancies if d.get("impact") == "LOW"])
@@ -581,47 +541,38 @@ Begin your analysis now."""
         logger.info(f"🔍 [DISCREPANCY HANDLER] Found {total_discrepancies} discrepancies: "
                    f"{high_impact_count} HIGH, {medium_impact_count} MEDIUM, {low_impact_count} LOW")
         
-        # Decision logic based on discrepancy impact
         if discrepancy_impact == "SEVERE" or high_impact_count >= 2:
-            # Severe discrepancies or multiple high-impact ones
             processed["should_send"] = False
             processed["verification_status"] = "REJECTED"
             processed["final_recommendation"] = "NO_BET"
             processed["rejection_reason"] = f"Severe data discrepancies detected: {total_discrepancies} issues, including {high_impact_count} high-impact"
-            
+        
         elif discrepancy_impact == "MODERATE" or high_impact_count == 1 or medium_impact_count >= 2:
-            # Moderate discrepancies - try to modify
             processed["should_send"] = False
             processed["verification_status"] = "NEEDS_REVIEW"
             processed["final_recommendation"] = "MODIFY"
             
-            # Suggest modifications based on discrepancy types
             goal_discrepancies = [d for d in discrepancies if d.get("field") in ["goals", "injuries"]]
             if goal_discrepancies:
                 processed["suggested_modifications"] = "Review goal statistics and injury impact - consider adjusting market or score"
             
-            # Adjust confidence
             if processed["confidence_level"] == "HIGH":
                 processed["confidence_level"] = "MEDIUM"
             elif processed["confidence_level"] == "MEDIUM":
                 processed["confidence_level"] = "LOW"
-            
+        
         else:
-            # Minor discrepancies - confirm with reduced confidence
             processed["should_send"] = True
             processed["verification_status"] = "CONFIRMED"
             processed["final_recommendation"] = "SEND"
             
-            # Reduce confidence slightly
             if processed["confidence_level"] == "HIGH":
                 processed["confidence_level"] = "MEDIUM"
             
-            # Adjust scores
             penalty = low_impact_count * 1 + medium_impact_count * 2
             processed["logic_score"] = max(5, processed["logic_score"] - penalty)
             processed["data_accuracy_score"] = max(3, processed["data_accuracy_score"] - penalty * 2)
         
-        # Add discrepancy summary
         processed["discrepancy_summary"] = {
             "total_count": total_discrepancies,
             "high_impact": high_impact_count,
@@ -641,13 +592,11 @@ Begin your analysis now."""
         try:
             db = SessionLocal()
             
-            # Update NewsLog to reflect rejection
             analysis.status = "no_bet"
             analysis.verification_status = verification_result.get("verification_status", "REJECTED")
             analysis.verification_reason = verification_result.get("rejection_reason", "Final verification failed")
             analysis.final_verifier_result = json.dumps(verification_result)
             
-            # Update match status if needed
             if hasattr(match, 'alert_status'):
                 match.alert_status = "rejected"
             
@@ -660,7 +609,6 @@ Begin your analysis now."""
             db.close()
 
 
-# Singleton instance
 _final_verifier_instance: Optional[FinalAlertVerifier] = None
 
 

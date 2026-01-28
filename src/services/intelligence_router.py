@@ -11,6 +11,7 @@ V5.0: Original implementation with Gemini + Perplexity fallback
 
 Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4
 """
+
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
@@ -72,7 +73,7 @@ class IntelligenceRouter:
         """
         return "deepseek"
     
-    def get_cooldown_status(self):
+    def get_cooldown_status(self) -> None:
         """
         Get current cooldown status (deprecated - kept for backward compatibility).
         
@@ -132,9 +133,9 @@ class IntelligenceRouter:
         self,
         home_team: str,
         away_team: str,
-        match_date: str = None,
-        referee: str = None,
-        missing_players: list = None
+        match_date: Optional[str] = None,
+        referee: Optional[str] = None,
+        missing_players: Optional[List[str]] = None
     ) -> Optional[Dict]:
         """
         Get deep analysis for a match.
@@ -246,7 +247,7 @@ class IntelligenceRouter:
         home_team: str,
         away_team: str,
         match_date: str,
-        league: str = None
+        league: Optional[str] = None
     ) -> Optional[Dict]:
         """
         Get corner/cards statistics for combo enrichment.
@@ -284,7 +285,7 @@ class IntelligenceRouter:
         implied_prob: float,
         odds_pattern: str,
         season_context: str,
-        detected_factors: List[str] = None
+        detected_factors: Optional[List[str]] = None
     ) -> Optional[Dict]:
         """
         Confirm uncertain biscotto signal with Tavily evidence search.
@@ -337,7 +338,7 @@ class IntelligenceRouter:
         
         return result
     
-    def format_for_prompt(self, deep_dive: Dict) -> str:
+    def format_for_prompt(self, deep_dive: Optional[Dict]) -> str:
         """
         Format deep dive results for injection into AI prompt.
         
@@ -730,4 +731,9 @@ def get_intelligence_router() -> IntelligenceRouter:
 
 def is_intelligence_available() -> bool:
     """Check if any intelligence provider is available."""
+    try:
+        return get_intelligence_router().is_available()
+    except Exception as e:
+        logger.error(f"Error checking intelligence availability: {e}")
+        return False
     return get_intelligence_router().is_available()

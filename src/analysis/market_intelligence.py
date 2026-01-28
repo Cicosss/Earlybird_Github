@@ -23,7 +23,6 @@ from typing import Optional, Dict, List, Tuple
 import re
 from dataclasses import dataclass
 
-# Fix #9: Use module logger pattern for consistent logging
 logger = logging.getLogger(__name__)
 
 from sqlalchemy import Column, String, Integer, DateTime, Float, Index, create_engine, event
@@ -118,8 +117,7 @@ def get_steam_window_for_league(league_key: str) -> int:
     Returns:
         Time window in minutes (15 for all leagues)
     """
-    # Uniform window for all monitored leagues (Elite 7 are all niche markets)
-    return STEAM_MOVE_TIME_WINDOW_MIN  # 15 min
+    return STEAM_MOVE_TIME_WINDOW_MIN
 
 
 # ============================================
@@ -130,13 +128,13 @@ def get_steam_window_for_league(league_key: str) -> int:
 class SteamMoveSignal:
     """Result of steam move detection."""
     detected: bool
-    market: str  # 'HOME', 'DRAW', 'AWAY'
+    market: str
     drop_pct: float
     time_window_min: int
     start_odds: float
     end_odds: float
-    is_rapid: bool  # True if happened in < 5 minutes
-    confidence: str  # 'HIGH', 'MEDIUM', 'LOW'
+    is_rapid: bool
+    confidence: str
     message: str
 
 
@@ -201,19 +199,16 @@ def detect_steam_move(
     if not match_id or not current_odds:
         return None
     
-    # V4.3: Use tier-based window if not explicitly provided
     if time_window_minutes is None:
         time_window_minutes = get_steam_window_for_league(league_key)
     
-    snapshots = get_odds_history(match_id, hours_back=2)  # Only need recent history
+    snapshots = get_odds_history(match_id, hours_back=2)
     
     if len(snapshots) < 2:
-        # Not enough history for comparison
         return None
     
     now = datetime.now(timezone.utc)
     
-    # Check each market (HOME, DRAW, AWAY)
     markets = [
         ('HOME', 'home_odd', current_odds.get('home')),
         ('DRAW', 'draw_odd', current_odds.get('draw')),
@@ -227,7 +222,6 @@ def detect_steam_move(
         if not current_odd or current_odd <= 1.0:
             continue
         
-        # Find snapshots within time window
         for snapshot in snapshots:
             snapshot_time = snapshot.timestamp
             if snapshot_time.tzinfo is None:
@@ -238,20 +232,16 @@ def detect_steam_move(
             if minutes_ago > time_window_minutes:
                 continue
             
-            # Get historical odd value
             historical_odd = getattr(snapshot, field_name, None)
             if not historical_odd or historical_odd <= 1.0:
                 continue
             
-            # Calculate drop percentage
             if historical_odd > current_odd:
                 drop_pct = ((historical_odd - current_odd) / historical_odd) * 100
                 
                 if drop_pct >= threshold_pct and drop_pct > best_drop:
-                    # Determine if rapid (< 5 min)
                     is_rapid = minutes_ago <= STEAM_MOVE_RAPID_WINDOW_MIN
                     
-                    # Confidence based on drop magnitude and speed
                     if drop_pct >= 10 or is_rapid:
                         confidence = 'HIGH'
                     elif drop_pct >= 7:
@@ -296,14 +286,11 @@ def _estimate_rlm_time_window(match_id: Optional[str]) -> int:
         return 0
     
     try:
-        # Get recent odds history (last 24 hours)
         snapshots = get_odds_history(match_id, hours_back=24)
         
         if len(snapshots) < 2:
             return 0
         
-        # Find the first snapshot where odds started moving in current direction
-        # This gives us an estimate of how long the pattern has been developing
         now = datetime.now(timezone.utc)
         oldest_snapshot = snapshots[0]
         
@@ -313,7 +300,7 @@ def _estimate_rlm_time_window(match_id: Optional[str]) -> int:
                 snapshot_time = snapshot_time.replace(tzinfo=timezone.utc)
             
             minutes_ago = int((now - snapshot_time).total_seconds() / 60)
-            return min(minutes_ago, 1440)  # Cap at 24 hours
+            return min(minutes_ago, 1440)
         
         return 0
         
@@ -326,17 +313,13 @@ def _estimate_rlm_time_window(match_id: Optional[str]) -> int:
 class ReverseLineSignal:
     """Result of reverse line movement detection."""
     detected: bool
-    market: str  # 'HOME', 'AWAY'
-    public_side: str  # Where public money is going
-    sharp_side: str  # Where sharp money is going (opposite)
-    odds_movement_pct: float  # How much odds moved against public
+    market: str
+    public_side: str
+    sharp_side: str
+    odds_movement_pct: float
     confidence: str
     message: str
 
-
-# ============================================
-# V4.3: ENHANCED RLM SIGNAL
-# ============================================
 
 @dataclass
 class RLMSignalV2:
@@ -350,15 +333,15 @@ class RLMSignalV2:
     - high_potential: Flag for AI analysis priority
     """
     detected: bool
-    market: str                    # 'HOME', 'AWAY'
-    public_side: str               # Where public money is going
-    sharp_side: str                # Where sharp money is going
-    public_percentage: float       # e.g., 0.72 = 72% on public side
-    odds_movement_pct: float       # How much odds moved against public
-    confidence: str                # 'HIGH', 'MEDIUM', 'LOW'
-    time_window_min: int           # How long the pattern developed (estimated)
-    recommendation: str            # "Consider AWAY" or similar
-    high_potential: bool           # True if confidence is HIGH
+    market: str
+    public_side: str
+    sharp_side: str
+    public_percentage: float
+    odds_movement_pct: float
+    confidence: str
+    time_window_min: int
+    recommendation: str
+    high_potential: bool
     message: str
 
 
@@ -392,24 +375,18 @@ def detect_reverse_line_movement(
     if not match:
         return None
     
-    # Need both opening and current odds
     if not match.opening_home_odd or not match.current_home_odd:
         return None
     if not match.opening_away_odd or not match.current_away_odd:
         return None
     
-    # Fix #4: Validate odds are in valid range (decimal odds are always > 1.0)
-    # This prevents division issues with invalid/corrupted data
     if match.opening_home_odd < RLM_MIN_VALID_ODD or match.opening_away_odd < RLM_MIN_VALID_ODD:
         logger.debug(f"RLM V1: Invalid odds (< {RLM_MIN_VALID_ODD}), skipping")
         return None
     
-    # Calculate odds movements
     home_movement_pct = ((match.current_home_odd - match.opening_home_odd) / match.opening_home_odd) * 100
     away_movement_pct = ((match.current_away_odd - match.opening_away_odd) / match.opening_away_odd) * 100
     
-    # If no public distribution provided, estimate based on odds
-    # Lower odds typically attract more public money (favorites)
     if public_bet_distribution is None:
         total_implied = (1/match.opening_home_odd) + (1/match.opening_away_odd)
         if total_implied <= 0:
@@ -417,17 +394,12 @@ def detect_reverse_line_movement(
         
         home_implied = (1/match.opening_home_odd) / total_implied
         
-        # Fix #6: Public overweights favorites by ~15%, regardless of home/away
-        # If home is favorite (implied > 0.5), public bets more on home
-        # If away is favorite (implied < 0.5), public bets more on away
         PUBLIC_FAVORITE_BIAS = 0.15
         
         if home_implied > 0.5:
-            # Home is favorite - public overweights home
             public_home = min(0.85, home_implied + PUBLIC_FAVORITE_BIAS)
             public_away = 1 - public_home
         else:
-            # Away is favorite - public overweights away
             public_away = min(0.85, (1 - home_implied) + PUBLIC_FAVORITE_BIAS)
             public_home = 1 - public_away
         
@@ -436,10 +408,8 @@ def detect_reverse_line_movement(
     public_home = public_bet_distribution.get('home', 0.5)
     public_away = public_bet_distribution.get('away', 0.5)
     
-    # Check for Reverse Line Movement
     signal = None
     
-    # Case 1: Public heavy on HOME, but HOME odds RISING (sharp on AWAY)
     if public_home >= RLM_PUBLIC_THRESHOLD and home_movement_pct >= (RLM_ODDS_INCREASE_THRESHOLD * 100):
         confidence = 'HIGH' if home_movement_pct >= 5 else 'MEDIUM'
         signal = ReverseLineSignal(
@@ -452,7 +422,6 @@ def detect_reverse_line_movement(
             message=f"🔄 REVERSE LINE: {public_home*100:.0f}% public on HOME, but odds RISING {home_movement_pct:+.1f}% → SHARP on AWAY"
         )
     
-    # Case 2: Public heavy on AWAY, but AWAY odds RISING (sharp on HOME)
     elif public_away >= RLM_PUBLIC_THRESHOLD and away_movement_pct >= (RLM_ODDS_INCREASE_THRESHOLD * 100):
         confidence = 'HIGH' if away_movement_pct >= 5 else 'MEDIUM'
         signal = ReverseLineSignal(
@@ -503,7 +472,6 @@ def detect_rlm_v2(
         logger.debug("RLM V2: No match provided")
         return None
     
-    # Need both opening and current odds
     if not match.opening_home_odd or not match.current_home_odd:
         logger.debug(f"RLM V2: Insufficient home odds data for match {getattr(match, 'id', 'unknown')}")
         return None
@@ -511,19 +479,15 @@ def detect_rlm_v2(
         logger.debug(f"RLM V2: Insufficient away odds data for match {getattr(match, 'id', 'unknown')}")
         return None
     
-    # Fix #4: Validate odds are in valid range (decimal odds are always > 1.0)
     if match.opening_home_odd < RLM_MIN_VALID_ODD or match.opening_away_odd < RLM_MIN_VALID_ODD:
         logger.debug(f"RLM V2: Invalid odds (< {RLM_MIN_VALID_ODD})")
         return None
     
-    # Calculate odds movements
     home_movement_pct = ((match.current_home_odd - match.opening_home_odd) / match.opening_home_odd) * 100
     away_movement_pct = ((match.current_away_odd - match.opening_away_odd) / match.opening_away_odd) * 100
     
-    # Fix #5: Calculate time_window_min from odds_snapshots if available
     time_window_min = _estimate_rlm_time_window(getattr(match, 'id', None))
     
-    # If no public distribution provided, estimate based on odds
     if public_bet_distribution is None:
         total_implied = (1/match.opening_home_odd) + (1/match.opening_away_odd)
         if total_implied <= 0:
@@ -531,15 +495,12 @@ def detect_rlm_v2(
         
         home_implied = (1/match.opening_home_odd) / total_implied
         
-        # Fix #6: Public overweights favorites by ~15%, regardless of home/away
         PUBLIC_FAVORITE_BIAS = 0.15
         
         if home_implied > 0.5:
-            # Home is favorite - public overweights home
             public_home = min(0.85, home_implied + PUBLIC_FAVORITE_BIAS)
             public_away = 1 - public_home
         else:
-            # Away is favorite - public overweights away
             public_away = min(0.85, (1 - home_implied) + PUBLIC_FAVORITE_BIAS)
             public_home = 1 - public_away
         
@@ -548,17 +509,11 @@ def detect_rlm_v2(
     public_home = public_bet_distribution.get('home', 0.5)
     public_away = public_bet_distribution.get('away', 0.5)
     
-    # Convert threshold to percentage
     min_odds_increase_pct = min_odds_increase * 100
     
     signal = None
     
-    # Case 1: Public heavy on HOME, but HOME odds RISING (sharp on AWAY)
     if public_home >= min_public_threshold and home_movement_pct >= min_odds_increase_pct:
-        # Determine confidence based on movement magnitude relative to threshold
-        # HIGH: >= 5% or significantly above threshold
-        # MEDIUM: >= threshold but < 5%
-        # LOW: barely above threshold (within 1% of min)
         if home_movement_pct >= 5:
             confidence = 'HIGH'
         elif home_movement_pct >= min_odds_increase_pct + 1:
@@ -576,13 +531,12 @@ def detect_rlm_v2(
             public_percentage=public_home,
             odds_movement_pct=home_movement_pct,
             confidence=confidence,
-            time_window_min=time_window_min,  # Fix #5: Now calculated
+            time_window_min=time_window_min,
             recommendation=f"Consider AWAY (sharp money detected)",
             high_potential=high_potential,
             message=f"🔄 RLM V2: {public_home*100:.0f}% public on HOME, odds RISING {home_movement_pct:+.1f}% → SHARP on AWAY"
         )
     
-    # Case 2: Public heavy on AWAY, but AWAY odds RISING (sharp on HOME)
     elif public_away >= min_public_threshold and away_movement_pct >= min_odds_increase_pct:
         if away_movement_pct >= 5:
             confidence = 'HIGH'
@@ -601,7 +555,7 @@ def detect_rlm_v2(
             public_percentage=public_away,
             odds_movement_pct=away_movement_pct,
             confidence=confidence,
-            time_window_min=time_window_min,  # Fix #5: Now calculated
+            time_window_min=time_window_min,
             recommendation=f"Consider HOME (sharp money detected)",
             high_potential=high_potential,
             message=f"🔄 RLM V2: {public_away*100:.0f}% public on AWAY, odds RISING {away_movement_pct:+.1f}% → SHARP on HOME"
@@ -656,7 +610,6 @@ def apply_news_decay(
     if minutes_since_publish <= 0:
         return impact_score
     
-    # V4.3: Get league-specific decay rate if not provided
     if lambda_decay is None:
         try:
             from config.settings import get_news_decay_lambda
@@ -664,23 +617,15 @@ def apply_news_decay(
         except ImportError:
             lambda_decay = NEWS_DECAY_LAMBDA
     
-    # Cap at max age (news too old has minimal value)
     max_minutes = NEWS_MAX_AGE_HOURS * 60
     if minutes_since_publish >= max_minutes:
-        return impact_score * 0.01  # 1% residual value
+        return impact_score * 0.01
     
-    # Apply exponential decay
     decay_factor = math.exp(-lambda_decay * minutes_since_publish)
-    
-    # Ensure minimum 1% of original value
     decay_factor = max(0.01, decay_factor)
     
     return impact_score * decay_factor
 
-
-# ============================================
-# V4.3: ENHANCED NEWS DECAY WITH FRESHNESS TAGS
-# ============================================
 
 def apply_news_decay_v2(
     impact_score: float,
@@ -714,7 +659,6 @@ def apply_news_decay_v2(
     if minutes_since_publish <= 0:
         return impact_score, "🔥 FRESH"
     
-    # 1. Get base decay lambda for league
     try:
         from config.settings import get_news_decay_lambda, get_source_decay_modifier
         base_lambda = get_news_decay_lambda(league_key)
@@ -723,31 +667,20 @@ def apply_news_decay_v2(
         base_lambda = NEWS_DECAY_LAMBDA
         source_modifier = 1.0
     
-    # 2. Apply source modifier (insider sources decay slower)
     effective_lambda = base_lambda * source_modifier
     
-    # 3. Apply kickoff proximity acceleration
-    # When match is close, stale news is even less valuable
     if minutes_to_kickoff is not None and minutes_to_kickoff <= 30:
-        # Double decay rate when kickoff is within 30 minutes
         effective_lambda *= 2.0
     
-    # 4. Cap at max age (24 hours = 1% residual)
     max_minutes = NEWS_MAX_AGE_HOURS * 60
     if minutes_since_publish >= max_minutes:
         return impact_score * 0.01, "📜 STALE"
     
-    # 5. Apply exponential decay
     decay_factor = math.exp(-effective_lambda * minutes_since_publish)
-    
-    # Ensure minimum 1% of original value
     decay_factor = max(0.01, decay_factor)
     
     decayed_score = impact_score * decay_factor
     
-    # Fix #3/#8: Assign freshness tag based on TIME thresholds (aligned with news_hunter.py)
-    # This ensures consistent freshness categorization across the entire system
-    # Previous logic used decay_factor which caused inconsistencies
     freshness_tag = _get_freshness_tag_from_minutes(minutes_since_publish)
     
     return decayed_score, freshness_tag
@@ -768,11 +701,9 @@ def _get_freshness_tag_from_minutes(minutes_old: int) -> str:
     Returns:
         Freshness tag emoji + label
     """
-    # V7.0: Use centralized module if available
     if _FRESHNESS_MODULE_AVAILABLE:
         return _central_freshness_tag(minutes_old)
     
-    # Fallback implementation
     if minutes_old < 0:
         logger.debug(f"Clock skew detected: minutes_old={minutes_old}, treating as FRESH")
         return "🔥 FRESH"
@@ -809,23 +740,20 @@ def calculate_news_freshness_multiplier(
         minutes_old: Estimated age in minutes
     """
     if not news_date_str:
-        # Unknown date - assume moderately old (30 min)
         return apply_news_decay(1.0, 30, league_key=league_key) / 1.0, 30
     
     if reference_time is None:
         reference_time = datetime.now(timezone.utc)
     
     news_date_lower = news_date_str.lower().strip()
-    minutes_old = 30  # Default assumption
+    minutes_old = 30
     
     try:
-        # Parse relative time strings
         if 'just now' in news_date_lower or 'now' == news_date_lower:
             minutes_old = 1
         elif 'second' in news_date_lower:
             minutes_old = 1
         elif 'minute' in news_date_lower:
-            # Extract number: "5 minutes ago" -> 5
             match = re.search(r'(\d+)\s*min', news_date_lower)
             if match:
                 minutes_old = int(match.group(1))
@@ -850,8 +778,6 @@ def calculate_news_freshness_multiplier(
         elif 'week' in news_date_lower:
             minutes_old = 7 * 24 * 60
         else:
-            # Try to parse as absolute date
-            # Common formats: "Dec 28, 2024", "2024-12-28", "28/12/2024"
             from dateutil import parser as date_parser
             try:
                 parsed_date = date_parser.parse(news_date_str)
@@ -861,13 +787,11 @@ def calculate_news_freshness_multiplier(
                 delta = reference_time - parsed_date
                 minutes_old = max(1, int(delta.total_seconds() / 60))
             except Exception:
-                # Fallback to default
                 minutes_old = 30
     except Exception as e:
         logger.debug(f"Could not parse news date '{news_date_str}': {e}")
         minutes_old = 30
     
-    # Calculate decay multiplier - V4.3: Pass league_key for adaptive decay
     multiplier = apply_news_decay(1.0, minutes_old, league_key=league_key)
     
     return multiplier, minutes_old
@@ -967,7 +891,7 @@ class MarketIntelligence:
     """Combined market intelligence signals."""
     steam_move: Optional[SteamMoveSignal]
     reverse_line: Optional[ReverseLineSignal]
-    rlm_v2: Optional[RLMSignalV2] = None  # V4.3: Enhanced RLM signal
+    rlm_v2: Optional[RLMSignalV2] = None
     has_signals: bool = False
     summary: str = ""
 
@@ -1005,31 +929,24 @@ def analyze_market_intelligence(
             summary="No match data"
         )
     
-    # V4.3: Use match.league if league_key not provided
     effective_league = league_key or getattr(match, 'league', None)
     
-    # Build current odds dict
     current_odds = {
         'home': match.current_home_odd,
         'draw': match.current_draw_odd,
         'away': match.current_away_odd
     }
     
-    # Detect Steam Move (V4.3: with tier-based window)
     steam_signal = detect_steam_move(match.id, current_odds, league_key=effective_league)
     
-    # Detect Reverse Line Movement (V1 - backward compatibility)
     rlm_signal = detect_reverse_line_movement(match, public_bet_distribution)
     
-    # V4.3: Detect RLM V2 (enhanced with recommendation)
     rlm_v2_signal = detect_rlm_v2(match, public_bet_distribution)
     
-    # Build summary
     signals = []
     if steam_signal and steam_signal.detected:
         signals.append(steam_signal.message)
     
-    # Prefer RLM V2 message if available, otherwise use V1
     if rlm_v2_signal and rlm_v2_signal.detected:
         signals.append(rlm_v2_signal.message)
         if rlm_v2_signal.high_potential:
