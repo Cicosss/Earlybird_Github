@@ -25,6 +25,6 @@ Agente, usa questo file per tracciare i tuoi progressi. Quando completi un file,
 - [x] src/utils/validators.py
 
 ## Priority 5: Config & Utils
-- [ ] config/settings.py
+- [x] config/settings.py
 - [x] requirements.txt
-- [ ] src/utils/http_client.py
+- [x] src/utils/http_client.py
