@@ -16,13 +16,13 @@ Agente, usa questo file per tracciare i tuoi progressi. Quando completi un file,
 ## Priority 3: Ingestion
 - [x] src/ingestion/data_provider.py
 - [x] src/ingestion/opportunity_radar.py
-- [ ] src/ingestion/tavily_provider.py
-- [ ] src/ingestion/deepseek_intel_provider.py
+- [x] src/ingestion/tavily_provider.py
+- [x] src/ingestion/deepseek_intel_provider.py
 
 ## Priority 4: Verification
-- [ ] src/analysis/verification_layer.py
-- [ ] src/analysis/enhanced_verifier.py
-- [ ] src/utils/validators.py
+- [x] src/analysis/verification_layer.py
+- [x] src/analysis/enhanced_verifier.py
+- [x] src/utils/validators.py
 
 ## Priority 5: Config & Utils
 - [ ] config/settings.py
