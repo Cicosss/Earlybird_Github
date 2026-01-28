@@ -845,6 +845,92 @@ class FotMobProvider:
                 if swapped:
                     logger.info(f"✅ Home/Away aligned to Odds API for {home_team} vs {away_team}")
             
+            # ========================================
+            # H2H HISTORY EXTRACTION (V4.1 - BTTS Intelligence)
+            # ========================================
+            # Fetch last 5 H2H matches for BTTS trend analysis
+            result['h2h_history'] = []
+            
+            if result.get('match_id'):
+                try:
+                    match_data = self.get_match_lineup(result['match_id'])
+                    if match_data:
+                        # Navigate safe paths for H2H data
+                        content = match_data.get('content', {})
+                        
+                        # Try multiple FotMob H2H paths
+                        raw_h2h = (
+                            content.get('h2h', {}).get('matches', []) or
+                            content.get('matchFacts', {}).get('h2h', {}).get('matches', []) or
+                            content.get('h2h', []) or
+                            []
+                        )
+                        
+                        h2h_data = []
+                        for m in raw_h2h:
+                            # Stop if we have 5 valid matches
+                            if len(h2h_data) >= 5:
+                                break
+                            
+                            if not isinstance(m, dict):
+                                continue
+                            
+                            # FotMob H2H structure: scores are in status.scoreStr ("2 - 1")
+                            # Only consider matches that have started (played)
+                            status = m.get('status', {})
+                            if not status.get('started', False):
+                                continue  # Skip future matches
+                            
+                            h_score = None
+                            a_score = None
+                            
+                            # Priority 1: Direct score fields
+                            h_score = m.get('homeScore')
+                            a_score = m.get('awayScore')
+                            
+                            # Priority 2: Nested in home/away objects
+                            if h_score is None:
+                                home_obj = m.get('home', {})
+                                if isinstance(home_obj, dict):
+                                    h_score = home_obj.get('score')
+                            if a_score is None:
+                                away_obj = m.get('away', {})
+                                if isinstance(away_obj, dict):
+                                    a_score = away_obj.get('score')
+                            
+                            # Priority 3: Parse from status.scoreStr ("2 - 1")
+                            if h_score is None or a_score is None:
+                                score_str = status.get('scoreStr', '')
+                                if score_str and ' - ' in score_str:
+                                    try:
+                                        parts = score_str.split(' - ')
+                                        if len(parts) == 2:
+                                            h_score = int(parts[0].strip())
+                                            a_score = int(parts[1].strip())
+                                    except (ValueError, IndexError):
+                                        pass
+                            
+                            # Skip if still no valid scores
+                            if h_score is None or a_score is None:
+                                continue
+                            
+                            try:
+                                h2h_data.append({
+                                    'home_score': int(h_score),
+                                    'away_score': int(a_score)
+                                })
+                            except (ValueError, TypeError):
+                                # Skip malformed score data
+                                continue
+                        
+                        result['h2h_history'] = h2h_data
+                        
+                        if h2h_data:
+                            logger.info(f"📊 H2H History: Found {len(h2h_data)} matches for {result.get('home_team', 'Unknown')} vs {result.get('away_team', 'Unknown')}")
+                        
+                except Exception as e:
+                    logger.debug(f"H2H extraction failed (non-critical): {e}")
+            
             # Kickoff time validation
             if match_date:
                 match_time = result.get('match_time')
@@ -882,6 +968,188 @@ class FotMobProvider:
                         logger.debug(f"Date validation error (non-critical): {e}")
         
         return result
+
+    def get_match_lineup(self, match_id: int) -> Optional[Dict]:
+        """Get match lineup and detailed match data using match ID."""
+        cache_key = f"match_lineup:{match_id}"
+        if _SMART_CACHE_AVAILABLE:
+            cached = get_match_cache().get(cache_key)
+            if cached is not None:
+                return cached
+        
+        try:
+            url = f"{self.BASE_URL}/matches?matchId={match_id}"
+            resp = self._make_request(url)
+            
+            if resp is None:
+                logger.warning(f"⚠️ FotMob match lineup non disponibili per ID {match_id}")
+                return None
+            
+            try:
+                data = resp.json()
+                
+                if _SMART_CACHE_AVAILABLE and data:
+                    get_match_cache().set(cache_key, data)
+                
+                return data
+            except ValueError as e:
+                logger.error(f"❌ FotMob match lineup JSON non valido: {e}")
+                return None
+            
+        except Exception as e:
+            logger.error(f"❌ FotMob Match Lineup Error: {e}")
+            return None
+
+    def get_table_context(self, team_name: str) -> Dict:
+        """
+        LAYER 1: MOTIVATION ANALYSIS
+        
+        Get league table position and motivation context for a team.
+        Safe: Returns "Unknown" if table data unavailable (cup match, season start).
+        
+        Args:
+            team_name: Name of the team
+            
+        Returns:
+            Dict with position, zone, motivation level
+        """
+        result = {
+            "position": None,
+            "total_teams": None,
+            "zone": "Unknown",
+            "motivation": "Unknown",
+            "form": None,
+            "points": None,
+            "played": None,
+            "matches_remaining": None,
+            "error": None
+        }
+        
+        try:
+            # Get team ID (use top-level import)
+            team_id = get_fotmob_team_id(team_name) if _TEAM_MAPPING_AVAILABLE else None
+            
+            if not team_id:
+                team_id, _ = self.search_team_id(team_name)
+            
+            if not team_id:
+                result["error"] = "Team not found"
+                return result
+            
+            # Get team details
+            team_data = self.get_team_details(team_id)
+            if not team_data:
+                result["error"] = "Could not fetch team data"
+                return result
+            
+            # Extract table info from team data
+            # FotMob structure: team_data -> tableData or overview -> table or table
+            table_data = team_data.get('tableData')
+            
+            if not table_data:
+                # Try alternative paths
+                overview = team_data.get('overview', {})
+                table_data = overview.get('table')
+            
+            if not table_data:
+                # V4.4: Try direct 'table' key (FotMob API variation)
+                table_data = team_data.get('table')
+            
+            if not table_data:
+                # Season might not have started or it's a cup match
+                result["zone"] = "Unknown"
+                result["motivation"] = "Unknown (No table data - cup match or season start)"
+                logger.info(f"⚠️ No table data for {team_name} - possibly cup match or early season")
+                return result
+            
+            # Parse table position
+            # FotMob table structure varies, try common patterns
+            if isinstance(table_data, dict):
+                tables = table_data.get('tables', [table_data])
+            elif isinstance(table_data, list):
+                # V4.4: Handle table[0]['data'] structure
+                tables = []
+                for item in table_data:
+                    if isinstance(item, dict):
+                        # Try item['data'] first (new FotMob structure)
+                        if 'data' in item:
+                            tables.append(item['data'])
+                        else:
+                            tables.append(item)
+            else:
+                tables = []
+            
+            for table in tables:
+                if not isinstance(table, dict):
+                    continue
+                    
+                rows = table.get('table', {}).get('all', [])
+                if not rows:
+                    rows = table.get('all', [])
+                
+                total_teams = len(rows)
+                
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    
+                    row_name = row.get('name', '').lower()
+                    row_short = row.get('shortName', '').lower()
+                    
+                    if team_name.lower() in row_name or team_name.lower() in row_short:
+                        position = row.get('idx', row.get('position'))
+                        
+                        # Validate position is a valid number (not None, not 0 for 1-indexed leagues)
+                        if position is not None and isinstance(position, (int, float)) and position > 0 and position <= total_teams:
+                            result["position"] = position
+                            result["total_teams"] = total_teams
+                            
+                            # Calculate zone based on position percent
+                            pct = position / total_teams
+                            
+                            # Determine motivation zone
+                            if pct <= 0.20:
+                                result["zone"] = "Champions League"
+                                result["motivation"] = "Top of table - Secure Champions League"
+                            elif pct <= 0.40:
+                                result["zone"] = "European Spots"
+                                result["motivation"] = "Push for European qualification"
+                            elif pct <= 0.60:
+                                result["zone"] = "Mid-Table"
+                                result["motivation"] = "Mid-table safety - No pressure"
+                            elif pct <= 0.80:
+                                result["zone"] = "Relegation Battle"
+                                result["motivation"] = "Fight against relegation"
+                            else:
+                                result["zone"] = "Relegation Zone"
+                                result["motivation"] = "Direct relegation threat"
+                            
+                            # Extract additional stats from table row
+                            result["points"] = row.get('pts')
+                            result["played"] = row.get('played')
+                            result["form"] = self._extract_form(row)
+                            
+                            return result
+        
+        except Exception as e:
+            logger.error(f"Error getting table context for {team_name}: {e}")
+            result["error"] = str(e)
+        
+        return result
+
+    def _extract_form(self, team_row: Dict) -> Optional[str]:
+        """Extract last 5 matches form string from table row."""
+        form = team_row.get('form', [])
+        if isinstance(form, list):
+            form_str = ""
+            for f in form[-5:]:
+                if isinstance(f, dict):
+                    result_val = f.get('result', '?')
+                    form_str += result_val[0].upper() if result_val else '?'
+                elif isinstance(f, str):
+                    form_str += f[0].upper() if f else '?'
+            return form_str if form_str else None
+        return None
 
     def get_fixture_details(self, team_name: str) -> Optional[Dict]:
         """Get fixture details for a team's next match."""
