@@ -1,8 +1,8 @@
-# 🦅 EarlyBird V7.2 - Self-Learning Sports Intelligence Engine
+# 🦅 EarlyBird V8.0 - Self-Learning Sports Intelligence Engine
 
 Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI Search**, **CLV Tracking** e **auto-ottimizzazione quantitativa**. Il sistema impara dai propri risultati, adattando i pesi delle strategie in base a Sortino Ratio e Max Drawdown.
 
-**V7.2**: Tavily AI Search + Verification Layer + Circuit Breaker + DeepSeek Primary
+**V8.0**: Tavily AI Search con Doppio Ciclo + Verification Layer + Circuit Breaker + DeepSeek Primary
 
 ## 🎯 Core Intelligence
 
@@ -13,13 +13,17 @@ Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI
 - **Italian Localization**: Output sempre in italiano per il mercato target
 - **Fallback System**: Perplexity Sonar come fallback per errori transitori
 
-### 🔍 Tavily AI Search (V7.0) ⭐ NEW
-- **7 API Keys Rotation**: 7000 calls/month con rotazione automatica
+### 🔍 Tavily AI Search (V8.0) ⭐ UPDATED
+- **7 API Keys Rotation**: 14000 calls/month (2x) con doppio ciclo automatico
+- **Doppio Ciclo Intelligente**: Quando tutte le keys sono esaurite, verifica se è passato un mese prima del fallback
+  - Se SÌ: Reset keys, riparti da Key 1 (Ciclo 2)
+  - Se NO: Attiva fallback a Brave/DDG
 - **Circuit Breaker**: Auto-fallback a Brave/DDG dopo 3 failures consecutivi
 - **Response Caching**: 30 min TTL per evitare query duplicate
 - **Budget Manager**: Allocazione per componente (main_pipeline, news_radar, etc.)
+- **Cycle Tracking**: Monitoraggio del numero di cicli completati per analisi e debug
 - **Native News Search**: Parametri `topic="news"` e `days` per filtering ottimale
-- **File**: `src/ingestion/tavily_provider.py`
+- **File**: `src/ingestion/tavily_provider.py`, `src/ingestion/tavily_key_rotator.py`
 
 ### ✅ Verification Layer (V7.0) ⭐ NEW
 - **Alert Fact-Checking**: Verifica dati con fonti esterne prima dell'invio
@@ -435,6 +439,12 @@ earlybird/
 - **Biscotto Engine V2.0**: Z-Score + end-of-season + mutual benefit
 
 ### V8.0 (Current) ⭐ NEW
+- **Doppio Ciclo API Tavily**: Rotazione intelligente con reset mensile prima del fallback
+  - Fino a 14000 chiamate/mese invece di 7000
+  - Gestione automatica del cambio mese
+  - Tracking dei cicli completati
+  - File: `src/ingestion/tavily_key_rotator.py`
+  - Test: `tests/test_tavily_double_cycle.py`
 - **Deep Dive on Demand**: Upgrade shallow search results to full article content when high-value keywords detected
 - **Article Reader Module**: `src/utils/article_reader.py` con Trafilatura per estrazione testo completo
 - **Integrazione NewsHunter**: Configurazione `DEEP_DIVE_*` in `src/processing/news_hunter.py`

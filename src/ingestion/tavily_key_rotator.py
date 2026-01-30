@@ -1,8 +1,9 @@
 """
-Tavily API Key Rotator - V7.0
+Tavily API Key Rotator - V8.0
 
 Manages rotation between 7 Tavily API keys (1000 calls each = 7000/month).
 Automatically rotates to next key on 429 error.
+V8.0: Double cycle support with monthly reset before fallback.
 
 Requirements: 11.1, 11.2, 11.3, 11.4, 11.5
 """
@@ -17,10 +18,11 @@ logger = logging.getLogger(__name__)
 
 class TavilyKeyRotator:
     """
-    Manages rotation between 7 Tavily API keys.
+    Manages rotation between 7 Tavily API keys with double cycle support.
     
-    Each key has 1000 calls/month limit.
-    Automatically rotates to next key on 429 error.
+    Each key has 1000 calls/month limit. Automatically rotates to next key on 429 error.
+    V8.0: Double cycle support - when all keys are exhausted, attempts monthly reset
+    before activating fallback, allowing up to 2 full cycles per month.
     
     Requirements: 11.1, 11.2, 11.3, 11.4, 11.5
     """
@@ -44,8 +46,12 @@ class TavilyKeyRotator:
         self._exhausted_keys: Set[int] = set()
         self._last_reset_month: Optional[int] = None
         
+        # V8.0: Cycle tracking for double cycle support
+        self._cycle_count: int = 0  # Number of completed cycles
+        self._last_cycle_month: Optional[int] = None  # Month of last cycle completion
+        
         if self._keys:
-            logger.info(f"🔑 TavilyKeyRotator initialized with {len(self._keys)} keys")
+            logger.info(f"🔑 TavilyKeyRotator V8.0 initialized with {len(self._keys)} keys")
         else:
             logger.warning("⚠️ TavilyKeyRotator: No valid API keys found!")
     
@@ -73,10 +79,13 @@ class TavilyKeyRotator:
     
     def rotate_to_next(self) -> bool:
         """
-        Rotate to next available key.
+        Rotate to next available key with double cycle support.
+        
+        When all keys are exhausted, attempts a monthly reset before returning False.
+        This allows up to 2 full cycles per month before fallback activation.
         
         Returns:
-            True if rotation successful, False if all keys exhausted
+            True if rotation successful, False if all keys exhausted (even after reset attempt)
             
         Requirements: 11.2, 11.3
         """
@@ -93,12 +102,37 @@ class TavilyKeyRotator:
                 remaining = len(self._keys) - len(self._exhausted_keys)
                 logger.info(
                     f"🔄 Tavily key rotation: Key {original_index + 1} → Key {self._current_index + 1} "
-                    f"({remaining} keys remaining)"
+                    f"({remaining} keys remaining, cycle {self._cycle_count + 1})"
                 )
                 return True
         
-        # All keys exhausted
-        logger.warning("⚠️ All Tavily API keys exhausted!")
+        # V8.0: All keys exhausted - try double cycle with monthly reset
+        current_month = datetime.now(timezone.utc).month
+        
+        # Check if we can start a new cycle (month has passed since last cycle)
+        if self._last_cycle_month is None or current_month != self._last_cycle_month:
+            logger.info(
+                f"🔄 Tavily double cycle: All keys exhausted, attempting monthly reset "
+                f"(cycle {self._cycle_count + 1} → {self._cycle_count + 2})"
+            )
+            self.reset_all(from_double_cycle=True)
+            self._cycle_count += 1
+            
+            # Try rotation again after reset
+            for _ in range(len(self._keys)):
+                self._current_index = (self._current_index + 1) % len(self._keys)
+                if self._current_index not in self._exhausted_keys:
+                    logger.info(
+                        f"🔄 Tavily double cycle: Starting cycle {self._cycle_count + 1} "
+                        f"with Key {self._current_index + 1}"
+                    )
+                    return True
+        
+        # All keys exhausted even after reset attempt
+        logger.warning(
+            f"⚠️ All Tavily API keys exhausted after {self._cycle_count + 1} cycle(s). "
+            f"Activating fallback."
+        )
         return False
     
     def mark_exhausted(self, key_index: Optional[int] = None) -> None:
@@ -129,9 +163,14 @@ class TavilyKeyRotator:
         if self._keys and 0 <= self._current_index < len(self._keys):
             self._key_usage[self._current_index] = self._key_usage.get(self._current_index, 0) + 1
     
-    def reset_all(self) -> None:
+    def reset_all(self, from_double_cycle: bool = False) -> None:
         """
         Reset all keys to available status (monthly reset).
+        
+        Args:
+            from_double_cycle: If True, indicates this reset is from double cycle logic
+        
+        Note: Does not reset _cycle_count as it tracks total cycles across resets.
         
         Requirements: 11.5
         """
@@ -139,6 +178,10 @@ class TavilyKeyRotator:
         self._key_usage = {i: 0 for i in range(len(self._keys))}
         self._exhausted_keys = set()
         self._last_reset_month = datetime.now(timezone.utc).month
+        
+        # V8.0: Sync _last_cycle_month when reset is from double cycle
+        if from_double_cycle:
+            self._last_cycle_month = self._last_reset_month
         
         logger.info(f"🔄 Tavily keys reset: All {len(self._keys)} keys now available")
     
@@ -161,7 +204,7 @@ class TavilyKeyRotator:
         Get rotation status for monitoring.
         
         Returns:
-            Dict with rotation status information
+            Dict with rotation status information including cycle tracking
             
         Requirements: 11.3
         """
@@ -178,6 +221,10 @@ class TavilyKeyRotator:
             "total_usage": total_usage,
             "is_available": available_keys > 0,
             "last_reset_month": self._last_reset_month,
+            # V8.0: Cycle tracking
+            "cycle_count": self._cycle_count,
+            "current_cycle": self._cycle_count + 1,
+            "last_cycle_month": self._last_cycle_month,
         }
     
     def is_available(self) -> bool:
@@ -210,6 +257,17 @@ class TavilyKeyRotator:
             Number of calls made with current key
         """
         return self._key_usage.get(self._current_index, 0)
+    
+    def get_cycle_count(self) -> int:
+        """
+        Get the number of completed cycles.
+        
+        Returns:
+            Number of cycles completed (0 = first cycle, 1 = second cycle, etc.)
+            
+        Requirements: V8.0
+        """
+        return self._cycle_count
 
 
 # ============================================

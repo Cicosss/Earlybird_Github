@@ -48,6 +48,7 @@ from src.database.migration import check_and_migrate
 from src.processing.news_hunter import run_hunter_for_match
 from src.analysis.analyzer import analyze_with_triangulation
 from src.analysis.math_engine import MathPredictor, format_math_context
+from src.utils.odds_utils import get_market_odds
 from src.analysis.settler import settle_pending_bets
 from src.analysis.optimizer import get_optimizer, get_dynamic_alert_threshold
 
@@ -1471,9 +1472,23 @@ def run_pipeline():
                 # V6.0: Use stats from parallel enrichment if available
                 # Fallback to sequential if parallel enrichment failed for this specific field
                 if not home_stats and (not parallel_result or 'home_stats' in failed_calls):
-                    home_stats = fotmob.get_team_stats(home_team_validated)
+                    try:
+                        # Note: get_team_stats() may not exist in FotMobProvider
+                        if hasattr(fotmob, 'get_team_stats'):
+                            home_stats = fotmob.get_team_stats(home_team_validated)
+                        else:
+                            logging.debug("   ℹ️ FotMob.get_team_stats() not available - skipping home_stats")
+                    except Exception as e:
+                        logging.warning(f"   ⚠️ FotMob home_stats fetch failed: {e}")
                 if not away_stats and (not parallel_result or 'away_stats' in failed_calls):
-                    away_stats = fotmob.get_team_stats(away_team_validated)
+                    try:
+                        # Note: get_team_stats() may not exist in FotMobProvider
+                        if hasattr(fotmob, 'get_team_stats'):
+                            away_stats = fotmob.get_team_stats(away_team_validated)
+                        else:
+                            logging.debug("   ℹ️ FotMob.get_team_stats() not available - skipping away_stats")
+                    except Exception as e:
+                        logging.warning(f"   ⚠️ FotMob away_stats fetch failed: {e}")
                 
                 # Build stats summary for AI
                 stats_parts = []
@@ -2757,8 +2772,45 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
             
             # Get team stats
             # V5.1: Use validated team names
-            home_stats = fotmob.get_team_stats(home_team_validated)
-            away_stats = fotmob.get_team_stats(away_team_validated)
+            # V6.1: Use Intelligence Router for betting stats (corners/cards signals)
+            home_stats = {}
+            away_stats = {}
+            
+            # Try to get betting stats via Intelligence Router (includes corners_signal and cards_signal)
+            if _INTELLIGENCE_ROUTER_AVAILABLE:
+                try:
+                    router = get_intelligence_router()
+                    match_date = match.start_time.strftime('%Y-%m-%d') if hasattr(match, 'start_time') and match.start_time else None
+                    betting_stats = router.get_betting_stats(
+                        home_team=home_team_validated,
+                        away_team=away_team_validated,
+                        match_date=match_date,
+                        league=match.league
+                    )
+                    if betting_stats:
+                        # Extract home/away stats from betting_stats
+                        home_stats = betting_stats.get('home_stats', {})
+                        away_stats = betting_stats.get('away_stats', {})
+                        # Add betting_stats to official_data for AI visibility
+                        if betting_stats.get('corners_signal'):
+                            official_data += f" [Corners: {betting_stats.get('corners_signal')}]"
+                        if betting_stats.get('cards_signal'):
+                            official_data += f" [Cards: {betting_stats.get('cards_signal')}]"
+                        logging.info(f"   📊 Betting stats via Intelligence Router: corners={betting_stats.get('corners_signal')}, cards={betting_stats.get('cards_signal')}")
+                except Exception as e:
+                    logging.warning(f"   ⚠️ Intelligence Router betting stats failed: {e}")
+            
+            # Fallback: Try FotMob stats if available (without corners/cards signals)
+            if not home_stats or not away_stats:
+                try:
+                    # Note: get_team_stats() may not exist in FotMobProvider
+                    if hasattr(fotmob, 'get_team_stats'):
+                        home_stats = fotmob.get_team_stats(home_team_validated) or {}
+                        away_stats = fotmob.get_team_stats(away_team_validated) or {}
+                except AttributeError:
+                    logging.debug("   ℹ️ FotMob.get_team_stats() not available - using basic data only")
+                except Exception as e:
+                    logging.warning(f"   ⚠️ FotMob stats fallback failed: {e}")
             
             stats_parts = []
             if home_stats and not home_stats.get('error'):
@@ -2947,6 +2999,12 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
             except Exception as e:
                 logging.debug(f"Could not build injury_intel for RADAR: {e}")
             
+            # V8.3 FIX: Capture odds at alert time BEFORE sending alert
+            # This ensures we have the actual odds when the alert was sent
+            odds_at_alert = None
+            if hasattr(analysis, 'recommended_market') and analysis.recommended_market:
+                odds_at_alert = get_market_odds(analysis.recommended_market, match)
+            
             send_alert(
                 match_obj=match,
                 news_summary=analysis.summary,
@@ -2967,6 +3025,14 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
             match.highest_score_sent = final_score
             match.last_alert_time = datetime.now(timezone.utc)
             analysis.sent = True
+            
+            # V8.3 FIX: Store odds at alert time and alert timestamp
+            analysis.odds_at_alert = odds_at_alert
+            analysis.alert_sent_at = datetime.now(timezone.utc)
+            if odds_at_alert:
+                logging.info(f"📊 V8.3: Captured odds at alert time: {odds_at_alert:.2f} for {final_market}")
+            else:
+                logging.warning(f"⚠️  V8.3: Could not capture odds at alert time for {final_market}")
             get_health_monitor().record_alert_sent()
             verification_tag = f" [VERIFIED:{verification_result.status.value}]" if verification_result else ""
             logging.info(f"✅ RADAR ALERT SENT{verification_tag} | Score: {final_score}")
@@ -3508,6 +3574,11 @@ def _cleanup_background_workers(
 def run_continuous():
     """Continuous loop - runs pipeline every hour"""
     logging.info("🦅 EARLYBIRD NEWS & ODDS MONITOR - 24/7 MODE ACTIVATED")
+    
+    # Log elite quality thresholds
+    logging.info("🎯 ELITE QUALITY FILTERING - High Bar Configuration:")
+    logging.info(f"   Standard Matches: Score >= {ALERT_THRESHOLD_HIGH} (was 8.6)")
+    logging.info(f"   Radar Matches (Insider News): Score >= {ALERT_THRESHOLD_RADAR} (was 7.0)")
     
     # Initialize health monitor
     health = get_health_monitor()

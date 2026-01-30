@@ -18,7 +18,7 @@ from sqlalchemy.orm import joinedload
 from src.database.models import Match, NewsLog
 from src.database.db import get_db_context
 from src.ingestion.data_provider import get_data_provider
-from config.settings import SETTLEMENT_MIN_SCORE
+from config.settings import SETTLEMENT_MIN_SCORE, DEFAULT_ODDS_GOALS
 
 logger = logging.getLogger(__name__)
 
@@ -580,8 +580,11 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     'recommended_market': news_log.recommended_market,
                     'combo_suggestion': getattr(news_log, 'combo_suggestion', None),
                     'news_log_score': news_log.score,
+                    # V8.3: Include new odds fields for proper ROI/CLV calculation
                     'closing_odds': getattr(news_log, 'closing_odds', None),
                     'odds_taken': getattr(news_log, 'odds_taken', None),
+                    'odds_at_alert': getattr(news_log, 'odds_at_alert', None),
+                    'odds_at_kickoff': getattr(news_log, 'odds_at_kickoff', None),
                     'primary_driver': getattr(news_log, 'primary_driver', None) or 'UNKNOWN'
                 })
                 
@@ -721,23 +724,35 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     })
                     continue
                 
+                # V8.3 FIX: Use odds_at_alert for ROI calculation (actual odds when alert was sent)
+                # Fallback order: odds_at_alert > closing_odds > current odds > default
                 bet_odds = None
                 market_lower = match_data['recommended_market'].lower()
                 
-                if match_data['closing_odds'] and match_data['closing_odds'] > 1.0:
+                # Priority 1: Use odds_at_alert (actual odds when alert was sent)
+                if match_data.get('odds_at_alert') and match_data['odds_at_alert'] > 1.0:
+                    bet_odds = match_data['odds_at_alert']
+                    logger.debug(f"📊 V8.3: Using odds_at_alert for ROI: {bet_odds:.2f}")
+                # Priority 2: Use closing_odds (legacy fallback)
+                elif match_data.get('closing_odds') and match_data['closing_odds'] > 1.0:
                     bet_odds = match_data['closing_odds']
-                
-                if bet_odds is None:
+                    logger.debug(f"📊 V8.3: Using closing_odds (legacy) for ROI: {bet_odds:.2f}")
+                # Priority 3: Use current odds (fallback)
+                else:
                     if "home" in market_lower and "win" in market_lower:
                         bet_odds = match_data['current_home_odd'] if match_data['current_home_odd'] and match_data['current_home_odd'] > 1.0 else None
                     elif "away" in market_lower and "win" in market_lower:
                         bet_odds = match_data['current_away_odd'] if match_data['current_away_odd'] and match_data['current_away_odd'] > 1.0 else None
                     elif "draw" in market_lower:
                         bet_odds = match_data['current_draw_odd'] if match_data['current_draw_odd'] and match_data['current_draw_odd'] > 1.0 else None
+                    
+                    if bet_odds:
+                        logger.debug(f"📊 V8.3: Using current odds (fallback) for ROI: {bet_odds:.2f}")
                 
+                # Final fallback to default
                 if bet_odds is None:
-                    bet_odds = 1.9
-                    logger.warning(f"⚠️ Quote non disponibili per {match_data['home_team']} vs {match_data['away_team']}. Uso default 1.9")
+                    bet_odds = DEFAULT_ODDS_GOALS
+                    logger.warning(f"⚠️ Odds not available for {match_data['home_team']} vs {match_data['away_team']}. Using default {DEFAULT_ODDS_GOALS}")
                 
                 if outcome == RESULT_WIN:
                     stats['wins'] += 1
@@ -747,9 +762,10 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
                     stats['losses'] += 1
                     logger.info(f"❌ LOSS: {match_data['home_team']} vs {match_data['away_team']} | {match_data['recommended_market']} @{bet_odds:.2f} | {explanation}")
                 
+                # V8.3 FIX: Use odds_at_alert and odds_at_kickoff for CLV calculation
                 clv_value = None
-                odds_taken = match_data.get('odds_taken')
-                closing_odds = match_data.get('closing_odds') or bet_odds
+                odds_taken = match_data.get('odds_at_alert') or match_data.get('odds_taken')  # Prefer new field
+                closing_odds = match_data.get('odds_at_kickoff') or match_data.get('closing_odds') or bet_odds  # Prefer new field
                 
                 if odds_taken and closing_odds:
                     clv_value = calculate_clv(odds_taken, closing_odds)
@@ -854,7 +870,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
             f" Loss Rate: {false_positive_rate:.1f}% ({stats['losses']}/{total_bets} bets)\n"
             f" ROI: {stats['roi_pct']:.1f}%\n\n"
             f" <b>Azione Richiesta:</b>\n"
-            f" • Rivedere thresholds (attuale: {stats.get('threshold', 8.6)})\n"
+            f" • Rivedere thresholds (attuale: {stats.get('threshold', 9.0)})\n"
             f" • Verificare Verification Layer\n"
             f" • Controllare AI confidence checks\n\n"
             f" Ultimi {len(stats['details'])} risultati disponibili con /report"

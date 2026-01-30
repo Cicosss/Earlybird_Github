@@ -1354,9 +1354,9 @@ def get_optimizer() -> StrategyOptimizer:
 # Diventa più conservativo durante drawdown, più aggressivo con buon Sortino.
 
 # Threshold bounds
-ALERT_THRESHOLD_BASE = 8.6
-ALERT_THRESHOLD_MIN = 7.5
-ALERT_THRESHOLD_MAX = 9.0
+ALERT_THRESHOLD_BASE = 9.0      # ELITE QUALITY: Base threshold for standard matches (was 8.6)
+ALERT_THRESHOLD_MIN = 7.5      # Minimum threshold (Radar/Insider News)
+ALERT_THRESHOLD_MAX = 9.0      # Maximum threshold (Elite Quality cap)
 
 # Performance windows
 DYNAMIC_THRESHOLD_LOOKBACK_DAYS = 14

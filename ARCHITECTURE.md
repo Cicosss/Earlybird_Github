@@ -1,11 +1,13 @@
-# 🏗️ EarlyBird V7.2 - Architecture Documentation
+# 🏗️ EarlyBird V8.0 - Architecture Documentation
 
 ## Overview
 
 EarlyBird è un sistema di betting intelligence **self-learning** che utilizza triangolazione multi-fonte, AI reasoning, Verification Layer e ottimizzazione quantitativa. Il sistema impara dai propri risultati, adattando automaticamente i pesi delle strategie in base a Sortino Ratio, CLV e Max Drawdown.
 
-**V7.2 Highlights**:
-- 🔍 **Tavily AI Search**: 7 API keys rotation con circuit breaker e fallback Brave/DDG
+**V8.0 Highlights**:
+- 🔄 **Doppio Ciclo API Tavily**: Rotazione intelligente con reset mensile prima del fallback (fino a 14000 chiamate/mese)
+- 🎯 **Elite Quality Filtering**: Raised alert thresholds (Standard: 9.0, Radar: 7.5) to reduce volume and increase quality
+- 🔍 **Tavily AI Search**: 7 API keys rotation con circuit breaker e doppio ciclo + fallback Brave/DDG
 - ✅ **Verification Layer**: Fact-checking alerts con multi-site queries prima dell'invio
 - 📈 **CLV Tracker**: Closing Line Value monitoring per edge validation
 - 🤖 **DeepSeek Primary**: Provider AI principale via OpenRouter (no cooldown needed)
@@ -215,7 +217,7 @@ For detailed security information, see [`SECURITY.md`](SECURITY.md).
 │                                                                          │
 │  TIER 1: SEARCH ENGINES (Tavily → Brave → DDG → Serper)                 │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  Primary: Tavily AI Search (7000/month, AI answers) ⭐ V7.0     │    │
+│  │  Primary: Tavily AI Search (14000/month, Doppio Ciclo) ⭐ V8.0     │    │
 │  │  Fallback 1: Brave Search API (2000/month)                      │    │
 │  │  Fallback 2: DuckDuckGo (ddgs) - FREE, no API key               │    │
 │  │  Emergency: Serper (API) - PAID                                 │    │
@@ -394,19 +396,19 @@ For detailed security information, see [`SECURITY.md`](SECURITY.md).
 │  PHASE 9: ALERT DISPATCH                                                 │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  THRESHOLD: Score >= 8.6 ("Cream of the Crop" - V8.6 Quality Boost)          │
+│  THRESHOLD: Score >= 9.0 ("Elite Quality" - V8.7 Quality Boost)              │
 │                                                                          │
 │  DEDUPLICATION:                                                          │
 │  • Track highest_score_sent per match in DB                             │
-│  • Alert only if: score >= 8.6 AND (first_alert OR delta >= 1.5)       │
+│  • Alert only if: score >= 9.0 AND (first_alert OR delta >= 1.5)       │
 │                                                                          │
 │  DYNAMIC THRESHOLD (V6.0+):                                              │
-│  • Base: 8.6 (adaptive based on performance)                           │
+│  • Base: 9.0 (adaptive based on performance)                           │
 │  • Bounds: 7.5 - 9.0 (auto-adjustment)                                 │
 │  • Factors: Drawdown, Sortino, Win Rate                                │
 │                                                                          │
 │  RADAR BOOST (Intelligence-Only):                                       │
-│  • Lower threshold: 7.0 with forced_narrative                         │
+│  • Lower threshold: 7.5 with forced_narrative                         │
 │  • For hidden opportunities with qualitative signals                   │
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │

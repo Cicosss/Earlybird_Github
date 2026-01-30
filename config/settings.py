@@ -81,8 +81,8 @@ MATCH_LOOKAHEAD_HOURS = 96  # Extended to 4 days for early odds tracking
 ANALYSIS_WINDOW_HOURS = 72  # 72h = 3 days (captures weekend fixtures early)
 
 # Alert thresholds
-ALERT_THRESHOLD_HIGH = 8.6      # Minimum score for standard alerts ("Cream of the Crop")
-ALERT_THRESHOLD_RADAR = 7.0     # Lower threshold when forced_narrative present (Radar boost)
+ALERT_THRESHOLD_HIGH = 9.0      # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY
+ALERT_THRESHOLD_RADAR = 7.5     # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY
 SETTLEMENT_MIN_SCORE = 7.0      # Minimum highest_score_sent to include in settlement
 
 # ========================================
@@ -402,6 +402,17 @@ INCONSISTENCY_PENALTY = 0.3          # Points to subtract per inconsistency
 
 
 # ========================================
+# DEFAULT ODDS CONFIGURATION (V8.3)
+# ========================================
+# Default odds values used when actual odds are not available
+# These are fallback values for complex markets that don't have direct odds
+
+DEFAULT_ODDS_GOALS = 1.90      # Default for goals markets (Over/Under, BTTS)
+DEFAULT_ODDS_CORNERS = 1.85    # Default for corners markets
+DEFAULT_ODDS_CARDS = 1.80     # Default for cards markets
+
+
+# ========================================
 # DATABASE CONFIGURATION
 # ========================================
 DATABASE_URL = os.getenv(
@@ -498,6 +509,8 @@ __all__ = [
     "VERIFICATION_ENABLED", "VERIFICATION_SCORE_THRESHOLD", "VERIFICATION_TIMEOUT",
     "PLAYER_KEY_IMPACT_THRESHOLD", "CRITICAL_IMPACT_THRESHOLD",
     "FORM_DEVIATION_THRESHOLD", "LOW_SCORING_THRESHOLD",
+    # Default Odds
+    "DEFAULT_ODDS_GOALS", "DEFAULT_ODDS_CORNERS", "DEFAULT_ODDS_CARDS",
     "H2H_CARDS_THRESHOLD", "H2H_CORNERS_THRESHOLD", "COMBINED_CORNERS_THRESHOLD",
     "REFEREE_STRICT_THRESHOLD", "REFEREE_LENIENT_THRESHOLD",
     "CRITICAL_INJURY_OVER_PENALTY", "FORM_WARNING_PENALTY", "INCONSISTENCY_PENALTY",

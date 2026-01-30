@@ -47,3 +47,19 @@ As part of a comprehensive security audit, the following unauthorized components
 - [x] src/analysis/verification_layer.py - Sistema di verifica multi-livello (No critical issues found)
 - [x] src/analysis/enhanced_verifier.py - Verificatore avanzato con gestione discrepanze (No critical issues found)
 - [x] src/utils/validators.py - Utility di validazione centralizzata (No critical issues found)
+
+---
+
+## Phase 2: Market Selection Bias Fix & Radar Data Injection (January 2026)
+- [x] src/analysis/analyzer.py - Refactored TRIANGULATION_SYSTEM_PROMPT to remove "Over Goals" bias
+  - Replaced biased "1. GOALS, 2. CARDS..." list with neutral "MARKET SELECTION STRATEGY" block
+  - Added decision rule: "If Referee Stats suggest 5+ cards, prefer Cards over a risky Goal bet"
+  - All 5 markets (WINNER, GOALS, BTTS, CORNERS, CARDS) now treated as equal citizens
+- [x] src/main.py - Fixed critical bug: get_team_stats() doesn't exist in FotMobProvider
+  - analyze_single_match() now uses Intelligence Router's get_betting_stats() for corners/cards signals
+  - Added proper error handling with hasattr() check for missing get_team_stats() method
+  - Fixed same issue in run_pipeline() at lines1473-1476
+  - Ensures full stats visibility in Radar Mode with corners_signal and cards_signal injection
+- [x] No library updates needed - All changes use existing Python built-ins and imported modules
+
+**Impact**: AI can now make unbiased market decisions and has visibility into corners/cards stats during radar alerts.

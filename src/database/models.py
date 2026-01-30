@@ -179,10 +179,15 @@ class NewsLog(Base):
     # Driver classification
     primary_driver = Column(String, nullable=True, comment="Main signal: INJURY_INTEL, SHARP_MONEY, MATH_VALUE, CONTEXT_PLAY, CONTRARIAN")
     
-    # CLV Tracking (Closing Line Value)
-    odds_taken = Column(Float, nullable=True, comment="Odds when alert was sent")
-    closing_odds = Column(Float, nullable=True, comment="Closing odds for CLV analysis")
+    # CLV Tracking (Closing Line Value) - V8.3 FIX: Proper historical odds capture
+    odds_taken = Column(Float, nullable=True, comment="Odds when alert was sent (legacy - use odds_at_alert)")
+    closing_odds = Column(Float, nullable=True, comment="Closing odds for CLV analysis (legacy - use odds_at_kickoff)")
     clv_percent = Column(Float, nullable=True, comment="Calculated CLV percentage")
+    
+    # V8.3: Proper historical odds tracking for accurate ROI calculation
+    odds_at_alert = Column(Float, nullable=True, comment="Actual odds when Telegram alert was sent (for ROI calculation)")
+    odds_at_kickoff = Column(Float, nullable=True, comment="Actual odds at match kickoff (for CLV analysis)")
+    alert_sent_at = Column(DateTime, nullable=True, comment="Timestamp when alert was sent to Telegram")
     
     # Combo outcome tracking (Auto-Learning)
     combo_outcome = Column(String, nullable=True, comment="WIN/LOSS/PENDING for expansion")

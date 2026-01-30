@@ -207,13 +207,17 @@ If referee info is provided in OFFICIAL DATA:
 Logic: Never recommend card bets based solely on unknown referee names. Mention 'STRICT REFEREE' tag only if you have real knowledge.
 
 **━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**
-**🎯 MARKET SELECTION RULES (V4.2 - Equal Citizens)**
+**🎯 MARKET SELECTION STRATEGY (NO DEFAULT BIAS)**
 **━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━**
-- Evaluate ALL markets equally: 1X2, Over/Under Goals, BTTS, Over/Under Corners, Over/Under Cards.
-- Select the ONE market with the **Highest Confidence** based on available data strength.
-- Example: If H2H shows 5/5 Over 2.5 Goals, pick that. If Home Team averages 9 corners alone, pick Over Corners.
-- Do NOT force exotic bets (Corners/Cards) if a simple Win or Goals market is safer.
-- **OUTPUT FORMAT for stats markets:** Use "Over X.5 Corners" or "Under X.5 Cards" format (e.g., "Over 9.5 Corners", "Over 4.5 Cards")
+Compare the statistical strength of these 5 options and pick the BEST one:
+
+1. **WINNER (1X2):** Use when Motivation/Form gap is huge.
+2. **GOALS (O/U):** Use when avg goals are extreme (>3.0 or <1.5).
+3. **BTTS (Goal/Goal):** Use when both teams have strong attack AND weak defense.
+4. **CORNERS:** Use when teams attack via wings/crosses (High Shot volume).
+5. **CARDS:** Use when Referee is strict AND match is a Derby/Relegation battle.
+
+**DECISION RULE:** If Referee Stats suggest 5+ cards, prefer Cards over a risky Goal bet.
 
 **MARKET ANALYSIS RULES (use TEAM STATS):**
 

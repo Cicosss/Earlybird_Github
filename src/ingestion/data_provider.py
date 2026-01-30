@@ -1218,6 +1218,475 @@ class FotMobProvider:
             logger.error(f"FotMob Fixture Error: {e}")
             return {"error": str(e), "source": "FotMob"}
 
+    def get_referee_info(self, team_name: str) -> Optional[Dict]:
+        """
+        Get referee information for a team's next match.
+        
+        This method extracts referee data from FotMob match lineup data.
+        Note: FotMob API provides referee name but not statistics (cards per game).
+        Statistics must be fetched separately via search providers (Tavily/Perplexity).
+        
+        Args:
+            team_name: Name of the team
+            
+        Returns:
+            Dict with referee info: {'name': str, 'strictness': str, 'cards_per_game': float}
+            Returns None if referee data is unavailable
+        """
+        try:
+            # Step 1: Get fixture details to find the next match
+            fixture = self.get_fixture_details(team_name)
+            
+            if not fixture or fixture.get('error'):
+                logger.debug(f"No fixture data for {team_name}, cannot get referee info")
+                return None
+            
+            # Step 2: Get match ID from fixture
+            match_id = fixture.get('match_id')
+            
+            if not match_id:
+                logger.debug(f"No match ID in fixture for {team_name}")
+                return None
+            
+            # Step 3: Get match lineup data which contains referee information
+            match_data = self.get_match_lineup(match_id)
+            
+            if not match_data:
+                logger.debug(f"No match lineup data for match_id {match_id}")
+                return None
+            
+            # Step 4: Extract referee name from match data
+            # FotMob structure varies, try multiple paths
+            referee_name = None
+            
+            # Path 1: Direct referee field in content
+            content = match_data.get('content', {})
+            if isinstance(content, dict):
+                referee_name = content.get('referee')
+                
+                # Path 2: Nested in matchFacts
+                if not referee_name:
+                    match_facts = content.get('matchFacts', {})
+                    if isinstance(match_facts, dict):
+                        referee_name = match_facts.get('referee')
+                
+                # Path 3: Nested in general
+                if not referee_name:
+                    general = content.get('general', {})
+                    if isinstance(general, dict):
+                        referee_name = general.get('referee')
+                
+                # Path 4: Nested in matchData
+                if not referee_name:
+                    match_data_obj = content.get('matchData', {})
+                    if isinstance(match_data_obj, dict):
+                        referee_name = match_data_obj.get('referee')
+            
+            # Path 5: Try top-level match structure
+            if not referee_name:
+                referee_name = match_data.get('referee')
+            
+            # Path 6: Try nested referee object with name field
+            if not referee_name:
+                if isinstance(content, dict):
+                    referee_obj = content.get('referee')
+                    if isinstance(referee_obj, dict):
+                        referee_name = referee_obj.get('name')
+            
+            # Normalize referee name if found
+            if referee_name:
+                referee_name = str(referee_name).strip()
+                if referee_name and referee_name.lower() != 'unknown':
+                    logger.info(f"⚖️ Referee found for {team_name}: {referee_name}")
+                    
+                    # Return structured referee info
+                    # Note: cards_per_game and strictness will be populated by search providers
+                    return {
+                        'name': referee_name,
+                        'strictness': 'unknown',  # Will be determined by search providers
+                        'cards_per_game': None  # Will be fetched by search providers
+                    }
+            
+            logger.debug(f"No referee data found for {team_name}'s next match")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting referee info for {team_name}: {e}")
+            return None
+
+    def get_full_team_context(self, team_name: str) -> Dict[str, Any]:
+        """
+        Get full team context including injuries, motivation, and fatigue.
+        
+        This method aggregates data from multiple FotMob endpoints to provide
+        comprehensive team intelligence for match analysis.
+        
+        Args:
+            team_name: Name of team
+            
+        Returns:
+            Dict with team context: injuries, motivation, fatigue, etc.
+        """
+        try:
+            # Get team details which includes injuries
+            team_details = self.get_team_details(team_name)
+            
+            if not team_details or team_details.get('error'):
+                return {
+                    'injuries': [],
+                    'motivation': 'Unknown',
+                    'fatigue': 'Unknown',
+                    'error': team_details.get('error', 'Unknown error') if team_details else 'Team not found'
+                }
+            
+            # Extract injuries
+            injuries = team_details.get('injuries', [])
+            
+            # Get table context for motivation
+            table_context = self.get_table_context(team_name)
+            
+            # Build full context
+            context = {
+                'team_name': team_name,
+                'injuries': injuries,
+                'motivation': table_context.get('motivation', 'Unknown'),
+                'motivation_zone': table_context.get('zone', 'Unknown'),
+                'table_position': table_context.get('position'),
+                'form': table_context.get('form'),
+                'fatigue': 'Unknown',  # Would need match history to calculate
+                'error': None
+            }
+            
+            logger.info(f"✅ Full team context for {team_name}: {len(injuries)} injuries, motivation={context['motivation']}")
+            return context
+            
+        except Exception as e:
+            logger.error(f"Error getting full team context for {team_name}: {e}")
+            return {
+                'injuries': [],
+                'motivation': 'Unknown',
+                'fatigue': 'Unknown',
+                'error': str(e)
+            }
+
+    def get_turnover_risk(self, team_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get turnover risk assessment for a team.
+        
+        Analyzes squad stability and recent transfers to assess
+        the risk of player turnover affecting match performance.
+        
+        Args:
+            team_name: Name of team
+            
+        Returns:
+            Dict with turnover risk assessment or None if unavailable
+        """
+        try:
+            # Get team details to analyze squad
+            team_details = self.get_team_details(team_name)
+            
+            if not team_details or team_details.get('error'):
+                return None
+            
+            # Extract squad information
+            squad_data = team_details.get('squad', {})
+            
+            # Analyze turnover risk factors
+            # Note: FotMob doesn't provide direct turnover data, so we estimate
+            # based on squad size and recent activity
+            risk_level = 'MEDIUM'
+            risk_factors = []
+            
+            # Factor 1: Squad size (smaller squads = higher turnover risk)
+            squad_size = len(squad_data.get('players', [])) if isinstance(squad_data, dict) else 0
+            if squad_size < 20:
+                risk_level = 'HIGH'
+                risk_factors.append('Small squad (<20 players)')
+            elif squad_size < 25:
+                risk_level = 'MEDIUM'
+            
+            # Factor 2: Check for recent transfers (not directly available from FotMob)
+            # This would require additional data sources
+            
+            result = {
+                'team_name': team_name,
+                'risk_level': risk_level,
+                'squad_size': squad_size,
+                'risk_factors': risk_factors,
+                'recommendation': self._get_turnover_recommendation(risk_level),
+                'missing_names': [],  # Would need transfer history data
+                'count': 0,  # Would need transfer history data
+                'error': None
+            }
+            
+            logger.info(f"✅ Turnover risk for {team_name}: {risk_level} (squad: {squad_size})")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting turnover risk for {team_name}: {e}")
+            return None
+
+    def _get_turnover_recommendation(self, risk_level: str) -> str:
+        """Get recommendation based on turnover risk level."""
+        recommendations = {
+            'HIGH': 'Consider squad rotation - high turnover risk may affect performance',
+            'MEDIUM': 'Monitor squad stability - moderate turnover risk',
+            'LOW': 'Stable squad - low turnover risk'
+        }
+        return recommendations.get(risk_level, 'Unknown risk level')
+
+    def get_stadium_coordinates(self, team_name: str) -> Optional[Tuple[float, float]]:
+        """
+        Get stadium coordinates for a team.
+        
+        Extracts geographical location of team's home stadium
+        for weather analysis and travel distance calculations.
+        
+        Args:
+            team_name: Name of team
+            
+        Returns:
+            Tuple of (latitude, longitude) or None if unavailable
+        """
+        try:
+            # Get team details to find stadium info
+            team_details = self.get_team_details(team_name)
+            
+            if not team_details or team_details.get('error'):
+                return None
+            
+            # Try to extract stadium information from team details
+            # FotMob may include stadium data in various locations
+            stadium_info = None
+            
+            # Path 1: Direct stadium field
+            if 'stadium' in team_details:
+                stadium_info = team_details['stadium']
+            
+            # Path 2: Nested in team data
+            if not stadium_info and 'teamData' in team_details:
+                team_data = team_details['teamData']
+                if isinstance(team_data, dict):
+                    stadium_info = team_data.get('stadium')
+            
+            # Path 3: Check for venue information
+            if not stadium_info and 'venue' in team_details:
+                stadium_info = team_details['venue']
+            
+            if not stadium_info:
+                logger.debug(f"No stadium info found for {team_name}")
+                return None
+            
+            # Extract coordinates from stadium info
+            # Stadium info may be a dict with lat/lon or a string
+            if isinstance(stadium_info, dict):
+                lat = stadium_info.get('lat') or stadium_info.get('latitude')
+                lon = stadium_info.get('lon') or stadium_info.get('longitude')
+                
+                if lat is not None and lon is not None:
+                    logger.info(f"✅ Stadium coordinates for {team_name}: ({lat}, {lon})")
+                    return (float(lat), float(lon))
+            
+            logger.debug(f"Stadium coordinates not available for {team_name}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting stadium coordinates for {team_name}: {e}")
+            return None
+
+    def get_team_stats(self, team_name: str) -> Dict[str, Any]:
+        """
+        Get team statistics for a team.
+        
+        Extracts performance metrics including goals, cards, corners,
+        and other key statistics for match analysis.
+        
+        Args:
+            team_name: Name of team
+            
+        Returns:
+            Dict with team statistics
+        """
+        try:
+            # Get team details which may include stats
+            team_details = self.get_team_details(team_name)
+            
+            if not team_details or team_details.get('error'):
+                return {
+                    'goals_avg': None,
+                    'cards_avg': None,
+                    'corners_avg': None,
+                    'error': team_details.get('error', 'Unknown error') if team_details else 'Team not found'
+                }
+            
+            # Extract statistics from team details
+            # FotMob structure varies, try multiple paths
+            stats = {}
+            
+            # Path 1: Direct stats field
+            if 'stats' in team_details:
+                stats = team_details['stats']
+            
+            # Path 2: Nested in teamData
+            if not stats and 'teamData' in team_details:
+                team_data = team_details['teamData']
+                if isinstance(team_data, dict):
+                    stats = team_data.get('stats')
+            
+            # Path 3: Nested in overview
+            if not stats and 'overview' in team_details:
+                overview = team_details['overview']
+                if isinstance(overview, dict):
+                    stats = overview.get('stats')
+            
+            # Extract key metrics
+            result = {
+                'team_name': team_name,
+                'goals_avg': stats.get('goals_avg') if stats else None,
+                'cards_avg': stats.get('cards_avg') if stats else None,
+                'corners_avg': stats.get('corners_avg') if stats else None,
+                'shots_avg': stats.get('shots_avg') if stats else None,
+                'possession_avg': stats.get('possession_avg') if stats else None,
+                'error': None
+            }
+            
+            logger.info(f"✅ Team stats for {team_name}: goals={result['goals_avg']}, cards={result['cards_avg']}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting team stats for {team_name}: {e}")
+            return {
+                'goals_avg': None,
+                'cards_avg': None,
+                'corners_avg': None,
+                'error': str(e)
+            }
+
+    def get_tactical_insights(self, home_team: str, away_team: str) -> Dict[str, Any]:
+        """
+        Get tactical insights for a match between two teams.
+        
+        Analyzes playing styles, formations, and tactical matchups
+        to provide intelligence for match prediction.
+        
+        Args:
+            home_team: Name of home team
+            away_team: Name of away team
+            
+        Returns:
+            Dict with tactical insights
+        """
+        try:
+            # Get details for both teams
+            home_details = self.get_team_details(home_team)
+            away_details = self.get_team_details(away_team)
+            
+            if not home_details or home_details.get('error'):
+                return {
+                    'home_style': 'Unknown',
+                    'away_style': 'Unknown',
+                    'formation_matchup': 'Unknown',
+                    'tactical_advantage': 'Unknown',
+                    'error': f"Home team data unavailable: {home_details.get('error') if home_details else 'Not found'}"
+                }
+            
+            if not away_details or away_details.get('error'):
+                return {
+                    'home_style': 'Unknown',
+                    'away_style': 'Unknown',
+                    'formation_matchup': 'Unknown',
+                    'tactical_advantage': 'Unknown',
+                    'error': f"Away team data unavailable: {away_details.get('error') if away_details else 'Not found'}"
+                }
+            
+            # Extract tactical information
+            # FotMob may provide formation, playing style, etc.
+            home_stats = home_details.get('stats', {})
+            away_stats = away_details.get('stats', {})
+            
+            # Analyze playing styles (estimated from stats)
+            home_style = self._estimate_playing_style(home_stats)
+            away_style = self._estimate_playing_style(away_stats)
+            
+            # Determine tactical advantage
+            advantage = self._calculate_tactical_advantage(home_stats, away_stats)
+            
+            result = {
+                'home_team': home_team,
+                'away_team': away_team,
+                'home_style': home_style,
+                'away_style': away_style,
+                'formation_matchup': 'Unknown',  # Would need lineup data
+                'tactical_advantage': advantage,
+                'key_factors': self._get_tactical_key_factors(home_stats, away_stats),
+                'error': None
+            }
+            
+            logger.info(f"✅ Tactical insights for {home_team} vs {away_team}: {advantage}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting tactical insights for {home_team} vs {away_team}: {e}")
+            return {
+                'home_style': 'Unknown',
+                'away_style': 'Unknown',
+                'formation_matchup': 'Unknown',
+                'tactical_advantage': 'Unknown',
+                'error': str(e)
+            }
+
+    def _estimate_playing_style(self, stats: Dict) -> str:
+        """Estimate playing style from team statistics."""
+        if not stats:
+            return 'Unknown'
+        
+        goals_avg = stats.get('goals_avg', 0)
+        shots_avg = stats.get('shots_avg', 0)
+        possession_avg = stats.get('possession_avg', 50)
+        
+        # Estimate style based on metrics
+        if goals_avg > 2.0 and shots_avg > 15:
+            return 'Attacking'
+        elif goals_avg < 1.0 and possession_avg > 55:
+            return 'Possession-based'
+        elif shots_avg > 12:
+            return 'Balanced'
+        else:
+            return 'Defensive'
+
+    def _calculate_tactical_advantage(self, home_stats: Dict, away_stats: Dict) -> str:
+        """Calculate tactical advantage based on team statistics."""
+        home_goals = home_stats.get('goals_avg', 0) or 0
+        away_goals = away_stats.get('goals_avg', 0) or 0
+        
+        if home_goals > away_goals * 1.3:
+            return 'Home team advantage'
+        elif away_goals > home_goals * 1.3:
+            return 'Away team advantage'
+        else:
+            return 'Balanced'
+
+    def _get_tactical_key_factors(self, home_stats: Dict, away_stats: Dict) -> List[str]:
+        """Get key tactical factors for analysis."""
+        factors = []
+        
+        home_goals = home_stats.get('goals_avg', 0) or 0
+        away_goals = away_stats.get('goals_avg', 0) or 0
+        
+        if abs(home_goals - away_goals) > 0.5:
+            factors.append(f'Goal difference: {abs(home_goals - away_goals):.1f}')
+        
+        home_cards = home_stats.get('cards_avg', 0) or 0
+        away_cards = away_stats.get('cards_avg', 0) or 0
+        
+        if home_cards > 3.0:
+            factors.append(f'Home team aggressive ({home_cards:.1f} cards/game)')
+        if away_cards > 3.0:
+            factors.append(f'Away team aggressive ({away_cards:.1f} cards/game)')
+        
+        return factors
+
 
 # Singleton instance
 _provider_instance = None

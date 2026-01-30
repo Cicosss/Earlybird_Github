@@ -2,7 +2,8 @@
 
 Guida definitiva per il deploy su Ubuntu VPS.
 
-**Novità V7.0:**
+**Novità V8.7:**
+- 🎯 **Elite Quality Filtering**: Soglie alzate (Standard: 9.0, Radar: 7.5) per ridurre volume e aumentare qualità
 - Tavily AI Search: 7 API keys con rotazione automatica (7000 chiamate/mese)
 - Integrazione Tavily in: Intelligence Router, News Radar, Browser Monitor, Telegram Monitor, Settler, CLV Tracker, Twitter Intel Recovery
 - Circuit Breaker e fallback automatico a Brave/DDG
