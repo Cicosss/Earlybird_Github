@@ -13,10 +13,15 @@ Logica:
 - Se squadra A perde 2 titolari fissi e squadra B perde 2 riserve,
   il differential favorisce la scommessa CONTRO squadra A.
 - Se entrambe perdono giocatori di pari importanza, il differential è neutro.
+
+VPS Compatibility:
+- Pure Python implementation, no external dependencies
+- Stateless design - no file I/O or environment dependencies
+- Thread-safe for concurrent match analysis
 """
 import logging
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Any
+from dataclasses import dataclass, field
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -48,6 +53,17 @@ class PlayerImpact:
     impact_score: float  # 0.0 - 10.0
     reason: str  # Motivo assenza (injury, suspension, etc.)
     is_key_player: bool  # Capitano, top scorer, etc.
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'name': self.name,
+            'position': self.position.value,
+            'role': self.role.value,
+            'impact_score': self.impact_score,
+            'reason': self.reason,
+            'is_key_player': self.is_key_player
+        }
 
 
 @dataclass
@@ -58,10 +74,10 @@ class TeamInjuryImpact:
     missing_starters: int
     missing_rotation: int
     missing_backups: int
-    key_players_out: List[str]
-    defensive_impact: float  # Impatto sulla difesa (0-10)
-    offensive_impact: float  # Impatto sull'attacco (0-10)
-    players: List[PlayerImpact]
+    key_players_out: List[str] = field(default_factory=list)
+    defensive_impact: float = 0.0  # Impatto sulla difesa (0-10)
+    offensive_impact: float = 0.0  # Impatto sull'attacco (0-10)
+    players: List[PlayerImpact] = field(default_factory=list)
     
     @property
     def severity(self) -> str:
@@ -74,6 +90,27 @@ class TeamInjuryImpact:
             return "MEDIUM"
         else:
             return "LOW"
+    
+    @property
+    def total_missing(self) -> int:
+        """Total number of missing players."""
+        return self.missing_starters + self.missing_rotation + self.missing_backups
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'team_name': self.team_name,
+            'total_impact_score': self.total_impact_score,
+            'missing_starters': self.missing_starters,
+            'missing_rotation': self.missing_rotation,
+            'missing_backups': self.missing_backups,
+            'key_players_out': self.key_players_out,
+            'defensive_impact': self.defensive_impact,
+            'offensive_impact': self.offensive_impact,
+            'severity': self.severity,
+            'total_missing': self.total_missing,
+            'players': [p.to_dict() for p in self.players]
+        }
 
 
 # ============================================
@@ -484,13 +521,31 @@ class InjuryDifferential:
     def favors_away(self) -> bool:
         """True se gli infortuni favoriscono la squadra ospite."""
         return self.differential > 0  # Home più colpita = favorisce Away
+    
+    @property
+    def is_balanced(self) -> bool:
+        """True se l'impatto è bilanciato tra le due squadre."""
+        return abs(self.differential) < 2.0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'home_impact': self.home_impact.to_dict(),
+            'away_impact': self.away_impact.to_dict(),
+            'differential': self.differential,
+            'score_adjustment': self.score_adjustment,
+            'summary': self.summary,
+            'favors_home': self.favors_home,
+            'favors_away': self.favors_away,
+            'is_balanced': self.is_balanced
+        }
 
 
 def calculate_injury_differential(
     home_team: str,
     away_team: str,
-    home_injuries: List[Dict],
-    away_injuries: List[Dict],
+    home_injuries: Optional[List[Dict]] = None,
+    away_injuries: Optional[List[Dict]] = None,
     home_squad: Optional[Dict] = None,
     away_squad: Optional[Dict] = None,
     home_key_players: Optional[List[str]] = None,
@@ -502,8 +557,8 @@ def calculate_injury_differential(
     Args:
         home_team: Nome squadra casa
         away_team: Nome squadra ospite
-        home_injuries: Lista infortuni casa
-        away_injuries: Lista infortuni ospite
+        home_injuries: Lista infortuni casa (default: empty list)
+        away_injuries: Lista infortuni ospite (default: empty list)
         home_squad: Rosa completa casa (opzionale)
         away_squad: Rosa completa ospite (opzionale)
         home_key_players: Key players casa (opzionale)
@@ -512,17 +567,30 @@ def calculate_injury_differential(
     Returns:
         InjuryDifferential con analisi completa
     """
+    # Normalize inputs
+    home_injuries = home_injuries or []
+    away_injuries = away_injuries or []
+    
+    # Validate team names
+    if not home_team or not isinstance(home_team, str):
+        logger.warning(f"Invalid home_team provided: {home_team}")
+        home_team = "Unknown Home"
+    
+    if not away_team or not isinstance(away_team, str):
+        logger.warning(f"Invalid away_team provided: {away_team}")
+        away_team = "Unknown Away"
+    
     # Calcola impatto per entrambe le squadre
     home_impact = calculate_team_injury_impact(
         team_name=home_team,
-        injuries=home_injuries or [],
+        injuries=home_injuries,
         squad_data=home_squad,
         key_players=home_key_players
     )
     
     away_impact = calculate_team_injury_impact(
         team_name=away_team,
-        injuries=away_injuries or [],
+        injuries=away_injuries,
         squad_data=away_squad,
         key_players=away_key_players
     )
@@ -673,10 +741,10 @@ def analyze_match_injuries(
         InjuryDifferential con analisi completa
     """
     # Estrai injuries dai context (safe access)
-    home_injuries = []
-    away_injuries = []
-    home_squad = None
-    away_squad = None
+    home_injuries: List[Dict] = []
+    away_injuries: List[Dict] = []
+    home_squad: Optional[Dict] = None
+    away_squad: Optional[Dict] = None
     
     if home_context and isinstance(home_context, dict):
         home_injuries = home_context.get('injuries') or []
@@ -696,3 +764,23 @@ def analyze_match_injuries(
         home_key_players=home_key_players,
         away_key_players=away_key_players
     )
+
+
+# ============================================
+# MODULE EXPORTS
+# ============================================
+
+__all__ = [
+    'PlayerRole',
+    'PlayerPosition',
+    'PlayerImpact',
+    'TeamInjuryImpact',
+    'InjuryDifferential',
+    'detect_position_from_group',
+    'detect_position_from_player_data',
+    'estimate_player_role',
+    'calculate_player_impact',
+    'calculate_team_injury_impact',
+    'calculate_injury_differential',
+    'analyze_match_injuries',
+]

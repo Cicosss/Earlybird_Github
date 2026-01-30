@@ -736,4 +736,3 @@ def is_intelligence_available() -> bool:
     except Exception as e:
         logger.error(f"Error checking intelligence availability: {e}")
         return False
-    return get_intelligence_router().is_available()

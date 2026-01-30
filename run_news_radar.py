@@ -20,6 +20,7 @@ import logging
 import signal
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -43,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # Global monitor instance for signal handling
 _monitor: NewsRadarMonitor = None
-_shutdown_event: asyncio.Event = None
+_shutdown_event: Optional[asyncio.Event] = None
 
 
 def signal_handler(signum, frame):

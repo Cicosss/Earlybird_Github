@@ -19,11 +19,14 @@ but provides a safety net when all other sources fail.
 V4.5: Added query sanitization and post-fetch filtering for sport exclusions.
       Mediastack API doesn't support -term syntax, so we clean the query
       and filter results after fetching.
+
+Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 import html
 import logging
 import re
 from typing import List, Dict, Optional
+from urllib.parse import quote
 
 from config.settings import MEDIASTACK_API_KEY
 from src.utils.http_client import get_http_client
@@ -184,6 +187,10 @@ class MediastackProvider:
         logger.debug(f"🆘 [MEDIASTACK] Cleaned query: {clean_query[:60]}...")
         
         try:
+            # Phase 1 Critical Fix: URL-encode query to handle special characters
+            # This fixes search failures for non-English team names
+            encoded_query = quote(clean_query, safe=' ')
+            
             # Mediastack uses query params, not headers for auth
             response = self._http_client.get_sync(
                 MEDIASTACK_API_URL,
@@ -191,7 +198,7 @@ class MediastackProvider:
                 use_fingerprint=False,  # API calls don't need fingerprinting
                 params={
                     "access_key": self._api_key,
-                    "keywords": clean_query,  # Use cleaned query
+                    "keywords": encoded_query,  # Use URL-encoded cleaned query
                     "countries": countries,
                     "languages": "en,it,es,pt,de,fr",
                     "limit": min(limit * 2, 100),  # Request more to compensate for filtering

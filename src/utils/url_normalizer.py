@@ -11,7 +11,7 @@ V1.0 - Initial implementation for Deep Research improvements
 import re
 import hashlib
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -260,7 +260,7 @@ class NewsDeduplicator:
     def __init__(self):
         self._seen_urls: Set[str] = set()
         self._seen_content: Set[str] = set()
-        self._url_to_content: dict = {}  # Map URL hash to content signature
+        self._url_to_content: Dict[str, str] = {}  # Map URL hash to content signature
     
     def is_duplicate(
         self, 
@@ -320,7 +320,7 @@ class NewsDeduplicator:
         self._seen_content.clear()
         self._url_to_content.clear()
     
-    def get_stats(self) -> dict:
+    def get_stats(self) -> Dict[str, int]:
         """Get deduplication statistics."""
         return {
             'unique_urls': len(self._seen_urls),

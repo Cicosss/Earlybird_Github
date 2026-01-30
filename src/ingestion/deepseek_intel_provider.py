@@ -16,11 +16,16 @@ Requirements:
 - OPENROUTER_API_KEY environment variable
 - DDG library (ddgs) for primary search
 - Brave Search API (via BraveSearchProvider) as fallback
+
+Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 import logging
 import os
+import threading
 import time
+from datetime import datetime
 from typing import Dict, List, Optional
+from urllib.parse import quote
 
 from src.ingestion.brave_provider import get_brave_provider
 from src.ingestion.search_provider import get_search_provider
@@ -32,6 +37,7 @@ from src.ingestion.prompts import (
     build_match_context_enrichment_prompt
 )
 from src.utils.ai_parser import parse_ai_json, normalize_deep_dive_response
+from src.utils.http_client import get_http_client
 
 # V6.0: CooldownManager import removed - OpenRouter/DeepSeek has high rate limits
 # and should not share cooldown state with Gemini Direct API
@@ -65,6 +71,7 @@ class DeepSeekIntelProvider:
         self._enabled = False
         self._last_request_time = 0.0  # For rate limiting
         self._brave_provider = None
+        self._http_client = None  # Centralized HTTP client
         
         if not self._api_key:
             logger.warning("⚠️ DeepSeek Intel Provider disabled: OPENROUTER_API_KEY not set")
@@ -73,6 +80,7 @@ class DeepSeekIntelProvider:
         try:
             self._brave_provider = get_brave_provider()
             self._search_provider = get_search_provider()  # V6.1: DDG primary for DeepSeek
+            self._http_client = get_http_client()  # Use centralized HTTP client
             self._enabled = True
             logger.info("🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)")
         except Exception as e:
@@ -138,6 +146,9 @@ class DeepSeekIntelProvider:
         
         Gestisce errori gracefully (return empty list on failure).
         
+        Phase 1 Critical Fix: URL-encode query to handle non-ASCII characters
+        (e.g., Turkish "ş", Polish "ą", Greek "α").
+        
         Requirements: 3.1, 3.3, 3.4
         
         Args:
@@ -147,12 +158,16 @@ class DeepSeekIntelProvider:
         Returns:
             List of dicts with title, url, snippet
         """
+        # Phase 1 Critical Fix: URL-encode query to handle special characters
+        # This fixes search failures for non-English team names
+        encoded_query = quote(query, safe=' ')
+        
         # V6.1: Try SearchProvider first (DDG primary, then Brave fallback)
         # This saves Brave quota for news_hunter which needs higher quality results
         if hasattr(self, '_search_provider') and self._search_provider:
             try:
                 logger.debug(f"🔍 [DEEPSEEK] DDG search: {query[:60]}...")
-                results = self._search_provider.search(query, limit)
+                results = self._search_provider.search(encoded_query, limit)
                 if results:
                     logger.debug(f"🔍 [DEEPSEEK] DDG returned {len(results)} results")
                     return results
@@ -166,7 +181,7 @@ class DeepSeekIntelProvider:
         
         try:
             logger.debug(f"🔍 [DEEPSEEK] Brave fallback: {query[:60]}...")
-            results = self._brave_provider.search_news(query, limit=limit)
+            results = self._brave_provider.search_news(encoded_query, limit=limit)
             logger.debug(f"🔍 [DEEPSEEK] Brave returned {len(results)} results")
             return results
         except Exception as e:
@@ -269,8 +284,6 @@ Be conservative in your assessments when lacking current data.
         Returns:
             Raw response text or None on failure
         """
-        import httpx
-        
         # V6.0: CooldownManager check removed
         # OpenRouter/DeepSeek has much higher rate limits than Gemini Direct API
         
@@ -296,12 +309,19 @@ Be conservative in your assessments when lacking current data.
         try:
             logger.info(f"🤖 [DEEPSEEK] {operation_name}...")
             
-            with httpx.Client(timeout=60.0) as client:
-                response = client.post(
-                    OPENROUTER_API_URL,
-                    headers=headers,
-                    json=payload
-                )
+            # Use centralized HTTP client instead of creating new client
+            if not self._http_client:
+                logger.error("❌ [DEEPSEEK] HTTP client not initialized")
+                return None
+            
+            response = self._http_client.post_sync(
+                OPENROUTER_API_URL,
+                rate_limit_key="openrouter",
+                headers=headers,
+                json=payload,
+                timeout=60,
+                max_retries=2
+            )
             
             # Handle 429 rate limit
             # V6.0: Log warning but do NOT activate global cooldown
@@ -336,9 +356,6 @@ Be conservative in your assessments when lacking current data.
             logger.info(f"✅ [DEEPSEEK] {operation_name} complete")
             return content
             
-        except httpx.TimeoutException:
-            logger.error(f"❌ [DEEPSEEK] Timeout for {operation_name}")
-            return None
         except Exception as e:
             logger.error(f"❌ [DEEPSEEK] Error in {operation_name}: {e}")
             return None
@@ -448,6 +465,47 @@ Be conservative in your assessments when lacking current data.
             "weather_impact": safe_str(data.get("weather_impact")),
             "additional_context": safe_str(data.get("additional_context"), ""),
             "data_freshness": safe_str(data.get("data_freshness"), "Unknown"),
+        }
+    
+    def _normalize_betting_stats(self, data: Dict) -> Dict:
+        """Normalize betting stats response with safe defaults."""
+        def safe_str(val, default="Unknown"):
+            if val is None or val == "":
+                return default
+            return str(val)
+        
+        def safe_float(val, default=0.0):
+            if val is None:
+                return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+        
+        def safe_int(val, default=0):
+            if val is None:
+                return default
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return default
+        
+        return {
+            "avg_corners_home": safe_float(data.get("avg_corners_home")),
+            "avg_corners_away": safe_float(data.get("avg_corners_away")),
+            "avg_corners_total": safe_float(data.get("avg_corners_total")),
+            "avg_cards_home": safe_float(data.get("avg_cards_home")),
+            "avg_cards_away": safe_float(data.get("avg_cards_away")),
+            "avg_cards_total": safe_float(data.get("avg_cards_total")),
+            "recent_corners_trend": safe_str(data.get("recent_corners_trend")),
+            "recent_cards_trend": safe_str(data.get("recent_cards_trend")),
+            "h2h_corners_avg": safe_float(data.get("h2h_corners_avg")),
+            "h2h_cards_avg": safe_float(data.get("h2h_cards_avg")),
+            "over_corners_recommendation": safe_str(data.get("over_corners_recommendation")),
+            "over_cards_recommendation": safe_str(data.get("over_cards_recommendation")),
+            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
+            "data_freshness": safe_str(data.get("data_freshness"), "Unknown"),
+            "additional_context": safe_str(data.get("additional_context"), ""),
         }
 
 
@@ -953,8 +1011,6 @@ Be conservative in your assessments when lacking current data.
             return None
         
         try:
-            from datetime import datetime
-            
             # V6.2 FIX: Process ALL handles in batches of 10
             BATCH_SIZE = 10
             all_accounts = []
@@ -1158,15 +1214,23 @@ RULES:
 # ============================================
 
 _deepseek_instance: Optional[DeepSeekIntelProvider] = None
+_deepseek_lock = threading.Lock()
 
 
 def get_deepseek_provider() -> DeepSeekIntelProvider:
     """
-    Get or create the singleton DeepSeekIntelProvider instance.
+    Get or create singleton DeepSeekIntelProvider instance (thread-safe).
+    
+    Uses double-checked locking pattern for thread safety.
     
     Requirements: 8.1, 8.2, 8.3
     """
     global _deepseek_instance
+    
     if _deepseek_instance is None:
-        _deepseek_instance = DeepSeekIntelProvider()
+        with _deepseek_lock:
+            if _deepseek_instance is None:
+                _deepseek_instance = DeepSeekIntelProvider()
+                logger.debug("🤖 [DEEPSEEK] Global DeepSeekIntelProvider instance initialized")
+    
     return _deepseek_instance

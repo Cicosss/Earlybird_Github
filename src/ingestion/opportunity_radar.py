@@ -163,6 +163,15 @@ class OpportunityRadar:
                     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
                     return {k: v for k, v in data.items() if v.get('timestamp', '') > cutoff}
             return {}
+        except FileNotFoundError:
+            logger.debug(f"Processed URLs file not found: {PROCESSED_URLS_FILE}")
+            return {}
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in processed URLs file: {e}")
+            return {}
+        except PermissionError as e:
+            logger.error(f"Permission denied reading processed URLs: {e}")
+            return {}
         except Exception as e:
             logger.warning(f"Could not load processed URLs: {e}")
             return {}
@@ -173,6 +182,10 @@ class OpportunityRadar:
             PROCESSED_URLS_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(PROCESSED_URLS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.processed_urls, f, indent=2, ensure_ascii=False)
+        except PermissionError as e:
+            logger.error(f"Permission denied saving processed URLs: {e}")
+        except OSError as e:
+            logger.error(f"OS error saving processed URLs: {e}")
         except Exception as e:
             logger.warning(f"Could not save processed URLs: {e}")
     
@@ -230,12 +243,17 @@ class OpportunityRadar:
             logger.warning("No search backend available")
             return []
         
+        # Check if Serper credits are exhausted
+        serper_credits_exhausted = False
         try:
             from src.processing.news_hunter import _SERPER_CREDITS_EXHAUSTED
-            if _SERPER_CREDITS_EXHAUSTED:
-                return []
+            serper_credits_exhausted = _SERPER_CREDITS_EXHAUSTED
         except ImportError as e:
             logger.debug(f"Could not import _SERPER_CREDITS_EXHAUSTED: {e}")
+        
+        if serper_credits_exhausted:
+            logger.warning("Serper credits exhausted, skipping search")
+            return []
         
         query = self._build_search_query(region, config)
         
@@ -366,7 +384,8 @@ RULES:
             if match_time_str:
                 try:
                     match_time = datetime.fromisoformat(match_time_str.replace('Z', '+00:00'))
-                except:
+                except (ValueError, TypeError) as e:
+                    logger.debug(f"Could not parse match time '{match_time_str}': {e}")
                     pass
             
             is_home = next_match.get('home', True)
@@ -427,7 +446,7 @@ RULES:
             return match_id
             
         except Exception as e:
-            logger.error(f"DB error: {e}")
+            logger.error(f"DB error creating match for {team_name}: {e}")
             db.rollback()
             return None
         finally:
@@ -463,13 +482,13 @@ RULES:
             import importlib
             main_module = importlib.import_module('src.main')
             analyze_fn = getattr(main_module, 'analyze_single_match', None)
-            if analyze_fn:
+            if analyze_fn and callable(analyze_fn):
                 analyze_fn(match_id, forced_narrative=forced_narrative)
                 logger.info(f"✅ Pipeline triggered for {canonical_name}")
             else:
-                logger.warning("analyze_single_match not found in main.py")
-        except ImportError:
-            logger.warning("analyze_single_match not yet implemented in main.py")
+                logger.warning("analyze_single_match not found or not callable in main.py")
+        except ImportError as e:
+            logger.warning(f"Could not import main.py: {e}")
         except Exception as e:
             logger.error(f"Pipeline trigger failed: {e}")
     

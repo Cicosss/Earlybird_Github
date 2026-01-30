@@ -190,7 +190,6 @@ SOURCE_DECAY_MODIFIERS = {
     "beat_writer": 0.7,         # Decay 30% slower
     "beat_writer_priority": 0.7,
     "mainstream": 1.0,          # Normal decay
-    "reddit": 1.2,              # Decay 20% faster
     "unknown": 1.5,             # Decay 50% faster
 }
 
@@ -490,7 +489,7 @@ __all__ = [
     "FATIGUE_CRITICAL_HOURS", "FATIGUE_OPTIMAL_HOURS", "FATIGUE_WINDOW_DAYS",
     "FATIGUE_LATE_GAME_THRESHOLD",
     # Providers
-    "DEEPSEEK_INTEL_ENABLED", "PERPLEXITY_ENABLED", "REDDIT_ENABLED", "TAVILY_ENABLED",
+    "DEEPSEEK_INTEL_ENABLED", "PERPLEXITY_ENABLED", "TAVILY_ENABLED",
     # Tavily Config
     "TAVILY_API_KEYS", "TAVILY_RATE_LIMIT_SECONDS", "TAVILY_CACHE_TTL_SECONDS",
     "TAVILY_BUDGET_ALLOCATION", "TAVILY_MONTHLY_BUDGET",

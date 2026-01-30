@@ -8,7 +8,7 @@ Provides utilities for:
 - Multi-language pattern support
 - Multi-currency value extraction
 
-Used by: verification_layer.py OptimizedResponseParser
+Used by: verification_layer.py, OptimizedResponseParser
 
 Requirements: Supports all leagues (Turkey, Greece, Japan, China, Brazil, etc.)
 """

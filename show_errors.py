@@ -77,25 +77,25 @@ def main():
     if args and args[0].isdigit():
         n = int(args[0])
     
-    print(f"🔍 Ultimi {n} errori/warning da {LOG_FILE}:\n")
+    print(f"🔍 Last {n} errors/warnings from {LOG_FILE}:\n")
     print("=" * 80)
     
     errors = get_last_errors(n)
     
     if not errors:
-        print("✅ Nessun errore/warning trovato!")
+        print("✅ No errors/warnings found!")
     else:
         for err in errors:
             print(err)
     
     print("=" * 80)
-    print(f"\n📊 Totale: {len(errors)} errori/warning")
+    print(f"\n📊 Total: {len(errors)} errors/warnings")
     
     # Summary by type
     error_count = sum(1 for e in errors if '❌' in e)
     warning_count = sum(1 for e in errors if '⚠️' in e)
-    print(f"   ❌ Errori: {error_count}")
-    print(f"   ⚠️ Warning: {warning_count}")
+    print(f"   ❌ Errors: {error_count}")
+    print(f"   ⚠️ Warnings: {warning_count}")
 
 if __name__ == "__main__":
     main()

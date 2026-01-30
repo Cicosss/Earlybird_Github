@@ -8,7 +8,7 @@ Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI
 
 ### 🤖 AI Engine (DeepSeek V3 via OpenRouter)
 - **Primary Provider**: DeepSeek con Brave Search grounding (high rate limits, no cooldown)
-- **Reasoning Mode**: Analisi con trace `<think>` per decisioni trasparenti
+- **Reasoning Mode**: Analisi con trace per decisioni trasparenti
 - **Triangulation Engine**: Correla 6 fonti dati (FotMob + Odds + News + Weather + Twitter Intel + Tavily)
 - **Italian Localization**: Output sempre in italiano per il mercato target
 - **Fallback System**: Perplexity Sonar come fallback per errori transitori
@@ -58,10 +58,29 @@ Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI
 - **TIER 1 - DuckDuckGo**: Free fallback (`ddgs` package)
 - **TIER 1 - Serper**: Emergency paid fallback
 - **Anti-Ban Jitter**: Delay random 3-6s tra ricerche per evitare rate limits
+- **DEEP DIVE ON DEMAND** ⭐ V8.0 NEW: Upgrade shallow search results to full article content when high-value keywords detected
 
 > **V8.0**: Reddit monitoring removed - provided no betting edge (rumors arrived too late).
 
-### 🐦 Twitter Intel Cache (V7.0)
+### 📖 Deep Dive on Demand (V8.0) ⭐ NEW
+
+Funzionalità per trasformare risultati di ricerca "Shallow" in contenuto "Deep" quando il contesto suggerisce informazioni ad alto valore.
+
+- **Trigger**: Keywords ad alto valore (injury, squad, turnover, suspension, transfer) nel titolo/snippet
+- **Azione**: Visita l'URL ed estrae il testo completo dell'articolo
+- **Tecnologia**: Trafilatura + HTTP client centralizzato
+- **Configurazione**: `DEEP_DIVE_ENABLED`, `DEEP_DIVE_MAX_ARTICLES` (default: 3)
+- **Fallback**: Se il deep dive fallisce, mantiene lo snippet originale
+- **File**: `src/utils/article_reader.py`
+- **Integrazione**: `src/processing/news_hunter.py` dopo la raccolta dei risultati di ricerca
+
+**Flusso Semplificato**:
+```
+Search Results (Shallow) → Keyword Check → High-Value? → Deep Dive → Full Content → AI Analysis
+```
+
+Questo garantisce che i dettagli critici non vengano persi mantenendo le prestazioni.
+### � Twitter Intel Cache (V7.0)
 - **Cycle-Start Refresh**: Cache popolata all'inizio di ogni ciclo
 - **DeepSeek + Nitter**: Estrazione tweet da insider accounts configurati
 - **Relevance Filter**: AI scoring per match-specific relevance
@@ -143,6 +162,19 @@ cp .env.example .env
 # 3. Launch (Headless Mode)
 python go_live.py
 ```
+
+## 🔒 Security
+
+EarlyBird follows strict security practices to protect your data and credentials:
+
+- **No Backdoors**: All unauthorized access mechanisms have been completely removed (January 2026 security cleanup)
+- **API Key Protection**: All credentials stored in `.env` file (excluded from version control)
+- **Secure Deployment**: Standard deployment methods with no hidden access points
+- **VPS Security**: Comprehensive security best practices documented in [`SECURITY.md`](SECURITY.md)
+
+**Security Status**: ✅ Verified - No unauthorized access mechanisms in codebase
+
+For detailed security information, see [`SECURITY.md`](SECURITY.md).
 
 ## 🤖 Componenti del Sistema
 
@@ -357,6 +389,7 @@ earlybird/
 │   │   ├── discovery_queue.py  # Thread-safe queue ⭐ V6.0
 │   │   ├── parallel_enrichment.py  # FotMob parallel ⭐ V6.0
 │   │   ├── freshness.py        # Centralized freshness tags
+│   │   ├── article_reader.py    # Deep Dive on Demand ⭐ V8.0 NEW
 │   │   ├── smart_cache.py
 │   │   ├── http_client.py
 │   │   └── ai_parser.py
@@ -400,6 +433,13 @@ earlybird/
 ### V4.3
 - **Fatigue Engine V2.0**: Exponential decay + squad depth + late-game prediction
 - **Biscotto Engine V2.0**: Z-Score + end-of-season + mutual benefit
+
+### V8.0 (Current) ⭐ NEW
+- **Deep Dive on Demand**: Upgrade shallow search results to full article content when high-value keywords detected
+- **Article Reader Module**: `src/utils/article_reader.py` con Trafilatura per estrazione testo completo
+- **Integrazione NewsHunter**: Configurazione `DEEP_DIVE_*` in `src/processing/news_hunter.py`
+- **Keyword Trigger**: Multi-language (English, Italian, Spanish, Portuguese, Polish, Turkish)
+- **Performance**: Max 3 deep dive per search, timeout 15s, snippet threshold 500 chars
 - **League-Specific Home Advantage**: HA dinamico per lega (0.22-0.40)
 - **News Decay Adattivo**: λ per tier di lega
 

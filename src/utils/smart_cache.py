@@ -15,6 +15,7 @@ when it matters most (close to kickoff).
 
 Author: EarlyBird AI
 """
+import functools
 import logging
 import time
 from datetime import datetime, timezone, timedelta
@@ -53,13 +54,6 @@ DEFAULT_TTL_SECONDS = 30 * 60  # 30 minutes
 
 # Maximum cache size (entries)
 MAX_CACHE_SIZE = 500
-
-# Cache statistics
-_cache_stats = {
-    'hits': 0,
-    'misses': 0,
-    'evictions': 0,
-}
 
 
 @dataclass
@@ -404,6 +398,7 @@ def cached_with_match_time(
             ...
     """
     def decorator(func: Callable):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Generate cache key
             try:
@@ -421,16 +416,13 @@ def cached_with_match_time(
             result = func(*args, **kwargs)
             
             # Store in cache (extract match_time from kwargs)
-            # FIX: Only cache if result is not None (unless cache_none=True)
+            # Only cache if result is not None (unless cache_none=True)
             if result is not None or cache_none:
                 match_time = kwargs.get(match_time_arg)
                 cache.set(cache_key, result, match_time=match_time)
             
             return result
         
-        # Preserve function metadata
-        wrapper.__name__ = func.__name__
-        wrapper.__doc__ = func.__doc__
         return wrapper
     return decorator
 

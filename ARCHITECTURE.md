@@ -17,6 +17,33 @@ EarlyBird è un sistema di betting intelligence **self-learning** che utilizza t
 - ⚡ **Parallel Enrichment**: FotMob calls parallelizzate (~15s → ~4s per match)
 - 📦 **Discovery Queue**: Thread-safe communication per Browser Monitor
 
+## Security
+
+EarlyBird implements comprehensive security measures to protect sensitive data and ensure system integrity:
+
+### Security Status (January 2026)
+- ✅ **No Backdoors**: All unauthorized access mechanisms have been completely removed
+- ✅ **Verified Codebase**: Comprehensive security audit completed
+- ✅ **Secure Deployment**: Standard deployment methods with no hidden access points
+
+### Security Measures
+- **API Key Management**: All credentials stored in `.env` file (excluded from version control)
+- **Database Security**: SQLite with WAL mode, connection pooling, and proper timeout handling
+- **Network Security**: No open ports, outbound connections only, rate limiting
+- **Input Validation**: Centralized validators and contract testing
+- **VPS Security**: Comprehensive best practices for secure deployment
+
+### What Was Removed
+As part of the January 2026 security cleanup, the following unauthorized components were removed:
+- `backdoor_config.sh` - SSH reverse tunnel configuration
+- `deploy_to_vps_with_backdoor.sh` - Deployment script with backdoor
+- `setup_backdoor_ubuntu24.sh` - Backdoor setup script
+- `audit_logger.py` - Backdoor monitoring system
+
+**Note**: All legitimate proxy functionality (Twitter proxy, corner proxy, cache bypass) remains as these are standard features for data acquisition.
+
+For detailed security information, see [`SECURITY.md`](SECURITY.md).
+
 ## System Flow
 
 ```
@@ -193,6 +220,8 @@ EarlyBird è un sistema di betting intelligence **self-learning** che utilizza t
 │  │  Fallback 2: DuckDuckGo (ddgs) - FREE, no API key               │    │
 │  │  Emergency: Serper (API) - PAID                                 │    │
 │  │  Anti-Ban: Jitter 3-6s + Stealth Headers                        │    │
+│  │  DEEP DIVE ON DEMAND ⭐ V8.0 NEW: Upgrade shallow search results   │    │
+│  │  to full article content when high-value keywords detected                  │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                          │
 │  ORCHESTRATOR: news_hunter.py                                           │

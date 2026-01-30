@@ -847,7 +847,8 @@ def settle_pending_bets(lookback_hours: int = 48) -> Dict:
         for exp_type, data in expansion_performance.items():
             logger.info(f"   {exp_type}: {data['wins']}W/{data['losses']}L ({data['win_rate']}%)")
 
-    if total_bets >= 10 and false_positive_rate > 40.0:
+    if total_bets >= 10 and stats.get('false_positive_rate', 0) > 40.0:
+        false_positive_rate = stats['false_positive_rate']
         alert_msg = (
             f" <b>ALERT: False Positive Rate Alto</b>\n\n"
             f" Loss Rate: {false_positive_rate:.1f}% ({stats['losses']}/{total_bets} bets)\n"

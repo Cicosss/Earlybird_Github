@@ -1,22 +1,41 @@
+"""
+EarlyBird News Hunter Module V8.0
+
+Multi-tier news aggregation system for betting intelligence:
+- TIER 0: Browser Monitor (active web monitoring)
+- TIER 0: A-League Scraper (direct scraping for Australian league)
+- TIER 0.5: Beat Writer Priority (Twitter Intel Cache)
+- TIER 1: Hyper-local news search (site-dorked)
+- TIER 2: Insider intel (placeholder for future expansion)
+
+VPS Compatibility:
+- Uses environment variables for API keys
+- Implements rate limiting for all external APIs
+- Graceful fallbacks when services are unavailable
+- Thread-safe discovery queue integration
+"""
+
 import logging
 import time
 import os
 import requests
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Tuple
+from datetime import datetime, timezone, timedelta
+from threading import Lock
+import uuid
+
 from config.settings import SERPER_API_KEY, NATIVE_KEYWORDS
 from src.database.models import TeamAlias, SessionLocal, Match as MatchModel
 from src.processing.sources_config import (
     get_sources_for_league, 
     get_keywords_for_league,
-    build_site_dork_query,
     get_country_from_league,
     get_insider_handles,
     get_beat_writers,
-    get_beat_writer_by_handle,
     BeatWriter
 )
+
 # V8.0: Reddit monitoring removed - provided no betting edge
-# from src.ingestion.reddit_monitor import run_reddit_monitor  # DEPRECATED
 
 # ============================================
 # NEWS DECAY (Market Intelligence Integration)
@@ -26,6 +45,16 @@ try:
     _NEWS_DECAY_AVAILABLE = True
 except ImportError:
     _NEWS_DECAY_AVAILABLE = False
+
+# ============================================
+# DEEP DIVE ON DEMAND (V8.1)
+# ============================================
+try:
+    from src.utils.article_reader import apply_deep_dive_to_results
+    _ARTICLE_READER_AVAILABLE = True
+except ImportError:
+    _ARTICLE_READER_AVAILABLE = False
+    logging.debug("Article reader not available for deep dive feature")
 
 # ============================================
 # SEARCH PROVIDER SELECTION
@@ -38,9 +67,7 @@ try:
     _SEARCH_PROVIDER_AVAILABLE = True
 except ImportError:
     _SEARCH_PROVIDER_AVAILABLE = False
-    LEAGUE_DOMAINS = {}
-
-
+    LEAGUE_DOMAINS: Dict[str, List[str]] = {}
 
 # Try to import A-League scraper (TIER 0 - direct scraping)
 try:
@@ -55,6 +82,7 @@ try:
     _BROWSER_MONITOR_AVAILABLE = True
 except ImportError:
     _BROWSER_MONITOR_AVAILABLE = False
+    DiscoveredNews = Any  # Type placeholder
 
 # ============================================
 # TWITTER INTEL CACHE V7.0 (Replaces broken site:twitter.com search)
@@ -64,15 +92,13 @@ try:
     _TWITTER_INTEL_CACHE_AVAILABLE = True
 except ImportError:
     _TWITTER_INTEL_CACHE_AVAILABLE = False
+    CachedTweet = Any  # Type placeholder
     logging.debug("Twitter Intel Cache not available for news_hunter")
 
 # ============================================
 # BROWSER MONITOR INTEGRATION (TIER 0)
 # V7.0: Now uses DiscoveryQueue for thread-safe communication
 # ============================================
-from datetime import datetime, timezone, timedelta
-from threading import Lock
-import uuid
 
 # V7.0: Try to use new DiscoveryQueue, fallback to legacy dict
 try:
@@ -80,9 +106,9 @@ try:
     _DISCOVERY_QUEUE_AVAILABLE = True
 except ImportError:
     _DISCOVERY_QUEUE_AVAILABLE = False
+    DiscoveryQueue = Any  # Type placeholder
 
 # Legacy storage (kept for backward compatibility during transition)
-# Will be removed in V8.0
 _browser_monitor_discoveries: Dict[str, List[Dict]] = {}
 _browser_monitor_lock = Lock()
 
@@ -131,7 +157,7 @@ except ImportError:
             return "📜 STALE"
 
 
-def register_browser_monitor_discovery(news: 'DiscoveredNews') -> None:
+def register_browser_monitor_discovery(news: Any) -> None:
     """
     Callback called by BrowserMonitor when relevant news is found.
     Stores the discovery for later retrieval by run_hunter_for_match.
@@ -147,24 +173,44 @@ def register_browser_monitor_discovery(news: 'DiscoveredNews') -> None:
     if not _BROWSER_MONITOR_AVAILABLE:
         return
     
+    # Safely extract attributes with defaults
+    try:
+        title = getattr(news, 'title', None) or "No title"
+        snippet = getattr(news, 'snippet', None) or ""
+        url = getattr(news, 'url', None) or ""
+        source_name = getattr(news, 'source_name', None) or "Unknown"
+        affected_team = getattr(news, 'affected_team', None) or "Unknown"
+        league_key = getattr(news, 'league_key', None) or "unknown"
+        category = getattr(news, 'category', None) or "general"
+        confidence = getattr(news, 'confidence', None) or 0.5
+        discovered_at = getattr(news, 'discovered_at', None)
+    except Exception as e:
+        logging.warning(f"Failed to extract news attributes: {e}")
+        return
+    
     # Calculate freshness for News Decay integration
     now = datetime.now(timezone.utc)
-    discovered_at = news.discovered_at if news.discovered_at else now
-    minutes_old = int((now - discovered_at).total_seconds() / 60) if discovered_at else 0
+    if discovered_at is None:
+        discovered_at = now
+    
+    try:
+        minutes_old = int((now - discovered_at).total_seconds() / 60)
+    except (TypeError, AttributeError):
+        minutes_old = 0
     
     # Use centralized freshness tag function
     freshness_tag = get_freshness_tag(minutes_old)
     
     # Build discovery data dict
-    discovery_data = {
+    discovery_data: Dict[str, Any] = {
         # Core fields (required by dossier builder)
         'match_id': None,  # Will be matched later
-        'team': news.affected_team,
-        'title': news.title,
-        'snippet': news.snippet,
-        'link': news.url,
-        'source': news.source_name,
-        'date': discovered_at.isoformat(),
+        'team': affected_team,
+        'title': title,
+        'snippet': snippet,
+        'link': url,
+        'source': source_name,
+        'date': discovered_at.isoformat() if hasattr(discovered_at, 'isoformat') else str(discovered_at),
         
         # News Decay fields
         'freshness_tag': freshness_tag,
@@ -174,43 +220,49 @@ def register_browser_monitor_discovery(news: 'DiscoveredNews') -> None:
         'keyword': 'browser_monitor',
         'search_type': 'browser_monitor',
         'confidence': 'HIGH',
-        'category': news.category,
+        'category': category,
         'priority_boost': 2.0,
         'source_type': 'browser_monitor',
-        'league_key': news.league_key,
-        'gemini_confidence': news.confidence,
-        'discovered_at': discovered_at.isoformat(),
+        'league_key': league_key,
+        'gemini_confidence': confidence,
+        'discovered_at': discovered_at.isoformat() if hasattr(discovered_at, 'isoformat') else str(discovered_at),
     }
     
     # V7.0: Use DiscoveryQueue if available
     if _DISCOVERY_QUEUE_AVAILABLE:
-        queue = get_discovery_queue()
-        queue.push(
-            data=discovery_data,
-            league_key=news.league_key,
-            team=news.affected_team,
-            title=news.title,
-            snippet=news.snippet,
-            url=news.url,
-            source_name=news.source_name,
-            category=news.category,
-            confidence=news.confidence
-        )
+        try:
+            queue = get_discovery_queue()
+            queue.push(
+                data=discovery_data,
+                league_key=league_key,
+                team=affected_team,
+                title=title,
+                snippet=snippet,
+                url=url,
+                source_name=source_name,
+                category=category,
+                confidence=confidence
+            )
+        except Exception as e:
+            logging.warning(f"DiscoveryQueue push failed, using legacy: {e}")
+            _legacy_store_discovery(discovery_data, league_key)
     else:
-        # Legacy fallback
-        discovery_uuid = str(uuid.uuid4())
-        discovery_data['_uuid'] = discovery_uuid
-        
-        with _browser_monitor_lock:
-            league_key = news.league_key
-            if league_key not in _browser_monitor_discoveries:
-                _browser_monitor_discoveries[league_key] = []
-            _browser_monitor_discoveries[league_key].append(discovery_data)
+        _legacy_store_discovery(discovery_data, league_key)
     
     # Safe logging
-    title_preview = news.title[:50] if news.title else "No title"
-    team_name = news.affected_team or "Unknown"
-    logging.info(f"🌐 [BROWSER-MONITOR] Registered discovery: {title_preview} for {team_name}")
+    title_preview = title[:50] if len(title) > 50 else title
+    logging.info(f"🌐 [BROWSER-MONITOR] Registered discovery: {title_preview} for {affected_team}")
+
+
+def _legacy_store_discovery(discovery_data: Dict[str, Any], league_key: str) -> None:
+    """Store discovery in legacy storage (fallback)."""
+    discovery_uuid = str(uuid.uuid4())
+    discovery_data['_uuid'] = discovery_uuid
+    
+    with _browser_monitor_lock:
+        if league_key not in _browser_monitor_discoveries:
+            _browser_monitor_discoveries[league_key] = []
+        _browser_monitor_discoveries[league_key].append(discovery_data)
 
 
 def get_browser_monitor_news(match_id: str, team_names: List[str], league_key: str) -> List[Dict]:
@@ -434,6 +486,43 @@ SERPER_NEWS_URL = "https://google.serper.dev/news"
 
 # Global flag to disable Serper when credits are exhausted
 _SERPER_CREDITS_EXHAUSTED = False
+
+# ============================================
+# DEEP DIVE ON DEMAND (V8.1)
+# ============================================
+# Configuration for upgrading shallow search results to full article content
+
+# Enable/disable deep dive feature
+DEEP_DIVE_ENABLED = True
+
+# Maximum articles to deep dive per search (to limit performance impact)
+DEEP_DIVE_MAX_ARTICLES = 3
+
+# Timeout for article fetch (seconds)
+DEEP_DIVE_TIMEOUT = 15
+
+# Snippet length threshold - skip deep dive if snippet is already long enough
+DEEP_DIVE_SNIPPET_THRESHOLD = 500
+
+# Keywords that indicate article contains valuable details
+# Multi-language support for injury, squad, tactical, and transfer news
+DEEP_DIVE_TRIGGERS = [
+    # Injury-related
+    "injury", "injured", "out", "ruled out", "doubtful",
+    "hamstring", "knee", "ankle", "muscle", "strain",
+    
+    # Squad-related
+    "squad", "lineup", "starting", "bench", "xi",
+    "missing", "absent", "unavailable", "sidelined",
+    
+    # Tactical/Transfer
+    "turnover", "suspension", "suspended", "transfer", "signing",
+    "loan", "deal", "agreement",
+    
+    # Multi-language
+    "infortunio", "lesión", "lesão", "kontuzja", "sakatlık",
+    "convocati", "formazione", "escalação", "kadro",
+]
 
 def _check_serper_response(response, query: str = None) -> bool:
     """
@@ -1485,13 +1574,26 @@ def search_news_generic(team_alias: str, keywords: List[str], country_code: str,
     return results
 
 
-def search_news(team_alias: str, language_code: str, match_id: str, league_key: str = None) -> List[Dict]:
+def search_news(team_alias: str, language_code: str, match_id: str, league_key: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Main search function - routes to local or generic search.
     
     If league_key is provided, uses hyper-local search with site-dorking.
     Otherwise falls back to generic keyword search.
+    
+    Args:
+        team_alias: Team name to search for
+        language_code: Language code for keywords (e.g., 'en', 'es')
+        match_id: Match ID for tracking
+        league_key: League API key for contextual search (optional)
+        
+    Returns:
+        List of news items as dictionaries
     """
+    if not team_alias or not isinstance(team_alias, str):
+        logging.warning("search_news called with invalid team_alias")
+        return []
+    
     if league_key:
         return search_news_local(team_alias, league_key, match_id)
     
@@ -1502,7 +1604,36 @@ def search_news(team_alias: str, language_code: str, match_id: str, league_key: 
 
 
 # ============================================
-# INSIDER INTEL LAYER (Beat Writers + Reddit Deep Scan)
+# MODULE EXPORTS
+# ============================================
+
+__all__ = [
+    'run_hunter_for_match',
+    'search_news',
+    'search_news_local',
+    'search_news_generic',
+    'search_beat_writers_priority',
+    'search_twitter_rumors',
+    'search_exotic_league',
+    'search_dynamic_country',
+    'register_browser_monitor_discovery',
+    'get_browser_monitor_news',
+    'clear_browser_monitor_discoveries',
+    'cleanup_expired_browser_monitor_discoveries',
+    'get_browser_monitor_stats',
+    'SERPER_REQUEST_TIMEOUT',
+    'SERPER_RATE_LIMIT_DELAY',
+    '_SERPER_CREDITS_EXHAUSTED',
+    'DEEP_DIVE_ENABLED',
+    'DEEP_DIVE_MAX_ARTICLES',
+    'DEEP_DIVE_TIMEOUT',
+    'DEEP_DIVE_SNIPPET_THRESHOLD',
+    'DEEP_DIVE_TRIGGERS',
+]
+
+
+# ============================================
+# INSIDER INTEL LAYER (Beat Writers)
 # ============================================
 
 def search_beat_writers(team_alias: str, league_key: str, match_id: str) -> List[Dict]:
@@ -1639,7 +1770,7 @@ def search_insiders(team_alias: str, league_key: str, match_id: str) -> List[Dic
     
     return []
 
-def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
+def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> List[Dict[str, Any]]:
     """
     Run full news hunt for a match: local news + Twitter + Insiders.
     
@@ -1667,16 +1798,23 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
         logging.error("run_hunter_for_match called with None match")
         return []
     
+    # Validate match has required attributes
+    if not hasattr(match, 'league') or not match.league:
+        logging.error("Match object missing 'league' attribute")
+        return []
+    
+    if not hasattr(match, 'home_team') or not hasattr(match, 'away_team'):
+        logging.error("Match object missing team attributes")
+        return []
+    
     db = SessionLocal()
     try:
         # match.league contains the sport_key (e.g., 'soccer_argentina_primera_division')
         sport_key = match.league
         
         # Get language from country mapping
-        # V6.1: Added 'egypt' mapping
-        # V7.1: Added Tier 2 countries (norway, france, belgium, austria, netherlands)
         country = get_country_from_league(sport_key)
-        COUNTRY_TO_LANG = {
+        COUNTRY_TO_LANG: Dict[str, str] = {
             # Elite 7
             'turkey': 'tr', 'argentina': 'es', 'mexico': 'es', 
             'greece': 'el', 'scotland': 'en', 'australia': 'en',
@@ -1690,19 +1828,22 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
         }
         lang = COUNTRY_TO_LANG.get(country, 'en')
         
-        # Get Aliases
-        home_alias = db.query(TeamAlias).filter(TeamAlias.api_name == match.home_team).first()
-        away_alias = db.query(TeamAlias).filter(TeamAlias.api_name == match.away_team).first()
+        # Get Aliases with safe attribute access
+        try:
+            home_alias = db.query(TeamAlias).filter(TeamAlias.api_name == match.home_team).first()
+            away_alias = db.query(TeamAlias).filter(TeamAlias.api_name == match.away_team).first()
+            
+            home_search_name = home_alias.search_name if home_alias and hasattr(home_alias, 'search_name') else match.home_team
+            away_search_name = away_alias.search_name if away_alias and hasattr(away_alias, 'search_name') else match.away_team
+        except Exception as e:
+            logging.warning(f"Failed to load team aliases: {e}")
+            home_search_name = match.home_team
+            away_search_name = match.away_team
         
-        home_search_name = home_alias.search_name if home_alias else match.home_team
-        away_search_name = away_alias.search_name if away_alias else match.away_team
-        
-        all_news = []
+        all_news: List[Dict[str, Any]] = []
         
         # ============================================
         # TIER 0: Browser Monitor (HIGHEST PRIORITY)
-        # Active web monitoring discovers breaking news before search engines
-        # Results tagged with confidence="HIGH" and priority_boost=2.0
         # ============================================
         browser_monitor_count = 0
         if _BROWSER_MONITOR_AVAILABLE:
@@ -1724,9 +1865,6 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
         
         # ============================================
         # TIER 0: A-League Dedicated Scraper (GOLDEN SOURCE)
-        # Direct scraping of aleagues.com.au "Ins & Outs" articles
-        # Publishes injury news 3-5 DAYS before matches - massive latency edge
-        # Only runs for A-League matches
         # ============================================
         aleague_count = 0
         if _ALEAGUE_SCRAPER_AVAILABLE and sport_key == "soccer_australia_aleague":
@@ -1735,11 +1873,9 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
             try:
                 scraper = get_aleague_scraper()
                 if scraper.is_available():
-                    # Home team
                     home_aleague_news = scraper.search_team_news(home_search_name, match.id)
                     all_news.extend(home_aleague_news)
                     
-                    # Away team
                     away_aleague_news = scraper.search_team_news(away_search_name, match.id)
                     all_news.extend(away_aleague_news)
                     
@@ -1752,73 +1888,88 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
                 logging.warning(f"A-League scraper error: {e}")
         
         # ============================================
-        # V4.3 TIER 0.5: BEAT WRITER PRIORITY SEARCH
-        # Called BEFORE generic searches to catch breaking news early
-        # Results tagged with confidence="HIGH" and priority_boost=1.5
+        # TIER 0.5: BEAT WRITER PRIORITY SEARCH
         # ============================================
         beat_writer_count = 0
         logging.info(f"⭐ Beat Writer Priority search for {sport_key}...")
         
-        # Home team beat writers
-        home_bw_news = search_beat_writers_priority(home_search_name, sport_key, match.id)
-        all_news.extend(home_bw_news)
-        
-        # Away team beat writers
-        away_bw_news = search_beat_writers_priority(away_search_name, sport_key, match.id)
-        all_news.extend(away_bw_news)
-        
-        beat_writer_count = len(home_bw_news) + len(away_bw_news)
-        if beat_writer_count > 0:
-            logging.info(f"   ⭐ Beat Writers added {beat_writer_count} HIGH confidence results")
+        try:
+            home_bw_news = search_beat_writers_priority(home_search_name, sport_key, match.id)
+            all_news.extend(home_bw_news)
+            
+            away_bw_news = search_beat_writers_priority(away_search_name, sport_key, match.id)
+            all_news.extend(away_bw_news)
+            
+            beat_writer_count = len(home_bw_news) + len(away_bw_news)
+            if beat_writer_count > 0:
+                logging.info(f"   ⭐ Beat Writers added {beat_writer_count} HIGH confidence results")
+        except Exception as e:
+            logging.warning(f"Beat writer search error: {e}")
         
         # ============================================
         # TIER 1: Local News + Twitter (via search_news)
         # ============================================
-        logging.info(f"🔍 Hunting news for Home: {home_search_name} [{sport_key}]")
-        home_news = search_news(home_search_name, lang, match.id, league_key=sport_key)
-        all_news.extend(home_news)
-        
-        logging.info(f"🔍 Hunting news for Away: {away_search_name} [{sport_key}]")
-        away_news = search_news(away_search_name, lang, match.id, league_key=sport_key)
-        all_news.extend(away_news)
-        
-        # ============================================
-        # V8.0: TIER 2 Reddit Monitor REMOVED
-        # Reddit provided no betting edge - rumors arrived too late.
-        # Saves ~3s latency per match and reduces API calls.
-        # ============================================
+        try:
+            logging.info(f"🔍 Hunting news for Home: {home_search_name} [{sport_key}]")
+            home_news = search_news(home_search_name, lang, match.id, league_key=sport_key)
+            all_news.extend(home_news)
+            
+            logging.info(f"🔍 Hunting news for Away: {away_search_name} [{sport_key}]")
+            away_news = search_news(away_search_name, lang, match.id, league_key=sport_key)
+            all_news.extend(away_news)
+        except Exception as e:
+            logging.error(f"News search error: {e}")
         
         # ============================================
-        # TIER 2: INSIDER INTEL (Placeholder for future sources)
-        # V8.0: Reddit deep scan removed, beat writers in TIER 0.5
-        # This layer is kept for future expansion (Telegram private, etc.)
+        # TIER 2: INSIDER INTEL (Placeholder)
         # ============================================
         if include_insiders:
-            # V8.0: search_insiders now returns empty list (placeholder)
-            # Keeping the call for future expansion
-            home_insider_news = search_insiders(home_search_name, sport_key, match.id)
-            away_insider_news = search_insiders(away_search_name, sport_key, match.id)
-            
-            insider_count = len(home_insider_news) + len(away_insider_news)
-            if insider_count > 0:
-                all_news.extend(home_insider_news)
-                all_news.extend(away_insider_news)
-                logging.info(f"   🕵️ Insider layer added {insider_count} results")
+            try:
+                home_insider_news = search_insiders(home_search_name, sport_key, match.id)
+                away_insider_news = search_insiders(away_search_name, sport_key, match.id)
+                
+                insider_count = len(home_insider_news) + len(away_insider_news)
+                if insider_count > 0:
+                    all_news.extend(home_insider_news)
+                    all_news.extend(away_insider_news)
+                    logging.info(f"   🕵️ Insider layer added {insider_count} results")
+            except Exception as e:
+                logging.debug(f"Insider search error: {e}")
+        
+        # ============================================
+        # DEEP DIVE ON DEMAND (V8.1)
+        # ============================================
+        # Upgrade shallow search results to full article content
+        # for high-value keywords (injury, squad, transfer, etc.)
+        if DEEP_DIVE_ENABLED and _ARTICLE_READER_AVAILABLE and all_news:
+            try:
+                logging.info(f"🔍 [DEEP-DIVE] Processing {len(all_news)} search results...")
+                
+                all_news = apply_deep_dive_to_results(
+                    results=all_news,
+                    triggers=DEEP_DIVE_TRIGGERS,
+                    max_articles=DEEP_DIVE_MAX_ARTICLES,
+                    timeout=DEEP_DIVE_TIMEOUT
+                )
+                
+                deep_dive_count = len([n for n in all_news if n.get('deep_dive') == True])
+                if deep_dive_count > 0:
+                    logging.info(f"   ✅ [DEEP-DIVE] Upgraded {deep_dive_count} articles to full content")
+                    
+            except Exception as e:
+                logging.warning(f"Deep dive processing failed: {e}")
         
         # ============================================
         # SUMMARY
         # ============================================
-        # V8.0: Removed Reddit from summary (no longer collected)
         tier1_search_types = [
             'local_site_dork', 'ddg_local', 'generic', 'dynamic_country',
-            'twitter_intel_cache',  # V7.0: Replaced broken Twitter search with cache
-            # Exotic strategies (dynamically named as f"exotic_{strat['name']}")
+            'twitter_intel_cache',
             'exotic_aleagues_official', 'exotic_keepup', 'exotic_foxsports_au',
             'exotic_twitter_proxy', 'exotic_dongqiudi', 'exotic_nikkansports',
             'exotic_official_releases', 'exotic_lance_ticker', 'exotic_globo_esporte',
         ]
         tier1_count = len([n for n in all_news if n.get('search_type') in tier1_search_types])
-        # V8.0: Beat writers now the main "insider" source
         beat_writer_total = len([n for n in all_news if n.get('search_type') in ('beat_writer_cache', 'beat_writer_priority', 'insider_beat_writer')])
         aleague_total = len([n for n in all_news if n.get('search_type') == 'aleague_scraper'])
         browser_monitor_total = len([n for n in all_news if n.get('search_type') == 'browser_monitor'])
@@ -1826,86 +1977,84 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True):
         logging.info(f"📰 News Hunter total: {browser_monitor_total} BrowserMonitor + {aleague_total} A-League + {beat_writer_total} BeatWriters + {tier1_count} Tier1")
         
         # ============================================
-        # NEWS DECAY: Apply freshness multiplier to all news
-        # Older news = already priced in by market
-        # V4.3: Now uses league-specific decay rates
-        # V5.1: Now includes kickoff proximity acceleration
+        # NEWS DECAY: Apply freshness multiplier
         # ============================================
         if _NEWS_DECAY_AVAILABLE and all_news:
-            fresh_count = 0
-            stale_count = 0
-            
-            # Try to import V2 decay function
-            try:
-                from src.analysis.market_intelligence import apply_news_decay_v2
-                _V2_AVAILABLE = True
-            except ImportError:
-                _V2_AVAILABLE = False
-            
-            # V5.1: Calculate minutes_to_kickoff from match.start_time
-            # This enables accelerated decay for news close to kickoff
-            minutes_to_kickoff = None
-            if hasattr(match, 'start_time') and match.start_time:
-                try:
-                    now = datetime.now(timezone.utc)
-                    match_start = match.start_time
-                    # Handle naive datetime (DB stores naive, assume UTC)
-                    if match_start.tzinfo is None:
-                        match_start = match_start.replace(tzinfo=timezone.utc)
-                    
-                    delta_seconds = (match_start - now).total_seconds()
-                    if delta_seconds > 0:
-                        minutes_to_kickoff = int(delta_seconds / 60)
-                    else:
-                        minutes_to_kickoff = 0  # Match already started or starting now
-                except Exception as e:
-                    logging.debug(f"Could not calculate minutes_to_kickoff: {e}")
-                    minutes_to_kickoff = None
-            
-            for item in all_news:
-                news_date = item.get('date')
-                
-                # Get source type for decay modifier
-                source_type = item.get('source_type', item.get('search_type', 'mainstream'))
-                
-                # V4.3: Use enhanced decay with source awareness
-                multiplier, minutes_old = calculate_news_freshness_multiplier(
-                    news_date, 
-                    league_key=sport_key
-                )
-                
-                # If V2 available, recalculate with source modifier + kickoff proximity
-                if _V2_AVAILABLE and minutes_old > 0:
-                    # V5.1: Apply V2 decay with source type AND kickoff proximity
-                    _, freshness_tag = apply_news_decay_v2(
-                        impact_score=1.0,
-                        minutes_since_publish=minutes_old,
-                        league_key=sport_key,
-                        source_type=source_type,
-                        minutes_to_kickoff=minutes_to_kickoff
-                    )
-                    item['freshness_tag'] = freshness_tag
-                else:
-                    # V6.2: Use centralized get_freshness_tag (handles clock skew)
-                    # Note: This is a simplified fallback when V2 is not available
-                    # It uses time-based thresholds instead of decay multiplier
-                    item['freshness_tag'] = get_freshness_tag(minutes_old)
-                
-                # Store decay info in the item for AI context
-                item['freshness_multiplier'] = round(multiplier, 2)
-                item['minutes_old'] = minutes_old
-                
-                # Count for logging
-                if item['freshness_tag'] == '🔥 FRESH':
-                    fresh_count += 1
-                elif item['freshness_tag'] == '📜 STALE':
-                    stale_count += 1
-            
-            if fresh_count > 0 or stale_count > 0:
-                kickoff_info = f", kickoff in {minutes_to_kickoff}min" if minutes_to_kickoff is not None else ""
-                logging.info(f"   ⏱️ News Decay V5.1: {fresh_count} fresh, {stale_count} stale (league+source+kickoff decay{kickoff_info})")
+            _apply_news_decay(all_news, match, sport_key)
         
         return all_news
         
     finally:
         db.close()
+
+
+def _apply_news_decay(all_news: List[Dict[str, Any]], match: MatchModel, sport_key: str) -> None:
+    """
+    Apply news decay multipliers to all news items.
+    
+    Args:
+        all_news: List of news items to process
+        match: Match model for kickoff time calculation
+        sport_key: League key for decay rates
+    """
+    fresh_count = 0
+    stale_count = 0
+    
+    try:
+        from src.analysis.market_intelligence import apply_news_decay_v2
+        _V2_AVAILABLE = True
+    except ImportError:
+        _V2_AVAILABLE = False
+    
+    # Calculate minutes_to_kickoff
+    minutes_to_kickoff: Optional[int] = None
+    if hasattr(match, 'start_time') and match.start_time:
+        try:
+            now = datetime.now(timezone.utc)
+            match_start = match.start_time
+            if match_start.tzinfo is None:
+                match_start = match_start.replace(tzinfo=timezone.utc)
+            
+            delta_seconds = (match_start - now).total_seconds()
+            minutes_to_kickoff = int(delta_seconds / 60) if delta_seconds > 0 else 0
+        except Exception as e:
+            logging.debug(f"Could not calculate minutes_to_kickoff: {e}")
+    
+    for item in all_news:
+        news_date = item.get('date')
+        source_type = item.get('source_type', item.get('search_type', 'mainstream'))
+        
+        try:
+            multiplier, minutes_old = calculate_news_freshness_multiplier(
+                news_date, 
+                league_key=sport_key
+            )
+            
+            if _V2_AVAILABLE and minutes_old > 0:
+                _, freshness_tag = apply_news_decay_v2(
+                    impact_score=1.0,
+                    minutes_since_publish=minutes_old,
+                    league_key=sport_key,
+                    source_type=source_type,
+                    minutes_to_kickoff=minutes_to_kickoff
+                )
+                item['freshness_tag'] = freshness_tag
+            else:
+                item['freshness_tag'] = get_freshness_tag(minutes_old)
+            
+            item['freshness_multiplier'] = round(multiplier, 2)
+            item['minutes_old'] = minutes_old
+            
+            if item['freshness_tag'] == '🔥 FRESH':
+                fresh_count += 1
+            elif item['freshness_tag'] == '📜 STALE':
+                stale_count += 1
+        except Exception as e:
+            logging.debug(f"News decay calculation failed for item: {e}")
+            item['freshness_tag'] = '⏰ AGING'
+            item['freshness_multiplier'] = 0.5
+            item['minutes_old'] = -1
+    
+    if fresh_count > 0 or stale_count > 0:
+        kickoff_info = f", kickoff in {minutes_to_kickoff}min" if minutes_to_kickoff is not None else ""
+        logging.info(f"   ⏱️ News Decay: {fresh_count} fresh, {stale_count} stale{kickoff_info}")

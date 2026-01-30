@@ -17,6 +17,7 @@
     "python.analysis.autoImportCompletions": true,
     // Testing
     "python.testing.pytestEnabled": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": false,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestArgs": [
         "tests"
@@ -34,7 +35,10 @@
         "**/venv/**": true,
         "**/.venv/**": true,
         "**/__pycache__/**": true,
-        "**/data/**": true
+        "**/data/**": true,
+        "**/*.db": true,
+        "**/logs/**": true,
+        "**/.git/objects/**": true
     },
     // Search exclusions
     "search.exclude": {
@@ -43,8 +47,15 @@
         "**/node_modules": true,
         "**/__pycache__": true,
         "**/*.log": true,
-        "**/*.session": true
+        "**/*.session": true,
+        "**/*.db": true,
+        "**/logs": true,
+        "**/.git/objects": true
     },
     // Terminal
-    "python.terminal.activateEnvironment": true
+    "python.terminal.activateEnvironment": true,
+    // Cloud Code / Performance
+    "cloudcode.features.autoStart": true,
+    "cloudcode.enable": true,
+    "cloudcode.project.autoDependencies.enable": false
 }

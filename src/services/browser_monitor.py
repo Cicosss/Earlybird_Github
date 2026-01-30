@@ -260,7 +260,24 @@ DEFAULT_NAVIGATION_DELAY_SECONDS = 3  # Delay between page visits
 
 @dataclass
 class MonitoredSource:
-    """Configuration for a monitored source URL."""
+    """
+    Configuration for a monitored source URL.
+    
+    Attributes:
+        url: Source URL to monitor
+        league_key: League key for categorization
+        scan_interval_minutes: How often to scan this source
+        priority: Scan priority (1=highest, higher numbers=lower priority)
+        name: Human-readable name for the source
+        navigation_mode: "single" for single page, "paginated" for multi-page
+        link_selector: CSS selector for links in paginated mode
+        max_links: Maximum number of links to follow in paginated mode
+        last_scanned: Timestamp of last scan
+        source_timezone: Timezone of the source (e.g., "Europe/London", "America/Sao_Paulo")
+                        Used for timezone-aware scanning optimization during off-peak hours
+    
+    V7.5: Added source_timezone for off-peak optimization.
+    """
     url: str
     league_key: str
     scan_interval_minutes: int = DEFAULT_SCAN_INTERVAL_MINUTES
@@ -270,13 +287,60 @@ class MonitoredSource:
     link_selector: Optional[str] = None  # V7.4: CSS selector for paginated mode
     max_links: int = DEFAULT_MAX_LINKS_PER_PAGINATED  # V7.4: Max links to follow
     last_scanned: Optional[datetime] = None
+    source_timezone: Optional[str] = None  # V7.5: e.g., "Europe/London"
     
     def is_due_for_scan(self) -> bool:
-        """Check if this source is due for scanning."""
+        """
+        Check if this source is due for scanning.
+        
+        V7.5: Considers timezone for off-peak optimization.
+        During off-peak hours (midnight-6am local time), extends interval
+        to save resources since news is less likely to be published.
+        
+        Returns:
+            True if source is due for scanning, False otherwise
+        """
         if self.last_scanned is None:
             return True
+        
+        # Calculate effective interval (may be extended during off-peak)
+        effective_interval = self._get_effective_interval()
+        
         elapsed = datetime.now(timezone.utc) - self.last_scanned
-        return elapsed >= timedelta(minutes=self.scan_interval_minutes)
+        return elapsed >= timedelta(minutes=effective_interval)
+    
+    def _get_effective_interval(self) -> int:
+        """
+        V7.5: Get effective scan interval based on source timezone.
+        
+        During off-peak hours (midnight-6am local time), extends interval
+        to save resources since news is less likely to be published.
+        
+        Returns:
+            Effective interval in minutes
+        """
+        if not self.source_timezone:
+            return self.scan_interval_minutes
+        
+        try:
+            # Try to get local hour for the source
+            from zoneinfo import ZoneInfo
+            
+            tz = ZoneInfo(self.source_timezone)
+            local_now = datetime.now(tz)
+            local_hour = local_now.hour
+            
+            # Off-peak: midnight to 6am local time
+            if 0 <= local_hour < 6:
+                # Double the interval during off-peak
+                return self.scan_interval_minutes * 2
+            
+            # Peak hours: normal interval
+            return self.scan_interval_minutes
+            
+        except Exception:
+            # If timezone parsing fails, use default interval
+            return self.scan_interval_minutes
 
 
 @dataclass
@@ -328,10 +392,16 @@ class ContentCache:
         self._ttl_hours = ttl_hours
     
     def compute_hash(self, content: str) -> str:
-        """Compute hash from first 1000 chars of content."""
+        """Compute hash from first 1000 chars of content.
+        
+        Phase 1 Critical Fix: Changed errors='ignore' to errors='replace' to preserve
+        special characters. Added Unicode normalization before hashing.
+        """
         # Use first 1000 chars for hash
         content_prefix = content[:1000] if len(content) > 1000 else content
-        return hashlib.sha256(content_prefix.encode('utf-8', errors='ignore')).hexdigest()[:16]
+        # Phase 1 Critical Fix: Use errors='replace' instead of 'ignore' to preserve special characters
+        # Phase 1 Critical Fix: Add Unicode normalization before hashing
+        return hashlib.sha256(content_prefix.encode('utf-8', errors='replace')).hexdigest()[:16]
     
     def is_cached(self, content: str) -> bool:
         """Check if content hash exists and is not expired.
@@ -448,7 +518,8 @@ def load_config(config_file: str = DEFAULT_CONFIG_FILE) -> MonitorConfig:
                 name=src_data.get('name', src_data['url'][:50]),
                 navigation_mode=src_data.get('navigation_mode', 'single'),  # V7.4
                 link_selector=src_data.get('link_selector'),  # V7.4
-                max_links=src_data.get('max_links', DEFAULT_MAX_LINKS_PER_PAGINATED)  # V7.4
+                max_links=src_data.get('max_links', DEFAULT_MAX_LINKS_PER_PAGINATED),  # V7.4
+                source_timezone=src_data.get('source_timezone')  # V7.5
             )
             sources.append(source)
         

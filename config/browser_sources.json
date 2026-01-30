@@ -1,152 +1,182 @@
 {
+  "_metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-01-28T21:00:00Z",
+    "description": "Browser monitoring source configurations for EarlyBird betting intelligence system",
+    "maintainer": "EarlyBird Team"
+  },
   "sources": [
     {
-      "url": "https://www.fanatik.com.tr/spor/futbol",
-      "league_key": "soccer_turkey_super_league",
+      "url": "https://www.bbc.com/sport/football",
+      "league_key": "premier_league",
       "scan_interval_minutes": 5,
       "priority": 1,
-      "name": "Fanatik Turkey",
+      "name": "BBC Sport Football",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/haber/'], a[href*='/futbol/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/sport/football/'], a[href*='/article/']",
+      "max_links": 5,
+      "source_timezone": "Europe/London"
     },
     {
-      "url": "https://www.milliyet.com.tr/spor/futbol/",
-      "league_key": "soccer_turkey_super_league",
-      "scan_interval_minutes": 5,
-      "priority": 2,
-      "name": "Milliyet Turkey",
-      "navigation_mode": "paginated",
-      "link_selector": "a[href*='/spor/'], a[href*='/futbol/'], article a, h2 a, h3 a",
-      "max_links": 5
-    },
-    {
-      "url": "https://www.ole.com.ar/futbol-primera",
-      "league_key": "soccer_argentina_primera_division",
+      "url": "https://www.flashscore.com/news/football/",
+      "league_key": "global",
       "scan_interval_minutes": 5,
       "priority": 1,
-      "name": "Ole Argentina",
+      "name": "Flashscore News",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/futbol/'], a[href*='/nota/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/news/'], a[href*='/article/']",
+      "max_links": 5,
+      "source_timezone": "Europe/Prague"
     },
     {
-      "url": "https://www.tycsports.com/futbol-argentino",
-      "league_key": "soccer_argentina_primera_division",
-      "scan_interval_minutes": 5,
-      "priority": 2,
-      "name": "TyC Sports Argentina",
-      "navigation_mode": "paginated",
-      "link_selector": "a[href*='/nota/'], a[href*='/futbol/'], article a, h2 a, h3 a",
-      "max_links": 5
-    },
-    {
-      "url": "https://www.record.com.mx/futbol/liga-mx",
-      "league_key": "soccer_mexico_ligamx",
+      "url": "https://www.gazetaesportiva.com/",
+      "league_key": "brasileirao",
       "scan_interval_minutes": 5,
       "priority": 1,
-      "name": "Record Mexico",
+      "name": "Gazeta Esportiva Brazil",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/futbol/'], a[href*='/nota/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/times/'], a[href*='/campeonatos/'], a.post-link",
+      "max_links": 5,
+      "source_timezone": "America/Sao_Paulo"
     },
     {
-      "url": "https://www.mediotiempo.com/futbol/liga-mx",
-      "league_key": "soccer_mexico_ligamx",
-      "scan_interval_minutes": 5,
+      "url": "https://jogada10.com.br",
+      "league_key": "brasileirao",
+      "scan_interval_minutes": 10,
       "priority": 2,
-      "name": "Medio Tiempo Mexico",
+      "name": "Jogada 10 Brazil",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/futbol/'], a[href*='/nota/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/noticia/'], a[href*='/futebol/'], article a",
+      "max_links": 5,
+      "source_timezone": "America/Sao_Paulo"
     },
     {
-      "url": "https://www.gazzetta.gr/podosfairo/superleague",
-      "league_key": "soccer_greece_super_league",
+      "url": "https://www.correiodopovo.com.br/esportes/inter",
+      "league_key": "brasileirao",
+      "scan_interval_minutes": 10,
+      "priority": 2,
+      "name": "Correio do Povo Inter",
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/esportes/'], a[href*='/inter/'], article a",
+      "max_links": 5,
+      "source_timezone": "America/Sao_Paulo"
+    },
+    {
+      "url": "https://chesterfield-fc.co.uk/news",
+      "league_key": "national_league",
+      "scan_interval_minutes": 10,
+      "priority": 2,
+      "name": "Chesterfield FC News",
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/news/'], a.news-item",
+      "max_links": 5,
+      "source_timezone": "Europe/London"
+    },
+    {
+      "url": "https://96fmbauru.com.br/",
+      "league_key": "brasileirao",
+      "scan_interval_minutes": 10,
+      "priority": 2,
+      "name": "96FM Bauru Brazil",
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/noticia/'], a[href*='/esporte/'], article a",
+      "max_links": 5,
+      "source_timezone": "America/Sao_Paulo"
+    },
+    {
+      "url": "https://ge.globo.com/sp/tem-esporte/",
+      "league_key": "brasileirao",
       "scan_interval_minutes": 5,
       "priority": 1,
-      "name": "Gazzetta Greece",
+      "name": "Globo Esporte SP",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/podosfairo/'], a[href*='/article/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/futebol/'], a[href*='/noticia/'], a.feed-post-link",
+      "max_links": 5,
+      "source_timezone": "America/Sao_Paulo"
     },
     {
-      "url": "https://www.sport24.gr/football/superleague/",
-      "league_key": "soccer_greece_super_league",
-      "scan_interval_minutes": 5,
+      "url": "https://news.stv.tv/section/sport/football",
+      "league_key": "scottish_premiership",
+      "scan_interval_minutes": 10,
       "priority": 2,
-      "name": "Sport24 Greece",
+      "name": "STV Scotland Football",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/football/'], a[href*='/article/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/sport/'], a[href*='/football/'], article a",
+      "max_links": 5,
+      "source_timezone": "Europe/London"
     },
     {
-      "url": "https://www.dailyrecord.co.uk/sport/football/",
-      "league_key": "soccer_scotland_premiership",
+      "url": "https://www.besoccer.com/news",
+      "league_key": "global",
       "scan_interval_minutes": 5,
       "priority": 1,
-      "name": "Daily Record Scotland",
+      "name": "BeSoccer News",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/sport/football/'], a[href*='/news/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/news/'], a[href*='/new/'], a.news-link",
+      "max_links": 5,
+      "source_timezone": "Europe/Paris"
     },
     {
-      "url": "https://www.scotsman.com/sport/football",
-      "league_key": "soccer_scotland_premiership",
-      "scan_interval_minutes": 5,
-      "priority": 2,
-      "name": "Scotsman Scotland",
-      "navigation_mode": "paginated",
-      "link_selector": "a[href*='/sport/football/'], a[href*='/news/'], article a, h2 a, h3 a",
-      "max_links": 5
-    },
-    {
-      "url": "https://www.foxsports.com.au/football/a-league",
-      "league_key": "soccer_australia_aleague",
+      "url": "https://www.ysscores.com/en/news",
+      "league_key": "global",
       "scan_interval_minutes": 5,
       "priority": 1,
-      "name": "Fox Sports Australia",
+      "name": "YSScores News",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/football/'], a[href*='/news/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/league/'], a[href*='/competition/'], a[href*='/news/']",
+      "max_links": 5,
+      "source_timezone": "Asia/Shanghai"
     },
     {
-      "url": "https://www.ftbl.com.au/a-league-men",
-      "league_key": "soccer_australia_aleague",
-      "scan_interval_minutes": 5,
+      "url": "https://palembang.tribunnews.com/superball/",
+      "league_key": "indonesian_league",
+      "scan_interval_minutes": 10,
       "priority": 2,
-      "name": "FTBL Australia",
+      "name": "Tribun Palembang Superball",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/news/'], a[href*='/a-league/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/superball/'], a[href*='/bola/'], article a",
+      "max_links": 5,
+      "source_timezone": "Asia/Jakarta"
     },
     {
-      "url": "https://www.meczyki.pl/ekstraklasa",
-      "league_key": "soccer_poland_ekstraklasa",
-      "scan_interval_minutes": 5,
-      "priority": 1,
-      "name": "Meczyki Poland",
-      "navigation_mode": "paginated",
-      "link_selector": "a[href*='/news/'], a[href*='/ekstraklasa/'], article a, h2 a, h3 a",
-      "max_links": 5
-    },
-    {
-      "url": "https://sportowefakty.wp.pl/pilka-nozna/ekstraklasa",
-      "league_key": "soccer_poland_ekstraklasa",
-      "scan_interval_minutes": 5,
+      "url": "https://www.hondudiario.com/category/deportes/",
+      "league_key": "honduran_league",
+      "scan_interval_minutes": 10,
       "priority": 2,
-      "name": "Sportowe Fakty Poland",
+      "name": "Hondudiario Deportes",
       "navigation_mode": "paginated",
-      "link_selector": "a[href*='/pilka-nozna/'], a[href*='/artykul/'], article a, h2 a, h3 a",
-      "max_links": 5
+      "link_selector": "a[href*='/deportes/'], a[href*='/futbol/'], article a",
+      "max_links": 5,
+      "source_timezone": "America/Tegucigalpa"
+    },
+    {
+      "url": "https://www.elheraldo.hn/deportes",
+      "league_key": "honduran_league",
+      "scan_interval_minutes": 10,
+      "priority": 2,
+      "name": "El Heraldo Honduras Deportes",
+      "navigation_mode": "paginated",
+      "link_selector": "a[href*='/deportes/'], a[href*='/futbol/'], article a",
+      "max_links": 5,
+      "source_timezone": "America/Tegucigalpa"
     }
   ],
   "global_settings": {
     "default_scan_interval_minutes": 5,
     "max_concurrent_pages": 2,
-    "navigation_interval_seconds": 10,
+    "navigation_interval_seconds": 3,
     "page_timeout_seconds": 30,
     "cache_ttl_hours": 24,
-    "cache_max_entries": 10000
+    "cache_max_entries": 1000,
+    "circuit_breaker_failure_threshold": 3,
+    "circuit_breaker_recovery_timeout_seconds": 300,
+    "behavior_simulation_enabled": true,
+    "behavior_scroll_steps_min": 2,
+    "behavior_scroll_steps_max": 4,
+    "behavior_scroll_delay_min_seconds": 0.2,
+    "behavior_scroll_delay_max_seconds": 0.6,
+    "behavior_mouse_move_enabled": true,
+    "behavior_typing_delay_min_seconds": 0.05,
+    "behavior_typing_delay_max_seconds": 0.15
   }
 }

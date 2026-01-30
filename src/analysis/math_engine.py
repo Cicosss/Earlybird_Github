@@ -448,6 +448,7 @@ class MathPredictor:
         draw_odd: float,
         away_odd: float,
         over_25_odd: float = None,
+        under_25_odd: float = None,
         btts_odd: float = None
     ) -> Dict:
         """
@@ -458,6 +459,7 @@ class MathPredictor:
             away_scored/conceded: Away team stats
             home/draw/away_odd: 1X2 market odds
             over_25_odd: Over 2.5 goals odd (optional)
+            under_25_odd: Under 2.5 goals odd (optional, V7.7)
             btts_odd: Both Teams To Score odd (optional)
             
         Returns:
@@ -477,37 +479,56 @@ class MathPredictor:
         
         # 1X2 Markets
         if home_odd and home_odd > 1:
-            edge = self.calculate_edge(poisson.home_win_prob, home_odd)
+            edge = MathPredictor.calculate_edge(poisson.home_win_prob, home_odd)
             edge.market = "HOME"
             edges["home"] = edge
         
         if draw_odd and draw_odd > 1:
-            edge = self.calculate_edge(poisson.draw_prob, draw_odd)
+            edge = MathPredictor.calculate_edge(poisson.draw_prob, draw_odd)
             edge.market = "DRAW"
             edges["draw"] = edge
         
         if away_odd and away_odd > 1:
-            edge = self.calculate_edge(poisson.away_win_prob, away_odd)
+            edge = MathPredictor.calculate_edge(poisson.away_win_prob, away_odd)
             edge.market = "AWAY"
             edges["away"] = edge
         
         # Over 2.5 Goals
         if over_25_odd and over_25_odd > 1:
-            edge = self.calculate_edge(poisson.over_25_prob, over_25_odd)
+            edge = MathPredictor.calculate_edge(poisson.over_25_prob, over_25_odd)
             edge.market = "OVER_25"
             edges["over_25"] = edge
         
-        # V7.7: Under 2.5 Goals (calculated from Poisson, typical market odd ~1.85)
+        # V7.7: Under 2.5 Goals (calculated from Poisson)
         # Under 2.5 is more valuable when expected goals < 2.3
-        under_25_market_odd = 1.85  # Typical market odd for Under 2.5
-        if poisson.under_25_prob > 0:
-            edge = self.calculate_edge(poisson.under_25_prob, under_25_market_odd)
+        if under_25_odd and under_25_odd > 1:
+            # Use provided Under 2.5 odd
+            edge = MathPredictor.calculate_edge(poisson.under_25_prob, under_25_odd)
             edge.market = "UNDER_25"
             edges["under_25"] = edge
+        elif over_25_odd and over_25_odd > 1:
+            # Derive Under 2.5 odd from Over 2.5 odd (inverse relationship)
+            # Formula: under_odd ≈ 1 / (1/over_odd - margin)
+            # Using a simplified approach: under_odd = 1 / (1 - 1/over_odd) for estimation
+            # This is an approximation as bookmakers have different margins for each market
+            try:
+                over_implied_prob = 1.0 / over_25_odd
+                # Assuming bookmaker margin is ~5%, distribute it
+                # Under implied prob ≈ 1 - over_implied_prob - margin
+                margin = 0.05
+                under_implied_prob = max(0.01, 1.0 - over_implied_prob - margin)
+                derived_under_odd = 1.0 / under_implied_prob if under_implied_prob > 0 else 1.85
+                
+                edge = MathPredictor.calculate_edge(poisson.under_25_prob, derived_under_odd)
+                edge.market = "UNDER_25"
+                edges["under_25"] = edge
+            except (ZeroDivisionError, ValueError):
+                # Fallback to typical market odd if calculation fails
+                pass
         
         # BTTS
         if btts_odd and btts_odd > 1:
-            edge = self.calculate_edge(poisson.btts_prob, btts_odd)
+            edge = MathPredictor.calculate_edge(poisson.btts_prob, btts_odd)
             edge.market = "BTTS"
             edges["btts"] = edge
         
@@ -526,7 +547,7 @@ class MathPredictor:
             dc_1x_market_odd = 1.0 / dc_1x_implied_prob if dc_1x_implied_prob > 0 else 1.01
             # Fair odd from our Poisson probability
             dc_1x_fair_odd = 1.0 / dc_1x_prob if dc_1x_prob > 0 else 99.0
-            edge = self.calculate_edge(dc_1x_prob, dc_1x_market_odd)
+            edge = MathPredictor.calculate_edge(dc_1x_prob, dc_1x_market_odd)
             edge.market = "1X"
             edge.fair_odd = round(dc_1x_fair_odd, 2)
             edges["1x"] = edge
@@ -536,7 +557,7 @@ class MathPredictor:
             dc_x2_implied_prob = (1.0/draw_odd) + (1.0/away_odd)
             dc_x2_market_odd = 1.0 / dc_x2_implied_prob if dc_x2_implied_prob > 0 else 1.01
             dc_x2_fair_odd = 1.0 / dc_x2_prob if dc_x2_prob > 0 else 99.0
-            edge = self.calculate_edge(dc_x2_prob, dc_x2_market_odd)
+            edge = MathPredictor.calculate_edge(dc_x2_prob, dc_x2_market_odd)
             edge.market = "X2"
             edge.fair_odd = round(dc_x2_fair_odd, 2)
             edges["x2"] = edge

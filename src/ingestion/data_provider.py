@@ -23,6 +23,9 @@ import random
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
+import json
+from dateutil import parser
+import pytz
 
 # Try to import thefuzz for better fuzzy matching
 try:
@@ -279,10 +282,10 @@ class FotMobProvider:
         "Gazişehir Gaziantep": "Gaziantep FK",
         "Gazisehir Gaziantep": "Gaziantep FK",
         "Gaziantep": "Gaziantep FK",
-        "Olympiacos": "Olympiakos",
-        "Olympiakos": "Olympiakos",
-        "Olympiacos Piraeus": "Olympiakos",
-        "Olympiakos Piraeus": "Olympiakos",
+        "Olympiacos": "Olympiacos",
+        "Olympiakos": "Olympiacos",
+        "Olympiacos Piraeus": "Olympiacos",
+        "Olympiakos Piraeus": "Olympiacos",
         "Panathinaikos Athens": "Panathinaikos",
         "Panathinaikos FC": "Panathinaikos",
         "PAOK": "PAOK Thessaloniki",
@@ -426,6 +429,9 @@ class FotMobProvider:
             
             try:
                 data = resp.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ FotMob risposta JSON non valida: {e}")
+                return []
             except ValueError as e:
                 logger.error(f"❌ FotMob risposta JSON non valida: {e}")
                 return []
@@ -444,9 +450,6 @@ class FotMobProvider:
             
             return results
             
-        except requests.exceptions.JSONDecodeError as e:
-            logger.error(f"❌ FotMob JSON decode error: {e}")
-            return []
         except Exception as e:
             logger.error(f"❌ FotMob Search Error: {e}")
             return []
@@ -615,13 +618,13 @@ class FotMobProvider:
                             logger.info(f"✅ Unicode normalized: {team_name} → {r['name']} (ID: {r['id']})")
                             return r['id'], r['name']
                 
-                if results:
-                    team_id = results[0]['id']
-                    fotmob_name = results[0]['name']
-                    self._team_cache[cache_key] = (team_id, fotmob_name)
-                    self._team_cache[normalized_cache_key] = (team_id, fotmob_name)
-                    logger.info(f"✅ Unicode normalized: {team_name} → {fotmob_name} (ID: {team_id})")
-                    return team_id, fotmob_name
+                # If no fuzzy match, use first result
+                team_id = results[0]['id']
+                fotmob_name = results[0]['name']
+                self._team_cache[cache_key] = (team_id, fotmob_name)
+                self._team_cache[normalized_cache_key] = (team_id, fotmob_name)
+                logger.info(f"✅ Unicode normalized: {team_name} → {fotmob_name} (ID: {team_id})")
+                return team_id, fotmob_name
         
         logger.warning(f"⚠️ Team not found: {team_name}")
         return None, None
@@ -655,6 +658,15 @@ class FotMobProvider:
                     get_team_cache().set(cache_key, data, match_time=match_time)
                 
                 return data
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ FotMob team details JSON non valido: {e}")
+                return {
+                    "_error": True,
+                    "_error_msg": "Risposta JSON non valida",
+                    "team_id": team_id,
+                    "squad": {},
+                    "fixtures": {}
+                }
             except ValueError as e:
                 logger.error(f"❌ FotMob team details JSON non valido: {e}")
                 return {
@@ -936,9 +948,6 @@ class FotMobProvider:
                 match_time = result.get('match_time')
                 if match_time:
                     try:
-                        from dateutil import parser
-                        import pytz
-                        
                         match_dt = parser.parse(match_time).astimezone(pytz.UTC)
                         
                         if isinstance(match_date, str):
@@ -950,7 +959,7 @@ class FotMobProvider:
                                 expected_dt = match_date.astimezone(pytz.UTC)
                         else:
                             expected_dt = None
-                            
+                        
                         if expected_dt:
                             delta = abs(match_dt - expected_dt)
                             delta_hours = delta.total_seconds() / 3600
@@ -961,9 +970,6 @@ class FotMobProvider:
                                 return None
                             else:
                                 logger.debug(f"✅ Match time validated: diff={delta_hours:.1f}h (within 4h tolerance)")
-                    except ImportError:
-                        # dateutil not available, fall back to basic parsing
-                        logger.debug("dateutil not available, skipping strict time validation")
                     except Exception as e:
                         logger.debug(f"Date validation error (non-critical): {e}")
         
@@ -992,6 +998,9 @@ class FotMobProvider:
                     get_match_cache().set(cache_key, data)
                 
                 return data
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ FotMob match lineup JSON non valido: {e}")
+                return None
             except ValueError as e:
                 logger.error(f"❌ FotMob match lineup JSON non valido: {e}")
                 return None
@@ -1027,7 +1036,9 @@ class FotMobProvider:
         
         try:
             # Get team ID (use top-level import)
-            team_id = get_fotmob_team_id(team_name) if _TEAM_MAPPING_AVAILABLE else None
+            team_id = None
+            if _TEAM_MAPPING_AVAILABLE and get_fotmob_team_id is not None:
+                team_id = get_fotmob_team_id(team_name)
             
             if not team_id:
                 team_id, _ = self.search_team_id(team_name)
@@ -1153,8 +1164,11 @@ class FotMobProvider:
 
     def get_fixture_details(self, team_name: str) -> Optional[Dict]:
         """Get fixture details for a team's next match."""
-        team_id = get_fotmob_team_id(team_name) if _TEAM_MAPPING_AVAILABLE else None
+        team_id = None
         fotmob_name = team_name
+        
+        if _TEAM_MAPPING_AVAILABLE and get_fotmob_team_id is not None:
+            team_id = get_fotmob_team_id(team_name)
         
         if not team_id:
             team_id, fotmob_name = self.search_team_id(team_name)

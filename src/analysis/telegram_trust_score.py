@@ -19,11 +19,17 @@ VALIDATION METRICS:
    - "Fixed", "100% Safe", "Mafia", "Max Bet" → SCAM
 
 Reference: Deep Research Report Section 24
+
+VPS Compatibility:
+- Pure Python implementation, no external dependencies
+- In-memory cache with TTL for echo detection
+- Stateless design suitable for concurrent processing
 """
 import logging
 import re
+import hashlib
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -102,6 +108,29 @@ class ChannelMetrics:
     # Timestamps
     first_seen: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'channel_id': self.channel_id,
+            'channel_name': self.channel_name,
+            'total_messages': self.total_messages,
+            'messages_with_odds_impact': self.messages_with_odds_impact,
+            'avg_timestamp_lag_minutes': self.avg_timestamp_lag_minutes,
+            'insider_hits': self.insider_hits,
+            'late_messages': self.late_messages,
+            'total_edits': self.total_edits,
+            'total_deletes': self.total_deletes,
+            'predictions_made': self.predictions_made,
+            'predictions_correct': self.predictions_correct,
+            'red_flags_count': self.red_flags_count,
+            'red_flag_types': self.red_flag_types,
+            'echo_messages': self.echo_messages,
+            'trust_score': self.trust_score,
+            'trust_level': self.trust_level.value,
+            'first_seen': self.first_seen.isoformat() if self.first_seen else None,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+        }
 
 
 @dataclass
@@ -114,6 +143,18 @@ class MessageValidation:
     is_insider_hit: bool = False
     red_flags: List[str] = field(default_factory=list)
     is_echo: bool = False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'is_valid': self.is_valid,
+            'trust_multiplier': self.trust_multiplier,
+            'reason': self.reason,
+            'timestamp_lag_minutes': self.timestamp_lag_minutes,
+            'is_insider_hit': self.is_insider_hit,
+            'red_flags': self.red_flags,
+            'is_echo': self.is_echo
+        }
 
 
 # ============================================
@@ -245,7 +286,6 @@ def _normalize_text_for_echo(text: str) -> str:
 
 def _get_text_hash(text: str) -> str:
     """Get hash of normalized text for echo detection."""
-    import hashlib
     normalized = _normalize_text_for_echo(text)
     return hashlib.md5(normalized.encode()).hexdigest()[:16]
 
@@ -444,6 +484,32 @@ def validate_telegram_message(
     Returns:
         MessageValidation with trust multiplier and validation details
     """
+    # Validate inputs
+    if not channel_id or not isinstance(channel_id, str):
+        logger.warning(f"Invalid channel_id: {channel_id}")
+        return MessageValidation(
+            is_valid=False,
+            trust_multiplier=0.0,
+            reason="Invalid channel_id",
+            red_flags=[]
+        )
+    
+    if not message_text or not isinstance(message_text, str):
+        return MessageValidation(
+            is_valid=False,
+            trust_multiplier=0.0,
+            reason="Empty or invalid message text",
+            red_flags=[]
+        )
+    
+    if not message_time or not isinstance(message_time, datetime):
+        return MessageValidation(
+            is_valid=False,
+            trust_multiplier=0.0,
+            reason="Invalid message timestamp",
+            red_flags=[]
+        )
+    
     # 1. Check red flags first (instant disqualification)
     red_flags = detect_red_flags(message_text)
     if len(red_flags) >= 2:
@@ -518,6 +584,39 @@ def validate_telegram_message(
         red_flags=red_flags,
         is_echo=False
     )
+
+
+# ============================================
+# MODULE EXPORTS
+# ============================================
+
+__all__ = [
+    'TrustLevel',
+    'ChannelMetrics',
+    'MessageValidation',
+    'TIMESTAMP_LAG_INSIDER_THRESHOLD',
+    'TIMESTAMP_LAG_FAST_FOLLOWER',
+    'TIMESTAMP_LAG_LATE_THRESHOLD',
+    'WEIGHT_TIMESTAMP_LAG',
+    'WEIGHT_EDIT_RATIO',
+    'WEIGHT_ACCURACY',
+    'WEIGHT_RED_FLAGS',
+    'MIN_MESSAGES_FOR_TRUST',
+    'MAX_ACCEPTABLE_EDIT_RATIO',
+    'MAX_ACCEPTABLE_DELETE_RATIO',
+    'ECHO_CHAMBER_WINDOW_SECONDS',
+    'RED_FLAG_KEYWORDS',
+    'RED_FLAG_PATTERNS',
+    'detect_red_flags',
+    'calculate_timestamp_lag',
+    'check_echo_chamber',
+    'calculate_trust_score',
+    'calculate_trust_score_v2',
+    'validate_telegram_message',
+    'get_first_odds_drop_time',
+    'track_odds_correlation',
+    'get_channel_trust_metrics',
+]
 
 
 # ============================================

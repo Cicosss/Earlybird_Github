@@ -12,10 +12,13 @@ Specs:
 Priority in search chain: Brave -> DuckDuckGo -> Serper
 
 V4.4: Migrated to centralized HTTP client with fingerprint rotation.
+
+Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 import html
 import logging
 from typing import List, Dict, Optional
+from urllib.parse import quote
 
 from config.settings import BRAVE_API_KEY
 from src.utils.http_client import get_http_client
@@ -54,6 +57,9 @@ class BraveSearchProvider:
         
         Uses centralized HTTP client with rate limiting (1.1s).
         
+        Phase 1 Critical Fix: URL-encode query to handle non-ASCII characters
+        (e.g., Turkish "ş", Polish "ą", Greek "α").
+        
         Args:
             query: Search query string
             limit: Maximum number of results (default 5)
@@ -73,6 +79,10 @@ class BraveSearchProvider:
         
         logger.info(f"🔍 [BRAVE] Searching: {query[:60]}...")
         
+        # Phase 1 Critical Fix: URL-encode query to handle special characters
+        # This fixes search failures for non-English team names
+        encoded_query = quote(query, safe=' ')
+        
         try:
             response = self._http_client.get_sync(
                 BRAVE_API_URL,
@@ -83,7 +93,7 @@ class BraveSearchProvider:
                     "Accept": "application/json"
                 },
                 params={
-                    "q": query,
+                    "q": encoded_query,
                     "count": limit,
                     "freshness": "pw"  # Past Week - filters out stale news
                 },

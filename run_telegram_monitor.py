@@ -94,7 +94,9 @@ def test_monitor_configuration():
         logger.info("✅ Database connection: OK")
         
         # Test Telegram client creation (senza connettere)
-        if TELEGRAM_API_ID and TELEGRAM_API_HASH:
+        telegram_api_id = os.getenv('TELEGRAM_API_ID')
+        telegram_api_hash = os.getenv('TELEGRAM_API_HASH')
+        if telegram_api_id and telegram_api_hash:
             logger.info("✅ Telegram credentials: Formato valido")
         else:
             logger.error("❌ Telegram credentials: Mancanti")
@@ -108,12 +110,10 @@ def test_monitor_configuration():
     return True
 
 
-sys.path.append(os.getcwd())
-
 from src.processing.telegram_listener import fetch_squad_images
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.database.models import Match, init_db
-from config.settings import TELEGRAM_API_ID, TELEGRAM_API_HASH
+from config.settings import TELEGRAM_API_ID, TELEGRAM_API_HASH, LOGS_DIR, DATA_DIR
 from telethon import TelegramClient
 
 # Logging
@@ -122,7 +122,9 @@ from logging.handlers import RotatingFileHandler
 _log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 _console_handler = logging.StreamHandler(sys.stdout)
 _console_handler.setFormatter(_log_formatter)
-_file_handler = RotatingFileHandler('telegram_monitor.log', maxBytes=5_000_000, backupCount=3)
+# Use LOGS_DIR from settings for VPS compatibility
+_log_file_path = os.path.join(LOGS_DIR, 'telegram_monitor.log')
+_file_handler = RotatingFileHandler(_log_file_path, maxBytes=5_000_000, backupCount=3)
 _file_handler.setFormatter(_log_formatter)
 
 logging.basicConfig(
@@ -247,8 +249,10 @@ async def main():
     logger.info("✅ Database initialized")
     
     # Initialize Telegram client inside async context (uvloop compatibility)
+    # Use session file in data directory for VPS compatibility
+    session_path = os.path.join(DATA_DIR, 'earlybird_monitor')
     if TELEGRAM_API_ID and TELEGRAM_API_HASH:
-        client = TelegramClient('earlybird_monitor', int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
+        client = TelegramClient(session_path, int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
     
     if client:
         try:
@@ -258,7 +262,7 @@ async def main():
             await monitor_loop()
             
         finally:
-            if client.is_connected():
+            if client and client.is_connected():
                 logger.info("🔌 Disconnessione client...")
                 await client.disconnect()
                 logger.info("✅ Client disconnesso")
@@ -280,3 +284,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Monitor fermato dall'utente")
+

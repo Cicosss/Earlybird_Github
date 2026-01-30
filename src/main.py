@@ -693,8 +693,6 @@ def is_biscotto_suspect(match) -> dict:
         draw_odd > 0):
         drop_pct = ((opening_draw - draw_odd) / opening_draw) * 100
         result['drop_pct'] = drop_pct
-    else:
-        drop_pct = 0
     
     # Check thresholds
     if draw_odd < BISCOTTO_EXTREME_LOW:
@@ -1288,7 +1286,7 @@ def run_pipeline():
                     logging.info(f"   🔄 Away turnover: MEDIUM ({turnover_count} starters out)")
                 
                 # Add turnover warning to official data if detected
-                if turnover_warning:
+                if turnover_parts:
                     turnover_warning = ' '.join(turnover_parts)
                     official_data += f"\n🔄 TURNOVER ALERT: {turnover_warning}"
                 
@@ -3659,8 +3657,8 @@ def run_continuous():
                 if send_status_message(heartbeat_msg):
                     health.mark_heartbeat_sent()
             
-            logging.info("💤 Sleeping for 120 minutes until next cycle...")
-            time.sleep(7200)
+            logging.info("💤 Sleeping for 360 minutes (6 hours) until next cycle...")
+            time.sleep(21600)
             
         except KeyboardInterrupt:
             logging.info("\n🛑 SHUTDOWN SIGNAL RECEIVED")

@@ -26,17 +26,39 @@ Features:
 - Cross-component statistics
 
 V1.0: Initial implementation for unified deduplication.
+
+Phase 1 Critical Fix: Added Unicode normalization for consistent text handling
 """
 import hashlib
 import logging
 import re
+import unicodedata
 from collections import OrderedDict
 from datetime import datetime, timezone, timedelta
 from threading import RLock
-from typing import Optional, Dict, Tuple, Set
+from typing import Optional, Dict, Tuple, Set, Any
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_unicode(text: str) -> str:
+    """
+    Normalize Unicode to NFC form for consistent text handling.
+    
+    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
+    Greek, Arabic, Chinese, Japanese, Korean, and other languages
+    are handled consistently across all components.
+    
+    Args:
+        text: Input text to normalize
+        
+    Returns:
+        Normalized text in NFC form
+    """
+    if not text:
+        return ""
+    return unicodedata.normalize('NFC', text)
 
 # Configuration
 DEFAULT_MAX_ENTRIES = 10000
@@ -424,12 +446,13 @@ class SharedContentCache:
         Returns:
             True if duplicate (skip processing), False if new (proceed)
         """
-        with self._lock:
-            if self.is_duplicate(content, url, source):
-                return True
-            
-            self.mark_seen(content, url, source)
-            return False
+        # Check if duplicate first (is_duplicate acquires its own lock)
+        if self.is_duplicate(content, url, source):
+            return True
+        
+        # Mark as seen (mark_seen acquires its own lock)
+        self.mark_seen(content, url, source)
+        return False
     
     def cleanup_expired(self) -> int:
         """
@@ -476,7 +499,7 @@ class SharedContentCache:
         
         return removed
     
-    def get_stats(self) -> Dict[str, any]:
+    def get_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics.
         

@@ -225,7 +225,6 @@ SOURCE_DECAY_MODIFIERS = {
     "insider_verified": 0.5,    # Decay 50% slower
     "beat_writer": 0.7,         # Decay 30% slower
     "mainstream": 1.0,          # Normal decay
-    "reddit": 1.2,              # Decay 20% faster
     "unknown": 1.5              # Decay 50% faster
 }
 ```

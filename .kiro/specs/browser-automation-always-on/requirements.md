@@ -7,7 +7,7 @@ Questo documento definisce i requisiti per **Browser Automation Always-On**, un 
 **Contesto Attuale:**
 - Il `BrowserAutomationProvider` usa Playwright headless + Gemini Free API per arricchire le news
 - Attualmente si attiva SOLO come fallback durante il cooldown di Gemini
-- Il `news_hunter.py` è il componente centrale che aggrega news da varie fonti (DDG, Serper, Twitter, Reddit, RSSHub)
+- Il `news_hunter.py` è il componente centrale che aggrega news da varie fonti (DDG, Serper, Twitter, RSSHub)
 
 **Obiettivo:**
 - Creare un **Browser Monitor** indipendente che gira h24

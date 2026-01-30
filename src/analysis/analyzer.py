@@ -4,22 +4,69 @@ EarlyBird Intelligence Analyzer - DeepSeek V3.2 via OpenRouter
 Triangulation Engine that correlates:
 - Official Data (FotMob)
 - Market Intelligence (Odds)
-- Insider Intel (News/Twitter/Reddit/Telegram)
+- Insider Intel (News/Twitter/Telegram)
 
 Uses DeepSeek V3.2 with reasoning capabilities for high-quality analysis.
-"""
 
+Phase 1 Critical Fix: Added Unicode normalization and safe UTF-8 truncation
+"""
+ 
 import json
 import logging
 import os
 import re
 import threading
+import unicodedata
 from typing import Dict, Optional, List
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openai import OpenAI
 from src.database.models import NewsLog
 from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
+
+
+def normalize_unicode(text: str) -> str:
+    """
+    Normalize Unicode to NFC form for consistent text handling.
+    
+    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
+    Greek, Arabic, Chinese, Japanese, Korean, and other languages
+    are handled consistently across all components.
+    
+    Args:
+        text: Input text to normalize
+        
+    Returns:
+        Normalized text in NFC form
+    """
+    if not text:
+        return ""
+    return unicodedata.normalize('NFC', text)
+
+
+def truncate_utf8(text: str, max_bytes: int) -> str:
+    """
+    Truncate text to fit within max_bytes UTF-8 encoded.
+    
+    Phase 1 Critical Fix: Safe truncation that preserves UTF-8 characters
+    instead of cutting at arbitrary byte positions which can corrupt
+    multi-byte characters.
+    
+    Args:
+        text: Input text to truncate
+        max_bytes: Maximum bytes in UTF-8 encoding
+        
+    Returns:
+        Truncated text with valid UTF-8 characters
+    """
+    if not text:
+        return ""
+    encoded = text.encode('utf-8')
+    if len(encoded) <= max_bytes:
+        return text
+    # Truncate and decode, removing incomplete characters
+    truncated = encoded[:max_bytes].decode('utf-8', errors='ignore')
+    return truncated
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -691,7 +738,6 @@ def reset_ai_response_stats() -> None:
     with _ai_stats_lock:
         _ai_invalid_response_count = 0
         _ai_total_response_count = 0
-    _ai_total_response_count = 0
 
 
 def call_deepseek(messages: List[Dict], include_reasoning: bool = True) -> tuple[str, str]:

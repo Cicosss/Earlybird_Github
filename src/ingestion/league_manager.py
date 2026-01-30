@@ -8,10 +8,13 @@ News Hunt Gating:
 - Tier 1: Search if odds drop > 5% OR FotMob warning
 - Tier 2: Search ONLY if odds drop > 15% OR FotMob HIGH RISK
 """
-import requests
 import logging
-from datetime import datetime
-from typing import List, Dict, Set, Optional
+import threading
+from datetime import datetime, timezone
+from typing import List, Dict, Set, Optional, Any
+
+import requests
+
 from config.settings import ODDS_API_KEY
 
 logger = logging.getLogger(__name__)
@@ -20,17 +23,33 @@ BASE_URL = "https://api.the-odds-api.com/v4"
 
 # Connection pooling
 _session: Optional[requests.Session] = None
+_session_lock: threading.Lock = threading.Lock()
 
 # Maximum leagues to process per run (API quota management)
 MAX_LEAGUES_PER_RUN = 12
 
 
 def _get_session() -> requests.Session:
-    """Get or create reusable requests session."""
+    """Get or create reusable requests session (thread-safe)."""
     global _session
     if _session is None:
-        _session = requests.Session()
+        with _session_lock:
+            if _session is None:
+                _session = requests.Session()
+                _session.headers.update({
+                    'User-Agent': 'EarlyBird/7.0'
+                })
     return _session
+
+
+def _close_session() -> None:
+    """Close the requests session (call on shutdown)."""
+    global _session
+    with _session_lock:
+        if _session is not None:
+            _session.close()
+            _session = None
+            logger.debug("🔌 Requests session closed")
 
 
 # ============================================
@@ -64,6 +83,7 @@ TIER_2_LEAGUES: List[str] = [
 
 # Round-robin state
 _tier2_index: int = 0
+_tier2_index_lock: threading.Lock = threading.Lock()
 TIER_2_PER_CYCLE: int = 3
 
 # ============================================
@@ -75,6 +95,7 @@ _last_tier2_activation_cycle: int = 0
 _current_cycle: int = 0
 _last_reset_date: str = ""
 _tier2_fallback_index: int = 0  # Separate index for fallback rotation
+_state_lock: threading.Lock = threading.Lock()  # Lock for state modifications
 
 # Fallback configuration
 TIER2_FALLBACK_BATCH_SIZE: int = 3  # Leghe per attivazione
@@ -126,8 +147,13 @@ EUROPE_LEAGUES: Set[str] = {
 # ============================================
 # API FUNCTIONS
 # ============================================
-def fetch_all_sports() -> List[Dict]:
-    """Fetch all active sports from The-Odds-API (FREE endpoint)."""
+def fetch_all_sports() -> List[Dict[str, Any]]:
+    """
+    Fetch all active sports from The-Odds-API (FREE endpoint).
+    
+    Returns:
+        List of sports/leagues dictionaries
+    """
     if not ODDS_API_KEY or ODDS_API_KEY == "YOUR_ODDS_API_KEY":
         logger.warning("⚠️ ODDS_API_KEY not configured")
         return []
@@ -145,24 +171,45 @@ def fetch_all_sports() -> List[Dict]:
         logger.info(f"📊 Fetched {len(sports)} sports/leagues from API")
         return sports
         
+    except requests.exceptions.Timeout:
+        logger.error("⏱️ Timeout fetching sports from API")
+        return []
+    except requests.exceptions.RequestException as e:
+        logger.error(f"🌐 Network error fetching sports: {e}")
+        return []
     except Exception as e:
-        logger.error(f"Error fetching sports: {e}")
+        logger.error(f"❌ Error fetching sports: {e}", exc_info=True)
         return []
 
 
-def get_quota_status() -> Dict:
-    """Get current API quota status."""
+def get_quota_status() -> Dict[str, Any]:
+    """
+    Get current API quota status.
+    
+    Returns:
+        Dict with requests_used and requests_remaining
+    """
     try:
         url = f"{BASE_URL}/sports"
         params = {"apiKey": ODDS_API_KEY}
         response = _get_session().get(url, params=params, timeout=10)
         
+        if response.status_code != 200:
+            logger.warning(f"⚠️ Quota check failed: {response.status_code}")
+            return {"requests_used": "error", "requests_remaining": "error"}
+        
         return {
             "requests_used": response.headers.get("x-requests-used", "unknown"),
             "requests_remaining": response.headers.get("x-requests-remaining", "unknown"),
         }
+    except requests.exceptions.Timeout:
+        logger.error("⏱️ Timeout checking quota")
+        return {"requests_used": "timeout", "requests_remaining": "timeout"}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"🌐 Network error checking quota: {e}")
+        return {"requests_used": "error", "requests_remaining": "error"}
     except Exception as e:
-        logger.error(f"Error checking quota: {e}")
+        logger.error(f"❌ Error checking quota: {e}", exc_info=True)
         return {"requests_used": "error", "requests_remaining": "error"}
 
 
@@ -237,23 +284,31 @@ def get_regions_for_league(sport_key: str) -> str:
 # CYCLE MANAGEMENT
 # ============================================
 def get_tier2_for_cycle() -> List[str]:
-    """Get next batch of Tier 2 leagues (round-robin)."""
+    """
+    Get next batch of Tier 2 leagues (round-robin).
+    
+    Thread-safe implementation.
+    
+    Returns:
+        List of Tier 2 league keys for this cycle
+    """
     global _tier2_index
     
     if not TIER_2_LEAGUES:
         return []
     
-    # Wrap around
-    start = _tier2_index % len(TIER_2_LEAGUES)
-    
-    # Get next batch
-    batch = []
-    for i in range(TIER_2_PER_CYCLE):
-        idx = (start + i) % len(TIER_2_LEAGUES)
-        batch.append(TIER_2_LEAGUES[idx])
-    
-    # Advance index for next cycle
-    _tier2_index = (start + TIER_2_PER_CYCLE) % len(TIER_2_LEAGUES)
+    with _tier2_index_lock:
+        # Wrap around
+        start = _tier2_index % len(TIER_2_LEAGUES)
+        
+        # Get next batch
+        batch = []
+        for i in range(TIER_2_PER_CYCLE):
+            idx = (start + i) % len(TIER_2_LEAGUES)
+            batch.append(TIER_2_LEAGUES[idx])
+        
+        # Advance index for next cycle
+        _tier2_index = (start + TIER_2_PER_CYCLE) % len(TIER_2_LEAGUES)
     
     return batch
 
@@ -264,6 +319,12 @@ def get_leagues_for_cycle(emergency_mode: bool = False) -> List[str]:
     
     Normal: Tier 1 + rotating Tier 2 batch
     Emergency: Tier 1 only
+    
+    Args:
+        emergency_mode: If True, only return Tier 1 leagues
+        
+    Returns:
+        List of league keys to process
     """
     if emergency_mode:
         logger.info("🚨 Emergency mode: Tier 1 only")
@@ -282,6 +343,12 @@ def get_active_niche_leagues(max_leagues: int = 12) -> List[str]:
     """
     Get active leagues from our verified list.
     Checks API for currently active leagues.
+    
+    Args:
+        max_leagues: Maximum number of leagues to return
+        
+    Returns:
+        List of active league keys sorted by priority
     """
     logger.info("🔍 Checking for active leagues...")
     
@@ -310,12 +377,22 @@ def get_active_niche_leagues(max_leagues: int = 12) -> List[str]:
 
 
 def get_elite_leagues() -> List[str]:
-    """Get Tier 1 leagues. Alias for backward compatibility."""
+    """
+    Get Tier 1 leagues. Alias for backward compatibility.
+    
+    Returns:
+        List of Tier 1 league keys
+    """
     return TIER_1_LEAGUES.copy()
 
 
 def get_fallback_leagues() -> List[str]:
-    """Fallback to Tier 1 if discovery fails."""
+    """
+    Fallback to Tier 1 if discovery fails.
+    
+    Returns:
+        List of Tier 1 league keys
+    """
     return TIER_1_LEAGUES.copy()
 
 
@@ -323,20 +400,33 @@ def get_fallback_leagues() -> List[str]:
 # TIER 2 FALLBACK SYSTEM (V4.3)
 # ============================================
 def _check_daily_reset() -> None:
-    """Reset contatori giornalieri a mezzanotte."""
+    """
+    Reset contatori giornalieri a mezzanotte.
+    
+    Thread-safe implementation using timezone-aware datetime.
+    """
     global _tier2_activations_today, _last_reset_date
     
-    today = datetime.now().strftime("%Y-%m-%d")
-    if _last_reset_date != today:
-        logger.info(f"🔄 Tier 2 Fallback: Reset giornaliero ({_last_reset_date} → {today})")
-        _tier2_activations_today = 0
-        _last_reset_date = today
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    with _state_lock:
+        if _last_reset_date != today:
+            logger.info(f"🔄 Tier 2 Fallback: Reset giornaliero ({_last_reset_date} → {today})")
+            _tier2_activations_today = 0
+            _last_reset_date = today
 
 
 def increment_cycle() -> None:
-    """Incrementa il contatore cicli (chiamato da main.py ad ogni ciclo)."""
+    """
+    Incrementa il contatore cicli (chiamato da main.py ad ogni ciclo).
+    
+    Thread-safe implementation.
+    """
     global _current_cycle
-    _current_cycle += 1
+    
+    with _state_lock:
+        _current_cycle += 1
+    
     _check_daily_reset()
 
 
@@ -360,41 +450,44 @@ def should_activate_tier2_fallback(alerts_sent: int, high_potential_count: int) 
     
     _check_daily_reset()
     
-    # Se ci sono stati alert, reset dry cycles e non attivare
-    if alerts_sent > 0:
-        if _consecutive_dry_cycles > 0:
-            logger.info(f"✅ Tier 1 produttivo - Reset dry cycles ({_consecutive_dry_cycles} → 0)")
-        _consecutive_dry_cycles = 0
-        return False
-    
-    # Incrementa dry cycles (nessun alert)
-    _consecutive_dry_cycles += 1
-    logger.info(f"📉 Tier 1 silenzioso - Dry cycles: {_consecutive_dry_cycles}")
-    
-    # Check limite giornaliero
-    if _tier2_activations_today >= TIER2_FALLBACK_DAILY_LIMIT:
-        logger.info(f"⚠️ Tier 2 Fallback: Limite giornaliero raggiunto ({_tier2_activations_today}/{TIER2_FALLBACK_DAILY_LIMIT})")
-        return False
-    
-    # Check cooldown (3 cicli dopo ultima attivazione)
-    if _last_tier2_activation_cycle > 0:
-        cycles_since_last = _current_cycle - _last_tier2_activation_cycle
-        if cycles_since_last < TIER2_FALLBACK_COOLDOWN:
-            logger.info(f"⏳ Tier 2 Fallback: Cooldown attivo ({cycles_since_last}/{TIER2_FALLBACK_COOLDOWN} cicli)")
+    with _state_lock:
+        # Se ci sono stati alert, reset dry cycles e non attivare
+        if alerts_sent > 0:
+            if _consecutive_dry_cycles > 0:
+                logger.info(f"✅ Tier 1 produttivo - Reset dry cycles ({_consecutive_dry_cycles} → 0)")
+            _consecutive_dry_cycles = 0
             return False
-    
-    # Trigger D: high_potential == 0 OR dry_cycles >= threshold
-    if high_potential_count == 0 or _consecutive_dry_cycles >= TIER2_DRY_CYCLES_THRESHOLD:
-        reason = "no high_potential" if high_potential_count == 0 else f"dry_cycles >= {TIER2_DRY_CYCLES_THRESHOLD}"
-        logger.info(f"🔄 Tier 2 Fallback: Trigger D attivato ({reason})")
-        return True
-    
-    return False
+        
+        # Incrementa dry cycles (nessun alert)
+        _consecutive_dry_cycles += 1
+        logger.info(f"📉 Tier 1 silenzioso - Dry cycles: {_consecutive_dry_cycles}")
+        
+        # Check limite giornaliero
+        if _tier2_activations_today >= TIER2_FALLBACK_DAILY_LIMIT:
+            logger.info(f"⚠️ Tier 2 Fallback: Limite giornaliero raggiunto ({_tier2_activations_today}/{TIER2_FALLBACK_DAILY_LIMIT})")
+            return False
+        
+        # Check cooldown (3 cicli dopo ultima attivazione)
+        if _last_tier2_activation_cycle > 0:
+            cycles_since_last = _current_cycle - _last_tier2_activation_cycle
+            if cycles_since_last < TIER2_FALLBACK_COOLDOWN:
+                logger.info(f"⏳ Tier 2 Fallback: Cooldown attivo ({cycles_since_last}/{TIER2_FALLBACK_COOLDOWN} cicli)")
+                return False
+        
+        # Trigger D: high_potential == 0 OR dry_cycles >= threshold
+        if high_potential_count == 0 or _consecutive_dry_cycles >= TIER2_DRY_CYCLES_THRESHOLD:
+            reason = "no high_potential" if high_potential_count == 0 else f"dry_cycles >= {TIER2_DRY_CYCLES_THRESHOLD}"
+            logger.info(f"🔄 Tier 2 Fallback: Trigger D attivato ({reason})")
+            return True
+        
+        return False
 
 
 def get_tier2_fallback_batch() -> List[str]:
     """
     Ottiene il prossimo batch di 3 leghe Tier 2 per il fallback (round-robin).
+    
+    Thread-safe implementation.
     
     Returns:
         Lista di 3 leghe Tier 2 in rotazione
@@ -405,57 +498,77 @@ def get_tier2_fallback_batch() -> List[str]:
         logger.warning("⚠️ Tier 2 Fallback: Nessuna lega Tier 2 configurata")
         return []
     
-    batch = []
-    for i in range(TIER2_FALLBACK_BATCH_SIZE):
-        idx = (_tier2_fallback_index + i) % len(TIER_2_LEAGUES)
-        batch.append(TIER_2_LEAGUES[idx])
-    
-    # Avanza l'indice per la prossima chiamata
-    _tier2_fallback_index = (_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE) % len(TIER_2_LEAGUES)
-    
-    batch_num = (_tier2_fallback_index // TIER2_FALLBACK_BATCH_SIZE) % (len(TIER_2_LEAGUES) // TIER2_FALLBACK_BATCH_SIZE + 1)
-    total_batches = (len(TIER_2_LEAGUES) + TIER2_FALLBACK_BATCH_SIZE - 1) // TIER2_FALLBACK_BATCH_SIZE
-    
-    logger.info(f"🔄 Tier 2 Fallback batch: {batch} (rotazione {batch_num}/{total_batches})")
+    with _state_lock:
+        batch = []
+        for i in range(TIER2_FALLBACK_BATCH_SIZE):
+            idx = (_tier2_fallback_index + i) % len(TIER_2_LEAGUES)
+            batch.append(TIER_2_LEAGUES[idx])
+        
+        # Avanza l'indice per la prossima chiamata
+        _tier2_fallback_index = (_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE) % len(TIER_2_LEAGUES)
+        
+        batch_num = (_tier2_fallback_index // TIER2_FALLBACK_BATCH_SIZE) % (len(TIER_2_LEAGUES) // TIER2_FALLBACK_BATCH_SIZE + 1)
+        total_batches = (len(TIER_2_LEAGUES) + TIER2_FALLBACK_BATCH_SIZE - 1) // TIER2_FALLBACK_BATCH_SIZE
+        
+        logger.info(f"🔄 Tier 2 Fallback batch: {batch} (rotazione {batch_num}/{total_batches})")
     
     return batch
 
 
 def record_tier2_activation() -> None:
-    """Registra un'attivazione del fallback Tier 2."""
+    """
+    Registra un'attivazione del fallback Tier 2.
+    
+    Thread-safe implementation.
+    """
     global _tier2_activations_today, _last_tier2_activation_cycle, _current_cycle
     
-    _tier2_activations_today += 1
-    _last_tier2_activation_cycle = _current_cycle
+    with _state_lock:
+        _tier2_activations_today += 1
+        _last_tier2_activation_cycle = _current_cycle
     
     logger.info(f"📊 Tier 2 Fallback: Attivazione registrata ({_tier2_activations_today}/{TIER2_FALLBACK_DAILY_LIMIT} oggi)")
 
 
 def reset_daily_tier2_stats() -> None:
-    """Reset manuale delle statistiche giornaliere Tier 2."""
+    """
+    Reset manuale delle statistiche giornaliere Tier 2.
+    
+    Thread-safe implementation.
+    """
     global _tier2_activations_today, _consecutive_dry_cycles
     
-    _tier2_activations_today = 0
-    _consecutive_dry_cycles = 0
+    with _state_lock:
+        _tier2_activations_today = 0
+        _consecutive_dry_cycles = 0
+    
     logger.info("🔄 Tier 2 Fallback: Stats giornaliere resettate manualmente")
 
 
-def get_tier2_fallback_status() -> Dict:
-    """Ritorna lo stato corrente del sistema Tier 2 Fallback."""
+def get_tier2_fallback_status() -> Dict[str, Any]:
+    """
+    Ritorna lo stato corrente del sistema Tier 2 Fallback.
+    
+    Thread-safe implementation.
+    
+    Returns:
+        Dict with current fallback status
+    """
     _check_daily_reset()
     
-    cycles_since_activation = _current_cycle - _last_tier2_activation_cycle if _last_tier2_activation_cycle > 0 else -1
-    cooldown_remaining = max(0, TIER2_FALLBACK_COOLDOWN - cycles_since_activation) if cycles_since_activation >= 0 else 0
-    
-    return {
-        "current_cycle": _current_cycle,
-        "consecutive_dry_cycles": _consecutive_dry_cycles,
-        "activations_today": _tier2_activations_today,
-        "daily_limit": TIER2_FALLBACK_DAILY_LIMIT,
-        "cooldown_remaining": cooldown_remaining,
-        "last_activation_cycle": _last_tier2_activation_cycle,
-        "next_batch_preview": TIER_2_LEAGUES[_tier2_fallback_index:_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE] if TIER_2_LEAGUES else [],
-    }
+    with _state_lock:
+        cycles_since_activation = _current_cycle - _last_tier2_activation_cycle if _last_tier2_activation_cycle > 0 else -1
+        cooldown_remaining = max(0, TIER2_FALLBACK_COOLDOWN - cycles_since_activation) if cycles_since_activation >= 0 else 0
+        
+        return {
+            "current_cycle": _current_cycle,
+            "consecutive_dry_cycles": _consecutive_dry_cycles,
+            "activations_today": _tier2_activations_today,
+            "daily_limit": TIER2_FALLBACK_DAILY_LIMIT,
+            "cooldown_remaining": cooldown_remaining,
+            "last_activation_cycle": _last_tier2_activation_cycle,
+            "next_batch_preview": TIER_2_LEAGUES[_tier2_fallback_index:_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE] if TIER_2_LEAGUES else [],
+        }
 
 
 # ============================================
@@ -464,7 +577,7 @@ def get_tier2_fallback_status() -> Dict:
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     
@@ -489,3 +602,6 @@ if __name__ == "__main__":
     quota = get_quota_status()
     print(f"  Used: {quota['requests_used']}")
     print(f"  Remaining: {quota['requests_remaining']}")
+    
+    # Cleanup session on exit
+    _close_session()

@@ -1,8 +1,12 @@
-import requests
 import logging
 import os
+import threading
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Any
+
+import requests
+from requests.exceptions import RequestException, Timeout, HTTPError
+
 from src.database.models import Match as MatchModel, TeamAlias, SessionLocal
 from config.settings import ODDS_API_KEY, MATCH_LOOKAHEAD_HOURS
 from src.ingestion.league_manager import (
@@ -28,14 +32,34 @@ BASE_URL = "https://api.the-odds-api.com/v4/sports"
 
 # Reusable session for connection pooling (faster API calls)
 _session: Optional[requests.Session] = None
+_session_lock: threading.Lock = threading.Lock()
 
 
 def _get_session() -> requests.Session:
-    """Get or create reusable requests session for connection pooling."""
+    """
+    Get or create reusable requests session for connection pooling.
+    
+    Thread-safe implementation.
+    """
     global _session
     if _session is None:
-        _session = requests.Session()
+        with _session_lock:
+            if _session is None:
+                _session = requests.Session()
+                _session.headers.update({
+                    'User-Agent': 'EarlyBird/7.0'
+                })
     return _session
+
+
+def _close_session() -> None:
+    """Close the requests session (call on shutdown)."""
+    global _session
+    with _session_lock:
+        if _session is not None:
+            _session.close()
+            _session = None
+            logging.debug("🔌 Requests session closed")
 
 # ============================================
 # SMART FREQUENCY & REGION OPTIMIZATION
@@ -154,12 +178,20 @@ def clean_team_name(name: str) -> str:
         clean = clean.replace(term, "")
     return clean.strip()
 
-def extract_h2h_odds(bookmakers_data: list, home_team: str = None, away_team: str = None) -> tuple:
+def extract_h2h_odds(bookmakers_data: list, home_team: str = None, away_team: str = None) -> Tuple[Optional[float], Optional[float], Optional[float]]:
     """
     Extract Home, Draw, and Away odds from bookmakers data.
     Returns (home_odd, draw_odd, away_odd) or (None, None, None) if not found.
     
     BISCOTTO STRATEGY: Now captures Draw odds for anomaly detection.
+    
+    Args:
+        bookmakers_data: List of bookmaker data from Odds API
+        home_team: Home team name
+        away_team: Away team name
+        
+    Returns:
+        Tuple of (home_odd, draw_odd, away_odd)
     """
     if not bookmakers_data:
         return None, None, None
@@ -428,10 +460,13 @@ def update_team_aliases(matches):
     finally:
         db.close()
 
-def check_quota_status() -> dict:
+def check_quota_status() -> Dict[str, Any]:
     """
     Check current API quota from response headers.
     Returns dict with 'remaining' and 'emergency_mode' flag.
+    
+    Returns:
+        Dict with remaining, used, and emergency_mode flags
     """
     try:
         url = f"{BASE_URL.replace('/sports', '')}/sports"
@@ -442,7 +477,7 @@ def check_quota_status() -> dict:
         try:
             # Handle both "500" and "20000.0" formats
             remaining_int = int(float(remaining))
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logging.error(f"Handled error in check_quota_status (parsing remaining): {e}")
             remaining_int = 500
         
@@ -451,9 +486,15 @@ def check_quota_status() -> dict:
             "used": response.headers.get("x-requests-used", "0"),
             "emergency_mode": remaining_int < 50
         }
-    except Exception as e:
+    except Timeout:
+        logging.error("⏱️ Timeout checking quota")
+        return {"remaining": 500, "used": "timeout", "emergency_mode": False}
+    except RequestException as e:
         logging.warning(f"⚠️ Could not check quota: {e}")
-        return {"remaining": 500, "used": "unknown", "emergency_mode": False}
+        return {"remaining": 500, "used": "error", "emergency_mode": False}
+    except Exception as e:
+        logging.error(f"❌ Unexpected error checking quota: {e}", exc_info=True)
+        return {"remaining": 500, "used": "error", "emergency_mode": False}
 
 
 def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):

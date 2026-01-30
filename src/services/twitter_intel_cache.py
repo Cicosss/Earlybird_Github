@@ -32,8 +32,9 @@ Requirements: 8.1, 8.2, 8.3, 8.4
 import logging
 import json
 import re
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Any
+import threading
+from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -52,14 +53,21 @@ from config.twitter_intel_accounts import (
 )
 
 # V7.0: Tavily integration for Twitter recovery
+_TAVILY_AVAILABLE = False
+_TavilyProvider = None
+_TavilyQueryBuilder = None
+_get_budget_manager = None
+
 try:
     from src.ingestion.tavily_provider import get_tavily_provider, TavilyProvider
     from src.ingestion.tavily_query_builder import TavilyQueryBuilder
     from src.ingestion.tavily_budget import get_budget_manager
     _TAVILY_AVAILABLE = True
-except ImportError:
-    _TAVILY_AVAILABLE = False
-    logging.debug("Tavily not available for Twitter recovery")
+    _TavilyProvider = TavilyProvider
+    _TavilyQueryBuilder = TavilyQueryBuilder
+    _get_budget_manager = get_budget_manager
+except ImportError as e:
+    logging.debug(f"Tavily not available for Twitter recovery: {e}")
 
 
 class IntelRelevance(Enum):
@@ -106,18 +114,25 @@ class TwitterIntelCache:
     - Async tasks (news_hunter, tweet_relevance_filter)
     """
     
-    _instance = None
-    _instance_lock = None  # Initialized lazily to avoid import-time issues
+    _instance: Optional['TwitterIntelCache'] = None
+    _instance_lock: Optional[threading.Lock] = None  # Initialized lazily to avoid import-time issues
+    _initialization_lock: Optional[threading.Lock] = None  # Separate lock for initialization
     
     @classmethod
-    def _get_lock(cls):
+    def _get_lock(cls) -> threading.Lock:
         """Get or create the instance lock (lazy initialization)."""
         if cls._instance_lock is None:
-            import threading
             cls._instance_lock = threading.Lock()
         return cls._instance_lock
     
-    def __new__(cls):
+    @classmethod
+    def _get_initialization_lock(cls) -> threading.Lock:
+        """Get or create the initialization lock (lazy initialization)."""
+        if cls._initialization_lock is None:
+            cls._initialization_lock = threading.Lock()
+        return cls._initialization_lock
+    
+    def __new__(cls) -> 'TwitterIntelCache':
         # Fast path: instance already exists
         if cls._instance is not None:
             return cls._instance
@@ -132,27 +147,39 @@ class TwitterIntelCache:
         return cls._instance
     
     def __init__(self):
-        if self._initialized:
+        # Check if already initialized (thread-safe)
+        if getattr(self, '_initialized', False):
             return
             
-        self._cache: Dict[str, TwitterIntelCacheEntry] = {}
-        self._last_full_refresh: datetime = None
-        self._cycle_id: str = None
-        self._initialized = True
-        
-        # V7.0: Tavily integration for Twitter recovery
-        self._tavily: Optional[TavilyProvider] = None
-        self._unavailable_accounts: Dict[str, datetime] = {}  # handle -> marked_unavailable_time
-        self._tavily_recovery_count: int = 0
-        
-        if _TAVILY_AVAILABLE:
-            try:
-                self._tavily = get_tavily_provider()
-                logging.info("🐦 TwitterIntelCache initialized with Tavily recovery")
-            except Exception as e:
-                logging.warning(f"🐦 Tavily not available for Twitter recovery: {e}")
-        else:
-            logging.info("🐦 TwitterIntelCache initialized (no Tavily)")
+        # Use initialization lock to prevent race conditions during __init__
+        init_lock = self._get_initialization_lock()
+        with init_lock:
+            # Double-check after acquiring lock
+            if getattr(self, '_initialized', False):
+                return
+            
+            self._cache: Dict[str, TwitterIntelCacheEntry] = {}
+            self._last_full_refresh: Optional[datetime] = None
+            self._cycle_id: Optional[str] = None
+            self._cache_lock: threading.Lock = threading.Lock()  # Lock for cache operations
+            
+            # V7.0: Tavily integration for Twitter recovery
+            self._tavily: Optional[Any] = None
+            self._unavailable_accounts: Dict[str, datetime] = {}  # handle -> marked_unavailable_time
+            self._tavily_recovery_count: int = 0
+            
+            if _TAVILY_AVAILABLE:
+                try:
+                    from src.ingestion.tavily_provider import get_tavily_provider
+                    self._tavily = get_tavily_provider()
+                    logging.info("🐦 TwitterIntelCache initialized with Tavily recovery")
+                except Exception as e:
+                    logging.warning(f"🐦 Tavily not available for Twitter recovery: {e}")
+            else:
+                logging.info("🐦 TwitterIntelCache initialized (no Tavily)")
+            
+            # Mark as initialized AFTER all initialization is complete
+            self._initialized = True
     
     @property
     def is_fresh(self) -> bool:
@@ -161,19 +188,43 @@ class TwitterIntelCache:
             return False
         # Cache valida per 360 minuti (6 ore) per risparmiare quota Gemini API
         # Con 1500 req/day limit, refresh ogni 6h = 4 refresh/day = ~20 chiamate/day per Twitter
-        return datetime.now() - self._last_full_refresh < timedelta(minutes=360)
+        return datetime.now(timezone.utc) - self._last_full_refresh < timedelta(minutes=360)
     
     @property
     def cache_age_minutes(self) -> int:
         """Età della cache in minuti"""
         if not self._last_full_refresh:
             return -1
-        return int((datetime.now() - self._last_full_refresh).total_seconds() / 60)
+        return int((datetime.now(timezone.utc) - self._last_full_refresh).total_seconds() / 60)
+    
+    def _normalize_handle(self, handle: str) -> str:
+        """
+        Normalizza un handle Twitter per lookup nella cache.
+        
+        Args:
+            handle: Handle Twitter (con o senza @)
+            
+        Returns:
+            Handle normalizzato (lowercase, senza @)
+        """
+        if not handle or not isinstance(handle, str):
+            return ""
+        return handle.lower().replace("@", "").strip()
+    
+    def get_cached_intel(self) -> Dict[str, TwitterIntelCacheEntry]:
+        """
+        Ottiene tutti i dati cachati.
+        
+        Returns:
+            Dict con handle -> TwitterIntelCacheEntry
+        """
+        with self._cache_lock:
+            return dict(self._cache)
     
     async def refresh_twitter_intel(
         self,
         gemini_service: Any,
-        tier: LeagueTier = None,
+        tier: Optional[LeagueTier] = None,
         max_posts_per_account: int = 5
     ) -> Dict[str, Any]:
         """
@@ -189,7 +240,7 @@ class TwitterIntelCache:
         Returns:
             Dict con statistiche del refresh
         """
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
         self._cycle_id = start_time.strftime("%Y%m%d_%H%M%S")
         
         logging.info(f"🐦 Starting Twitter Intel refresh (cycle: {self._cycle_id})")
@@ -226,52 +277,54 @@ class TwitterIntelCache:
                 # Parsa la risposta e popola la cache
                 parsed = self._parse_gemini_response(response)
                 
-                for account_data in parsed.get("accounts", []):
-                    handle = account_data.get("handle", "")
-                    tweets = account_data.get("posts", [])
-                    
-                    if tweets:
-                        stats["accounts_with_data"] += 1
-                        stats["total_tweets_cached"] += len(tweets)
-                    
-                    # Trova info account dalla configurazione
-                    account_info = self._find_account_info(handle)
-                    
-                    # Crea entry cache
-                    entry = TwitterIntelCacheEntry(
-                        handle=handle,
-                        account_name=account_info.name if account_info else handle,
-                        league_focus=account_info.focus if account_info else "unknown",
-                        tweets=[
-                            CachedTweet(
-                                handle=handle,
-                                date=t.get("date", ""),
-                                content=t.get("content", ""),
-                                topics=t.get("topics", []),
-                                raw_data=t
-                            )
-                            for t in tweets
-                        ],
-                        last_refresh=datetime.now(),
-                        extraction_success=True
-                    )
-                    
-                    self._cache[handle.lower()] = entry
+                with self._cache_lock:
+                    for account_data in parsed.get("accounts", []):
+                        handle = account_data.get("handle", "")
+                        tweets = account_data.get("posts", [])
+                        
+                        if tweets:
+                            stats["accounts_with_data"] += 1
+                            stats["total_tweets_cached"] += len(tweets)
+                        
+                        # Trova info account dalla configurazione
+                        account_info = self._find_account_info(handle)
+                        
+                        # Crea entry cache
+                        entry = TwitterIntelCacheEntry(
+                            handle=handle,
+                            account_name=account_info.name if account_info else handle,
+                            league_focus=account_info.focus if account_info else "unknown",
+                            tweets=[
+                                CachedTweet(
+                                    handle=handle,
+                                    date=t.get("date", ""),
+                                    content=t.get("content", ""),
+                                    topics=t.get("topics", []),
+                                    raw_data=t
+                                )
+                                for t in tweets
+                            ],
+                            last_refresh=datetime.now(timezone.utc),
+                            extraction_success=True
+                        )
+                        
+                        # Use normalized handle for cache key
+                        self._cache[self._normalize_handle(handle)] = entry
                 
         except Exception as e:
-            logging.error(f"🐦 Error refreshing Twitter intel: {e}")
+            logging.error(f"🐦 Error refreshing Twitter intel: {e}", exc_info=True)
             stats["errors"].append(str(e))
         
         # Finalizza stats
-        stats["duration_seconds"] = (datetime.now() - start_time).total_seconds()
-        self._last_full_refresh = datetime.now()
+        stats["duration_seconds"] = (datetime.now(timezone.utc) - start_time).total_seconds()
+        self._last_full_refresh = datetime.now(timezone.utc)
         
         # V7.0: Attempt Tavily recovery for accounts without data
-        if self._tavily and self._tavily.is_available():
+        if self._tavily and hasattr(self._tavily, 'is_available') and self._tavily.is_available():
             failed_handles = [
                 h for h in all_handles
-                if h.lower().lstrip("@") not in self._cache 
-                or not self._cache.get(h.lower().lstrip("@"), TwitterIntelCacheEntry(
+                if self._normalize_handle(h) not in self._cache 
+                or not self._cache.get(self._normalize_handle(h), TwitterIntelCacheEntry(
                     handle="", account_name="", league_focus=""
                 )).tweets
             ]
@@ -368,18 +421,19 @@ class TwitterIntelCache:
         accounts = get_twitter_intel_accounts(league_key)
         tweets = []
         
-        for account in accounts:
-            handle_key = account.handle.lower()
-            if handle_key in self._cache:
-                tweets.extend(self._cache[handle_key].tweets)
+        with self._cache_lock:
+            for account in accounts:
+                handle_key = self._normalize_handle(account.handle)
+                if handle_key in self._cache:
+                    tweets.extend(self._cache[handle_key].tweets)
         
         return tweets
     
     def search_intel(
         self,
         query: str,
-        league_key: str = None,
-        topics: List[str] = None
+        league_key: Optional[str] = None,
+        topics: Optional[List[str]] = None
     ) -> List[CachedTweet]:
         """
         Cerca nella cache tweet che matchano la query.
@@ -392,19 +446,24 @@ class TwitterIntelCache:
         Returns:
             Lista di tweet rilevanti
         """
+        if not query or not isinstance(query, str):
+            return []
+        
         results = []
         query_lower = query.lower()
         
         # Determina quali entry cercare
         if league_key:
             accounts = get_twitter_intel_accounts(league_key)
-            entries = [
-                self._cache.get(a.handle.lower())
-                for a in accounts
-                if a.handle.lower() in self._cache
-            ]
+            with self._cache_lock:
+                entries = [
+                    self._cache.get(self._normalize_handle(a.handle))
+                    for a in accounts
+                    if self._normalize_handle(a.handle) in self._cache
+                ]
         else:
-            entries = list(self._cache.values())
+            with self._cache_lock:
+                entries = list(self._cache.values())
         
         for entry in entries:
             if not entry:
@@ -518,33 +577,47 @@ class TwitterIntelCache:
             
         Requirements: 8.1, 8.2
         """
-        if not self._tavily or not self._tavily.is_available():
+        if not self._tavily or not hasattr(self._tavily, 'is_available') or not self._tavily.is_available():
             logging.debug(f"🐦 Tavily not available for Twitter recovery: {handle}")
             return []
         
+        # Normalize handle for consistency
+        normalized_handle = self._normalize_handle(handle)
+        
         # Check if account is marked as unavailable (cooldown)
-        if handle.lower() in self._unavailable_accounts:
-            marked_time = self._unavailable_accounts[handle.lower()]
+        if normalized_handle in self._unavailable_accounts:
+            marked_time = self._unavailable_accounts[normalized_handle]
             # 1 hour cooldown before retrying unavailable accounts
-            if datetime.now() - marked_time < timedelta(hours=1):
+            if datetime.now(timezone.utc) - marked_time < timedelta(hours=1):
                 logging.debug(f"🐦 Account {handle} in cooldown, skipping Tavily recovery")
                 return []
             else:
                 # Cooldown expired, remove from unavailable
-                del self._unavailable_accounts[handle.lower()]
+                del self._unavailable_accounts[normalized_handle]
         
         # Check budget allocation for twitter_recovery
-        if _TAVILY_AVAILABLE:
+        if _TAVILY_AVAILABLE and _get_budget_manager:
             try:
-                budget_manager = get_budget_manager()
+                budget_manager = _get_budget_manager()
                 if not budget_manager.can_call("twitter_recovery"):
                     logging.debug(f"🐦 Tavily budget exhausted for twitter_recovery")
                     return []
-            except Exception:
+            except Exception as e:
+                logging.debug(f"🐦 Budget check failed: {e}")
                 pass  # Continue without budget check if manager unavailable
         
         # Build Tavily query for Twitter recovery
-        query = TavilyQueryBuilder.build_twitter_recovery_query(handle, keywords)
+        if _TavilyQueryBuilder:
+            query = _TavilyQueryBuilder.build_twitter_recovery_query(handle, keywords)
+        else:
+            # Fallback if TavilyQueryBuilder not available
+            clean_handle = handle.strip()
+            if not clean_handle.startswith("@"):
+                clean_handle = f"@{clean_handle}"
+            query = f"Twitter {clean_handle} recent tweets"
+            if keywords:
+                query += f" {' '.join(keywords[:5])}"
+        
         if not query:
             return []
         
@@ -559,19 +632,19 @@ class TwitterIntelCache:
                 include_answer=True
             )
             
-            if not response or not response.results:
+            if not response or not hasattr(response, 'results') or not response.results:
                 # No results - mark account as temporarily unavailable
                 self._mark_account_unavailable(handle)
                 logging.warning(f"🐦 [TAVILY] No results for {handle}, marking unavailable")
                 return []
             
             # Record budget usage
-            if _TAVILY_AVAILABLE:
+            if _TAVILY_AVAILABLE and _get_budget_manager:
                 try:
-                    budget_manager = get_budget_manager()
+                    budget_manager = _get_budget_manager()
                     budget_manager.record_call("twitter_recovery")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.debug(f"🐦 Budget recording failed: {e}")
             
             # Normalize Tavily results to CachedTweet format
             recovered_tweets = []
@@ -590,7 +663,7 @@ class TwitterIntelCache:
             return recovered_tweets
             
         except Exception as e:
-            logging.error(f"🐦 [TAVILY] Error recovering tweets for {handle}: {e}")
+            logging.error(f"🐦 [TAVILY] Error recovering tweets for {handle}: {e}", exc_info=True)
             return []
     
     def _normalize_tavily_to_tweet(
@@ -618,10 +691,10 @@ class TwitterIntelCache:
         
         try:
             # Extract content from Tavily result
-            content = tavily_result.content or ""
-            title = tavily_result.title or ""
-            url = tavily_result.url or ""
-            published_date = tavily_result.published_date or ""
+            content = getattr(tavily_result, 'content', '') or ""
+            title = getattr(tavily_result, 'title', '') or ""
+            url = getattr(tavily_result, 'url', '') or ""
+            published_date = getattr(tavily_result, 'published_date', '') or ""
             
             # Skip if no meaningful content
             if not content and not title:
@@ -643,7 +716,7 @@ class TwitterIntelCache:
             # Create CachedTweet
             tweet = CachedTweet(
                 handle=handle,
-                date=published_date or datetime.now().strftime("%Y-%m-%d"),
+                date=published_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                 content=tweet_content,
                 topics=topics,
                 raw_data={
@@ -651,7 +724,7 @@ class TwitterIntelCache:
                     "url": url,
                     "title": title,
                     "freshness_score": freshness_score,
-                    "tavily_score": tavily_result.score if hasattr(tavily_result, 'score') else 0.0
+                    "tavily_score": getattr(tavily_result, 'score', 0.0)
                 }
             )
             
@@ -721,7 +794,6 @@ class TwitterIntelCache:
             
             # Make timezone-aware if needed
             if pub_dt.tzinfo is None:
-                from datetime import timezone
                 pub_dt = pub_dt.replace(tzinfo=timezone.utc)
             
             now = datetime.now(timezone.utc)
@@ -740,7 +812,8 @@ class TwitterIntelCache:
                 # Very old content
                 return max(0.1, 0.2 - (age_hours - 48) * 0.001)
                 
-        except Exception:
+        except Exception as e:
+            logging.debug(f"🐦 Error calculating freshness score: {e}")
             return 0.5  # Parse error = medium freshness
     
     def _mark_account_unavailable(self, handle: str) -> None:
@@ -755,7 +828,8 @@ class TwitterIntelCache:
             
         Requirements: 8.4
         """
-        self._unavailable_accounts[handle.lower()] = datetime.now()
+        normalized_handle = self._normalize_handle(handle)
+        self._unavailable_accounts[normalized_handle] = datetime.now(timezone.utc)
         logging.debug(f"🐦 Account {handle} marked as temporarily unavailable")
     
     def recover_failed_accounts(
@@ -778,7 +852,7 @@ class TwitterIntelCache:
             
         Requirements: 8.1
         """
-        if not self._tavily or not self._tavily.is_available():
+        if not self._tavily or not hasattr(self._tavily, 'is_available') or not self._tavily.is_available():
             return {"recovered": 0, "failed": len(failed_handles), "skipped": 0}
         
         stats = {
@@ -790,10 +864,11 @@ class TwitterIntelCache:
         
         for handle in failed_handles:
             # Skip if already in cache with data
-            handle_key = handle.lower().lstrip("@")
-            if handle_key in self._cache and self._cache[handle_key].tweets:
-                stats["skipped"] += 1
-                continue
+            handle_key = self._normalize_handle(handle)
+            with self._cache_lock:
+                if handle_key in self._cache and self._cache[handle_key].tweets:
+                    stats["skipped"] += 1
+                    continue
             
             # Attempt Tavily recovery
             tweets = self._tavily_recover_tweets(handle, keywords)
@@ -808,12 +883,13 @@ class TwitterIntelCache:
                     account_name=account_info.name if account_info else handle,
                     league_focus=account_info.focus if account_info else "unknown",
                     tweets=tweets,
-                    last_refresh=datetime.now(),
+                    last_refresh=datetime.now(timezone.utc),
                     extraction_success=True,
                     error_message=None
                 )
                 
-                self._cache[handle_key] = entry
+                with self._cache_lock:
+                    self._cache[handle_key] = entry
                 stats["recovered"] += 1
                 stats["tweets_recovered"] += len(tweets)
             else:
@@ -827,39 +903,41 @@ class TwitterIntelCache:
         
         return stats
     
-    def get_cache_summary(self) -> Dict:
+    def get_cache_summary(self) -> Dict[str, Any]:
         """
         Ottiene un riepilogo dello stato della cache.
         
         Returns:
             Dict con statistiche cache
         """
-        total_tweets = sum(len(e.tweets) for e in self._cache.values())
-        accounts_with_data = sum(1 for e in self._cache.values() if e.tweets)
-        
-        # V7.0: Include Tavily recovery stats
-        tavily_tweets = sum(
-            1 for e in self._cache.values() 
-            for t in e.tweets 
-            if t.raw_data.get("source") == "tavily"
-        )
-        
-        return {
-            "is_fresh": self.is_fresh,
-            "cache_age_minutes": self.cache_age_minutes,
-            "cycle_id": self._cycle_id,
-            "total_accounts": len(self._cache),
-            "accounts_with_data": accounts_with_data,
-            "total_tweets": total_tweets,
-            "tavily_recovered_tweets": tavily_tweets,
-            "tavily_recovery_count": self._tavily_recovery_count,
-            "unavailable_accounts": len(self._unavailable_accounts),
-            "last_refresh": self._last_full_refresh.isoformat() if self._last_full_refresh else None
-        }
+        with self._cache_lock:
+            total_tweets = sum(len(e.tweets) for e in self._cache.values())
+            accounts_with_data = sum(1 for e in self._cache.values() if e.tweets)
+            
+            # V7.0: Include Tavily recovery stats
+            tavily_tweets = sum(
+                1 for e in self._cache.values() 
+                for t in e.tweets 
+                if t.raw_data.get("source") == "tavily"
+            )
+            
+            return {
+                "is_fresh": self.is_fresh,
+                "cache_age_minutes": self.cache_age_minutes,
+                "cycle_id": self._cycle_id,
+                "total_accounts": len(self._cache),
+                "accounts_with_data": accounts_with_data,
+                "total_tweets": total_tweets,
+                "tavily_recovered_tweets": tavily_tweets,
+                "tavily_recovery_count": self._tavily_recovery_count,
+                "unavailable_accounts": len(self._unavailable_accounts),
+                "last_refresh": self._last_full_refresh.isoformat() if self._last_full_refresh else None
+            }
     
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Svuota la cache (chiamare a fine ciclo se necessario)"""
-        self._cache.clear()
+        with self._cache_lock:
+            self._cache.clear()
         self._last_full_refresh = None
         self._cycle_id = None
         logging.info("🐦 Twitter Intel cache cleared")
@@ -869,15 +947,14 @@ class TwitterIntelCache:
 # SINGLETON INSTANCE
 # ============================================
 
-_twitter_intel_cache = None
-_twitter_intel_cache_lock = None  # Lazy initialization
+_twitter_intel_cache: Optional[TwitterIntelCache] = None
+_twitter_intel_cache_lock: Optional[threading.Lock] = None  # Lazy initialization
 
 
-def _get_cache_lock():
+def _get_cache_lock() -> threading.Lock:
     """Get or create the cache lock (lazy initialization)."""
     global _twitter_intel_cache_lock
     if _twitter_intel_cache_lock is None:
-        import threading
         _twitter_intel_cache_lock = threading.Lock()
     return _twitter_intel_cache_lock
 

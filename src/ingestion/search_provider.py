@@ -12,6 +12,8 @@ Provides robust search without any Docker dependencies.
 V4.4: 
 - Migrated to centralized HTTP client with fingerprint rotation
 - Added Mediastack as 4th fallback (free unlimited tier)
+
+Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 import html
 import logging
@@ -19,6 +21,7 @@ import os
 import random
 from typing import List, Dict, Optional
 import time
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +166,7 @@ LEAGUE_DOMAINS = {
     ],
     # POLAND (forums + news) - Polish football is forum-centric
     "soccer_poland_ekstraklasa": [
-        "swiatpilki.com",           # Main Polish football forum ("Reddit of Polish football")
+        "swiatpilki.com",           # Main Polish football forum
         "weszlo.com",               # Major news site
         "meczyki.pl",               # News aggregator
         "90minut.pl",               # Historic forum + news
@@ -402,6 +405,9 @@ class SearchProvider:
         If league_key is in LEAGUE_DOMAINS, restricts search to those domains
         using site: operator for higher quality results.
         
+        Phase 1 Critical Fix: URL-encode team names and keywords to handle non-ASCII
+        characters (e.g., Turkish "ş", Polish "ą", Greek "α").
+        
         Args:
             team: Team name
             keywords: Search keywords (e.g., "injury OR lineup")
@@ -410,17 +416,25 @@ class SearchProvider:
         Returns:
             Formatted query string with site: dorking if applicable
         """
-        # Base query
-        base_query = f'"{team}" {keywords}'
+        # Phase 1 Critical Fix: URL-encode team name to handle special characters
+        # This fixes search failures for non-English team names like "Beşiktaş", "Lech Poznań"
+        encoded_team = quote(team, safe='')
+        
+        # Phase 1 Critical Fix: URL-encode keywords to handle special characters
+        encoded_keywords = quote(keywords, safe=' ')
+        
+        # Base query with URL-encoded team and keywords
+        base_query = f'"{encoded_team}" {encoded_keywords}'
         
         # Add insider domain dorking if league has configured domains
         if league_key and league_key in LEAGUE_DOMAINS:
             domains = LEAGUE_DOMAINS[league_key]
-            site_dork = " OR ".join([f"site:{d}" for d in domains])
+            # Phase 1 Critical Fix: URL-encode domain names as well
+            site_dork = " OR ".join([f"site:{quote(d, safe='')}" for d in domains])
             base_query = f'{base_query} ({site_dork})'
             logger.debug(f"🎯 Insider dorking for {league_key}: {domains}")
         
-        # Add sport exclusions
+        # Add sport exclusions (these are ASCII, no encoding needed)
         base_query = f'{base_query}{SPORT_EXCLUSION_TERMS}'
         
         return base_query

@@ -44,7 +44,8 @@ def check_environment() -> bool:
     from dotenv import load_dotenv
     load_dotenv()
     
-    required = ["OPENROUTER_API_KEY", "ODDS_API_KEY", "SERPER_API_KEY", "TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID"]
+    # Required variables for main pipeline
+    required = ["OPENROUTER_API_KEY", "ODDS_API_KEY", "SERPER_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     missing = [v for v in required if not os.getenv(v) or os.getenv(v, "").startswith("your_")]
     
     if missing:
@@ -53,9 +54,9 @@ def check_environment() -> bool:
     
     print("   ✅ All required variables configured")
     
-    # Check optional Telegram monitoring
+    # Check optional Telegram monitoring (user client for squad scraping)
     if os.getenv("TELEGRAM_API_ID") and os.getenv("TELEGRAM_API_HASH"):
-        print("   ✅ Telegram monitoring enabled")
+        print("   ✅ Telegram monitoring enabled (user client)")
     else:
         print("   ⚠️  Telegram monitoring disabled (no API_ID/HASH)")
     
@@ -79,19 +80,25 @@ def init_database(skip_reset: bool = False) -> bool:
 
 def start_telegram_monitor() -> subprocess.Popen:
     """Start Telegram monitor in background."""
-    if not os.getenv("TELEGRAM_API_ID"):
+    if not os.getenv("TELEGRAM_API_ID") or not os.getenv("TELEGRAM_API_HASH"):
+        print("   ⚠️  Telegram Monitor disabled (missing API_ID/HASH)")
         return None
     
     if not Path("run_telegram_monitor.py").exists():
+        print("   ⚠️  Telegram Monitor script not found")
         return None
     
     try:
+        # Open log file with proper context management
+        log_file = open("telegram_monitor.log", "a")
         process = subprocess.Popen(
             [sys.executable, "run_telegram_monitor.py"],
-            stdout=open("telegram_monitor.log", "a"),
+            stdout=log_file,
             stderr=subprocess.STDOUT,
             preexec_fn=os.setsid if os.name != 'nt' else None
         )
+        # Store file handle for cleanup
+        process.log_file = log_file
         BACKGROUND_PROCESSES.append(process)
         print(f"   ✅ Telegram Monitor started (PID: {process.pid})")
         return process
@@ -111,13 +118,18 @@ def run_main_pipeline():
     print("=" * 50 + "\n")
     
     try:
-        subprocess.run([sys.executable, "src/main.py"], check=False)
+        result = subprocess.run([sys.executable, "src/main.py"], check=False)
+        # Check if main pipeline exited with error
+        if result.returncode != 0:
+            print(f"\n⚠️  Main pipeline exited with code {result.returncode}")
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        print(f"\n❌ Error running main pipeline: {e}")
 
 
 def cleanup():
-    """Kill background processes."""
+    """Kill background processes and close file handles."""
     global SHUTDOWN_FLAG
     if SHUTDOWN_FLAG:
         return
@@ -128,17 +140,39 @@ def cleanup():
     for proc in BACKGROUND_PROCESSES:
         if proc and proc.poll() is None:
             try:
+                # Try graceful termination first
                 if os.name != 'nt':
-                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    # Unix: kill process group
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    except (ProcessLookupError, OSError):
+                        # Process might already be gone
+                        pass
                 else:
+                    # Windows: terminate process
                     proc.terminate()
-                proc.wait(timeout=5)
+                
+                # Wait for process to terminate (with timeout handling)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # Force kill if graceful termination failed
+                    try:
+                        if os.name != 'nt':
+                            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                        else:
+                            proc.kill()
+                    except (ProcessLookupError, OSError):
+                        pass
             except Exception as e:
                 print(f"   ⚠️  Error terminating process: {e}")
-                try:
-                    proc.kill()
-                except Exception as kill_err:
-                    print(f"   ⚠️  Error killing process: {kill_err}")
+        
+        # Close log file handle if exists
+        if hasattr(proc, 'log_file') and proc.log_file:
+            try:
+                proc.log_file.close()
+            except Exception as e:
+                print(f"   ⚠️  Error closing log file: {e}")
     
     print("✅ Stopped\n")
 

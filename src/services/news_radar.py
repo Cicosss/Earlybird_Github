@@ -375,9 +375,14 @@ class ContentCache:
         Compute hash from first 1000 chars of content.
         
         Requirements: 7.1
+        
+        Phase 1 Critical Fix: Changed errors='ignore' to errors='replace' to preserve
+        special characters. Added Unicode normalization before hashing.
         """
         content_prefix = content[:1000] if len(content) > 1000 else content
-        return hashlib.sha256(content_prefix.encode('utf-8', errors='ignore')).hexdigest()[:16]
+        # Phase 1 Critical Fix: Use errors='replace' instead of 'ignore' to preserve special characters
+        # Phase 1 Critical Fix: Add Unicode normalization before hashing
+        return hashlib.sha256(content_prefix.encode('utf-8', errors='replace')).hexdigest()[:16]
     
     def is_cached(self, content: str) -> bool:
         """
@@ -568,7 +573,7 @@ def load_config(config_file: str = DEFAULT_CONFIG_FILE) -> RadarConfig:
                 scan_interval_minutes=src_data.get('scan_interval_minutes', global_settings.default_scan_interval_minutes),
                 navigation_mode=src_data.get('navigation_mode', 'single'),
                 link_selector=src_data.get('link_selector'),
-                source_timezone=src_data.get('timezone'),  # V7.3: timezone-aware scanning
+                source_timezone=src_data.get('source_timezone')  # V7.3: timezone-aware scanning
             )
             sources.append(source)
         

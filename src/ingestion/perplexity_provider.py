@@ -12,11 +12,14 @@ Requirements:
 - PERPLEXITY_API_KEY in config/settings.py or environment
 
 Flow: Analyzer -> IntelligenceRouter -> Gemini (primary) / Perplexity (fallback)
+
+Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 import logging
 import os
 import requests
 from typing import Dict, List, Optional, Type
+from urllib.parse import quote
 
 from src.ingestion.prompts import (
     build_deep_dive_prompt,

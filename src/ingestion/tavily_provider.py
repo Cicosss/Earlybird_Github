@@ -14,13 +14,17 @@ Features:
 - Brave/DDG fallback when Tavily unavailable
 
 Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 10.1, 10.2, 10.3, 10.4
+
+Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 import hashlib
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from urllib.parse import quote
 
 from config.settings import (
     TAVILY_ENABLED,
@@ -37,7 +41,6 @@ try:
     _SHARED_CACHE_AVAILABLE = True
 except ImportError:
     _SHARED_CACHE_AVAILABLE = False
-    get_shared_cache = None
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +94,7 @@ class BudgetStatus:
     daily_limit: int
     is_degraded: bool
     is_disabled: bool
+    daily_reset_date: Optional[str] = None  # ISO format date of last daily reset
 
 
 class CircuitBreakerState:
@@ -224,6 +228,11 @@ class TavilyProvider:
         # V7.3: Shared cache for cross-component deduplication
         self._shared_cache = get_shared_cache() if _SHARED_CACHE_AVAILABLE else None
         
+        # V7.4: Daily tracking implementation
+        self._daily_usage: int = 0
+        self._daily_limit: int = 250  # ~7000 monthly / 28 days
+        self._last_reset_date: Optional[str] = None
+        
         if TAVILY_ENABLED and self._key_rotator.is_available():
             cache_status = "with shared cache" if self._shared_cache else "local cache only"
             logger.info(f"✅ Tavily AI Search initialized with circuit breaker ({cache_status})")
@@ -246,6 +255,21 @@ class TavilyProvider:
             return False
         
         return self._key_rotator.is_available()
+    
+    def _check_and_reset_daily_usage(self) -> None:
+        """
+        Check if we've crossed a day boundary and reset daily usage if needed.
+        
+        Uses UTC date to ensure consistency across timezones.
+        """
+        current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+        if self._last_reset_date is None:
+            self._last_reset_date = current_date
+        elif current_date != self._last_reset_date:
+            logger.info(f"📅 Daily reset: {self._daily_usage} calls on {self._last_reset_date}")
+            self._daily_usage = 0
+            self._last_reset_date = current_date
     
     def _apply_rate_limit(self) -> None:
         """
@@ -396,10 +420,14 @@ class TavilyProvider:
         start_time = time.time()
         
         try:
+            # Phase 1 Critical Fix: URL-encode query to handle special characters
+            # This fixes search failures for non-English team names
+            encoded_query = quote(query, safe=' ')
+            
             # Build request payload
             payload = {
                 "api_key": api_key,
-                "query": query,
+                "query": encoded_query,
                 "search_depth": search_depth,
                 "max_results": max_results,
                 "include_answer": include_answer,
@@ -451,6 +479,10 @@ class TavilyProvider:
             # Record successful call
             self._key_rotator.record_call()
             self._circuit_breaker.record_success()
+            
+            # Record daily usage
+            self._check_and_reset_daily_usage()
+            self._daily_usage += 1
             
             # Parse response
             data = response.json()
@@ -617,9 +649,9 @@ class TavilyProvider:
         try:
             # Try both import paths for compatibility
             try:
-                from duckduckgo_search import DDGS
-            except ImportError:
                 from ddgs import DDGS
+            except ImportError:
+                from duckduckgo_search import DDGS
             
             start_time = time.time()
             
@@ -717,13 +749,17 @@ class TavilyProvider:
         total_usage = status["total_usage"]
         monthly_limit = 7000  # 7 keys × 1000 calls
         
+        # Check and reset daily usage if needed
+        self._check_and_reset_daily_usage()
+        
         return BudgetStatus(
             monthly_used=total_usage,
             monthly_limit=monthly_limit,
-            daily_used=0,  # TODO: Implement daily tracking
-            daily_limit=0,
+            daily_used=self._daily_usage,
+            daily_limit=self._daily_limit,
             is_degraded=total_usage >= monthly_limit * 0.90,
-            is_disabled=total_usage >= monthly_limit * 0.95
+            is_disabled=total_usage >= monthly_limit * 0.95,
+            daily_reset_date=self._last_reset_date
         )
     
     def reset_fallback(self) -> None:
@@ -745,6 +781,9 @@ class TavilyProvider:
             "budget": {
                 "monthly_used": budget.monthly_used,
                 "monthly_limit": budget.monthly_limit,
+                "daily_used": budget.daily_used,
+                "daily_limit": budget.daily_limit,
+                "daily_reset_date": budget.daily_reset_date,
                 "is_degraded": budget.is_degraded,
                 "is_disabled": budget.is_disabled,
             },
@@ -757,11 +796,21 @@ class TavilyProvider:
 # ============================================
 
 _tavily_instance: Optional[TavilyProvider] = None
+_tavily_lock = threading.Lock()
 
 
 def get_tavily_provider() -> TavilyProvider:
-    """Get or create the singleton TavilyProvider instance."""
+    """
+    Get or create the singleton TavilyProvider instance (thread-safe).
+    
+    Uses double-checked locking pattern for thread safety.
+    """
     global _tavily_instance
+    
     if _tavily_instance is None:
-        _tavily_instance = TavilyProvider()
+        with _tavily_lock:
+            if _tavily_instance is None:
+                _tavily_instance = TavilyProvider()
+                logger.debug("🔍 [TAVILY] Global TavilyProvider instance initialized")
+    
     return _tavily_instance

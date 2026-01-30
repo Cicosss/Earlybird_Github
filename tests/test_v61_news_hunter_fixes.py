@@ -79,21 +79,6 @@ class TestV8RedditRemoval:
         result = search_insiders("Test Team", "soccer_turkey_super_league", "match_123")
         assert result == [], "search_insiders deve ritornare lista vuota in V8.0"
     
-    def test_get_reddit_sources_returns_empty(self):
-        """get_reddit_sources deve ritornare lista vuota."""
-        from src.processing.sources_config import get_reddit_sources
-        
-        result = get_reddit_sources("soccer_turkey_super_league")
-        assert result == [], "get_reddit_sources deve ritornare lista vuota in V8.0"
-    
-    def test_get_target_subreddits_returns_empty(self):
-        """get_target_subreddits deve ritornare struttura vuota."""
-        from src.processing.sources_config import get_target_subreddits
-        
-        result = get_target_subreddits("soccer_turkey_super_league")
-        assert result == {"general": [], "teams": [], "keywords": []}, \
-            "get_target_subreddits deve ritornare struttura vuota in V8.0"
-    
     def test_run_hunter_no_include_reddit_param(self):
         """run_hunter_for_match non deve avere parametro include_reddit."""
         from src.processing.news_hunter import run_hunter_for_match

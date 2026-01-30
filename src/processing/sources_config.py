@@ -190,27 +190,6 @@ NATIVE_KEYWORDS = {
 }
 
 # ============================================
-# V8.0: REDDIT SOURCES (DEPRECATED)
-# ============================================
-# Reddit monitoring removed - provided no betting edge.
-# Rumors arrived too late (already priced in by market).
-# Keeping data structure commented for historical reference.
-#
-# REDDIT_SOURCES = {
-#     "argentina": ["fulbo", "BocaJuniors", "CARiverPlate"],
-#     "mexico": ["LigaMX"],
-#     "greece": ["GreekFooty"],
-#     "turkey": ["superlig"],
-#     "scotland": ["ScottishFootball", "CelticFC", "rangersfc"],
-#     "poland": ["EkstraklasaBoners"],
-#     "australia": ["Aleague", "SydneyFC", "MelbourneVictory", "MelbourneCity"],
-#     "china": ["ChineseSuperLeague", "ChineseFootball"],
-#     "japan": ["JLeague"],
-#     "brazil_b": ["futebol", "SerieB"],
-#     "egypt": ["EgyptianFootball", "AlAhly", "Zamalek"],
-# }
-
-# ============================================
 # INSIDER INTEL LAYER (Beat Writers + Aggregators)
 # ============================================
 # Twitter handles of trusted beat writers and insider accounts
@@ -328,21 +307,6 @@ TELEGRAM_INSIDERS = {
 }
 
 
-# ============================================
-# V8.0: TARGET SUBREDDITS (DEPRECATED)
-# ============================================
-# Reddit deep scan removed - provided no betting edge.
-# Keeping data structure commented for historical reference.
-#
-# TARGET_SUBREDDITS = {
-#     "argentina": {
-#         "general": ["fulbo", "argentina"],
-#         "teams": ["BocaJuniors", "CARiverPlate", "SanLorenzo", "Independiente"],
-#         "keywords": ["lesion", "baja", "convocatoria", "formacion"],
-#     },
-#     ... (see git history for full structure)
-# }
-
 
 def get_country_from_league(league_key: str) -> Optional[str]:
     """
@@ -402,30 +366,6 @@ def get_keywords_for_league(league_key: str) -> List[str]:
     if country:
         return NATIVE_KEYWORDS.get(country, [])
     return ["injury", "lineup", "squad", "ruled out"]  # English fallback
-
-
-# ============================================
-# V8.0: REDDIT FUNCTIONS (DEPRECATED)
-# ============================================
-# These functions are kept for backward compatibility but return empty results.
-# Reddit monitoring was removed as it provided no betting edge.
-
-def get_reddit_sources(league_key: str) -> List[str]:
-    """
-    V8.0 DEPRECATED: Reddit monitoring removed.
-    
-    Returns empty list for backward compatibility.
-    """
-    return []
-
-
-def get_target_subreddits(league_key: str) -> dict:
-    """
-    V8.0 DEPRECATED: Reddit deep scan removed.
-    
-    Returns empty structure for backward compatibility.
-    """
-    return {"general": [], "teams": [], "keywords": []}
 
 
 def get_insider_handles(league_key: str) -> List[str]:
