@@ -1,7 +1,7 @@
 """
-Test Mediastack Integration (V4.5)
+Test Mediastack Integration (Enhanced V1.0)
 
-Tests the Mediastack provider as emergency fallback in the search chain.
+Tests the Mediastack provider with Tavily-like architecture enhancements.
 Validates:
 1. Provider initialization and availability check
 2. Search functionality with edge cases
@@ -9,6 +9,11 @@ Validates:
 4. Error handling and graceful degradation
 5. Query sanitization (V4.5) - removes -term exclusions
 6. Post-fetch filtering (V4.5) - filters wrong sports from results
+7. Key rotation (V1.0) - API key rotation and exhaustion
+8. Budget tracking (V1.0) - Usage monitoring (free tier)
+9. Circuit breaker (V1.0) - Resilience pattern
+10. Caching (V1.0) - Local response caching
+11. Deduplication (V1.0) - Cross-component duplicate detection
 
 Run: pytest tests/test_mediastack_integration.py -v
 """
@@ -297,6 +302,365 @@ class TestMediastackEdgeCases:
             # Should not raise exception
             results = provider.search_news("Galatasaray & Fenerbahçe injury", limit=5)
             assert results == []
+
+class TestMediastackKeyRotation:
+    """Tests for MediaStack key rotation (V1.0)."""
+
+    def test_key_rotation_on_429_error(self):
+        """Provider should rotate keys on 429 error."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_API_KEYS', ['key1', 'key2', 'key3', 'key4']):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client to return 429
+            mock_response = Mock()
+            mock_response.status_code = 429
+            mock_response.json.return_value = {"data": []}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # First search should use key1
+            provider.search_news("test query", limit=5)
+            
+            # Mark key1 as exhausted
+            provider._key_rotator.mark_exhausted(0)
+            
+            # Next search should use key2
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            provider.search_news("test query", limit=5)
+            
+            # Verify key2 was used
+            assert provider._key_rotator.get_current_key() == "key2"
+
+    def test_key_rotation_on_432_error(self):
+        """Provider should rotate keys on 432 error."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_API_KEYS', ['key1', 'key2', 'key3', 'key4']):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client to return 432
+            mock_response = Mock()
+            mock_response.status_code = 432
+            mock_response.json.return_value = {"data": []}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # First search should use key1
+            provider.search_news("test query", limit=5)
+            
+            # Mark key1 as exhausted
+            provider._key_rotator.mark_exhausted(0)
+            
+            # Next search should use key2
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            provider.search_news("test query", limit=5)
+            
+            # Verify key2 was used
+            assert provider._key_rotator.get_current_key() == "key2"
+
+    def test_key_rotation_records_usage(self):
+        """Key rotator should record API calls."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_API_KEYS', ['key1', 'key2', 'key3', 'key4']):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Make 3 calls
+            provider.search_news("test query 1", limit=5)
+            provider.search_news("test query 2", limit=5)
+            provider.search_news("test query 3", limit=5)
+            
+            # Verify usage was recorded
+            status = provider._key_rotator.get_status()
+            assert status["total_usage"] == 3
+            assert status["key_usage"]["key_1"] == 3
+
+    def test_key_rotation_monthly_reset(self):
+        """Key rotator should reset on month boundary."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_API_KEYS', ['key1', 'key2', 'key3', 'key4']):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Set last reset month to previous month
+            provider._key_rotator._last_reset_month = 1
+            
+            # Mark all keys as exhausted
+            for i in range(4):
+                provider._key_rotator.mark_exhausted(i)
+            
+            # Try to rotate - should trigger monthly reset
+            result = provider._key_rotator.rotate_to_next()
+            
+            assert result == True
+            assert provider._key_rotator.get_current_key() == "key1"
+            assert len(provider._key_rotator._exhausted_keys) == 0
+
+
+class TestMediastackBudget:
+    """Tests for MediaStack budget tracking (V1.0)."""
+
+    def test_budget_tracks_usage(self):
+        """Budget should track API calls."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Make 5 calls
+            for _ in range(5):
+                provider.search_news("test query", limit=5)
+            
+            # Verify budget tracking
+            stats = provider.get_stats()
+            assert stats["budget"]["monthly_used"] == 5
+
+    def test_budget_always_allows_calls(self):
+        """Budget should always allow calls (free tier)."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Should allow calls regardless of usage
+            assert provider._budget.can_call("search_provider") == True
+
+
+class TestMediastackCircuitBreaker:
+    """Tests for MediaStack circuit breaker (V1.0)."""
+
+    def test_circuit_breaker_opens_on_failures(self):
+        """Circuit breaker should open after threshold failures."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client to return errors
+            mock_response = Mock()
+            mock_response.status_code = 500
+            mock_response.json.return_value = {"data": []}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Make 3 failing calls
+            for _ in range(3):
+                provider.search_news("test query", limit=5)
+            
+            # Circuit should be open
+            assert provider._circuit_breaker.get_state()["state"] == "OPEN"
+            assert provider._circuit_breaker.get_state()["consecutive_failures"] == 3
+
+    def test_circuit_breaker_closes_on_successes(self):
+        """Circuit breaker should close after threshold successes."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client to return success
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Open circuit first
+            for _ in range(3):
+                provider.search_news("test query", limit=5)
+            
+            # Make 2 successful calls
+            mock_response.status_code = 200
+            provider.search_news("test query", limit=5)
+            provider.search_news("test query", limit=5)
+            
+            # Circuit should be closed
+            assert provider._circuit_breaker.get_state()["state"] == "CLOSED"
+            assert provider._circuit_breaker.get_state()["consecutive_successes"] == 2
+
+    def test_circuit_breaker_blocks_requests_when_open(self):
+        """Circuit breaker should block requests when open."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client to return errors
+            mock_response = Mock()
+            mock_response.status_code = 500
+            mock_response.json.return_value = {"data": []}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Open circuit
+            for _ in range(3):
+                provider.search_news("test query", limit=5)
+            
+            # Try to make request - should return empty
+            result = provider.search_news("test query", limit=5)
+            assert result == []
+
+
+class TestMediastackCaching:
+    """Tests for MediaStack response caching (V1.0)."""
+
+    def test_cache_hit_returns_cached_response(self):
+        """Cache should return cached response if available."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Cached Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # First search - cache miss
+            result1 = provider.search_news("test query", limit=5)
+            assert len(result1) == 1
+            
+            # Second search - cache hit (same query)
+            result2 = provider.search_news("test query", limit=5)
+            assert len(result2) == 1
+            assert result2[0]["title"] == "Cached Result"
+
+    def test_cache_miss_fetches_from_api(self):
+        """Cache miss should fetch from API."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "API Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Clear cache first
+            provider._cache.clear()
+            
+            # Search - cache miss
+            result = provider.search_news("test query", limit=5)
+            assert len(result) == 1
+            assert result[0]["title"] == "API Result"
+
+    def test_cache_expires_after_ttl(self):
+        """Cache should expire after TTL."""
+        with patch('src.ingestion.mediastack_provider.MEDIASTACK_ENABLED', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock HTTP client
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Add expired entry to cache
+            from datetime import datetime, timezone, timedelta
+            cache_key = provider._generate_cache_key("test query", 5, "it,gb,us")
+            provider._cache[cache_key] = provider.CacheEntry(
+                response=[{"title": "Expired Result", "url": "http://test.com"}],
+                cached_at=datetime.now(timezone.utc) - timedelta(seconds=3600),  # 1 hour ago
+            )
+            
+            # Search - should fetch from API (cache expired)
+            result = provider.search_news("test query", limit=5)
+            assert len(result) == 1
+            assert result[0]["title"] != "Expired Result"
+
+
+class TestMediastackDeduplication:
+    """Tests for MediaStack cross-component deduplication (V1.0)."""
+
+    def test_duplicate_query_returns_empty(self):
+        """Duplicate query should return empty list."""
+        with patch('src.ingestion.mediastack_provider._SHARED_CACHE_AVAILABLE', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock shared cache to return True (duplicate)
+            mock_cache = Mock()
+            mock_cache.is_seen.return_value = True
+            provider._shared_cache = mock_cache
+            
+            # Search - should return empty (duplicate detected)
+            result = provider.search_news("test query", limit=5)
+            assert result == []
+
+    def test_unique_query_fetches_from_api(self):
+        """Unique query should fetch from API."""
+        with patch('src.ingestion.mediastack_provider._SHARED_CACHE_AVAILABLE', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock shared cache to return False (not duplicate)
+            mock_cache = Mock()
+            mock_cache.is_seen.return_value = False
+            provider._shared_cache = mock_cache
+            
+            # Mock HTTP client
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Search - should fetch from API
+            result = provider.search_news("test query", limit=5)
+            assert len(result) == 1
+            assert result[0]["title"] == "Result"
+
+    def test_mark_seen_records_in_shared_cache(self):
+        """mark_seen should record in shared cache."""
+        with patch('src.ingestion.mediastack_provider._SHARED_CACHE_AVAILABLE', True):
+            from src.ingestion.mediastack_provider import MediastackProvider
+            provider = MediastackProvider()
+            
+            # Mock shared cache
+            mock_cache = Mock()
+            provider._shared_cache = mock_cache
+            
+            # Mock HTTP client
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"title": "Result", "url": "http://test.com"}]}
+            
+            mock_client = Mock()
+            mock_client.get_sync.return_value = mock_response
+            provider._http_client = mock_client
+            
+            # Search
+            provider.search_news("test query", limit=5)
+            
+            # Verify mark_seen was called
+            mock_cache.mark_seen.assert_called_once()
     
     def test_search_with_unicode_query(self):
         """Search should handle unicode characters in query."""

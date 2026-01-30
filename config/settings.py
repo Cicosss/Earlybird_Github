@@ -49,6 +49,42 @@ BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
 MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")
 
 # ========================================
+# MEDIASTACK API CONFIGURATION (Enhanced V1.0)
+# ========================================
+# MediaStack is FREE unlimited tier - budget is for monitoring only
+MEDIASTACK_ENABLED = os.getenv("MEDIASTACK_ENABLED", "true").lower() == "true"
+
+# API Endpoint (HTTPS available on all plans)
+MEDIASTACK_API_URL = os.getenv("MEDIASTACK_API_URL", "https://api.mediastack.com/v1/news")
+MEDIASTACK_USE_HTTPS = os.getenv("MEDIASTACK_USE_HTTPS", "true").lower() == "true"
+
+# 4 API Keys (FREE unlimited tier, 4 different accounts)
+MEDIASTACK_API_KEYS = [
+    os.getenv("MEDIASTACK_API_KEY_1", ""),
+    os.getenv("MEDIASTACK_API_KEY_2", ""),
+    os.getenv("MEDIASTACK_API_KEY_3", ""),
+    os.getenv("MEDIASTACK_API_KEY_4", ""),
+]
+
+# Rate limiting
+MEDIASTACK_RATE_LIMIT_SECONDS = 1.0
+
+# Cache TTL
+MEDIASTACK_CACHE_TTL_SECONDS = 1800  # 30 minutes
+
+# Budget allocation (monitoring only - no throttling)
+MEDIASTACK_BUDGET_ENABLED = True
+MEDIASTACK_BUDGET_ALLOCATION = {
+    "search_provider": 0,  # Unlimited
+}
+
+# Circuit breaker
+MEDIASTACK_CIRCUIT_BREAKER_ENABLED = True
+MEDIASTACK_CIRCUIT_BREAKER_THRESHOLD = 3
+MEDIASTACK_CIRCUIT_BREAKER_RECOVERY_SECONDS = 60
+MEDIASTACK_CIRCUIT_BREAKER_SUCCESS_THRESHOLD = 2
+
+# ========================================
 # TELEGRAM CONFIGURATION (Centralized)
 # ========================================
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
