@@ -1,0 +1,1 @@
+{"scripts": {"save": "git add . && git commit -m \"update locale\" && git push origin main"}}
