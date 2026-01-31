@@ -12,6 +12,7 @@ V4.4: Added BETTING_STATS_PROMPT for corners/cards data enrichment.
 Phase 1 Critical Fix: Added Unicode normalization and safe UTF-8 truncation
 """
 import unicodedata
+from typing import Optional
 
 
 def normalize_unicode(text: str) -> str:

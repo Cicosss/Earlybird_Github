@@ -14,6 +14,9 @@ EarlyBird è un sistema di betting intelligence **self-learning** che utilizza t
 - 🤖 **DeepSeek Primary**: Provider AI principale via OpenRouter (no cooldown needed)
 - 🔒 **Sample Size Guards**: FROZEN/WARMING/ACTIVE states per optimizer
 - 🔧 **Enhanced News Source Verification**: Intelligent confidence adjustment based on source credibility (2026-01-17)
+- 🔌 **Plug & Play VPS Launch**: System boots and operates even without .env file using hardcoded defaults (2026-01-31)
+- 🔐 **Environment Injection**: Hardcoded API keys injected into os.environ for external library compatibility (2026-01-31)
+- 🛡️ **Graceful Degradation**: Components gracefully skip functionality when API keys are missing instead of crashing (2026-01-31)
 
 **V6.0 Highlights**:
 - 🐦 **Twitter Intel Cache**: Sostituisce broken site:twitter.com search

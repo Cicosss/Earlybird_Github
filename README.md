@@ -2,7 +2,7 @@
 
 Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI Search**, **CLV Tracking** e **auto-ottimizzazione quantitativa**. Il sistema impara dai propri risultati, adattando i pesi delle strategie in base a Sortino Ratio e Max Drawdown.
 
-**V8.0**: Tavily AI Search con Doppio Ciclo + Verification Layer + Circuit Breaker + DeepSeek Primary
+**V8.0**: Tavily AI Search con Doppio Ciclo + Verification Layer + Circuit Breaker + DeepSeek Primary + Plug & Play VPS Launch
 
 ## 🎯 Core Intelligence
 
@@ -148,6 +148,50 @@ Questo garantisce che i dettagli critici non vengano persi mantenendo le prestaz
 | 🇨🇳 | China Super League | 74 |
 | 🇯🇵 | Japan J-League | 73 |
 | 🇧🇷 | Brazil Serie B | 72 |
+
+## 🔌 Plug & Play VPS Launch (V8.0) ⭐ NEW
+
+Il sistema ora supporta l'avvio "Plug & Play" su VPS senza configurazione manuale:
+
+### Environment Injection
+- **Hardcoded Defaults**: Le API keys Brave hanno default hardcoded e funzionano immediatamente
+- **os.environ Propagation**: Le default sono iniettate in `os.environ` per compatibilità con librerie esterne
+- **Graceful Degradation**: I componenti saltano funzionalità quando le API keys mancano invece di crashare
+
+### API Keys con Defaults
+| API Key | Default | Note |
+|-----------|---------|------|
+| BRAVE_API_KEY_1, _2, _3 | ✅ Attive | 3 keys hardcoded |
+| TAVILY_API_KEY_1 through _7 | ⚠️ Vuote | Configura per abilitare |
+| MEDIASTACK_API_KEY_1 through _4 | ⚠️ Vuote | Configura per abilitare |
+| PERPLEXITY_API_KEY | ⚠️ Vuoto | Configura per abilitare |
+| OPENROUTER_API_KEY | ⚠️ Vuoto | Configura per abilitare |
+| ODDS_API_KEY | ⚠️ Vuoto | Configura per abilitare |
+| TELEGRAM_BOT_TOKEN, _CHAT_ID, _API_ID, _HASH | ⚠️ Vuoti | Configura per abilitare |
+
+### Comportamento senza .env
+1. Sistema si avvia con warning informativo
+2. Brave Search funziona con default hardcoded
+3. Altri provider (Tavily, MediaStack, Perplexity, OpenRouter) disabilitati
+4. Telegram Bot rimane in stato "idle" (vivo ma non funzionale)
+5. Main pipeline (src/main.py) continua ad operare
+6. News Radar continua ad operare
+7. Nessun crash-restart loop
+
+### Setup VPS
+```bash
+# Clona repository
+git clone <repo-url>
+cd Earlybird_Github
+
+# Esegui setup (installa tutte le dipendenze)
+./setup_vps.sh
+
+# Sistema è pronto per l'avvio
+./start_system.sh
+```
+
+**Nota**: Per funzionalità completa, crea file `.env` con le tue API keys.
 
 ## 🔧 Quick Start
 

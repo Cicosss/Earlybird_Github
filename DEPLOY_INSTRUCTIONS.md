@@ -7,6 +7,9 @@ Guida definitiva per il deploy su Ubuntu VPS.
 - Tavily AI Search: 7 API keys con rotazione automatica (7000 chiamate/mese)
 - Integrazione Tavily in: Intelligence Router, News Radar, Browser Monitor, Telegram Monitor, Settler, CLV Tracker, Twitter Intel Recovery
 - Circuit Breaker e fallback automatico a Brave/DDG
+- 🔌 **Plug & Play VPS Launch**: Sistema si avvia e opera anche senza file .env usando default hardcoded (2026-01-31)
+- 🔐 **Environment Injection**: Default API keys iniettati in os.environ per compatibilità con librerie esterne (2026-01-31)
+- 🛡️ **Graceful Degradation**: Componenti saltano funzionalità quando API keys mancano invece di crashare (2026-01-31)
 
 ---
 

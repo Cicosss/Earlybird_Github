@@ -1,112 +1,61 @@
-2026-01-31 18:51:17,907 - __main__ - INFO - ============================================================
-2026-01-31 18:51:17,907 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
-2026-01-31 18:51:17,907 - __main__ - INFO - ============================================================
-2026-01-31 18:51:17,907 - __main__ - INFO - Config file: config/news_radar_sources.json
-2026-01-31 18:51:17,907 - __main__ - INFO - 
-2026-01-31 18:51:17,907 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
-2026-01-31 18:51:17,907 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
-2026-01-31 18:51:17,931 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
-2026-01-31 18:51:18,341 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize Playwright: BrowserType.launch: Executable doesn't exist at /home/linux/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     playwright install                                     ║
-║                                                            ║
-║ <3 Playwright Team                                         ║
-╚════════════════════════════════════════════════════════════╝
-2026-01-31 18:51:18,341 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize extractor
-2026-01-31 18:51:18,341 - __main__ - ERROR - ❌ Failed to start News Radar Monitor
-2026-01-31 18:51:25,946 - __main__ - INFO - ============================================================
-2026-01-31 18:51:25,946 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
-2026-01-31 18:51:25,946 - __main__ - INFO - ============================================================
-2026-01-31 18:51:25,946 - __main__ - INFO - Config file: config/news_radar_sources.json
-2026-01-31 18:51:25,946 - __main__ - INFO - 
-2026-01-31 18:51:25,946 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
-2026-01-31 18:51:25,946 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
-2026-01-31 18:51:25,975 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
-2026-01-31 18:51:26,412 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize Playwright: BrowserType.launch: Executable doesn't exist at /home/linux/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     playwright install                                     ║
-║                                                            ║
-║ <3 Playwright Team                                         ║
-╚════════════════════════════════════════════════════════════╝
-2026-01-31 18:51:26,412 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize extractor
-2026-01-31 18:51:26,412 - __main__ - ERROR - ❌ Failed to start News Radar Monitor
-2026-01-31 18:51:42,970 - __main__ - INFO - ============================================================
-2026-01-31 18:51:42,970 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
-2026-01-31 18:51:42,970 - __main__ - INFO - ============================================================
-2026-01-31 18:51:42,970 - __main__ - INFO - Config file: config/news_radar_sources.json
-2026-01-31 18:51:42,970 - __main__ - INFO - 
-2026-01-31 18:51:42,970 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
-2026-01-31 18:51:42,971 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
-2026-01-31 18:51:43,011 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
-2026-01-31 18:51:43,484 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize Playwright: BrowserType.launch: Executable doesn't exist at /home/linux/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     playwright install                                     ║
-║                                                            ║
-║ <3 Playwright Team                                         ║
-╚════════════════════════════════════════════════════════════╝
-2026-01-31 18:51:43,484 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize extractor
-2026-01-31 18:51:43,484 - __main__ - ERROR - ❌ Failed to start News Radar Monitor
-2026-01-31 18:52:11,979 - __main__ - INFO - ============================================================
-2026-01-31 18:52:11,979 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
-2026-01-31 18:52:11,979 - __main__ - INFO - ============================================================
-2026-01-31 18:52:11,979 - __main__ - INFO - Config file: config/news_radar_sources.json
-2026-01-31 18:52:11,980 - __main__ - INFO - 
-2026-01-31 18:52:11,980 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
-2026-01-31 18:52:11,980 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
-2026-01-31 18:52:12,005 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
-2026-01-31 18:52:12,427 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize Playwright: BrowserType.launch: Executable doesn't exist at /home/linux/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     playwright install                                     ║
-║                                                            ║
-║ <3 Playwright Team                                         ║
-╚════════════════════════════════════════════════════════════╝
-2026-01-31 18:52:12,427 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] Failed to initialize extractor
-2026-01-31 18:52:12,427 - __main__ - ERROR - ❌ Failed to start News Radar Monitor
-2026-01-31 18:54:56,176 - __main__ - INFO - ============================================================
-2026-01-31 18:54:56,176 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
-2026-01-31 18:54:56,176 - __main__ - INFO - ============================================================
-2026-01-31 18:54:56,176 - __main__ - INFO - Config file: config/news_radar_sources.json
-2026-01-31 18:54:56,176 - __main__ - INFO - 
-2026-01-31 18:54:56,176 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
-2026-01-31 18:54:56,177 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
-2026-01-31 18:54:56,199 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
-2026-01-31 18:54:56,767 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Playwright initialized
-2026-01-31 18:54:56,834 - src.ingestion.tavily_key_rotator - WARNING - ⚠️ TavilyKeyRotator: No valid API keys found!
-2026-01-31 18:54:56,835 - src.utils.browser_fingerprint - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
-2026-01-31 18:54:56,835 - src.utils.http_client - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
-2026-01-31 18:54:56,835 - src.utils.shared_cache - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
-2026-01-31 18:54:56,835 - src.ingestion.tavily_budget - INFO - 📊 BudgetManager initialized: 7000 calls/month, 6 components
-2026-01-31 18:54:56,835 - src.services.news_radar - INFO - 🔍 [NEWS-RADAR] Tavily pre-enrichment disabled
-2026-01-31 18:54:56,835 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] V2.0 Started with 39 sources
-2026-01-31 18:54:56,835 - src.services.news_radar - INFO -    High-value signal detection: ENABLED
-2026-01-31 18:54:56,835 - src.services.news_radar - INFO -    Quality gate: ENABLED (team required, impact >= MEDIUM)
-2026-01-31 18:54:56,835 - __main__ - INFO - ✅ News Radar Monitor started successfully
-2026-01-31 18:54:56,835 - __main__ - INFO - Press Ctrl+C to stop
-2026-01-31 18:54:56,835 - __main__ - INFO - 
-2026-01-31 18:54:56,835 - src.services.news_radar - INFO - 🔄 [NEWS-RADAR] Scan loop started
-2026-01-31 18:54:57,290 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.bbc.com/sport/football...
-2026-01-31 18:55:20,047 - __main__ - INFO - 🛑 [NEWS-RADAR] Received SIGTERM, initiating graceful shutdown...
-2026-01-31 18:55:20,050 - src.services.news_radar - INFO - 🛑 [NEWS-RADAR] Stopping...
-2026-01-31 18:55:20,053 - src.services.news_radar - INFO - 🛑 [NEWS-RADAR] Scan loop stopped
-2026-01-31 18:55:20,088 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Stopped
-2026-01-31 18:55:20,088 - __main__ - INFO - 
-2026-01-31 18:55:20,088 - __main__ - INFO - ============================================================
-2026-01-31 18:55:20,088 - __main__ - INFO - 📊 Final Statistics
-2026-01-31 18:55:20,088 - __main__ - INFO - ============================================================
-2026-01-31 18:55:20,088 - __main__ - INFO - URLs scanned: 0
-2026-01-31 18:55:20,088 - __main__ - INFO - Alerts sent: 0
-2026-01-31 18:55:20,088 - __main__ - INFO - Cache size: 0
-2026-01-31 18:55:20,088 - __main__ - INFO - 
-2026-01-31 18:55:20,088 - __main__ - INFO - ✅ News Radar Monitor stopped gracefully
+2026-01-31 20:29:39,436 - __main__ - INFO - ============================================================
+2026-01-31 20:29:39,436 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
+2026-01-31 20:29:39,436 - __main__ - INFO - ============================================================
+2026-01-31 20:29:39,436 - __main__ - INFO - Config file: config/news_radar_sources.json
+2026-01-31 20:29:39,436 - __main__ - INFO - 
+2026-01-31 20:29:39,436 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
+2026-01-31 20:29:39,437 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
+2026-01-31 20:29:39,460 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
+2026-01-31 20:29:40,998 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Playwright initialized
+2026-01-31 20:29:41,130 - src.ingestion.tavily_key_rotator - WARNING - ⚠️ TavilyKeyRotator: No valid API keys found!
+2026-01-31 20:29:41,130 - src.utils.browser_fingerprint - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-01-31 20:29:41,130 - src.utils.http_client - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-01-31 20:29:41,130 - src.utils.shared_cache - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-01-31 20:29:41,130 - src.ingestion.tavily_budget - INFO - 📊 BudgetManager initialized: 7000 calls/month, 6 components
+2026-01-31 20:29:41,130 - src.services.news_radar - INFO - 🔍 [NEWS-RADAR] Tavily pre-enrichment disabled
+2026-01-31 20:29:41,131 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] V2.0 Started with 39 sources
+2026-01-31 20:29:41,131 - src.services.news_radar - INFO -    High-value signal detection: ENABLED
+2026-01-31 20:29:41,131 - src.services.news_radar - INFO -    Quality gate: ENABLED (team required, impact >= MEDIUM)
+2026-01-31 20:29:41,131 - __main__ - INFO - ✅ News Radar Monitor started successfully
+2026-01-31 20:29:41,131 - __main__ - INFO - Press Ctrl+C to stop
+2026-01-31 20:29:41,131 - __main__ - INFO - 
+2026-01-31 20:29:41,131 - src.services.news_radar - INFO - 🔄 [NEWS-RADAR] Scan loop started
+2026-01-31 20:29:41,911 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.bbc.com/sport/football...
+2026-01-31 20:30:19,009 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.flashscore.com/news/football...
+2026-01-31 20:31:12,457 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://betzona.ru/en/bets-sport/prognoz...
+2026-01-31 20:31:13,039 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.gazetaesportiva.com/...
+2026-01-31 20:32:09,790 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://ge.globo.com/sp/tem-esporte/...
+2026-01-31 20:34:23,121 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,131 - src.services.news_radar - INFO - 🎯 [NEWS-RADAR] High-value signal: DECIMATED (crise)
+2026-01-31 20:34:23,131 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,139 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,150 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,157 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,164 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,171 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,182 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:34:23,427 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://www.besoccer.com/news...
+2026-01-31 20:34:24,530 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.ysscores.com/en/news...
+2026-01-31 20:35:12,816 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://www.tuttomercatoweb.com/calcio-e...
+2026-01-31 20:35:13,619 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://supersport.com/football/news...
+2026-01-31 20:35:57,877 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://www.sportytrader.it/pronostici/c...
+2026-01-31 20:35:58,681 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.europacalcio.it/pronostici-c...
+2026-01-31 20:36:36,312 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:36:36,331 - src.services.news_radar - ERROR - ❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek
+2026-01-31 20:36:37,881 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://allnigeriasoccer.com/...
+2026-01-31 20:37:41,786 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://jogada10.com.br...
+2026-01-31 20:38:26,827 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.correiodopovo.com.br/esporte...
+2026-01-31 20:39:05,522 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://chesterfield-fc.co.uk/news...
+2026-01-31 20:39:46,340 - __main__ - INFO - 🛑 [NEWS-RADAR] Received SIGTERM, initiating graceful shutdown...
+2026-01-31 20:39:46,374 - src.services.news_radar - INFO - 🛑 [NEWS-RADAR] Stopping...
+2026-01-31 20:39:46,389 - src.services.news_radar - INFO - 🛑 [NEWS-RADAR] Scan loop stopped
+2026-01-31 20:39:46,455 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Stopped
+2026-01-31 20:39:46,455 - __main__ - INFO - 
+2026-01-31 20:39:46,455 - __main__ - INFO - ============================================================
+2026-01-31 20:39:46,455 - __main__ - INFO - 📊 Final Statistics
+2026-01-31 20:39:46,455 - __main__ - INFO - ============================================================
+2026-01-31 20:39:46,455 - __main__ - INFO - URLs scanned: 0
+2026-01-31 20:39:46,455 - __main__ - INFO - Alerts sent: 0
+2026-01-31 20:39:46,455 - __main__ - INFO - Cache size: 75
+2026-01-31 20:39:46,455 - __main__ - INFO - 
+2026-01-31 20:39:46,455 - __main__ - INFO - ✅ News Radar Monitor stopped gracefully

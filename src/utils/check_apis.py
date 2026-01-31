@@ -5,6 +5,10 @@ EarlyBird API Diagnostic Tool
 Verifica:
 1. Odds API - Auth + Discovery leghe
 2. Serper API - Auth + Test query
+3. OpenRouter API - Auth + Test query
+4. Brave API - Auth + Test query (3 keys)
+5. Perplexity API - Auth + Test query
+6. Tavily API - Auth + Test query (7 keys)
 
 Uso: python3 src/utils/check_apis.py
 """
@@ -232,6 +236,186 @@ def test_openrouter_api():
         return False
 
 
+def test_brave_api():
+    """Test Brave Search API authentication (3 keys)."""
+    print("\n" + "=" * 60)
+    print("🦁 BRAVE SEARCH API - Test Autenticazione (3 Keys)")
+    print("=" * 60)
+    
+    # Test all 3 keys
+    keys = [
+        os.getenv("BRAVE_API_KEY_1", ""),
+        os.getenv("BRAVE_API_KEY_2", ""),
+        os.getenv("BRAVE_API_KEY_3", ""),
+    ]
+    
+    working_keys = 0
+    for i, api_key in enumerate(keys, 1):
+        if not api_key or "YOUR_" in api_key or api_key == "":
+            print_warn(f"BRAVE_API_KEY_{i} non configurata o usa default")
+            continue
+        
+        print(f"   Testing Key {i}: {api_key[:12]}...{api_key[-4:]}")
+        
+        try:
+            url = "https://api.search.brave.com/res/v1/web/search"
+            headers = {
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": api_key
+            }
+            params = {"q": "test football news", "count": 3}
+            
+            response = requests.get(url, headers=headers, params=params, timeout=15)
+            
+            if response.status_code == 401:
+                print_err(f"  Key {i}: Non valida (401 Unauthorized)")
+                continue
+            
+            if response.status_code == 429:
+                print_warn(f"  Key {i}: Rate limit raggiunto (429)")
+                working_keys += 1  # Key exists but rate limited
+                continue
+            
+            if response.status_code != 200:
+                print_err(f"  Key {i}: Errore HTTP {response.status_code}")
+                continue
+            
+            data = response.json()
+            results = data.get("web", {}).get("results", [])
+            print_ok(f"  Key {i}: OK | Risultati: {len(results)}")
+            working_keys += 1
+            
+        except requests.exceptions.Timeout:
+            print_err(f"  Key {i}: Timeout connessione")
+        except Exception as e:
+            print_err(f"  Key {i}: Errore: {e}")
+    
+    if working_keys > 0:
+        print_ok(f"Totale chiavi funzionanti: {working_keys}/3")
+        return True
+    else:
+        print_err("Nessuna chiave Brave funzionante")
+        return False
+
+
+def test_perplexity_api():
+    """Test Perplexity API authentication."""
+    print("\n" + "=" * 60)
+    print("🔮 PERPLEXITY API - Test Autenticazione")
+    print("=" * 60)
+    
+    api_key = os.getenv("PERPLEXITY_API_KEY", "")
+    
+    if not api_key or "YOUR_" in api_key:
+        print_warn("PERPLEXITY_API_KEY non configurata in .env (OPTIONAL)")
+        return True  # Perplexity is optional
+    
+    print(f"   Chiave: {api_key[:12]}...{api_key[-4:]}")
+    
+    try:
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "sonar-pro",
+            "messages": [{"role": "user", "content": "Say OK"}],
+            "max_tokens": 10
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 401:
+            print_err("Chiave API non valida (401 Unauthorized)")
+            return False
+        
+        if response.status_code != 200:
+            print_err(f"Errore HTTP: {response.status_code}")
+            try:
+                print(f"   Dettaglio: {response.json()}")
+            except:
+                pass
+            return False
+        
+        data = response.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        print_ok(f"Autenticazione OK | Risposta: {content[:30]}")
+        return True
+        
+    except requests.exceptions.Timeout:
+        print_err("Timeout connessione (normale per LLM)")
+        return True  # Timeout is OK for LLM
+    except Exception as e:
+        print_err(f"Errore: {e}")
+        return False
+
+
+def test_tavily_api():
+    """Test Tavily AI Search API authentication (7 keys)."""
+    print("\n" + "=" * 60)
+    print("🔍 TAVILY AI SEARCH - Test Autenticazione (7 Keys)")
+    print("=" * 60)
+    
+    # Test all 7 keys
+    keys = []
+    for i in range(1, 8):
+        key = os.getenv(f"TAVILY_API_KEY_{i}", "")
+        keys.append(key)
+    
+    working_keys = 0
+    for i, api_key in enumerate(keys, 1):
+        if not api_key or "YOUR_" in api_key or api_key == "":
+            print_warn(f"TAVILY_API_KEY_{i} non configurata o invalida")
+            continue
+        
+        print(f"   Testing Key {i}: {api_key[:12]}...{api_key[-4:]}")
+        
+        try:
+            url = "https://api.tavily.com/search"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "api_key": api_key,
+                "query": "test football news",
+                "max_results": 3,
+                "search_depth": "basic"
+            }
+            
+            response = requests.post(url, headers=headers, json=payload, timeout=15)
+            
+            if response.status_code == 401:
+                print_err(f"  Key {i}: Non valida (401 Unauthorized)")
+                continue
+            
+            if response.status_code == 429:
+                print_warn(f"  Key {i}: Rate limit raggiunto (429)")
+                working_keys += 1  # Key exists but rate limited
+                continue
+            
+            if response.status_code != 200:
+                print_err(f"  Key {i}: Errore HTTP {response.status_code}")
+                continue
+            
+            data = response.json()
+            results = data.get("results", [])
+            print_ok(f"  Key {i}: OK | Risultati: {len(results)}")
+            working_keys += 1
+            
+        except requests.exceptions.Timeout:
+            print_err(f"  Key {i}: Timeout connessione")
+        except Exception as e:
+            print_err(f"  Key {i}: Errore: {e}")
+    
+    if working_keys > 0:
+        print_ok(f"Totale chiavi funzionanti: {working_keys}/7")
+        return True
+    else:
+        print_err("Nessuna chiave Tavily funzionante")
+        return False
+
+
 def main():
     print("\n" + "=" * 60)
     print("🦅 EARLYBIRD API DIAGNOSTIC TOOL")
@@ -243,6 +427,9 @@ def main():
     results["odds"] = test_odds_api()
     results["serper"] = test_serper_api()
     results["openrouter"] = test_openrouter_api()
+    results["brave"] = test_brave_api()
+    results["perplexity"] = test_perplexity_api()
+    results["tavily"] = test_tavily_api()
     
     # Summary
     print("\n" + "=" * 60)

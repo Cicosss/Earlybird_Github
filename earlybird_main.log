@@ -1,75 +1,40 @@
-2026-01-31 18:49:05,880 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 18:49:05,884 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 18:49:05,953 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 18:49:06,439 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 18:49:06,442 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:49:06,446 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-01-31 18:49:06,446 - src.analysis.analyzer - WARNING - ⚠️ OpenRouter API key not configured
-2026-01-31 18:49:06,469 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:49:06,473 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-01-31 18:49:06,473 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-01-31 18:49:06,476 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-01-31 18:49:06,476 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-01-31 18:49:06,478 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-01-31 18:49:06,478 - __main__ - INFO - ✅ Twitter Intel Cache loaded
-2026-01-31 18:49:06,485 - src.analysis.verification_layer - WARNING - ⚠️ Perplexity provider not available
-2026-01-31 18:49:15,579 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 18:49:15,580 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 18:49:15,643 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 18:49:15,955 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 18:49:15,956 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:49:15,958 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-01-31 18:49:15,958 - src.analysis.analyzer - WARNING - ⚠️ OpenRouter API key not configured
-2026-01-31 18:49:15,961 - src.main - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:49:15,962 - src.main - INFO - ✅ Intelligent Deduplication module loaded
-2026-01-31 18:49:15,962 - src.main - INFO - ✅ Market Intelligence module loaded
-2026-01-31 18:49:15,963 - src.main - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-01-31 18:49:15,963 - src.main - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-01-31 18:49:15,964 - src.main - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-01-31 18:49:15,965 - src.main - INFO - ✅ Twitter Intel Cache loaded
-2026-01-31 18:49:15,972 - src.analysis.verification_layer - WARNING - ⚠️ Perplexity provider not available
-2026-01-31 18:50:55,301 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 18:50:55,305 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 18:50:55,369 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 18:50:55,729 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 18:50:55,730 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:50:55,732 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-01-31 18:50:55,732 - src.analysis.analyzer - WARNING - ⚠️ OpenRouter API key not configured
-2026-01-31 18:50:55,735 - src.main - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:50:55,736 - src.main - INFO - ✅ Intelligent Deduplication module loaded
-2026-01-31 18:50:55,736 - src.main - INFO - ✅ Market Intelligence module loaded
-2026-01-31 18:50:55,737 - src.main - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-01-31 18:50:55,737 - src.main - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-01-31 18:50:55,739 - src.main - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-01-31 18:50:55,739 - src.main - INFO - ✅ Twitter Intel Cache loaded
-2026-01-31 18:50:55,745 - src.analysis.verification_layer - WARNING - ⚠️ Perplexity provider not available
-2026-01-31 18:51:12,154 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 18:51:12,156 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 18:51:12,210 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 18:51:12,542 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 18:51:12,543 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:51:12,545 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-01-31 18:51:12,545 - src.analysis.analyzer - WARNING - ⚠️ OpenRouter API key not configured
-2026-01-31 18:51:12,548 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:51:12,548 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-01-31 18:51:12,548 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-01-31 18:51:12,549 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-01-31 18:51:12,549 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-01-31 18:51:12,552 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-01-31 18:51:12,552 - __main__ - INFO - ✅ Twitter Intel Cache loaded
-2026-01-31 18:51:12,560 - src.analysis.verification_layer - WARNING - ⚠️ Perplexity provider not available
-2026-01-31 18:54:50,510 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 18:54:50,516 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 18:54:50,583 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 18:54:51,071 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 18:54:51,072 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:54:51,074 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-01-31 18:54:51,074 - src.analysis.analyzer - WARNING - ⚠️ OpenRouter API key not configured
-2026-01-31 18:54:51,078 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-01-31 18:54:51,079 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-01-31 18:54:51,079 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-01-31 18:54:51,080 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-01-31 18:54:51,080 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-01-31 18:54:51,082 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-01-31 18:54:51,082 - __main__ - INFO - ✅ Twitter Intel Cache loaded
-2026-01-31 18:54:51,090 - src.analysis.verification_layer - WARNING - ⚠️ Perplexity provider not available
+2026-01-31 20:29:34,153 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:29:34,157 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:29:34,221 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:29:34,717 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:29:34,718 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:29:57,147 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:29:57,153 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:29:57,225 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:29:57,920 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:29:57,922 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:30:20,687 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:30:20,689 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:30:20,754 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:30:21,162 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:30:21,163 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:30:41,872 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:30:41,876 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:30:41,949 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:30:42,447 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:30:42,448 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:31:18,789 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:31:18,791 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:31:18,855 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:31:19,235 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:31:19,236 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:32:27,891 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:32:27,902 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:32:28,010 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:32:28,595 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:32:28,599 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:34:36,703 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:34:36,706 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:34:36,763 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:34:37,153 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:34:37,154 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-01-31 20:37:41,827 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-01-31 20:37:41,830 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-01-31 20:37:41,898 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-01-31 20:37:42,299 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-01-31 20:37:42,301 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded

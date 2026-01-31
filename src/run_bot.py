@@ -542,6 +542,15 @@ async def main():
         client = TelegramClient('earlybird_cmd_bot', int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
     else:
         logger.error("❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env")
+        logger.error("⚠️ Telegram Bot functionality DISABLED. Configure .env to enable.")
+        logger.info("ℹ️ Bot will remain in idle state (no crash-restart loop).")
+        # Sleep indefinitely to keep process alive but idle
+        # This prevents launcher from restarting the bot in a loop
+        try:
+            while True:
+                await asyncio.sleep(3600)  # Sleep 1 hour, then loop
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            logger.info("🛑 Bot fermato")
         return
     
     try:

@@ -11,11 +11,81 @@ VPS Compatibility Notes:
 """
 
 import os
+import logging
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Configure logging for settings module
+logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file with graceful handling
+env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+if os.path.exists(env_file):
+    load_dotenv(env_file)
+    logger.info(f"✅ Loaded environment from .env file")
+else:
+    logger.warning(f"⚠️ .env file not found at {env_file}")
+    logger.warning(f"⚠️ Using hardcoded default API keys - system will operate with limited functionality")
+    logger.warning(f"⚠️ Create .env file with your API keys for full functionality")
+
+
+def _inject_default_env_vars():
+    """
+    Inject hardcoded default API keys into os.environ.
+    
+    This ensures that external libraries which read environment variables
+    directly (instead of using this settings module) will have access
+    to the default values when .env is missing or incomplete.
+    """
+    # BRAVE API Keys (hardcoded defaults)
+    if not os.getenv("BRAVE_API_KEY_1"):
+        os.environ["BRAVE_API_KEY_1"] = "BSA8GEZcqohA9G8L3-p6FJbzin4D-OF"
+    if not os.getenv("BRAVE_API_KEY_2"):
+        os.environ["BRAVE_API_KEY_2"] = "BSAr_BZ95Sa2w1mqPnHtGZ2YeEGLo0x"
+    if not os.getenv("BRAVE_API_KEY_3"):
+        os.environ["BRAVE_API_KEY_3"] = "BSADXYY9dy2id0ftdIERVlFRJHSpmO-"
+    
+    # Also set BRAVE_API_KEY to first key if not set
+    if not os.getenv("BRAVE_API_KEY"):
+        os.environ["BRAVE_API_KEY"] = os.environ.get("BRAVE_API_KEY_1", "")
+    
+    # TAVILY API Keys (placeholder defaults - user should provide real keys)
+    for i in range(1, 8):  # TAVILY_API_KEY_1 through TAVILY_API_KEY_7
+        key_name = f"TAVILY_API_KEY_{i}"
+        if not os.getenv(key_name):
+            os.environ[key_name] = ""
+    
+    # MEDIASTACK API Keys (placeholder defaults)
+    for i in range(1, 5):  # MEDIASTACK_API_KEY_1 through MEDIASTACK_API_KEY_4
+        key_name = f"MEDIASTACK_API_KEY_{i}"
+        if not os.getenv(key_name):
+            os.environ[key_name] = ""
+    
+    # PERPLEXITY API Key (placeholder default)
+    if not os.getenv("PERPLEXITY_API_KEY"):
+        os.environ["PERPLEXITY_API_KEY"] = ""
+    
+    # OPENROUTER API Key (placeholder default)
+    if not os.getenv("OPENROUTER_API_KEY"):
+        os.environ["OPENROUTER_API_KEY"] = ""
+    
+    # ODDS API Key (placeholder default - critical for operation)
+    if not os.getenv("ODDS_API_KEY"):
+        os.environ["ODDS_API_KEY"] = ""
+    
+    # TELEGRAM credentials (placeholder defaults - critical for bot)
+    if not os.getenv("TELEGRAM_BOT_TOKEN"):
+        os.environ["TELEGRAM_BOT_TOKEN"] = ""
+    if not os.getenv("TELEGRAM_CHAT_ID"):
+        os.environ["TELEGRAM_CHAT_ID"] = ""
+    if not os.getenv("TELEGRAM_API_ID"):
+        os.environ["TELEGRAM_API_ID"] = ""
+    if not os.getenv("TELEGRAM_API_HASH"):
+        os.environ["TELEGRAM_API_HASH"] = ""
+
+
+# Inject default environment variables
+_inject_default_env_vars()
 
 # ========================================
 # PROJECT PATHS (VPS Compatible)

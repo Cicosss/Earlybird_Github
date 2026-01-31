@@ -1,49 +1,56 @@
-2026-01-31 18:51:14,208 - INFO - ==================================================
-2026-01-31 18:51:14,208 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:51:14,208 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:51:14,208 - INFO - ==================================================
-2026-01-31 18:51:14,225 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:51:14,226 - INFO - ✅ Database initialized
-2026-01-31 18:51:14,226 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
-2026-01-31 18:51:22,126 - INFO - ==================================================
-2026-01-31 18:51:22,126 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:51:22,126 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:51:22,126 - INFO - ==================================================
-2026-01-31 18:51:22,128 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:51:22,128 - INFO - ✅ Database initialized
-2026-01-31 18:51:22,128 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
-2026-01-31 18:51:35,312 - INFO - ==================================================
-2026-01-31 18:51:35,312 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:51:35,313 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:51:35,313 - INFO - ==================================================
-2026-01-31 18:51:35,315 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:51:35,315 - INFO - ✅ Database initialized
-2026-01-31 18:51:35,316 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
-2026-01-31 18:51:56,142 - INFO - ==================================================
-2026-01-31 18:51:56,142 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:51:56,142 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:51:56,142 - INFO - ==================================================
-2026-01-31 18:51:56,144 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:51:56,144 - INFO - ✅ Database initialized
-2026-01-31 18:51:56,144 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
-2026-01-31 18:54:52,772 - INFO - ==================================================
-2026-01-31 18:54:52,772 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:54:52,772 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:54:52,772 - INFO - ==================================================
-2026-01-31 18:54:52,775 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:54:52,776 - INFO - ✅ Database initialized
-2026-01-31 18:54:52,776 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
-2026-01-31 18:55:01,155 - INFO - ==================================================
-2026-01-31 18:55:01,156 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:55:01,156 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:55:01,156 - INFO - ==================================================
-2026-01-31 18:55:01,159 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:55:01,159 - INFO - ✅ Database initialized
-2026-01-31 18:55:01,159 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
-2026-01-31 18:55:11,505 - INFO - ==================================================
-2026-01-31 18:55:11,505 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-01-31 18:55:11,505 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 18:55:11,505 - INFO - ==================================================
-2026-01-31 18:55:11,508 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 18:55:11,508 - INFO - ✅ Database initialized
-2026-01-31 18:55:11,508 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:29:35,699 - INFO - ==================================================
+2026-01-31 20:29:35,699 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:29:35,699 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:29:35,699 - INFO - ==================================================
+2026-01-31 20:29:35,701 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:29:35,701 - INFO - ✅ Database initialized
+2026-01-31 20:29:35,701 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:29:58,857 - INFO - ==================================================
+2026-01-31 20:29:58,857 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:29:58,857 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:29:58,858 - INFO - ==================================================
+2026-01-31 20:29:58,861 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:29:58,861 - INFO - ✅ Database initialized
+2026-01-31 20:29:58,861 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:30:24,669 - INFO - ==================================================
+2026-01-31 20:30:24,669 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:30:24,669 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:30:24,669 - INFO - ==================================================
+2026-01-31 20:30:24,671 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:30:24,671 - INFO - ✅ Database initialized
+2026-01-31 20:30:24,672 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:30:49,904 - INFO - ==================================================
+2026-01-31 20:30:49,904 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:30:49,904 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:30:49,904 - INFO - ==================================================
+2026-01-31 20:30:49,907 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:30:49,908 - INFO - ✅ Database initialized
+2026-01-31 20:30:49,908 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:31:34,787 - INFO - ==================================================
+2026-01-31 20:31:34,787 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:31:34,787 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:31:34,787 - INFO - ==================================================
+2026-01-31 20:31:34,791 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:31:34,791 - INFO - ✅ Database initialized
+2026-01-31 20:31:34,791 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:32:59,988 - INFO - ==================================================
+2026-01-31 20:32:59,988 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:32:59,989 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:32:59,989 - INFO - ==================================================
+2026-01-31 20:32:59,992 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:32:59,992 - INFO - ✅ Database initialized
+2026-01-31 20:32:59,992 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:35:36,670 - INFO - ==================================================
+2026-01-31 20:35:36,671 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:35:36,671 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:35:36,671 - INFO - ==================================================
+2026-01-31 20:35:36,673 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:35:36,673 - INFO - ✅ Database initialized
+2026-01-31 20:35:36,673 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
+2026-01-31 20:38:41,830 - INFO - ==================================================
+2026-01-31 20:38:41,830 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-01-31 20:38:41,830 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-01-31 20:38:41,830 - INFO - ==================================================
+2026-01-31 20:38:41,832 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-01-31 20:38:41,832 - INFO - ✅ Database initialized
+2026-01-31 20:38:41,832 - ERROR - ❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env
