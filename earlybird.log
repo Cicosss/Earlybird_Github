@@ -1,0 +1,429 @@
+2026-02-01 00:10:01,470 - INFO - 🚨 Emergency cleanup triggered due to high disk usage.
+2026-02-01 00:10:01,628 - INFO -    ℹ️ temp/ folder already empty
+2026-02-01 00:10:01,628 - INFO - ✅ Emergency cleanup completed: 0 logs truncated, 0 temp files deleted
+2026-02-01 00:10:01,628 - INFO - 🦅 EARLYBIRD NEWS & ODDS MONITOR - 24/7 MODE ACTIVATED
+2026-02-01 00:10:01,628 - INFO - 🎯 ELITE QUALITY FILTERING - High Bar Configuration:
+2026-02-01 00:10:01,628 - INFO -    Standard Matches: Score >= 9.0 (was 8.6)
+2026-02-01 00:10:01,628 - INFO -    Radar Matches (Insider News): Score >= 7.5 (was 7.0)
+2026-02-01 00:10:01,628 - INFO - Health Monitor initialized
+2026-02-01 00:10:01,629 - INFO - 📝 No optimizer data found, starting fresh
+2026-02-01 00:10:01,629 - INFO - 📊 Optimizer V3.0 initialized with 0 historical bets
+2026-02-01 00:10:01,629 - INFO - 📊 OPTIMIZER V5.0 SUMMARY (Sample Size Guards + Sortino)
+Total bets: 0
+Overall ROI: 0.0%
+Last updated: None
+
+🔒 State Distribution:
+   FROZEN (<30 bets): 0 strategies
+   WARMING (30-50 bets): 0 strategies
+   ACTIVE (>50 bets): 0 strategies
+
+⏳ No active adjustments yet (need more data)
+2026-02-01 00:10:01,629 - INFO - 🌐 [BROWSER-MONITOR] V7.7 Created (Browser stability fix + Smart API Routing)
+2026-02-01 00:10:01,630 - INFO - ✅ [BROWSER-MONITOR] Loaded 14 sources from config/browser_sources.json
+2026-02-01 00:10:01,630 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-01 00:10:01,630 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-01 00:10:01,630 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-01 00:10:01,630 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-01 00:10:01,631 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-01 00:10:01,631 - INFO - 📊 BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-01 00:10:01,631 - INFO - 🔍 [BROWSER-MONITOR] Tavily short content expansion enabled
+2026-02-01 00:10:01,631 - INFO - 🌐 [BROWSER-MONITOR] Launching Playwright...
+2026-02-01 00:10:03,587 - INFO - ✅ [BROWSER-MONITOR] Playwright initialized
+2026-02-01 00:10:03,595 - INFO - ✅ [BROWSER-MONITOR] Started with 14 sources
+2026-02-01 00:10:03,595 - INFO - 🔄 [BROWSER-MONITOR] Scan loop started
+2026-02-01 00:10:03,599 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BBC Sport Football...
+2026-02-01 00:10:03,630 - INFO - 🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7
+2026-02-01 00:10:03,631 - INFO - 📦 [QUEUE] Global discovery queue initialized
+2026-02-01 00:10:03,631 - INFO - 📢 [QUEUE] High-priority callback registered (threshold=0.85, categories={'LINEUP', 'SUSPENSION', 'INJURY'})
+2026-02-01 00:10:03,632 - INFO - 📢 [QUEUE] High-priority callback registered for event-driven processing
+2026-02-01 00:10:04,825 - INFO - Status message sent to Telegram
+2026-02-01 00:10:04,826 - INFO - Heartbeat sent
+2026-02-01 00:10:04,826 - INFO - 
+⏰ CYCLE 1 START: 00:10:04
+2026-02-01 00:10:04,826 - INFO - 🐦 REFRESHING TWITTER INTEL CACHE...
+2026-02-01 00:10:04,826 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-02-01 00:10:04,826 - INFO - 🐦 Extracting tweets from 50 accounts...
+2026-02-01 00:10:04,833 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
+2026-02-01 00:10:04,833 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
+2026-02-01 00:10:04,833 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
+2026-02-01 00:10:04,834 - WARNING - ⚠️ MediaStackKeyRotator: No valid API keys found!
+2026-02-01 00:10:04,834 - INFO - 📊 MediaStackBudget initialized: 1 components (monitoring only - free unlimited tier)
+2026-02-01 00:10:04,834 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
+2026-02-01 00:10:04,834 - INFO - 🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)
+2026-02-01 00:10:04,834 - INFO - 🔮 Perplexity Provider initialized (Fallback)
+2026-02-01 00:10:04,834 - INFO - 🔀 IntelligenceRouter V7.0 initialized (DeepSeek primary, Tavily enabled, Perplexity fallback)
+2026-02-01 00:10:04,834 - INFO - 🐦 [DEEPSEEK] Extracting tweets from 50 accounts in 5 batches...
+2026-02-01 00:10:04,834 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40RudyGaletti OR %40UEFA...
+2026-02-01 00:10:05,450 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540RudyGaletti+OR+%252540UEFAcomCetinCY+OR+%252540_sabirhan+OR+%252540Onuranli+OR+%252540BocaEnLaCopa+OR+%252540CABJ_English+OR+%252540marc_cart+OR+%252540INDEPENDIENTEgc+OR+%252540AllFutbolMX+OR+%252540karentapia_a+football&count=10&freshness=pw "HTTP/2 429 Too Many Requests"
+2026-02-01 00:10:05,456 - WARNING - HTTP 429 - rotating fingerprint
+2026-02-01 00:10:05,456 - INFO - 🔄 Fingerprint rotated (error_triggered): firefox_win_133 → chrome_win_131 (next rotation in ~20 requests)
+2026-02-01 00:10:05,456 - WARNING - HTTP 429 - retry 1/2 in 1.0s
+2026-02-01 00:10:06,631 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540RudyGaletti+OR+%252540UEFAcomCetinCY+OR+%252540_sabirhan+OR+%252540Onuranli+OR+%252540BocaEnLaCopa+OR+%252540CABJ_English+OR+%252540marc_cart+OR+%252540INDEPENDIENTEgc+OR+%252540AllFutbolMX+OR+%252540karentapia_a+football&count=10&freshness=pw "HTTP/2 429 Too Many Requests"
+2026-02-01 00:10:06,635 - WARNING - HTTP 429 - rotating fingerprint
+2026-02-01 00:10:06,635 - INFO - 🔄 Fingerprint rotated (error_triggered): chrome_win_131 → safari_mac_17 (next rotation in ~15 requests)
+2026-02-01 00:10:06,635 - WARNING - HTTP 429 - retry 2/2 in 2.0s
+2026-02-01 00:10:07,527 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.bbc.com/sport/football...
+2026-02-01 00:10:08,807 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540RudyGaletti+OR+%252540UEFAcomCetinCY+OR+%252540_sabirhan+OR+%252540Onuranli+OR+%252540BocaEnLaCopa+OR+%252540CABJ_English+OR+%252540marc_cart+OR+%252540INDEPENDIENTEgc+OR+%252540AllFutbolMX+OR+%252540karentapia_a+football&count=10&freshness=pw "HTTP/2 429 Too Many Requests"
+2026-02-01 00:10:08,808 - WARNING - HTTP 429 - rotating fingerprint
+2026-02-01 00:10:08,808 - INFO - 🔄 Fingerprint rotated (error_triggered): safari_mac_17 → chrome_linux_131 (next rotation in ~21 requests)
+2026-02-01 00:10:08,808 - WARNING - ⚠️ Brave Search rate limit (429) - rotating key
+2026-02-01 00:10:08,808 - WARNING - ⚠️ Brave Key 1 marked as exhausted (usage: 0 calls)
+2026-02-01 00:10:08,808 - INFO - 🔄 Brave key rotation: Key 1 → Key 2 (2 keys remaining, cycle 1)
+2026-02-01 00:10:08,808 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40RudyGaletti OR %40UEFA...
+2026-02-01 00:10:08,995 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540RudyGaletti+OR+%252540UEFAcomCetinCY+OR+%252540_sabirhan+OR+%252540Onuranli+OR+%252540BocaEnLaCopa+OR+%252540CABJ_English+OR+%252540marc_cart+OR+%252540INDEPENDIENTEgc+OR+%252540AllFutbolMX+OR+%252540karentapia_a+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:10:08,996 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:10:11,553 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540RudyGaletti+OR+%2540UEFAcomCetinCY+OR+%2540_sabirhan+OR+%2540Onuranli+OR+%2540BocaEnLaCopa+OR+%2540CABJ_English+OR+%2540marc_cart+OR+%2540INDEPENDIENTEgc+OR+%2540AllFutbolMX+OR+%2540karentapia_a+football&limit=1 200
+2026-02-01 00:10:11,561 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540RudyGaletti%20OR%20%2540UEFAcomCetinCY%20OR%20%2540_sabirhan%20OR%20%2540Onuranli%20OR%20%2540BocaEnLaCopa%20OR%20%2540CABJ_English%20OR%20%2540marc_cart%20OR%20%2540INDEPENDIENTEgc%20OR%20%2540AllFutbolMX%20OR%20%2540karentapia_a%20football 200
+2026-02-01 00:10:12,377 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-01 00:10:12,408 - INFO - 🤖 [DEEPSEEK] twitter_batch_1...
+2026-02-01 00:10:13,794 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-01 00:10:22,358 - INFO - ✅ [DEEPSEEK] twitter_batch_1 complete
+2026-02-01 00:10:22,369 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40soymemozavala OR %40He...
+2026-02-01 00:10:22,996 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540soymemozavala+OR+%252540HellasFooty+OR+%252540A_McQuarrie+OR+%252540LianosKostas+OR+%252540AnthonyRJoseph+OR+%252540anthonyabrown+OR+%252540alan_pattullo+OR+%252540ScottBurns75+OR+%252540AleagueHub+OR+%252540joeylynchy+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:10:22,998 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:10:24,773 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540soymemozavala%20OR%20%2540HellasFooty%20OR%20%2540A_McQuarrie%20OR%20%2540LianosKostas%20OR%20%2540AnthonyRJoseph%20OR%20%2540anthonyabrown%20OR%20%2540alan_pattullo%20OR%20%2540ScottBurns75%20OR%20%2540AleagueHub%20OR%20%2540joeylynchy%20football 200
+2026-02-01 00:10:25,291 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540soymemozavala+OR+%2540HellasFooty+OR+%2540A_McQuarrie+OR+%2540LianosKostas+OR+%2540AnthonyRJoseph+OR+%2540anthonyabrown+OR+%2540alan_pattullo+OR+%2540ScottBurns75+OR+%2540AleagueHub+OR+%2540joeylynchy+football&limit=1 200
+2026-02-01 00:10:25,649 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540soymemozavala+OR+%2540HellasFooty+OR+%2540A_McQuarrie+OR+%2540LianosKostas+OR+%2540AnthonyRJoseph+OR+%2540anthonyabrown+OR+%2540alan_pattullo+OR+%2540ScottBurns75+OR+%2540AleagueHub+OR+%2540joeylynchy+football&source=web&tf=pw 200
+2026-02-01 00:10:25,685 - INFO - 🤖 [DEEPSEEK] twitter_batch_2...
+2026-02-01 00:10:28,710 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-01 00:10:31,457 - INFO - ✅ [DEEPSEEK] twitter_batch_2 complete
+2026-02-01 00:10:31,458 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40JamesDodd89 OR %40tary...
+2026-02-01 00:10:32,023 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540JamesDodd89+OR+%252540tarynheddo+OR+%252540polishscout+OR+%252540Ryan_Hubbard+OR+%252540golskapodcast+OR+%252540fitjar+OR+%252540StianWahl+OR+%252540ELundefugl52724+OR+%252540georgeboxall22+OR+%252540FrenchFtWeekly+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:10:32,023 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:10:33,994 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540JamesDodd89%20OR%20%2540tarynheddo%20OR%20%2540polishscout%20OR%20%2540Ryan_Hubbard%20OR%20%2540golskapodcast%20OR%20%2540fitjar%20OR%20%2540StianWahl%20OR%20%2540ELundefugl52724%20OR%20%2540georgeboxall22%20OR%20%2540FrenchFtWeekly%20football 200
+2026-02-01 00:10:36,384 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.bbc.com/sport/football...
+2026-02-01 00:10:36,387 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Flashscore News...
+2026-02-01 00:10:38,817 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.flashscore.com/news/football...
+2026-02-01 00:10:38,847 - INFO - Error in engine yandex: TimeoutException("Request timed out: RuntimeError('error sending request for url (https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540JamesDodd89+OR+%2540tarynheddo+OR+%2540polishscout+OR+%2540Ryan_Hubbard+OR+%2540golskapodcast+OR+%2540fitjar+OR+%2540StianWahl+OR+%2540ELundefugl52724+OR+%2540georgeboxall22+OR+%2540FrenchFtWeekly+football&limit=1): operation timed out\\n\\nCaused by:\\n    operation timed out')")
+2026-02-01 00:10:39,591 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540JamesDodd89+OR+%2540tarynheddo+OR+%2540polishscout+OR+%2540Ryan_Hubbard+OR+%2540golskapodcast+OR+%2540fitjar+OR+%2540StianWahl+OR+%2540ELundefugl52724+OR+%2540georgeboxall22+OR+%2540FrenchFtWeekly+football&source=web&tf=pw 200
+2026-02-01 00:10:39,653 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540JamesDodd89+OR+%2540tarynheddo+OR+%2540polishscout+OR+%2540Ryan_Hubbard+OR+%2540golskapodcast+OR+%2540fitjar+OR+%2540StianWahl+OR+%2540ELundefugl52724+OR+%2540georgeboxall22+OR+%2540FrenchFtWeekly+football&web=1&searchid=1772377 200
+2026-02-01 00:10:39,702 - INFO - 🤖 [DEEPSEEK] twitter_batch_3...
+2026-02-01 00:10:40,931 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-01 00:10:42,984 - INFO - ✅ [DEEPSEEK] twitter_batch_3 complete
+2026-02-01 00:10:42,984 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40GFFN OR %40mattspiro O...
+2026-02-01 00:10:43,896 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540GFFN+OR+%252540mattspiro+OR+%252540MarcCorneel+OR+%252540Purple_RSCA_+OR+%252540GBeNeFN+OR+%252540ATscoutFootball+OR+%252540austrianfooty+OR+%252540Sky_Johannes+OR+%252540EredivisieMike+OR+%252540FootballOranje_+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:10:43,898 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:10:46,041 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540GFFN%20OR%20%2540mattspiro%20OR%20%2540MarcCorneel%20OR%20%2540Purple_RSCA_%20OR%20%2540GBeNeFN%20OR%20%2540ATscoutFootball%20OR%20%2540austrianfooty%20OR%20%2540Sky_Johannes%20OR%20%2540EredivisieMike%20OR%20%2540FootballOranje_%20football 200
+2026-02-01 00:10:46,894 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football&limit=1 200
+2026-02-01 00:10:47,612 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football&web=1&searchid=7266609 200
+2026-02-01 00:10:47,637 - INFO - 🤖 [DEEPSEEK] twitter_batch_4...
+2026-02-01 00:10:48,461 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-01 00:10:50,327 - INFO - ✅ [DEEPSEEK] twitter_batch_4 complete
+2026-02-01 00:10:50,327 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40joe_baker21 OR %40scot...
+2026-02-01 00:10:51,206 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540joe_baker21+OR+%252540scott_redfearn+OR+%252540titan_plus+OR+%252540shogunsoccer+OR+%252540visselkobe_en+OR+%252540JFN_en+OR+%252540BrasilEdition+OR+%252540raphaprates+OR+%252540CABRALNETO10+OR+%252540oluwashina+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:10:51,207 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:10:53,498 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540joe_baker21%20OR%20%2540scott_redfearn%20OR%20%2540titan_plus%20OR%20%2540shogunsoccer%20OR%20%2540visselkobe_en%20OR%20%2540JFN_en%20OR%20%2540BrasilEdition%20OR%20%2540raphaprates%20OR%20%2540CABRALNETO10%20OR%20%2540oluwashina%20football 200
+2026-02-01 00:10:53,919 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&limit=1 200
+2026-02-01 00:10:55,126 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_3706472a-b7a2-4359-936c-78c6331c31d8 200
+2026-02-01 00:10:56,016 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3Dsite%25253Atwitter.com%2BOR%2Bsite%25253Ax.com%2B%252540joe_baker21%2BOR%2B%252540scott_redfearn%2BOR%2B%252540titan_plus%2BOR%2B%252540shogunsoccer%2BOR%2B%252540visselkobe_en%2BOR%2B%252540JFN_en%2BOR%2B%252540BrasilEdition%2BOR%2B%252540raphaprates%2BOR%2B%252540CABRALNETO10%2BOR%2B%252540oluwashina%2Bfootball%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:10:57,417 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&web=1&searchid=1333691 200
+2026-02-01 00:10:57,429 - INFO - 🤖 [DEEPSEEK] twitter_batch_5...
+2026-02-01 00:10:58,544 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-01 00:11:04,685 - INFO - ✅ [DEEPSEEK] twitter_batch_5 complete
+2026-02-01 00:11:04,686 - INFO - ✅ [DEEPSEEK] Twitter: 0/50 accounts with posts, 0 total posts (5 batches OK, 0 failed)
+2026-02-01 00:11:04,686 - INFO - ✅ Twitter Intel extracted via DeepSeek (complete)
+2026-02-01 00:11:04,687 - INFO - ✅ Twitter Intel refresh complete: 0 accounts with data, 0 tweets cached, 100% coverage (source: deepseek)
+2026-02-01 00:11:04,687 - INFO - 🎯 STARTING OPPORTUNITY RADAR SCAN...
+2026-02-01 00:11:04,694 - INFO - 🎯 Opportunity Radar initialized
+2026-02-01 00:11:04,695 - INFO - 🎯 OPPORTUNITY RADAR SCAN STARTING...
+2026-02-01 00:11:04,695 - INFO - 🔍 Scanning GLOBAL...
+2026-02-01 00:11:04,695 - INFO - 🔍 [DDG] Scanning GLOBAL...
+2026-02-01 00:11:04,696 - INFO - 🔍 [BRAVE] Searching: (site:flashscore.com OR site:onefootball.com OR site:sports....
+2026-02-01 00:11:05,800 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aflashscore.com+OR+site%253Aonefootball.com+OR+site%253Asports.yahoo.com%2529+%2528second+string+OR+reserves+OR+youthful+side%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:11:05,802 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-01 00:11:05,802 - INFO - 🔍 [GLOBAL] Found 5 results via DDG
+2026-02-01 00:11:05,802 - INFO - 🔍 Scanning ARGENTINA...
+2026-02-01 00:11:05,804 - INFO - 🔍 [DDG] Scanning ARGENTINA...
+2026-02-01 00:11:05,804 - INFO - 🔍 [BRAVE] Searching: (site:ole.com.ar OR site:tycsports.com OR site:mundoalbicele...
+2026-02-01 00:11:06,927 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aole.com.ar+OR+site%253Atycsports.com+OR+site%253Amundoalbiceleste.com%2529+%2528equipo+alternativo+OR+muletto+OR+rotaci%25C3%25B3n+masiva%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-01 00:11:06,928 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-01 00:11:09,382 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=%28site%3Aole.com.ar%20OR%20site%3Atycsports.com%20OR%20site%3Amundoalbiceleste.com%29%20%28equipo%20alternativo%20OR%20muletto%20OR%20rotaci%C3%B3n%20masiva%29%20football%20-basket%20-basketball%20-euroleague%20-nba%20-pallacanestro%20-baloncesto%20-koszyk%C3%B3wka%20-basketbol%20-nfl%20-american%20football%20-touchdown%20-women%20-woman%20-ladies%20-feminine%20-femminile%20-femenino%20-kobiet%20-kad%C4%B1n%20-bayan%20-wsl%20-liga%20f%20-handball%20-volleyball%20-rugby%20-futsal 200
+2026-02-01 00:11:10,208 - INFO - response: https://grokipedia.com/api/typeahead?query=%28site%3Aole.com.ar+OR+site%3Atycsports.com+OR+site%3Amundoalbiceleste.com%29+%28equipo+alternativo+OR+muletto+OR+rotaci%C3%B3n+masiva%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&limit=1 200
+2026-02-01 00:11:11,226 - INFO - response: https://yandex.com/search/site/?text=%28site%3Aole.com.ar+OR+site%3Atycsports.com+OR+site%3Amundoalbiceleste.com%29+%28equipo+alternativo+OR+muletto+OR+rotaci%C3%B3n+masiva%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&web=1&searchid=1608645 200
+2026-02-01 00:11:11,698 - INFO - response: https://www.mojeek.com/search?q=%28site%3Aole.com.ar+OR+site%3Atycsports.com+OR+site%3Amundoalbiceleste.com%29+%28equipo+alternativo+OR+muletto+OR+rotaci%C3%B3n+masiva%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal 403
+2026-02-01 00:11:12,519 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_2670abd9-c803-4c95-b812-670d248f0cb1 200
+2026-02-01 00:11:12,817 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.flashscore.com/news/football...
+2026-02-01 00:11:12,821 - WARNING - ⏸️ [BROWSER-MONITOR] Paused: high memory (80.3%)
+2026-02-01 00:11:12,833 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Aole.com.ar%2BOR%2Bsite%253Atycsports.com%2BOR%2Bsite%253Amundoalbiceleste.com%2529%2B%2528equipo%2Balternativo%2BOR%2Bmuletto%2BOR%2Brotaci%25C3%25B3n%2Bmasiva%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:11:13,497 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-01 00:11:14,006 - INFO - response: https://search.brave.com/search?q=%28site%3Aole.com.ar+OR+site%3Atycsports.com+OR+site%3Amundoalbiceleste.com%29+%28equipo+alternativo+OR+muletto+OR+rotaci%C3%B3n+masiva%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-01 00:11:14,019 - INFO - 🔍 [ARGENTINA] Found 2 results via DDG
+2026-02-01 00:11:14,020 - INFO - 🔍 Scanning BRAZIL...
+2026-02-01 00:11:14,021 - INFO - 🔍 [DDG] Scanning BRAZIL...
+2026-02-01 00:11:14,021 - INFO - 🔍 [BRAVE] Searching: (site:globoesporte.globo.com OR site:uol.com.br OR site:samb...
+2026-02-01 00:11:15,131 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Agloboesporte.globo.com+OR+site%253Auol.com.br+OR+site%253Asambafoot.com%2529+%2528time+misto+OR+poupados+OR+reservas%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:11:15,134 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-01 00:11:15,134 - INFO - 🔍 [BRAZIL] Found 5 results via DDG
+2026-02-01 00:11:15,136 - INFO - 🤖 Chiamata a deepseek/deepseek-chat-v3-0324...
+2026-02-01 00:11:17,041 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-01 00:11:19,042 - INFO - ⏱️ AI latenza: 3.9s
+2026-02-01 00:11:19,043 - INFO - ✅ deepseek/deepseek-chat-v3-0324 risposta ricevuta con successo
+2026-02-01 00:11:19,045 - INFO - 🔍 Scanning TURKEY...
+2026-02-01 00:11:19,045 - INFO - 🔍 [DDG] Scanning TURKEY...
+2026-02-01 00:11:19,046 - INFO - 🔍 [BRAVE] Searching: (site:fanatik.com.tr OR site:turkish-football.com OR site:da...
+2026-02-01 00:11:19,229 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Afanatik.com.tr+OR+site%253Aturkish-football.com+OR+site%253Adailysabah.com%2529+%2528rotasyon+OR+yedek+a%25C4%259F%25C4%25B1rl%25C4%25B1kl%25C4%25B1+OR+kadro+d%25C4%25B1%25C5%259F%25C4%25B1%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-01 00:11:19,230 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-01 00:11:20,637 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=%28site%3Afanatik.com.tr%20OR%20site%3Aturkish-football.com%20OR%20site%3Adailysabah.com%29%20%28rotasyon%20OR%20yedek%20a%C4%9F%C4%B1rl%C4%B1kl%C4%B1%20OR%20kadro%20d%C4%B1%C5%9F%C4%B1%29%20football%20-basket%20-basketball%20-euroleague%20-nba%20-pallacanestro%20-baloncesto%20-koszyk%C3%B3wka%20-basketbol%20-nfl%20-american%20football%20-touchdown%20-women%20-woman%20-ladies%20-feminine%20-femminile%20-femenino%20-kobiet%20-kad%C4%B1n%20-bayan%20-wsl%20-liga%20f%20-handball%20-volleyball%20-rugby%20-futsal 200
+2026-02-01 00:11:21,567 - INFO - response: https://grokipedia.com/api/typeahead?query=%28site%3Afanatik.com.tr+OR+site%3Aturkish-football.com+OR+site%3Adailysabah.com%29+%28rotasyon+OR+yedek+a%C4%9F%C4%B1rl%C4%B1kl%C4%B1+OR+kadro+d%C4%B1%C5%9F%C4%B1%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&limit=1 200
+2026-02-01 00:11:21,845 - INFO - response: https://www.mojeek.com/search?q=%28site%3Afanatik.com.tr+OR+site%3Aturkish-football.com+OR+site%3Adailysabah.com%29+%28rotasyon+OR+yedek+a%C4%9F%C4%B1rl%C4%B1kl%C4%B1+OR+kadro+d%C4%B1%C5%9F%C4%B1%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal 403
+2026-02-01 00:11:21,999 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-01 00:11:23,139 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_337d1eaf-9fbb-44b5-8d6b-e5f5614ac6b2 200
+2026-02-01 00:11:23,491 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Afanatik.com.tr%2BOR%2Bsite%253Aturkish-football.com%2BOR%2Bsite%253Adailysabah.com%2529%2B%2528rotasyon%2BOR%2Byedek%2Ba%25C4%259F%25C4%25B1rl%25C4%25B1kl%25C4%25B1%2BOR%2Bkadro%2Bd%25C4%25B1%25C5%259F%25C4%25B1%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:11:24,245 - INFO - response: https://yandex.com/search/site/?text=%28site%3Afanatik.com.tr+OR+site%3Aturkish-football.com+OR+site%3Adailysabah.com%29+%28rotasyon+OR+yedek+a%C4%9F%C4%B1rl%C4%B1kl%C4%B1+OR+kadro+d%C4%B1%C5%9F%C4%B1%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&web=1&searchid=3671362 200
+2026-02-01 00:11:24,758 - INFO - response: https://search.brave.com/search?q=%28site%3Afanatik.com.tr+OR+site%3Aturkish-football.com+OR+site%3Adailysabah.com%29+%28rotasyon+OR+yedek+a%C4%9F%C4%B1rl%C4%B1kl%C4%B1+OR+kadro+d%C4%B1%C5%9F%C4%B1%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-01 00:11:24,768 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-01 00:11:24,768 - WARNING - All search backends failed for: (site:fanatik.com.tr OR site:turkish-football.com ...
+2026-02-01 00:11:24,768 - INFO - 🔍 [TURKEY] Found 0 results via DDG
+2026-02-01 00:11:24,769 - INFO - 🔍 Scanning MEXICO...
+2026-02-01 00:11:24,769 - INFO - 🔍 [DDG] Scanning MEXICO...
+2026-02-01 00:11:24,769 - INFO - 🔍 [BRAVE] Searching: (site:mediotiempo.com OR site:espn.com.mx OR site:record.com...
+2026-02-01 00:11:25,373 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Amediotiempo.com+OR+site%253Aespn.com.mx+OR+site%253Arecord.com.mx%2529+%2528rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-01 00:11:25,374 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-01 00:11:27,771 - INFO - response: https://grokipedia.com/api/typeahead?query=%28site%3Amediotiempo.com+OR+site%3Aespn.com.mx+OR+site%3Arecord.com.mx%29+%28rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&limit=1 200
+2026-02-01 00:11:27,824 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=%28site%3Amediotiempo.com%20OR%20site%3Aespn.com.mx%20OR%20site%3Arecord.com.mx%29%20%28rotation%20squad%20OR%20equipo%20alternativo%20OR%20descanso%20titulares%29%20football%20-basket%20-basketball%20-euroleague%20-nba%20-pallacanestro%20-baloncesto%20-koszyk%C3%B3wka%20-basketbol%20-nfl%20-american%20football%20-touchdown%20-women%20-woman%20-ladies%20-feminine%20-femminile%20-femenino%20-kobiet%20-kad%C4%B1n%20-bayan%20-wsl%20-liga%20f%20-handball%20-volleyball%20-rugby%20-futsal 200
+2026-02-01 00:11:27,975 - INFO - response: https://www.mojeek.com/search?q=%28site%3Amediotiempo.com+OR+site%3Aespn.com.mx+OR+site%3Arecord.com.mx%29+%28rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal 403
+2026-02-01 00:11:28,783 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_0a515919-af95-4dab-ba66-218c10806620 200
+2026-02-01 00:11:29,415 - INFO - response: https://yandex.com/search/site/?text=%28site%3Amediotiempo.com+OR+site%3Aespn.com.mx+OR+site%3Arecord.com.mx%29+%28rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&web=1&searchid=8767632 200
+2026-02-01 00:11:29,613 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-01 00:11:30,359 - INFO - response: https://search.brave.com/search?q=%28site%3Amediotiempo.com+OR+site%3Aespn.com.mx+OR+site%3Arecord.com.mx%29+%28rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-01 00:11:30,964 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Amediotiempo.com%2BOR%2Bsite%253Aespn.com.mx%2BOR%2Bsite%253Arecord.com.mx%2529%2B%2528rotation%2Bsquad%2BOR%2Bequipo%2Balternativo%2BOR%2Bdescanso%2Btitulares%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:11:30,973 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-01 00:11:30,973 - WARNING - All search backends failed for: (site:mediotiempo.com OR site:espn.com.mx OR site:...
+2026-02-01 00:11:30,973 - INFO - 🔍 [MEXICO] Found 0 results via DDG
+2026-02-01 00:11:30,974 - INFO - 🔍 Scanning GREECE...
+2026-02-01 00:11:30,974 - INFO - 🔍 [DDG] Scanning GREECE...
+2026-02-01 00:11:30,974 - INFO - 🔍 [BRAVE] Searching: (site:agonasport.com OR site:greekcitytimes.com OR site:gazz...
+2026-02-01 00:11:31,620 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aagonasport.com+OR+site%253Agreekcitytimes.com+OR+site%253Agazzetta.gr%2529+%2528rotation+expected+OR+rested+for+europe+OR+reserves%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-01 00:11:31,621 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-01 00:11:33,116 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=%28site%3Aagonasport.com%20OR%20site%3Agreekcitytimes.com%20OR%20site%3Agazzetta.gr%29%20%28rotation%20expected%20OR%20rested%20for%20europe%20OR%20reserves%29%20football%20-basket%20-basketball%20-euroleague%20-nba%20-pallacanestro%20-baloncesto%20-koszyk%C3%B3wka%20-basketbol%20-nfl%20-american%20football%20-touchdown%20-women%20-woman%20-ladies%20-feminine%20-femminile%20-femenino%20-kobiet%20-kad%C4%B1n%20-bayan%20-wsl%20-liga%20f%20-handball%20-volleyball%20-rugby%20-futsal 200
+2026-02-01 00:11:34,383 - INFO - response: https://grokipedia.com/api/typeahead?query=%28site%3Aagonasport.com+OR+site%3Agreekcitytimes.com+OR+site%3Agazzetta.gr%29+%28rotation+expected+OR+rested+for+europe+OR+reserves%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&limit=1 200
+2026-02-01 00:11:34,896 - INFO - response: https://search.brave.com/search?q=%28site%3Aagonasport.com+OR+site%3Agreekcitytimes.com+OR+site%3Agazzetta.gr%29+%28rotation+expected+OR+rested+for+europe+OR+reserves%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-01 00:11:35,677 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_f24298a3-3579-48f7-bd85-a40ed54ea746 200
+2026-02-01 00:11:35,866 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-01 00:11:36,836 - INFO - response: https://yandex.com/search/site/?text=%28site%3Aagonasport.com+OR+site%3Agreekcitytimes.com+OR+site%3Agazzetta.gr%29+%28rotation+expected+OR+rested+for+europe+OR+reserves%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&web=1&searchid=8842895 200
+2026-02-01 00:11:36,983 - INFO - response: https://www.mojeek.com/search?q=%28site%3Aagonasport.com+OR+site%3Agreekcitytimes.com+OR+site%3Agazzetta.gr%29+%28rotation+expected+OR+rested+for+europe+OR+reserves%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal 403
+2026-02-01 00:11:37,626 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Aagonasport.com%2BOR%2Bsite%253Agreekcitytimes.com%2BOR%2Bsite%253Agazzetta.gr%2529%2B%2528rotation%2Bexpected%2BOR%2Brested%2Bfor%2Beurope%2BOR%2Breserves%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:11:37,635 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-01 00:11:37,635 - WARNING - All search backends failed for: (site:agonasport.com OR site:greekcitytimes.com OR...
+2026-02-01 00:11:37,635 - INFO - 🔍 [GREECE] Found 0 results via DDG
+2026-02-01 00:11:37,635 - INFO - 🔍 Scanning PORTUGAL...
+2026-02-01 00:11:37,635 - INFO - 🔍 [DDG] Scanning PORTUGAL...
+2026-02-01 00:11:37,636 - INFO - 🔍 [BRAVE] Searching: (site:ojogo.pt OR site:abola.pt OR site:record.pt) (suplente...
+2026-02-01 00:11:38,611 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aojogo.pt+OR+site%253Aabola.pt+OR+site%253Arecord.pt%2529+%2528suplentes+OR+reservas+OR+equipa+B%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:11:38,614 - INFO - 🔍 [BRAVE] Found 1 results
+2026-02-01 00:11:38,616 - INFO - 🔍 [PORTUGAL] Found 1 results via DDG
+2026-02-01 00:11:38,616 - INFO - 🔍 Scanning COLOMBIA...
+2026-02-01 00:11:38,616 - INFO - 🔍 [DDG] Scanning COLOMBIA...
+2026-02-01 00:11:38,616 - INFO - 🔍 [BRAVE] Searching: (site:eltiempo.com OR site:futbolred.com OR site:espn.com.co...
+2026-02-01 00:11:40,529 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aeltiempo.com+OR+site%253Afutbolred.com+OR+site%253Aespn.com.co%2529+%2528suplentes+OR+rotaci%25C3%25B3n+OR+juveniles%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:11:40,532 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-01 00:11:40,532 - INFO - 🔍 [COLOMBIA] Found 5 results via DDG
+2026-02-01 00:11:40,533 - INFO - 🔍 Scanning AFRICA...
+2026-02-01 00:11:40,533 - INFO - 🔍 [DDG] Scanning AFRICA...
+2026-02-01 00:11:40,533 - INFO - 🔍 [BRAVE] Searching: (site:kingfut.com OR site:ghanasoccernet.com OR site:kickoff...
+2026-02-01 00:11:42,236 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Akingfut.com+OR+site%253Aghanasoccernet.com+OR+site%253Akickoff.com%2529+%2528unpaid+wages+OR+strike+OR+financial+crisis%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:11:42,237 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:11:43,930 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=%28site%3Akingfut.com%20OR%20site%3Aghanasoccernet.com%20OR%20site%3Akickoff.com%29%20%28unpaid%20wages%20OR%20strike%20OR%20financial%20crisis%29%20football%20-basket%20-basketball%20-euroleague%20-nba%20-pallacanestro%20-baloncesto%20-koszyk%C3%B3wka%20-basketbol%20-nfl%20-american%20football%20-touchdown%20-women%20-woman%20-ladies%20-feminine%20-femminile%20-femenino%20-kobiet%20-kad%C4%B1n%20-bayan%20-wsl%20-liga%20f%20-handball%20-volleyball%20-rugby%20-futsal 200
+2026-02-01 00:11:44,418 - INFO - response: https://grokipedia.com/api/typeahead?query=%28site%3Akingfut.com+OR+site%3Aghanasoccernet.com+OR+site%3Akickoff.com%29+%28unpaid+wages+OR+strike+OR+financial+crisis%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&limit=1 200
+2026-02-01 00:11:44,726 - INFO - response: https://search.brave.com/search?q=%28site%3Akingfut.com+OR+site%3Aghanasoccernet.com+OR+site%3Akickoff.com%29+%28unpaid+wages+OR+strike+OR+financial+crisis%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 429
+2026-02-01 00:11:45,318 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Akingfut.com%2BOR%2Bsite%253Aghanasoccernet.com%2BOR%2Bsite%253Akickoff.com%2529%2B%2528unpaid%2Bwages%2BOR%2Bstrike%2BOR%2Bfinancial%2Bcrisis%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:11:46,453 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_4ab23b8e-4bc9-40aa-b2cc-a1936aa0d943 200
+2026-02-01 00:11:46,669 - INFO - response: https://www.mojeek.com/search?q=%28site%3Akingfut.com+OR+site%3Aghanasoccernet.com+OR+site%3Akickoff.com%29+%28unpaid+wages+OR+strike+OR+financial+crisis%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal 403
+2026-02-01 00:11:47,388 - INFO - response: https://yandex.com/search/site/?text=%28site%3Akingfut.com+OR+site%3Aghanasoccernet.com+OR+site%3Akickoff.com%29+%28unpaid+wages+OR+strike+OR+financial+crisis%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&web=1&searchid=9563662 200
+2026-02-01 00:11:47,577 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-01 00:11:47,581 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-01 00:11:47,582 - WARNING - All search backends failed for: (site:kingfut.com OR site:ghanasoccernet.com OR si...
+2026-02-01 00:11:47,582 - INFO - 🔍 [AFRICA] Found 0 results via DDG
+2026-02-01 00:11:47,582 - INFO - 🔍 Scanning ASIA...
+2026-02-01 00:11:47,582 - INFO - 🔍 [DDG] Scanning ASIA...
+2026-02-01 00:11:47,582 - INFO - 🔍 [BRAVE] Searching: (site:scmp.com OR site:kleagueunited.com OR site:football-tr...
+2026-02-01 00:11:48,432 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Ascmp.com+OR+site%253Akleagueunited.com+OR+site%253Afootball-tribe.com%2529+%2528unpaid+wages+OR+financial+crisis+OR+second+string%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-01 00:11:48,432 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-01 00:11:50,654 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=%28site%3Ascmp.com%20OR%20site%3Akleagueunited.com%20OR%20site%3Afootball-tribe.com%29%20%28unpaid%20wages%20OR%20financial%20crisis%20OR%20second%20string%29%20football%20-basket%20-basketball%20-euroleague%20-nba%20-pallacanestro%20-baloncesto%20-koszyk%C3%B3wka%20-basketbol%20-nfl%20-american%20football%20-touchdown%20-women%20-woman%20-ladies%20-feminine%20-femminile%20-femenino%20-kobiet%20-kad%C4%B1n%20-bayan%20-wsl%20-liga%20f%20-handball%20-volleyball%20-rugby%20-futsal 200
+2026-02-01 00:11:50,671 - INFO - response: https://grokipedia.com/api/typeahead?query=%28site%3Ascmp.com+OR+site%3Akleagueunited.com+OR+site%3Afootball-tribe.com%29+%28unpaid+wages+OR+financial+crisis+OR+second+string%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&limit=1 200
+2026-02-01 00:11:51,123 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Ascmp.com%2BOR%2Bsite%253Akleagueunited.com%2BOR%2Bsite%253Afootball-tribe.com%2529%2B%2528unpaid%2Bwages%2BOR%2Bfinancial%2Bcrisis%2BOR%2Bsecond%2Bstring%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-01 00:11:51,919 - INFO - response: https://search.brave.com/search?q=%28site%3Ascmp.com+OR+site%3Akleagueunited.com+OR+site%3Afootball-tribe.com%29+%28unpaid+wages+OR+financial+crisis+OR+second+string%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-01 00:11:52,923 - INFO - response: https://search.yahoo.com/search;_ylt=8as9bbpn6t2Njd3OR1ZB3Fdy;_ylu=8F-RUDyXnAWfiMBeZ8g75dp_VpQg4eWQRTH81zL3iMux9k4?p=%28site%3Ascmp.com+OR+site%3Akleagueunited.com+OR+site%3Afootball-tribe.com%29+%28unpaid+wages+OR+financial+crisis+OR+second+string%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&btf=w 200
+2026-02-01 00:11:53,489 - INFO - response: https://www.mojeek.com/search?q=%28site%3Ascmp.com+OR+site%3Akleagueunited.com+OR+site%3Afootball-tribe.com%29+%28unpaid+wages+OR+financial+crisis+OR+second+string%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal 403
+2026-02-01 00:11:53,688 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-01 00:11:54,393 - INFO - response: https://yandex.com/search/site/?text=%28site%3Ascmp.com+OR+site%3Akleagueunited.com+OR+site%3Afootball-tribe.com%29+%28unpaid+wages+OR+financial+crisis+OR+second+string%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&web=1&searchid=9986933 200
+2026-02-01 00:11:54,394 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-01 00:11:54,395 - WARNING - All search backends failed for: (site:scmp.com OR site:kleagueunited.com OR site:f...
+2026-02-01 00:11:54,395 - INFO - 🔍 [ASIA] Found 0 results via DDG
+2026-02-01 00:11:54,395 - INFO - 🎯 RADAR SCAN COMPLETE: 0 opportunities triggered
+2026-02-01 00:11:54,395 - INFO - 🎯 Radar: No new opportunities detected
+2026-02-01 00:11:54,396 - INFO - 🚀 STARTING EARLYBIRD V6.0 PIPELINE (DeepSeek Intel + FotMob + Triangulation)
+2026-02-01 00:11:54,396 - INFO - 🤖 DeepSeek Intel Provider: ATTIVO (Primary)
+2026-02-01 00:11:54,408 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:11:54,410 - INFO - ✅ Market Intelligence DB initialized (odds_snapshots table)
+2026-02-01 00:11:54,410 - INFO - 🔍 Checking database schema for migrations...
+2026-02-01 00:11:54,411 - INFO - ✅ Database schema is up-to-date
+2026-02-01 00:11:54,411 - INFO - ✅ FotMob Provider initialized (UA rotation enabled)
+2026-02-01 00:11:54,411 - INFO - 🔍 Auto-discovering active niche leagues...
+2026-02-01 00:11:54,412 - INFO - 🔍 Checking for active leagues...
+2026-02-01 00:11:54,790 - INFO - 📊 Fetched 73 sports/leagues from API
+2026-02-01 00:11:54,790 - INFO - ✅ Active: 7 Tier1, 5 Tier2
+2026-02-01 00:11:54,791 - INFO - 🎯 Found 5 active niche leagues. Processing top 5 to save quota.
+2026-02-01 00:11:54,791 - INFO -    📌 soccer_turkey_super_league
+2026-02-01 00:11:54,791 - INFO -    📌 soccer_argentina_primera_division
+2026-02-01 00:11:54,791 - INFO -    📌 soccer_mexico_ligamx
+2026-02-01 00:11:54,791 - INFO -    📌 soccer_greece_super_league
+2026-02-01 00:11:54,791 - INFO -    📌 soccer_spl
+2026-02-01 00:11:54,791 - INFO - 📊 Refreshing fixtures and odds from The-Odds-API...
+2026-02-01 00:11:54,791 - INFO - 🚀 Starting Fixture Ingestion - Smart Frequency Strategy...
+2026-02-01 00:11:55,154 - INFO - 💰 API Quota: 18592 remaining (used: 1408)
+2026-02-01 00:11:55,154 - INFO - 🔍 Checking for active leagues...
+2026-02-01 00:11:55,294 - INFO - 📊 Fetched 73 sports/leagues from API
+2026-02-01 00:11:55,294 - INFO - ✅ Active: 7 Tier1, 5 Tier2
+2026-02-01 00:11:55,295 - INFO - 🎯 Elite 6 Strategy: 9 leagues available
+2026-02-01 00:11:55,329 - INFO - 📊 soccer_turkey_super_league: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:55,329 - INFO - 🌎 Fetching soccer_turkey_super_league with regions=eu,uk
+2026-02-01 00:11:55,492 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:55,498 - INFO - New: Genclerbirligi SK vs Gazişehir Gaziantep | H2.18/X3.25/A3.2 | O1.87/U1.81
+2026-02-01 00:11:55,502 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:55,503 - INFO - New: Galatasaray vs Kayserispor | H1.06/X6.75/A13.0 | ONone/UNone
+2026-02-01 00:11:55,504 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:55,505 - INFO - New: Kocaelispor vs Fenerbahce | H4.61/X3.73/A1.69 | O2.05/U1.7
+2026-02-01 00:11:55,507 - INFO - ✅ soccer_turkey_super_league: 3 matches
+2026-02-01 00:11:55,508 - INFO - 📊 soccer_argentina_primera_division: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:55,509 - INFO - 🌎 Fetching soccer_argentina_primera_division with regions=us,eu
+2026-02-01 00:11:55,685 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,686 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 0.34) for Barracas Central vs Deportivo Riestra
+2026-02-01 00:11:55,688 - INFO - New: Barracas Central vs Deportivo Riestra | H2.55/X2.55/A2.8 | O3.35/U1.31
+2026-02-01 00:11:55,690 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,691 - INFO - New: Boca Juniors vs Newells Old Boys | H1.45/X3.5/A6.0 | O2.29/U1.6
+2026-02-01 00:11:55,694 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,695 - INFO - New: Rosario Central vs River Plate | H2.7/X2.75/A2.4 | O2.68/U1.46
+2026-02-01 00:11:55,697 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,698 - INFO - New: Gimnasia La Plata vs Aldosivi Mar del Plata | H1.95/X2.65/A3.5 | O2.75/U1.44
+2026-02-01 00:11:55,700 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,702 - INFO - New: CA Tigre BA vs Racing Club | H3.05/X2.6/A2.15 | O2.75/U1.44
+2026-02-01 00:11:55,704 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,705 - INFO - New: Defensa y Justicia vs Estudiantes | H2.95/X2.55/A2.2 | O2.85/U1.41
+2026-02-01 00:11:55,707 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,708 - INFO - New: Argentinos Juniors vs Belgrano de Cordoba | H1.54/X3.0/A4.8 | O2.42/U1.52
+2026-02-01 00:11:55,709 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,710 - INFO - New: Union Santa Fe vs Gimnasia Mendoza | H1.8/X2.65/A3.6 | O2.75/U1.44
+2026-02-01 00:11:55,712 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,713 - INFO - New: Banfield vs Estudiantes de Río Cuarto | H1.74/X2.65/A4.0 | O2.75/U1.44
+2026-02-01 00:11:55,715 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:55,716 - INFO - New: Independiente Rivadavia vs Sarmiento de Junin | H1.7/X2.75/A4.0 | O2.75/U1.44
+2026-02-01 00:11:55,717 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:55,718 - INFO - New: Instituto de Córdoba vs Lanus | H2.95/X2.8/A2.65 | O2.95/U1.39
+2026-02-01 00:11:55,719 - INFO - ✅ soccer_argentina_primera_division: 14 matches
+2026-02-01 00:11:55,720 - INFO - 📊 soccer_mexico_ligamx: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:55,720 - INFO - 🌎 Fetching soccer_mexico_ligamx with regions=us
+2026-02-01 00:11:55,866 - INFO - 🎯 🎯 SMART MONEY on HOME (diff: 0.15) for Querétaro vs Pachuca
+2026-02-01 00:11:55,869 - INFO - New: Querétaro vs Pachuca | H3.4/X3.3/A2.1 | O1.94/U1.76
+2026-02-01 00:11:55,872 - INFO - ✅ soccer_mexico_ligamx: 15 matches
+2026-02-01 00:11:55,874 - INFO - 📊 soccer_greece_super_league: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:55,874 - INFO - 🌎 Fetching soccer_greece_super_league with regions=eu,uk
+2026-02-01 00:11:56,033 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,036 - INFO - New: Levadiakos vs Asteras Tripolis | H1.58/X3.6/A5.4 | O1.97/U1.72
+2026-02-01 00:11:56,039 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,041 - INFO - New: Panathinaikos vs AE Kifisia FC | H1.27/X4.6/A7.85 | O1.73/U1.95
+2026-02-01 00:11:56,043 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,044 - INFO - New: PAOK Thessaloniki vs Panserraikos FC | H1.06/X9.4/A22.0 | O1.36/U3.0
+2026-02-01 00:11:56,045 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,046 - INFO - New: AEK Athens vs Olympiakos Piraeus | H2.4/X3.0/A2.85 | O2.15/U1.6
+2026-02-01 00:11:56,048 - INFO - 🎯 🎯 SMART MONEY on HOME (diff: 1.23) for Asteras Tripolis vs Olympiakos Piraeus
+2026-02-01 00:11:56,048 - INFO - New: Asteras Tripolis vs Olympiakos Piraeus | H8.0/X4.1/A1.34 | O1.87/U1.9
+2026-02-01 00:11:56,049 - INFO - ✅ soccer_greece_super_league: 20 matches
+2026-02-01 00:11:56,050 - INFO - 📊 soccer_spl: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:56,050 - INFO - 🌎 Fetching soccer_spl with regions=eu,uk
+2026-02-01 00:11:56,210 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,212 - INFO - New: Hibernian vs Rangers | H3.16/X3.46/A2.14 | O1.73/U2.0
+2026-02-01 00:11:56,214 - INFO - 📊 Sharp bookie found: betfair_ex_uk
+2026-02-01 00:11:56,215 - INFO - New: Celtic vs Falkirk F.C. | H1.3/X5.0/A8.0 | O1.44/U2.5
+2026-02-01 00:11:56,217 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,217 - INFO - New: St Mirren vs Hearts | H4.5/X3.5/A1.85 | O2.06/U1.74
+2026-02-01 00:11:56,219 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,219 - INFO - 🎯 🎯 SMART MONEY on HOME (diff: 2.96) for Dundee FC vs Motherwell
+2026-02-01 00:11:56,219 - INFO - New: Dundee FC vs Motherwell | H4.6/X3.35/A1.72 | O1.89/U1.88
+2026-02-01 00:11:56,220 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,220 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 2.66) for Hibernian vs Dundee United
+2026-02-01 00:11:56,221 - INFO - New: Hibernian vs Dundee United | H1.55/X3.8/A5.0 | O1.76/U2.03
+2026-02-01 00:11:56,221 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,222 - INFO - New: Livingston vs Falkirk F.C. | H2.9/X3.1/A2.3 | O1.97/U1.81
+2026-02-01 00:11:56,222 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,222 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 7.85) for Rangers vs Kilmarnock
+2026-02-01 00:11:56,223 - INFO - New: Rangers vs Kilmarnock | H1.29/X5.25/A10.5 | O1.57/U2.23
+2026-02-01 00:11:56,223 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,223 - INFO - 🎯 🎯 SMART MONEY on HOME (diff: 2.80) for Aberdeen vs Celtic
+2026-02-01 00:11:56,224 - INFO - New: Aberdeen vs Celtic | H4.95/X4.25/A1.58 | O1.58/U2.28
+2026-02-01 00:11:56,224 - INFO - ✅ soccer_spl: 28 matches
+2026-02-01 00:11:56,224 - INFO - 📊 soccer_australia_aleague: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:56,224 - INFO - 🌎 Fetching soccer_australia_aleague with regions=au
+2026-02-01 00:11:56,401 - INFO - 🎯 🎯 SMART MONEY on HOME (diff: 0.27) for Central Coast Mariners vs Melbourne Victory
+2026-02-01 00:11:56,403 - INFO - New: Central Coast Mariners vs Melbourne Victory | H5.0/X4.2/A1.57 | O1.58/U2.18
+2026-02-01 00:11:56,406 - INFO - ✅ soccer_australia_aleague: 29 matches
+2026-02-01 00:11:56,407 - INFO - 📊 soccer_poland_ekstraklasa: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:56,407 - INFO - 🌎 Fetching soccer_poland_ekstraklasa with regions=eu,uk
+2026-02-01 00:11:56,566 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:56,569 - INFO - New: Motor Lublin vs Pogoń Szczecin | H2.8/X3.59/A2.45 | O1.6/U2.2
+2026-02-01 00:11:56,571 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:56,572 - INFO - New: Wisła Płock vs Raków Częstochowa | H3.72/X3.31/A2.11 | O2.15/U1.62
+2026-02-01 00:11:56,574 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:56,575 - INFO - New: Legia Warszawa vs Korona Kielce | H1.81/X3.69/A4.44 | O2.04/U1.83
+2026-02-01 00:11:56,576 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:56,578 - INFO - New: Nieciecza vs Cracovia Kraków | H3.35/X3.29/A2.21 | O1.98/U1.72
+2026-02-01 00:11:56,579 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,579 - INFO - 🎯 🎯 SMART MONEY on HOME (diff: 1.06) for Piast Gliwice vs Lech Poznań
+2026-02-01 00:11:56,580 - INFO - New: Piast Gliwice vs Lech Poznań | H2.7/X3.2/A2.43 | O1.78/U1.85
+2026-02-01 00:11:56,581 - INFO - ✅ soccer_poland_ekstraklasa: 34 matches
+2026-02-01 00:11:56,582 - INFO - 📊 soccer_austria_bundesliga: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:56,582 - INFO - 🌎 Fetching soccer_austria_bundesliga with regions=eu,uk
+2026-02-01 00:11:56,732 - INFO - ✅ soccer_austria_bundesliga: 34 matches
+2026-02-01 00:11:56,733 - INFO - 📊 soccer_netherlands_eredivisie: NO_MATCHES_DISCOVERY
+2026-02-01 00:11:56,734 - INFO - 🌎 Fetching soccer_netherlands_eredivisie with regions=eu,uk
+2026-02-01 00:11:56,916 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:56,917 - INFO - New: Excelsior vs Ajax | H3.95/X3.8/A1.7 | O1.54/U2.28
+2026-02-01 00:11:56,919 - INFO - 📊 Sharp bookie found: betfair_ex_uk
+2026-02-01 00:11:56,919 - INFO - New: PSV Eindhoven vs Feyenoord | H1.66/X4.1/A4.1 | O1.4/U2.8
+2026-02-01 00:11:56,920 - INFO - 📊 Sharp bookie found: betfair_ex_uk
+2026-02-01 00:11:56,921 - INFO - New: Heracles Almelo vs Fortuna Sittard | H2.32/X3.35/A2.8 | O1.68/U2.04
+2026-02-01 00:11:56,922 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-01 00:11:56,923 - INFO - New: Heerenveen vs FC Utrecht | H1.8/X3.7/A3.85 | O1.65/U2.08
+2026-02-01 00:11:56,924 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-01 00:11:56,925 - INFO - New: FC Volendam vs Go Ahead Eagles | H2.88/X3.6/A2.2 | O1.54/U2.28
+2026-02-01 00:11:56,926 - INFO - ✅ soccer_netherlands_eredivisie: 39 matches
+2026-02-01 00:11:56,936 - INFO - 🏁 Ingestion complete: 39 matches | 9 fetched | 0 skipped (fresh)
+2026-02-01 00:11:56,937 - INFO - 💹 Checking for significant odds movements...
+2026-02-01 00:11:56,941 - INFO - 🍪 Scanning for Biscotto suspects (suspicious Draw odds)...
+2026-02-01 00:11:56,949 - INFO - Trovate 26 partite Elite da analizzare nelle prossime 72 ore.
+2026-02-01 00:11:56,949 - INFO - 🔄 Tier 2 Fallback: Reset giornaliero ( → 2026-01-31)
+2026-02-01 00:11:57,147 - INFO - ✅ Exact match: Central Coast Mariners (ID: 8164)
+2026-02-01 00:11:58,662 - INFO - 
+============================================================
+2026-02-01 00:11:58,662 - INFO - 🔎 INVESTIGATING: Central Coast Mariners vs Melbourne Victory (soccer_australia_aleague)
+2026-02-01 00:11:58,663 - INFO - ============================================================
+2026-02-01 00:11:58,663 - INFO -    📂 Case Status: First investigation
+2026-02-01 00:11:58,663 - INFO -    📊 Checking FotMob for official data...
+2026-02-01 00:11:58,664 - INFO - ⚡ [PARALLEL] Starting enrichment for Central Coast Mariners vs Melbourne Victory
+2026-02-01 00:11:59,017 - INFO - ✅ Full team context for Central Coast Mariners: 0 injuries, motivation=Direct relegation threat
+2026-02-01 00:12:00,990 - INFO - ✅ Turnover risk for Central Coast Mariners: HIGH (squad: 0)
+2026-02-01 00:12:00,991 - INFO - ✅ Team stats for Central Coast Mariners: goals=None, cards=None
+2026-02-01 00:12:00,992 - INFO - ✅ Team stats for Melbourne Victory: goals=None, cards=None
+2026-02-01 00:12:00,992 - INFO - ✅ Tactical insights for Central Coast Mariners vs Melbourne Victory: Balanced
+2026-02-01 00:12:01,987 - INFO - ✅ Turnover risk for Melbourne Victory: HIGH (squad: 0)
+2026-02-01 00:12:03,910 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-01 00:12:03,911 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4965696
+2026-02-01 00:12:04,077 - INFO - ✅ Exact match: Melbourne Victory (ID: 6230)
+2026-02-01 00:12:05,478 - INFO - ✅ Full team context for Melbourne Victory: 0 injuries, motivation=Fight against relegation
+2026-02-01 00:12:05,481 - INFO - ⚡ [PARALLEL] Completed in 6817ms: 9/10 successful
+2026-02-01 00:12:05,483 - INFO -    ⚡ [PARALLEL] Enrichment completed in 6817ms (9 calls)
+2026-02-01 00:12:05,485 - INFO -    ✅ FotMob: Clean bill of health
+2026-02-01 00:12:05,485 - ERROR - Pipeline Critical Error: 'str' object has no attribute 'get'
+Traceback (most recent call last):
+  File "/home/linux/Earlybird_Github/src/main.py", line 1334, in run_pipeline
+    if home_motivation.get('zone') != 'Unknown':
+       ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2026-02-01 00:12:05,489 - INFO - 🏁 TRIANGULATION CYCLE FINISHED
+2026-02-01 00:12:05,489 - INFO - 🩺 Running system diagnostics...
+2026-02-01 00:12:05,490 - WARNING - DISK CRITICAL: 95.1% used
+2026-02-01 00:12:06,025 - INFO - New issue detected: disk_full (ERROR)
+2026-02-01 00:12:08,305 - INFO - Status message sent to Telegram
+2026-02-01 00:12:08,306 - INFO - Diagnostic alert sent (1 issues)
+2026-02-01 00:12:08,307 - INFO - 💤 Sleeping for 360 minutes (6 hours) until next cycle...

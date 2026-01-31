@@ -1,40 +1,15 @@
-2026-01-31 20:29:34,153 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:29:34,157 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:29:34,221 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:29:34,717 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:29:34,718 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:29:57,147 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:29:57,153 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:29:57,225 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:29:57,920 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:29:57,922 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:30:20,687 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:30:20,689 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:30:20,754 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:30:21,162 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:30:21,163 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:30:41,872 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:30:41,876 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:30:41,949 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:30:42,447 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:30:42,448 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:31:18,789 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:31:18,791 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:31:18,855 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:31:19,235 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:31:19,236 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:32:27,891 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:32:27,902 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:32:28,010 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:32:28,595 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:32:28,599 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:34:36,703 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:34:36,706 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:34:36,763 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:34:37,153 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:34:37,154 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-01-31 20:37:41,827 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
-2026-01-31 20:37:41,830 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-01-31 20:37:41,898 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
-2026-01-31 20:37:42,299 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-01-31 20:37:42,301 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-01 00:10:00,546 - config.settings - INFO - ✅ Loaded environment from .env file
+2026-02-01 00:10:00,691 - src.utils.article_reader - WARNING - ⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction
+2026-02-01 00:10:00,696 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-01 00:10:00,769 - src.services.browser_monitor - WARNING - ⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction
+2026-02-01 00:10:01,330 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-01 00:10:01,331 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-01 00:10:01,357 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-01 00:10:01,431 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-01 00:10:01,438 - __main__ - INFO - ✅ Intelligence Router module loaded
+2026-02-01 00:10:01,439 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
+2026-02-01 00:10:01,439 - __main__ - INFO - ✅ Market Intelligence module loaded
+2026-02-01 00:10:01,441 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-02-01 00:10:01,441 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-02-01 00:10:01,443 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-02-01 00:10:01,443 - __main__ - INFO - ✅ Twitter Intel Cache loaded

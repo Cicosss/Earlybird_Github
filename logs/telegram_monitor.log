@@ -1,56 +1,204 @@
-2026-01-31 20:29:38,155 - INFO - ==================================================
-2026-01-31 20:29:38,155 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:29:38,156 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:29:38,156 - INFO - ==================================================
-2026-01-31 20:29:38,214 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:29:38,214 - INFO - ✅ Database initialized
-2026-01-31 20:29:38,215 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:30:01,441 - INFO - ==================================================
-2026-01-31 20:30:01,442 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:30:01,442 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:30:01,442 - INFO - ==================================================
-2026-01-31 20:30:01,490 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:30:01,490 - INFO - ✅ Database initialized
-2026-01-31 20:30:01,490 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:30:28,935 - INFO - ==================================================
-2026-01-31 20:30:28,936 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:30:28,936 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:30:28,936 - INFO - ==================================================
-2026-01-31 20:30:28,980 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:30:28,980 - INFO - ✅ Database initialized
-2026-01-31 20:30:28,980 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:30:57,756 - INFO - ==================================================
-2026-01-31 20:30:57,756 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:30:57,756 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:30:57,756 - INFO - ==================================================
-2026-01-31 20:30:57,792 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:30:57,792 - INFO - ✅ Database initialized
-2026-01-31 20:30:57,792 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:31:50,875 - INFO - ==================================================
-2026-01-31 20:31:50,876 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:31:50,876 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:31:50,876 - INFO - ==================================================
-2026-01-31 20:31:50,913 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:31:50,913 - INFO - ✅ Database initialized
-2026-01-31 20:31:50,913 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:33:31,959 - INFO - ==================================================
-2026-01-31 20:33:31,959 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:33:31,959 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:33:31,960 - INFO - ==================================================
-2026-01-31 20:33:31,992 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:33:31,992 - INFO - ✅ Database initialized
-2026-01-31 20:33:31,992 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:36:36,758 - INFO - ==================================================
-2026-01-31 20:36:36,758 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:36:36,758 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:36:36,758 - INFO - ==================================================
-2026-01-31 20:36:36,793 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:36:36,794 - INFO - ✅ Database initialized
-2026-01-31 20:36:36,794 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
-2026-01-31 20:39:41,757 - INFO - ==================================================
-2026-01-31 20:39:41,757 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-01-31 20:39:41,757 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-01-31 20:39:41,757 - INFO - ==================================================
-2026-01-31 20:39:41,791 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-01-31 20:39:41,791 - INFO - ✅ Database initialized
-2026-01-31 20:39:41,791 - WARNING - ⚠️ Telegram non configurato - monitor disabilitato
+2026-02-01 00:10:06,038 - INFO - ==================================================
+2026-02-01 00:10:06,040 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:10:06,040 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:10:06,041 - INFO - ==================================================
+2026-02-01 00:10:06,158 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:10:06,158 - INFO - ✅ Database initialized
+2026-02-01 00:10:06,636 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:10:08,393 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:10:08,585 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:10:08,592 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:10:08,601 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:10:08,647 - INFO - ✅ Client disconnesso
+2026-02-01 00:10:29,727 - INFO - ==================================================
+2026-02-01 00:10:29,728 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:10:29,729 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:10:29,730 - INFO - ==================================================
+2026-02-01 00:10:29,777 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:10:29,777 - INFO - ✅ Database initialized
+2026-02-01 00:10:29,778 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:10:29,809 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:10:30,128 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:10:30,128 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:10:30,128 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:10:30,150 - INFO - ✅ Client disconnesso
+2026-02-01 00:10:48,888 - INFO - ==================================================
+2026-02-01 00:10:48,888 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:10:48,888 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:10:48,888 - INFO - ==================================================
+2026-02-01 00:10:48,937 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:10:48,937 - INFO - ✅ Database initialized
+2026-02-01 00:10:48,939 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:10:48,973 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:10:49,161 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:10:49,161 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:10:49,162 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:10:49,184 - INFO - ✅ Client disconnesso
+2026-02-01 00:11:12,222 - INFO - ==================================================
+2026-02-01 00:11:12,223 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:11:12,223 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:11:12,224 - INFO - ==================================================
+2026-02-01 00:11:12,312 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:11:12,312 - INFO - ✅ Database initialized
+2026-02-01 00:11:12,314 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:11:12,345 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:11:12,511 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:11:12,533 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:11:12,534 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:11:12,548 - INFO - ✅ Client disconnesso
+2026-02-01 00:11:29,527 - INFO - ==================================================
+2026-02-01 00:11:29,527 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:11:29,528 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:11:29,528 - INFO - ==================================================
+2026-02-01 00:11:29,566 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:11:29,566 - INFO - ✅ Database initialized
+2026-02-01 00:11:29,567 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:11:29,597 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:11:29,779 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:11:29,780 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:11:29,782 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:11:29,791 - INFO - ✅ Client disconnesso
+2026-02-01 00:12:06,960 - INFO - ==================================================
+2026-02-01 00:12:06,963 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:12:06,963 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:12:06,963 - INFO - ==================================================
+2026-02-01 00:12:07,000 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:12:07,000 - INFO - ✅ Database initialized
+2026-02-01 00:12:07,001 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:12:07,033 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:12:07,185 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:12:07,186 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:12:07,187 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:12:07,207 - INFO - ✅ Client disconnesso
+2026-02-01 00:13:12,190 - INFO - ==================================================
+2026-02-01 00:13:12,190 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:13:12,190 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:13:12,190 - INFO - ==================================================
+2026-02-01 00:13:12,221 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:13:12,222 - INFO - ✅ Database initialized
+2026-02-01 00:13:12,222 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:13:12,305 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:13:12,458 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:13:12,458 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:13:12,459 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:13:12,478 - INFO - ✅ Client disconnesso
+2026-02-01 00:14:17,048 - INFO - ==================================================
+2026-02-01 00:14:17,049 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:14:17,049 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:14:17,049 - INFO - ==================================================
+2026-02-01 00:14:17,087 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:14:17,087 - INFO - ✅ Database initialized
+2026-02-01 00:14:17,088 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:14:17,117 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:14:17,263 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:14:17,263 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:14:17,265 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:14:17,278 - INFO - ✅ Client disconnesso
+2026-02-01 00:15:21,676 - INFO - ==================================================
+2026-02-01 00:15:21,676 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:15:21,676 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:15:21,677 - INFO - ==================================================
+2026-02-01 00:15:21,708 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:15:21,708 - INFO - ✅ Database initialized
+2026-02-01 00:15:21,709 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:15:22,801 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:15:22,949 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:15:22,949 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:15:22,950 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:15:22,961 - INFO - ✅ Client disconnesso
+2026-02-01 00:16:27,044 - INFO - ==================================================
+2026-02-01 00:16:27,044 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:16:27,044 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:16:27,045 - INFO - ==================================================
+2026-02-01 00:16:27,083 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:16:27,084 - INFO - ✅ Database initialized
+2026-02-01 00:16:27,085 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:16:27,118 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:16:27,343 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:16:27,344 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:16:27,345 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:16:27,375 - INFO - ✅ Client disconnesso
+2026-02-01 00:17:31,728 - INFO - ==================================================
+2026-02-01 00:17:31,728 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:17:31,729 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:17:31,729 - INFO - ==================================================
+2026-02-01 00:17:31,764 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:17:31,764 - INFO - ✅ Database initialized
+2026-02-01 00:17:31,765 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:17:31,795 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:17:32,043 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:17:32,043 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:17:32,044 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:17:32,059 - INFO - ✅ Client disconnesso
+2026-02-01 00:18:37,196 - INFO - ==================================================
+2026-02-01 00:18:37,196 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:18:37,196 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:18:37,196 - INFO - ==================================================
+2026-02-01 00:18:37,238 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:18:37,238 - INFO - ✅ Database initialized
+2026-02-01 00:18:37,240 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:18:37,270 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:18:37,454 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:18:37,455 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:18:37,456 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:18:37,471 - INFO - ✅ Client disconnesso
+2026-02-01 00:19:42,328 - INFO - ==================================================
+2026-02-01 00:19:42,330 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:19:42,330 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:19:42,330 - INFO - ==================================================
+2026-02-01 00:19:42,438 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:19:42,440 - INFO - ✅ Database initialized
+2026-02-01 00:19:42,445 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:19:42,518 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:19:42,682 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:19:42,683 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:19:42,684 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:19:42,696 - INFO - ✅ Client disconnesso
+2026-02-01 00:20:47,230 - INFO - ==================================================
+2026-02-01 00:20:47,231 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:20:47,231 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:20:47,232 - INFO - ==================================================
+2026-02-01 00:20:47,289 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:20:47,290 - INFO - ✅ Database initialized
+2026-02-01 00:20:47,292 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:20:47,323 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:20:47,469 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:20:47,476 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:20:47,482 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:20:47,516 - INFO - ✅ Client disconnesso
+2026-02-01 00:21:51,900 - INFO - ==================================================
+2026-02-01 00:21:51,900 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:21:51,900 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:21:51,900 - INFO - ==================================================
+2026-02-01 00:21:51,935 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:21:51,935 - INFO - ✅ Database initialized
+2026-02-01 00:21:51,936 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:21:51,967 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:21:52,130 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:21:52,131 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:21:52,132 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:21:52,141 - INFO - ✅ Client disconnesso
+2026-02-01 00:22:59,331 - INFO - ==================================================
+2026-02-01 00:22:59,332 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:22:59,332 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:22:59,333 - INFO - ==================================================
+2026-02-01 00:22:59,427 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:22:59,428 - INFO - ✅ Database initialized
+2026-02-01 00:22:59,447 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:22:59,476 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:22:59,632 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:22:59,634 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:22:59,639 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:22:59,650 - INFO - ✅ Client disconnesso
+2026-02-01 00:24:02,278 - INFO - ==================================================
+2026-02-01 00:24:02,278 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 00:24:02,278 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 00:24:02,278 - INFO - ==================================================
+2026-02-01 00:24:02,322 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 00:24:02,322 - INFO - ✅ Database initialized
+2026-02-01 00:24:02,324 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 00:24:02,355 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:24:02,721 - INFO - 🔌 Disconnessione client...
+2026-02-01 00:24:02,721 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 00:24:02,722 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 00:24:02,729 - INFO - ✅ Client disconnesso
