@@ -49,6 +49,40 @@ BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
 MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")
 
 # ========================================
+# BRAVE SEARCH API CONFIGURATION (V4.0)
+# ========================================
+# Brave Search API - 3 API keys with 2000 calls each = 6000 calls/month
+# Keys rotate automatically: when Key 1 exhausts (429), switches to Key 2, etc.
+# https://brave.com/search/api/ - High-quality search for match enrichment
+
+# Existing (keep unchanged for backward compatibility)
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
+
+# NEW: API Keys for rotation (loaded in order)
+BRAVE_API_KEYS = [
+    os.getenv("BRAVE_API_KEY_1", "BSA8GEZcqohA9G8L3-p6FJbzin4D-OF"),
+    os.getenv("BRAVE_API_KEY_2", "BSAr_BZ95Sa2w1mqPnHtGZ2YeEGLo0x"),
+    os.getenv("BRAVE_API_KEY_3", "BSADXYY9dy2id0ftdIERVlFRJHSpmO-"),
+]
+
+# NEW: Budget allocation per component (calls/month)
+BRAVE_BUDGET_ALLOCATION = {
+    "main_pipeline": 1800,      # 30% - Match enrichment
+    "news_radar": 1200,         # 20% - Pre-enrichment for ambiguous content
+    "browser_monitor": 600,     # 10% - Short content expansion
+    "telegram_monitor": 300,    # 5% - Intel verification
+    "settlement_clv": 150,      # 2.5% - Post-match analysis
+    "twitter_recovery": 1950,   # 32.5% - Buffer/recovery
+}
+
+# NEW: Total monthly budget (3 keys × 2000 calls)
+BRAVE_MONTHLY_BUDGET = 6000
+
+# NEW: Threshold percentages for degraded/disabled modes
+BRAVE_DEGRADED_THRESHOLD = 0.90   # 90% - Non-critical calls throttled
+BRAVE_DISABLED_THRESHOLD = 0.95   # 95% - Only critical calls allowed
+
+# ========================================
 # MEDIASTACK API CONFIGURATION (Enhanced V1.0)
 # ========================================
 # MediaStack is FREE unlimited tier - budget is for monitoring only
