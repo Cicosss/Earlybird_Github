@@ -31,7 +31,8 @@ DEFAULT_LEAGUE_AVG = 1.35
 MIN_MATCHES_REQUIRED = 5
 
 # V3.7: Money Management Safety Cap
-MAX_STAKE_PCT = 5.0  # Maximum 5% of bankroll per bet
+MIN_STAKE_PCT = 0.5  # Minimum 0.5% of bankroll per bet (anything less is 0)
+MAX_STAKE_PCT = 5.0  # Maximum 5% of bankroll per bet (hard cap)
 
 # V4.3: Dixon-Coles rho parameter TUNED (was -0.10)
 # Research suggests -0.05 to -0.08 is optimal for most leagues
@@ -348,18 +349,21 @@ class MathPredictor:
     
     @staticmethod
     def calculate_edge(math_prob: float, bookmaker_odd: float, 
-                       sample_size: int = 10, use_shrinkage: bool = True) -> EdgeResult:
+                       sample_size: int = 10, use_shrinkage: bool = True, ai_prob: float = None) -> EdgeResult:
         """
         Calculate edge between mathematical probability and bookmaker odds.
         
         V4.2: Added Shrinkage Kelly - uses lower bound of confidence interval
         instead of point estimate to protect against estimation error.
         
+        V5.1: Added ai_prob parameter for balanced probability calculation.
+        
         Args:
             math_prob: Mathematical probability (0-1)
             bookmaker_odd: Decimal bookmaker odd
             sample_size: Number of matches used for probability estimate (default 10)
             use_shrinkage: Apply shrinkage to Kelly based on sample size (default True)
+            ai_prob: AI confidence probability (0-1) from analysis (optional)
             
         Returns:
             EdgeResult with edge calculation and Kelly stake (capped at MAX_STAKE_PCT)
@@ -415,18 +419,40 @@ class MathPredictor:
         # Kelly Criterion: f* = (bp - q) / b
         # where b = odd - 1, p = probability, q = 1 - p
         # V4.2: Use effective_prob (shrunk) for Kelly calculation
+        
         b = bookmaker_odd - 1
         kelly_full = ((b * effective_prob) - (1 - effective_prob)) / b if b > 0 else 0
         
-        # Kelly/4 for conservative bankroll management
+        # Professional Kelly: Quarter Kelly (0.25x) for extreme risk-aversion
+        # Balanced Probability: (Poisson_Prob + AI_Confidence_Prob) / 2
+        # This dampens AI over-optimism and balances quantitative + qualitative analysis
+        
+        # V5.1 FIX: Correct balanced probability calculation using ai_prob
+        # If ai_prob is provided, average math_prob with ai_prob
+        # Otherwise, fall back to using effective_prob as proxy
+        if ai_prob is not None and math_prob < 0.99:
+            balanced_prob = (math_prob + ai_prob) / 2
+        elif math_prob < 0.99:
+            balanced_prob = (math_prob + effective_prob) / 2
+        else:
+            balanced_prob = math_prob
+        
+        kelly_full = ((b * balanced_prob) - (1 - balanced_prob)) / b if b > 0 else 0
+        
         kelly_quarter = kelly_full / 4
-        stake_pct = max(0, kelly_quarter) * 100  # Convert to percentage
+        
+        # Safety caps: Min 0.5%, Max 5.0% (hard caps)
+        stake_pct = max(0.5, min(5.0, kelly_quarter)) * 100  # Convert to percentage
         
         # V3.7: Safety cap - limit max exposure per bet
         if stake_pct > MAX_STAKE_PCT:
             logger.debug(f"Kelly stake capped: {stake_pct:.1f}% -> {MAX_STAKE_PCT}%")
             stake_pct = MAX_STAKE_PCT
         
+        # Volatility guard: Reduce stake for high odds (> 4.50)
+        if bookmaker_odd > 4.50:
+            logger.debug(f"Volatility guard: Odds {bookmaker_odd:.2f} > 4.50, reducing stake by 50%")
+            stake_pct *= 0.5
         return EdgeResult(
             market="",  # Set by caller
             math_prob=math_prob * 100,

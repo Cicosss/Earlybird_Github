@@ -5,6 +5,7 @@
 EarlyBird è un sistema di betting intelligence **self-learning** che utilizza triangolazione multi-fonte, AI reasoning, Verification Layer e ottimizzazione quantitativa. Il sistema impara dai propri risultati, adattando automaticamente i pesi delle strategie in base a Sortino Ratio, CLV e Max Drawdown.
 
 **V8.0 Highlights**:
+- 🧠 **Tactical Brain Integration**: AI ora "pensa" come un allenatore - analisi infortuni con contesto tattico (posizione, ruolo, impatto off/def)
 - 🔄 **Doppio Ciclo API Tavily**: Rotazione intelligente con reset mensile prima del fallback (fino a 14000 chiamate/mese)
 - 🎯 **Elite Quality Filtering**: Raised alert thresholds (Standard: 9.0, Radar: 7.5) to reduce volume and increase quality
 - 🔍 **Tavily AI Search**: 7 API keys rotation con circuit breaker e doppio ciclo + fallback Brave/DDG
@@ -101,13 +102,13 @@ For detailed security information, see [`SECURITY.md`](SECURITY.md).
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
 │  │  TEAM CONTEXT ENGINE                                             │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │    │
-│  │  │  INJURIES    │  │  MOTIVATION  │  │   FATIGUE    │           │    │
-│  │  │  Squad scan  │  │  Position:   │  │  V2.0 Engine │           │    │
-│  │  │  for injured │  │  • Title     │  │  • Exp decay │           │    │
-│  │  │  & suspended │  │  • Europe    │  │  • Squad dep │           │    │
-│  │  │              │  │  • Relegation│  │  • Late-game │           │    │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘           │    │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │    │
+│  │  │  INJURIES    │  │  MOTIVATION  │  │   FATIGUE    │  │  TACTICAL    │       │    │
+│  │  │  Squad scan  │  │  Position:   │  │  V2.0 Engine │  │  V8.0 BRAIN  │       │    │
+│  │  │  for injured │  │  • Title     │  │  • Exp decay │  │  ⭐ NEW      │       │    │
+│  │  │  & suspended │  │  • Europe    │  │  • Squad dep │  │  • Pos/Role   │       │    │
+│  │  │              │  │  • Relegation│  │  • Late-game │  │  • Off/Def   │       │    │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘       │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
@@ -241,6 +242,31 @@ For detailed security information, see [`SECURITY.md`](SECURITY.md).
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  PHASE 6: AI ANALYSIS (DeepSeek V3 via OpenRouter)                       │
 ├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  TACTICAL BRAIN V8.0 ⭐ NEW                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  File: src/analysis/injury_impact_engine.py                   │    │
+│  │                                                                  │    │
+│  │  1. Deep Metadata Injection:                                      │    │
+│  │     • format_tactical_injury_profile() transforms injury data       │    │
+│  │     • Adds: Position (Forward/Midfielder/Defender/GK)     │    │
+│  │     • Adds: Role (Starter/Rotation/Backup)                │    │
+│  │     • Adds: Impact tags [OFFENSIVE/DEFENSIVE: HIGH/MED]   │    │
+│  │                                                                  │    │
+│  │  2. System Prompt Tactical Veto Rules:                              │    │
+│  │     • VETO 1: Offensive Depletion → Devalue "Over" signals   │    │
+│  │     • VETO 2: Defensive Depletion → Override "Under" signals  │    │
+│  │     • VETO 3: Squad Depth Consideration                      │    │
+│  │     • VETO 4: Explicit Transparency (⚠️ TACTICAL VETO)    │    │
+│  │                                                                  │    │
+│  │  3. Weight Rebalancing:                                         │    │
+│  │     • 1.5x boost when impact > 5.0                           │    │
+│  │     • Cap at ±2.0                                             │    │
+│  │                                                                  │    │
+│  │  4. Reasoning Clarity:                                          │    │
+│  │     • Explicit veto tagging in AI output                         │    │
+│  │     • Example: "⚠️ TACTICAL VETO ATTIVO: 2 attaccanti..." │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                          │
 │  INPUT (6 Data Sources):                                                 │
 │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐     │

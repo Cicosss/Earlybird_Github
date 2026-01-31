@@ -45,6 +45,7 @@ from src.ingestion.league_manager import (
 from src.ingestion.weather_provider import get_match_weather
 from src.database.models import Match, NewsLog, SessionLocal, init_db
 from src.database.migration import check_and_migrate
+from src.database.maintenance import emergency_cleanup
 from src.processing.news_hunter import run_hunter_for_match
 from src.analysis.analyzer import analyze_with_triangulation
 from src.analysis.math_engine import MathPredictor, format_math_context
@@ -104,6 +105,22 @@ try:
 except ImportError as e:
     _FATIGUE_ENGINE_AVAILABLE = False
     logger.warning(f"⚠️ Fatigue Engine V2.0 not available: {e}")
+
+# ============================================
+# INJURY IMPACT ENGINE V8.0 (Tactical Brain Integration)
+# ============================================
+try:
+    from src.analysis.injury_impact_engine import (
+        analyze_match_injuries,
+        InjuryDifferential,
+        TeamInjuryImpact
+    )
+    _INJURY_IMPACT_AVAILABLE = True
+    logger.info("✅ Injury Impact Engine V8.0 loaded")
+except ImportError as e:
+    _INJURY_IMPACT_AVAILABLE = False
+    analyze_match_injuries = None
+    logger.warning(f"⚠️ Injury Impact Engine not available: {e}")
 
 # ============================================
 # BISCOTTO ENGINE V2.0 (Enhanced Detection)
@@ -352,6 +369,85 @@ def _format_gemini_resolution(resolution: dict) -> str:
 
 
 # ============================================
+# TACTICAL INJURY PROFILE HELPER V8.0
+# ============================================
+def format_tactical_injury_profile(
+    team_name: str,
+    team_context: dict,
+    injury_impact: 'TeamInjuryImpact' = None
+) -> str:
+    """
+    Format injury data with tactical intelligence for AI consumption.
+    
+    V8.0: Enriches plain injury list with:
+    - Player position (Forward, Midfielder, Defender, Goalkeeper)
+    - Player role (Starter, Rotation, Backup)
+    - Offensive/Defensive impact classification (HIGH, MEDIUM, LOW)
+    
+    This enables the AI to apply Tactical Veto Rules when market signals
+    contradict the tactical reality of missing players.
+    
+    Args:
+        team_name: Team display name
+        team_context: FotMob context dict with 'injuries' list
+        injury_impact: Optional TeamInjuryImpact from injury_impact_engine
+        
+    Returns:
+        Formatted string like:
+        "Team A: 3 missing [OFFENSIVE IMPACT: HIGH] (Forward - Player X - Starter, ...)"
+    """
+    if not team_context or not team_context.get('injuries'):
+        return ""
+    
+    injuries = team_context.get('injuries', [])
+    if not injuries:
+        return ""
+    
+    # Build player details with tactical metadata
+    player_details = []
+    
+    if injury_impact and injury_impact.players:
+        # Use detailed player data from injury_impact_engine
+        for player in injury_impact.players:
+            pos = player.position.value.capitalize() if hasattr(player.position, 'value') else 'Unknown'
+            role = player.role.value.capitalize() if hasattr(player.role, 'value') else 'Unknown'
+            name = player.name
+            
+            # Format: "Forward - Player X - Starter"
+            player_details.append(f"{pos} - {name} - {role}")
+    else:
+        # Fallback: just use names from injuries list
+        for injury in injuries[:5]:  # Limit to 5 players
+            name = injury.get('name', 'Unknown')
+            if name and name != 'Unknown':
+                player_details.append(name)
+    
+    if not player_details:
+        return f"{team_name}: {len(injuries)} missing"
+    
+    # Classify offensive/defensive impact levels
+    impact_tags = []
+    if injury_impact:
+        # Offensive impact classification
+        if injury_impact.offensive_impact >= 5.0:
+            impact_tags.append("OFFENSIVE IMPACT: HIGH")
+        elif injury_impact.offensive_impact >= 3.0:
+            impact_tags.append("OFFENSIVE IMPACT: MEDIUM")
+        
+        # Defensive impact classification
+        if injury_impact.defensive_impact >= 5.0:
+            impact_tags.append("DEFENSIVE IMPACT: HIGH")
+        elif injury_impact.defensive_impact >= 3.0:
+            impact_tags.append("DEFENSIVE IMPACT: MEDIUM")
+    
+    # Build final formatted string
+    impact_str = f" [{', '.join(impact_tags)}]" if impact_tags else ""
+    players_str = ", ".join(player_details[:5])  # Limit to 5 for readability
+    
+    return f"{team_name}: {len(injuries)} missing{impact_str} ({players_str})"
+
+
+# ============================================
 # PARALLEL ENRICHMENT HELPER V6.0
 # ============================================
 def run_parallel_enrichment(
@@ -549,7 +645,7 @@ def run_verification_check(
 
 
 # Reporter moved to manual /report command in run_telegram_monitor.py
-from src.alerting.notifier import send_alert, send_biscotto_alert, send_status_message, send_document
+from src.alerting.notifier import send_alert, send_status_message, send_document
 from src.alerting.health_monitor import get_health_monitor
 from config.settings import (
     MATCH_LOOKAHEAD_HOURS,
@@ -788,7 +884,8 @@ def check_biscotto_suspects():
                     )
                     match.biscotto_alert_sent = True
                     db.commit()
-                    get_health_monitor().record_alert_sent()
+                    if _HEALTH_MONITOR_AVAILABLE:
+                        get_health_monitor().record_alert_sent()
                     logging.info(f"✅ Biscotto alert sent for {match.home_team} vs {match.away_team}")
                 except Exception as e:
                     logging.error(f"Error sending biscotto alert: {e}")
@@ -1174,24 +1271,48 @@ def run_pipeline():
                 # Build official data string (same logic for both paths)
                 official_parts = []
                 
-                # Home team injuries
+                # V8.0: Calculate injury differential for tactical profiling
+                injury_differential = None
+                if _INJURY_IMPACT_AVAILABLE and (home_context.get('injuries') or away_context.get('injuries')):
+                    try:
+                        injury_differential = analyze_match_injuries(
+                            home_team=home_team_validated,
+                            away_team=away_team_validated,
+                            home_context=home_context,
+                            away_context=away_context
+                        )
+                        logging.debug(f"   🧠 Tactical injury analysis: differential={injury_differential.score_adjustment:+.2f}")
+                    except Exception as e:
+                        logging.debug(f"   ⚠️ Tactical injury analysis failed: {e}")
+                
+                # Home team injuries - V8.0: Use tactical profile with position/role/impact
                 if home_context.get('injuries'):
-                    # V5.2: Safe access - some injury dicts may lack 'name' key
-                    injury_names = [i.get('name', 'Unknown') for i in home_context['injuries'][:3] if i.get('name')]
-                    if injury_names:
-                        official_parts.append(f"{home_team_validated}: {len(home_context['injuries'])} missing ({', '.join(injury_names)})")
+                    home_impact_obj = injury_differential.home_impact if injury_differential else None
+                    tactical_profile = format_tactical_injury_profile(
+                        team_name=home_team_validated,
+                        team_context=home_context,
+                        injury_impact=home_impact_obj
+                    )
+                    if tactical_profile:
+                        official_parts.append(tactical_profile)
                     else:
+                        # Fallback to simple format
                         official_parts.append(f"{home_team_validated}: {len(home_context['injuries'])} missing")
                     if len(home_context['injuries']) >= 2:
                         high_potential = True
                 
-                # Away team injuries
+                # Away team injuries - V8.0: Use tactical profile with position/role/impact
                 if away_context.get('injuries'):
-                    # V5.2: Safe access - some injury dicts may lack 'name' key
-                    injury_names = [i.get('name', 'Unknown') for i in away_context['injuries'][:3] if i.get('name')]
-                    if injury_names:
-                        official_parts.append(f"{away_team_validated}: {len(away_context['injuries'])} missing ({', '.join(injury_names)})")
+                    away_impact_obj = injury_differential.away_impact if injury_differential else None
+                    tactical_profile = format_tactical_injury_profile(
+                        team_name=away_team_validated,
+                        team_context=away_context,
+                        injury_impact=away_impact_obj
+                    )
+                    if tactical_profile:
+                        official_parts.append(tactical_profile)
                     else:
+                        # Fallback to simple format
                         official_parts.append(f"{away_team_validated}: {len(away_context['injuries'])} missing")
                     if len(away_context['injuries']) >= 2:
                         high_potential = True
@@ -2752,18 +2873,43 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
             
             # Build official data
             official_parts = []
+            
+            # V8.0: Calculate injury differential for tactical profiling
+            injury_differential = None
+            if _INJURY_IMPACT_AVAILABLE and (home_context.get('injuries') or away_context.get('injuries')):
+                try:
+                    injury_differential = analyze_match_injuries(
+                        home_team=home_team_validated,
+                        away_team=away_team_validated,
+                        home_context=home_context,
+                        away_context=away_context
+                    )
+                except Exception as e:
+                    logging.debug(f"   ⚠️ [RADAR] Tactical injury analysis failed: {e}")
+            
+            # Home team injuries - V8.0: Use tactical profile
             if home_context.get('injuries'):
-                # V5.2: Safe access - some injury dicts may lack 'name' key
-                injury_names = [i.get('name', 'Unknown') for i in home_context['injuries'][:3] if i.get('name')]
-                if injury_names:
-                    official_parts.append(f"{home_team_validated}: {len(home_context['injuries'])} missing ({', '.join(injury_names)})")
+                home_impact_obj = injury_differential.home_impact if injury_differential else None
+                tactical_profile = format_tactical_injury_profile(
+                    team_name=home_team_validated,
+                    team_context=home_context,
+                    injury_impact=home_impact_obj
+                )
+                if tactical_profile:
+                    official_parts.append(tactical_profile)
                 else:
                     official_parts.append(f"{home_team_validated}: {len(home_context['injuries'])} missing")
+            
+            # Away team injuries - V8.0: Use tactical profile
             if away_context.get('injuries'):
-                # V5.2: Safe access - some injury dicts may lack 'name' key
-                injury_names = [i.get('name', 'Unknown') for i in away_context['injuries'][:3] if i.get('name')]
-                if injury_names:
-                    official_parts.append(f"{away_team_validated}: {len(away_context['injuries'])} missing ({', '.join(injury_names)})")
+                away_impact_obj = injury_differential.away_impact if injury_differential else None
+                tactical_profile = format_tactical_injury_profile(
+                    team_name=away_team_validated,
+                    team_context=away_context,
+                    injury_impact=away_impact_obj
+                )
+                if tactical_profile:
+                    official_parts.append(tactical_profile)
                 else:
                     official_parts.append(f"{away_team_validated}: {len(away_context['injuries'])} missing")
             
@@ -3968,6 +4114,12 @@ if __name__ == "__main__":
     if args.status:
         show_system_status()
         sys.exit(0)
+    
+    # Emergency cleanup BEFORE any DB operation
+    try:
+        emergency_cleanup()
+    except Exception as e:
+        logging.warning(f"⚠️ Emergency cleanup failed: {e}")
     
     # Normal startup
     try:

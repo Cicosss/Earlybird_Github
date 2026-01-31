@@ -897,6 +897,126 @@ def send_status_message(text: str) -> bool:
 
 
 # ============================================
+# BISCOTTO ALERT FUNCTION
+# ============================================
+
+
+def send_biscotto_alert(
+    match_obj: Any,
+    draw_odd: Optional[float] = None,
+    drop_pct: Optional[float] = None,
+    severity: Optional[str] = None,
+    reasoning: Optional[str] = None,
+    news_url: Optional[str] = None,
+    league: Optional[str] = None,
+    financial_risk: Optional[str] = None
+) -> None:
+    """
+    Send a specialized alert for Biscotto (mutual draw benefit) detection.
+
+    Args:
+        match_obj: Match database object with team info and odds
+        draw_odd: Draw odd value (from is_biscotto_suspect)
+        drop_pct: Drop percentage (from is_biscotto_suspect)
+        severity: Severity level: 'LOW', 'MEDIUM', 'HIGH', 'EXTREME' (from is_biscotto_suspect)
+        reasoning: Reason for biscotto suspicion (from is_biscotto_suspect)
+        news_url: Source URL for the news (optional)
+        league: League name (optional)
+        financial_risk: B-Team risk level from Financial Intelligence (optional)
+    """
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        logging.warning("Telegram configuration missing. Skipping biscotto alert.")
+        return
+
+    home_team = getattr(match_obj, 'home_team', 'Unknown')
+    away_team = getattr(match_obj, 'away_team', 'Unknown')
+    match_str = f"{home_team} vs {away_team}"
+
+    # Use league from match_obj if not provided
+    if not league:
+        league = getattr(match_obj, 'league', 'Unknown')
+
+    # Normalize severity (handle EXTREME from is_biscotto_suspect)
+    severity_normalized = (severity or 'LOW').upper()
+    if severity_normalized == 'EXTREME':
+        severity_normalized = 'CRITICAL'
+
+    # Build severity section with reasoning
+    severity_emoji = {
+        'LOW': '🟢',
+        'MEDIUM': '🟡',
+        'HIGH': '🟠',
+        'CRITICAL': '🔴'
+    }.get(severity_normalized, '⚪')
+
+    # Build odds section
+    odds_section = ""
+    if draw_odd:
+        odds_section = f"   📊 <b>Draw Odds:</b> {draw_odd:.2f}\n"
+    if drop_pct is not None:
+        odds_section += f"   📉 <b>Drop:</b> {drop_pct:.1f}%\n"
+
+    # Build reasoning section
+    reasoning_section = ""
+    if reasoning:
+        reasoning_section = f"   💡 <b>Motivo:</b> {html.escape(reasoning)}\n"
+
+    # Build financial risk section (B-Team Detection)
+    risk_section = ""
+    if financial_risk and financial_risk.upper() in ['CRITICAL', 'WARNING']:
+        risk_emoji = "🚨" if financial_risk.upper() == "CRITICAL" else "⚠️"
+        risk_label = "B-TEAM CONFERMATO" if financial_risk.upper() == "CRITICAL" else "ROTAZIONE PROBABILE"
+        risk_section = f"{risk_emoji} <b>ALLARME ROSA:</b> {risk_label}\n"
+
+    # Build date/time line
+    date_line = _build_date_line(match_obj)
+
+    # Build news link safely - only if URL is valid, with HTML escape
+    news_link = ""
+    if news_url and isinstance(news_url, str) and news_url.startswith('http'):
+        safe_url = html.escape(news_url)
+        news_link = f"\n\n🔗 <a href='{safe_url}'>Leggi la fonte originale</a>"
+
+    # Build the message
+    message = (
+        f"🍪 <b>BISCOTTO ALERT</b> | {league}\n"
+        f"{date_line}"
+        f"⚽ <b>{match_str}</b>\n"
+        f"{severity_emoji} <b>Severità:</b> {severity_normalized}\n"
+        f"\n"
+        f"{odds_section}"
+        f"{reasoning_section}"
+        f"{risk_section}"
+        f"{news_link}"
+    )
+
+    # Send to Telegram
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
+
+    try:
+        response = _send_telegram_request(url, payload, timeout=TELEGRAM_TIMEOUT_SECONDS)
+        if response.status_code == 200:
+            link_status = "con link" if news_link else "senza link"
+            logging.info(f"Biscotto Alert sent for {match_str} | Severity: {severity} | {link_status}")
+        else:
+            # HTML parsing failed - fallback to plain text
+            _send_plain_text_fallback(url, message, news_url, match_str)
+    except requests.exceptions.Timeout:
+        logging.error(f"Telegram timeout per biscotto alert dopo 3 tentativi")
+    except requests.exceptions.ConnectionError as e:
+        logging.error(f"Telegram errore connessione (biscotto): {e}")
+    except Exception as e:
+        # Fallback to plain text on any exception
+        _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
+
+
+# ============================================
 # DOCUMENT SEND FUNCTION
 # ============================================
 

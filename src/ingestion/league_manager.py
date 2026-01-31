@@ -577,7 +577,7 @@ def get_tier2_fallback_status() -> Dict[str, Any]:
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     

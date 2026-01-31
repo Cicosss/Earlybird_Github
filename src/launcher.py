@@ -280,8 +280,11 @@ def check_and_restart():
     - Ogni crash incrementa il contatore restarts
     - Backoff esponenziale: 2s, 4s, 8s, 16s, 32s, 64s (max 60s)
     - Reset del contatore dopo 5 minuti di uptime stabile (processo sano)
+    - CPU PROTECTION: Se il processo crasha entro 10 secondi dall'avvio, attendi almeno 15 secondi
     """
     STABILITY_THRESHOLD_SECONDS = 300  # 5 minuti di uptime = processo stabile
+    CRASH_DETECTION_WINDOW = 10  # secondi - se crasha prima, è un crash immediato
+    MINIMUM_BACKOFF_FOR_FAST_CRASH = 15  # secondi - attesa minima per crash veloci
     
     for key, config in PROCESSES.items():
         process = config['process']
@@ -309,13 +312,25 @@ def check_and_restart():
             config['restarts'] += 1
             restarts = config['restarts']
             
-            # Exponential backoff: 2s, 4s, 8s, 16s, 32s, max 60s
-            backoff_seconds = min(60, 2 ** min(restarts, 6))
+            # Calcola quanto tempo è rimasto in esecuzione prima del crash
+            last_start = config.get('last_start_time')
+            uptime_before_crash = time.time() - last_start if last_start else 0
             
-            logger.warning(
-                f"⚠️ {config['name']} terminato (exit code: {exit_code}). "
-                f"Riavvio #{restarts} in {backoff_seconds}s..."
-            )
+            # CPU PROTECTION: Se il processo crasha entro 10 secondi, forza attesa minima di 15s
+            # Questo previene loop infiniti quando il .env è mancante o ci sono errori di configurazione
+            if uptime_before_crash < CRASH_DETECTION_WINDOW:
+                backoff_seconds = max(MINIMUM_BACKOFF_FOR_FAST_CRASH, min(60, 2 ** min(restarts, 6)))
+                logger.warning(
+                    f"⚠️ {config['name']} crashato in {uptime_before_crash:.1f}s (exit code: {exit_code}). "
+                    f"CPU PROTECTION: Riavvio #{restarts} in {backoff_seconds}s..."
+                )
+            else:
+                # Backoff esponenziale normale: 2s, 4s, 8s, 16s, 32s, max 60s
+                backoff_seconds = min(60, 2 ** min(restarts, 6))
+                logger.warning(
+                    f"⚠️ {config['name']} terminato dopo {uptime_before_crash:.1f}s (exit code: {exit_code}). "
+                    f"Riavvio #{restarts} in {backoff_seconds}s..."
+                )
             
             # Backoff prima del riavvio
             time.sleep(backoff_seconds)

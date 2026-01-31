@@ -121,6 +121,92 @@ def get_db_stats() -> dict:
         db.close()
 
 
+def emergency_cleanup() -> dict:
+    """
+    Emergency cleanup function to free disk space when disk usage is critical.
+    
+    Actions:
+    1. Find any .log file > 20MB and truncate it
+    2. Clear temp/ folder
+    3. Log: "🚨 Emergency cleanup triggered due to high disk usage."
+    
+    Returns:
+        Dict with cleanup stats: {'logs_truncated': X, 'temp_files_deleted': Y}
+    """
+    logger.info("🚨 Emergency cleanup triggered due to high disk usage.")
+    
+    stats = {
+        'logs_truncated': 0,
+        'temp_files_deleted': 0,
+        'error': None
+    }
+    
+    # 1. Find and truncate large log files (>20MB)
+    LOG_SIZE_THRESHOLD_MB = 20
+    LOG_SIZE_THRESHOLD_BYTES = LOG_SIZE_THRESHOLD_MB * 1024 * 1024
+    
+    try:
+        import os
+        from pathlib import Path
+        
+        # Search for .log files in current directory and subdirectories
+        for log_file in Path('.').rglob('*.log'):
+            try:
+                file_size = log_file.stat().st_size
+                if file_size > LOG_SIZE_THRESHOLD_BYTES:
+                    # Truncate the log file (keep last 100KB)
+                    keep_bytes = 100 * 1024  # Keep last 100KB
+                    with open(log_file, 'rb+') as f:
+                        f.seek(0, 2)  # Seek to end
+                        if f.tell() > keep_bytes:
+                            f.seek(f.tell() - keep_bytes)  # Seek back
+                            remaining = f.read()  # Read last part
+                            f.seek(0)  # Seek to beginning
+                            f.write(remaining)  # Write back
+                            f.truncate()  # Truncate at current position
+                    
+                    stats['logs_truncated'] += 1
+                    logger.info(f"   🗑️ Truncated {log_file.name} ({file_size/1024/1024:.1f}MB -> ~100KB)")
+            except Exception as e:
+                logger.warning(f"   ⚠️ Failed to truncate {log_file.name}: {e}")
+                
+    except Exception as e:
+        logger.error(f"❌ Error during log cleanup: {e}")
+        stats['error'] = str(e)
+    
+    # 2. Clear temp/ folder
+    try:
+        temp_dir = Path('temp')
+        if temp_dir.exists() and temp_dir.is_dir():
+            deleted_count = 0
+            for item in temp_dir.iterdir():
+                try:
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        import shutil
+                        shutil.rmtree(item)
+                    deleted_count += 1
+                except Exception as e:
+                    logger.warning(f"   ⚠️ Failed to delete {item.name}: {e}")
+            
+            stats['temp_files_deleted'] = deleted_count
+            if deleted_count > 0:
+                logger.info(f"   🗑️ Cleared temp/ folder: {deleted_count} items deleted")
+            else:
+                logger.info(f"   ℹ️ temp/ folder already empty")
+        else:
+            logger.info(f"   ℹ️ temp/ folder does not exist")
+            
+    except Exception as e:
+        logger.error(f"❌ Error during temp cleanup: {e}")
+        if not stats['error']:
+            stats['error'] = str(e)
+    
+    logger.info(f"✅ Emergency cleanup completed: {stats['logs_truncated']} logs truncated, {stats['temp_files_deleted']} temp files deleted")
+    return stats
+
+
 if __name__ == "__main__":
     # Test maintenance directly
     logging.basicConfig(level=logging.INFO, format='%(message)s')

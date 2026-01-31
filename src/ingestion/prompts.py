@@ -87,11 +87,187 @@ INJURY_SECTION_TEMPLATE = """
     - Importance: Captain? Top Scorer? Key Defender?
     - VERDICT: Critical (team significantly weakened) or Manageable (adequate replacements)?
     Output as: "injury_impact": "Critical/Manageable - [Player]: [Role], [Importance]. [Overall assessment]"
- 
+
 6. **BTTS TACTICAL ANALYSIS (CRITICAL):**
     Analyze the missing players BY POSITION for BTTS (Both Teams To Score) impact:
     - Missing KEY DEFENDERS or GOALKEEPER → INCREASES BTTS chance (weaker defense = more goals conceded)
     - Missing KEY STRIKERS or PLAYMAKERS → DECREASES BTTS chance (weaker attack = fewer goals scored)
-    
+
     Output as: "btts_impact": "Positive/Negative/Neutral - [Explanation]. Net effect: [team] more/less likely to score/concede."
 """
+
+
+# ============================================
+# PROMPT BUILDER FUNCTIONS
+# ============================================
+
+
+def build_deep_dive_prompt(
+    home_team: str,
+    away_team: str,
+    match_date: str,
+    referee: str,
+    missing_players: Optional[str] = None,
+    today_iso: Optional[str] = None
+) -> str:
+    """
+    Build the deep dive analysis prompt with optional injury section.
+    
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        match_date: Match date string (called 'match_date' by callers)
+        referee: Referee name/info (called 'referee' by callers)
+        missing_players: Optional string of missing players for injury analysis
+        today_iso: Today's date in ISO format (defaults to current date)
+    
+    Returns:
+        Formatted prompt string for deep dive analysis
+    """
+    from datetime import datetime, timezone
+    
+    if today_iso is None:
+        today_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    
+    # Build injury section if missing players provided
+    injury_section = ""
+    if missing_players:
+        injury_section = INJURY_SECTION_TEMPLATE.format(players_str=missing_players)
+    
+    # Format the main prompt
+    prompt = DEEP_DIVE_PROMPT_TEMPLATE.format(
+        today_iso=today_iso,
+        home_team=home_team,
+        away_team=away_team,
+        date_str=match_date,
+        referee_str=referee,
+        injury_section=injury_section
+    )
+    
+    return prompt
+
+
+def build_betting_stats_prompt(
+    home_team: str,
+    away_team: str,
+    league: str
+) -> str:
+    """
+    Build the betting stats prompt for corners/cards data enrichment.
+
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        league: League name
+
+    Returns:
+        Formatted prompt string for betting stats analysis
+    """
+    # This is a placeholder - the actual template would be defined above
+    # For now, return a basic prompt structure
+    return f"""TASK: Analyze betting statistics for the match {home_team} vs {away_team} in {league}.
+
+Focus on:
+1. Average corners per match for both teams (home and away)
+2. Average yellow cards per match for both teams
+3. Recent trends in corners and cards
+4. Referee tendencies for this match
+
+Provide specific numbers and trends."""
+
+
+def build_news_verification_prompt(
+    news_title: str,
+    news_summary: str,
+    source_url: str
+) -> str:
+    """
+    Build the news verification prompt for Gemini news confirmation.
+
+    Args:
+        news_title: Title of the news article
+        news_summary: Summary of the news
+        source_url: URL of the source
+
+    Returns:
+        Formatted prompt string for news verification
+    """
+    # This is a placeholder - the actual template would be defined above
+    return f"""TASK: Verify the following news article for authenticity and relevance.
+
+Title: {news_title}
+Summary: {news_summary}
+Source: {source_url}
+
+Please verify:
+1. Is this news current and relevant?
+2. Is the source reliable?
+3. Does the news actually refer to the football match in question?
+
+Return your verification status and confidence level."""
+
+
+def build_biscotto_confirmation_prompt(
+    home_team: str,
+    away_team: str,
+    league: str,
+    league_position_home: int,
+    league_position_away: int
+) -> str:
+    """
+    Build the biscotto confirmation prompt for uncertain biscotto signals.
+
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        league: League name
+        league_position_home: Home team's league position
+        league_position_away: Away team's league position
+
+    Returns:
+        Formatted prompt string for biscotto confirmation
+    """
+    # This is a placeholder - the actual template would be defined above
+    return f"""TASK: Analyze the potential for a "Biscotto" (mutual draw benefit) in this match.
+
+Match: {home_team} vs {away_team}
+League: {league}
+Home Team Position: {league_position_home}
+Away Team Position: {league_position_away}
+
+Please analyze:
+1. Does a draw benefit both teams?
+2. What are each team's current objectives?
+3. Is there historical evidence of such arrangements?
+4. What is the confidence level of this being a true biscotto?
+
+Return your analysis with severity level and confidence."""
+
+
+def build_match_context_enrichment_prompt(
+    home_team: str,
+    away_team: str,
+    league: str
+) -> str:
+    """
+    Build the match context enrichment prompt.
+
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        league: League name
+
+    Returns:
+        Formatted prompt string for match context enrichment
+    """
+    # This is a placeholder - the actual template would be defined above
+    return f"""TASK: Enrich the context for the match {home_team} vs {away_team} in {league}.
+
+Please provide:
+1. Recent form trends for both teams
+2. Head-to-head history
+3. Key player news
+4. Any tactical considerations
+5. Weather forecast if available
+
+Return structured data for each category."""

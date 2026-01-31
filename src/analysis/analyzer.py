@@ -159,7 +159,11 @@ else:
 # ============================================
 # STATIC SYSTEM PROMPT - No placeholders = Maximum DeepSeek cache hits
 TRIANGULATION_SYSTEM_PROMPT = """
-You are a Professional Betting Analyst with access to 6 data sources. Your job is to CORRELATE them and decide if there's a betting opportunity.
+You are an Elite Betting Quant with access to 6 data sources. Your tone is professional, technical, and risk-averse.
+Instead of generic advice, use concepts like: 'Edge detected', 'Market overreaction detected', 'Closing line value risk'.
+Always prioritize NOT losing bankroll over winning big.
+
+Your job is to CORRELATE them and decide if there's a betting opportunity.
 
 ### 🔒 MATCH IDENTITY VERIFICATION (CRITICAL - DO FIRST)
 The user will provide the CURRENT MATCH teams. You MUST:
@@ -184,6 +188,10 @@ Act as a Betting Analyst. Answer these questions:
 1. Does the Market Drop match the Injury Data from FotMob?
 2. Is the News just noise, or does it CONFIRM what FotMob already knows?
 3. Are we AHEAD of the market (news broke before odds moved), or BEHIND (market already priced it in)?
+
+**MARKET TIMING CONSTRAINT:**
+- If News is found BUT Odds have already dropped > 15%, AI must assume "Value is Gone" and output "NO BET" or a very low score.
+- Goal: The bot must catch news **before** the market reacts, not after.
 
 **SPECIAL FACTORS TO DETECT:**
 
@@ -268,6 +276,41 @@ When TACTICAL CONTEXT is provided, cross-reference it with the News:
 - If news says "Key player returns" AND Tactics say "Travel Sick" → **POTENTIAL TURNAROUND** (boost confidence +10%)
 - If Tactics say "FORTRESS" AND opponent has injuries → **STRONG HOME BET** (boost confidence +10%)
 - If Tactics say "TRAVEL_SICK" AND home team has no injuries → **FADE THE AWAY TEAM**
+
+**🚨 TACTICAL VETO RULES (PRIORITY > STATISTICS) - V8.0:**
+
+These rules OVERRIDE statistical signals when tactical data contradicts them. Look for these tags in OFFICIAL DATA:
+- `[OFFENSIVE IMPACT: HIGH]` - Team missing key attackers/playmakers
+- `[DEFENSIVE IMPACT: HIGH]` - Team missing key defenders/goalkeeper
+
+**VETO 1: OFFENSIVE DEPLETION → DEVALUE "Over" SIGNALS**
+- TRIGGER: Team has `[OFFENSIVE IMPACT: HIGH]` tag (2+ key forwards/playmakers out)
+- ACTION: Devalue historical "High_Scoring" signals for that team
+- OVERRIDE: Pivot to "Under" or "No Bet" even if avg goals suggest Over
+- REASONING TEMPLATE: "Mercato suggerisce Over, ma Analisi Tattica (X titolari offensivi OUT) impone prudenza."
+
+**VETO 2: DEFENSIVE DEPLETION → OVERRIDE "Under" SIGNALS**
+- TRIGGER: Team has `[DEFENSIVE IMPACT: HIGH]` tag (GK or 2+ key defenders out)
+- ACTION: Override historical "Low_Scoring" signals
+- OVERRIDE: Pivot to "Over" or "BTTS" instead of Under
+- REASONING TEMPLATE: "Storico basso, ma crisi difensiva (X difensori chiave OUT) suggerisce più gol."
+
+**VETO 3: SQUAD DEPTH CONSIDERATION**
+- If team has [FINANCIAL INTEL] or known large squad (Top 5 League + Top 4 Club):
+  - REDUCE impact severity (better backup quality assumed)
+- If team is small/budget club or unknown:
+  - INCREASE impact severity (treat every starter loss as CRITICAL)
+
+**VETO 4: EXPLICIT TRANSPARENCY (MANDATORY)**
+- When applying ANY veto, you MUST include in reasoning:
+  - "⚠️ TACTICAL VETO ATTIVO: [specific reason]"
+- Example: "⚠️ TACTICAL VETO ATTIVO: 2 attaccanti titolari assenti, Under più probabile"
+
+**VETO HIERARCHY:**
+1. Tactical Veto Rules > Historical Statistics
+2. Extreme Impact (>5.0) > Normal Impact
+3. Recent Injuries (confirmed) > Rumored Injuries
+
 
 **🐦 TWITTER INTEL ANALYSIS (DATA SOURCE 6):**
 Twitter Intel comes from verified insider accounts (beat writers, journalists, aggregators).
@@ -1365,6 +1408,25 @@ def analyze_with_triangulation(
         combo_suggestion = data.get('combo_suggestion')
         combo_reasoning = data.get('combo_reasoning')
         
+        # V5.1: Programmatic Market Veto - Hard rule for market crashes
+        # If odds have dropped >= 15%, override verdict to NO BET
+        # This ensures the bot doesn't bet on fully priced-in news
+        odds_drop = 0.0
+        try:
+            # Extract percentage drop from market_status (e.g., "Odds dropped 12% (1.72 → 1.51)")
+            import re
+            drop_match = re.search(r'dropped\s+(\d+(?:\.\d+)?)\s*%', market_status, re.IGNORECASE)
+            if drop_match:
+                odds_drop = float(drop_match.group(1)) / 100.0  # Convert to decimal
+        except (ValueError, AttributeError, TypeError):
+            pass
+        
+        # Apply market veto if drop >= 15%
+        if odds_drop >= 0.15 and verdict == "BET":
+            verdict = "NO BET"
+            reasoning = f"⚠️ VALUE GONE: Market already crashed (>15% drop). News is fully priced in.\n\n{reasoning}"
+            logging.info(f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop*100:.1f}% (>=15%), overriding verdict to NO BET")
+        
         # V8.1: Extract confidence breakdown (transparency feature)
         confidence_breakdown = data.get('confidence_breakdown', {})
         primary_driver = data.get('primary_driver', 'UNKNOWN')
@@ -1513,12 +1575,42 @@ def analyze_with_triangulation(
                             # Injuries generally increase unpredictability, slight negative
                             injury_impact_adjustment = -abs(raw_adjustment) * 0.2
                         
+                        # V8.0: TACTICAL BRAIN - Boost weight for extreme offensive/defensive impact
+                        extreme_threshold = 5.0
+                        tactical_veto_tags = []
+                        
+                        # Extract impact scores
+                        home_off = injury_differential.home_impact.offensive_impact if injury_differential.home_impact else 0.0
+                        home_def = injury_differential.home_impact.defensive_impact if injury_differential.home_impact else 0.0
+                        away_off = injury_differential.away_impact.offensive_impact if injury_differential.away_impact else 0.0
+                        away_def = injury_differential.away_impact.defensive_impact if injury_differential.away_impact else 0.0
+                        
+                        # Check for extreme tactical impact
+                        has_extreme_offensive = home_off > extreme_threshold or away_off > extreme_threshold
+                        has_extreme_defensive = home_def > extreme_threshold or away_def > extreme_threshold
+                        
+                        if has_extreme_offensive:
+                            tactical_veto_tags.append("OFFENSIVE DEPLETION")
+                        if has_extreme_defensive:
+                            tactical_veto_tags.append("DEFENSIVE DEPLETION")
+                        
+                        if has_extreme_offensive or has_extreme_defensive:
+                            # Boost adjustment by 50% when tactical impact is extreme
+                            original_adj = injury_impact_adjustment
+                            injury_impact_adjustment *= 1.5
+                            # Cap at ±2.0 (increased from implicit previous cap)
+                            injury_impact_adjustment = max(-2.0, min(2.0, injury_impact_adjustment))
+                            logging.info(f"🚨 EXTREME TACTICAL IMPACT: Injury weight boosted {original_adj:+.2f} → {injury_impact_adjustment:+.2f}")
+                        
                         original_score = score
                         score = max(0, min(10.0, score + injury_impact_adjustment))
                         
-                        # Add injury impact to reasoning
+                        # Add injury impact to reasoning with tactical veto tagging (V8.0)
                         injury_summary = injury_differential.summary
-                        if injury_summary:
+                        if tactical_veto_tags:
+                            tactical_veto_str = ", ".join(tactical_veto_tags)
+                            reasoning = f"⚠️ TACTICAL VETO ATTIVO: {tactical_veto_str}\n⚖️ INJURY BALANCE:\n{injury_summary}\n{reasoning}"
+                        elif injury_summary:
                             reasoning = f"⚖️ INJURY BALANCE:\n{injury_summary}\n{reasoning}"
                         
                         # Log with context
