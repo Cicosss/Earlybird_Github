@@ -22,6 +22,7 @@ from src.database.models import TeamAlias, Match, SessionLocal
 from src.analysis.image_ocr import process_squad_image, extract_player_names
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.processing.sources_config import get_all_telegram_channels, TELEGRAM_INSIDERS
+from src.utils.validators import safe_dict_get
 
 # ============================================
 # TRUST SCORE INTEGRATION (V4.3)
@@ -784,9 +785,10 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
     
     for squad in squad_images:
         # Get combined text for analysis
-        full_text = squad.get('full_text', squad.get('caption', ''))
-        has_image = squad.get('has_image', False)
-        ocr_text = squad.get('ocr_text')
+        # Use safe_dict_get to prevent crashes if squad is not a dict
+        full_text = safe_dict_get(squad, 'full_text', default='') or safe_dict_get(squad, 'caption', default='')
+        has_image = safe_dict_get(squad, 'has_image', default=False)
+        ocr_text = safe_dict_get(squad, 'ocr_text', default=None)
         
         # ============================================
         # DUAL MODE PROCESSING
@@ -805,14 +807,14 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
             if alert:
                 alert['source'] = 'TELEGRAM_CHANNEL'
                 alert['channel'] = squad['channel']
-                alert['channel_type'] = squad.get('channel_type', 'unknown')
-                alert['match'] = squad.get('match')
+                alert['channel_type'] = safe_dict_get(squad, 'channel_type', default='unknown')
+                alert['match'] = safe_dict_get(squad, 'match', default=None)
                 alert['mode'] = 'IMAGE_OCR'
                 alerts.append(alert)
                 logging.info(f"🚨 ALERT (IMAGE): {alert['summary']}")
             else:
                 # Even if no missing players, report the lineup detection
-                caption_preview = squad.get('caption', '')[:100]
+                caption_preview = safe_dict_get(squad, 'caption', default='')[:100]
                 ocr_preview = ocr_text[:100] if ocr_text else ''
                 
                 alerts.append({
@@ -821,15 +823,15 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
                     'url': f"https://t.me/{squad['channel']}",
                     'source': 'TELEGRAM_CHANNEL',
                     'channel': squad['channel'],
-                    'channel_type': squad.get('channel_type', 'unknown'),
-                    'match': squad.get('match'),
+                    'channel_type': safe_dict_get(squad, 'channel_type', default='unknown'),
+                    'match': safe_dict_get(squad, 'match', default=None),
                     'mode': 'IMAGE_OCR',
                     'ocr_text': ocr_text
                 })
                 
         elif has_image and not ocr_text:
             # MODE 2: Image without OCR (OCR failed) - Report with caption only
-            caption = squad.get('caption', '')
+            caption = safe_dict_get(squad, 'caption', default='')
             if caption:
                 alerts.append({
                     'summary': f"📷 Image posted by @{squad['channel']}: {caption[:200]}",
@@ -837,14 +839,14 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
                     'url': f"https://t.me/{squad['channel']}",
                     'source': 'TELEGRAM_CHANNEL',
                     'channel': squad['channel'],
-                    'channel_type': squad.get('channel_type', 'unknown'),
-                    'match': squad.get('match'),
+                    'channel_type': safe_dict_get(squad, 'channel_type', default='unknown'),
+                    'match': safe_dict_get(squad, 'match', default=None),
                     'mode': 'IMAGE_NO_OCR'
                 })
                 
         else:
             # MODE 3: Text-only message
-            caption = squad.get('caption', '')
+            caption = safe_dict_get(squad, 'caption', default='')
             if caption:
                 alerts.append({
                     'summary': f"📢 Intel from @{squad['channel']}: {caption[:200]}",
@@ -852,8 +854,8 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
                     'url': f"https://t.me/{squad['channel']}",
                     'source': 'TELEGRAM_CHANNEL',
                     'channel': squad['channel'],
-                    'channel_type': squad.get('channel_type', 'unknown'),
-                    'match': squad.get('match'),
+                    'channel_type': safe_dict_get(squad, 'channel_type', default='unknown'),
+                    'match': safe_dict_get(squad, 'match', default=None),
                     'mode': 'TEXT_ONLY'
                 })
     

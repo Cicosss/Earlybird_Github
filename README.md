@@ -1,8 +1,8 @@
-# 🦅 EarlyBird V8.0 - Self-Learning Sports Intelligence Engine
+# 🦅 EarlyBird V8.3 - Self-Learning Sports Intelligence Engine
 
-Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI Search**, **CLV Tracking** e **auto-ottimizzazione quantitativa**. Il sistema impara dai propri risultati, adattando i pesi delle strategie in base a Sortino Ratio e Max Drawdown.
+Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI Search**, **CLV Tracking**, **Tactical Veto**, **B-Team Detection** e **auto-ottimizzazione quantitativa**. Il sistema impara dai propri risultati, adattando i pesi delle strategie in base a Sortino Ratio e Max Drawdown.
 
-**V8.0**: Tavily AI Search con Doppio Ciclo + Verification Layer + Circuit Breaker + DeepSeek Primary + Plug & Play VPS Launch
+**V8.3**: Learning Loop Integrity Fix + Tactical Veto + B-Team Detection + Intelligence Router V7.0 + Opportunity Radar V2.0
 
 ## 🎯 Core Intelligence
 
@@ -115,12 +115,46 @@ Questo garantisce che i dettagli critici non vengano persi mantenendo le prestaz
 - **Impact Analysis**: Vento >40km/h o pioggia >5mm → segnale Under/Cards
 - **Stadium Coordinates**: Lookup automatico via FotMob
 
-### 💹 Market Intelligence
+### 💹 Market Intelligence (V1.1)
 - **Reverse Line Movement**: Smart money contro il pubblico (65%+ threshold)
 - **Steam Move Detection**: Drop >5% in finestre 15 minuti
 - **News Decay**: Decadimento esponenziale (λ per tier di lega)
 - **Odds Snapshots**: Tracking storico quote per analisi temporale
 - **Freshness Tags**: 🔥 FRESH, ⏰ AGING, 📜 STALE
+
+### 🎯 Tactical Veto (V8.0) ⭐ NEW
+- **Market vs Tactical Conflict Detection**: Identifies when market signals contradict tactical reality
+- **Automatic Veto Application**: Overrides market intelligence when tactical analysis is more reliable
+- **Context-Aware Decision Making**: Considers match context, team form, and tactical setup
+- **File**: `src/analysis/analyzer.py`
+
+### 👥 B-Team Detection (V2.0) ⭐ NEW
+- **Financial Intelligence**: Detects B-Team/Reserves lineups using market value analysis
+- **Player Value Thresholds**: Identifies when teams field significantly weakened squads
+- **Impact Assessment**: Quantifies betting impact of lineup changes
+- **File**: `src/analysis/player_intel.py`
+
+### ⚽ BTTS Intelligence (V4.1)
+- **Head-to-Head BTTS Trend Analysis**: Historical both teams to score patterns
+- **Team-Specific BTTS Propensity**: Analyzes attacking/defensive styles
+- **Contextual Factors**: Considers injuries, fatigue, and tactical changes
+
+### 🏆 Motivation Intelligence (V4.2)
+- **Title Race Analysis**: Identifies matches with high motivation for title contenders
+- **Relegation Battle Detection**: Highlights crucial matches for survival
+- **Dead Rubber Recognition**: Filters out low-stakes matches with reduced motivation
+
+### 📡 Opportunity Radar (V2.0) ⭐ NEW
+- **Narrative-First Intelligence Scanner**: Detects betting opportunities from news narratives
+- **Autonomous Monitoring**: Scans for emerging stories and market mispricing
+- **Multi-League Coverage**: Monitors both major and minor leagues
+- **File**: `src/ingestion/opportunity_radar.py`
+
+### 🧠 Intelligence Router (V7.0) ⭐ NEW
+- **DeepSeek Primary Routing**: Routes intelligence requests to DeepSeek as primary provider
+- **Tavily Pre-Enrichment**: Enriches queries with Tavily search results before AI analysis
+- **Smart Fallback**: Automatic fallback to alternative providers when needed
+- **File**: `src/services/intelligence_router.py`
 
 ## 🌍 League Coverage
 
@@ -193,22 +227,32 @@ cd Earlybird_Github
 
 **Nota**: Per funzionalità completa, crea file `.env` con le tue API keys.
 
-## 🔧 Quick Start
+## 🔧 Quick Start (Dashboard Experience)
+
+We recommend using the **Unified Dashboard** (Tmux) for all operations. This command launches the Process Orchestrator (Left Panel) and the Health Monitor (Right Panel).
 
 ```bash
 # 1. Clone & Setup
 git clone <repo>
 cd earlybird
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+./setup_vps.sh
 
-# 2. Configure
-cp .env.example .env
-# Edit .env with your API keys
+# 2. Configure Credentials
+cp .env.template .env
+nano .env
 
-# 3. Launch (Headless Mode)
-python go_live.py
+# 3. 🚀 LAUNCH DASHBOARD (Master Command)
+./start_system.sh
+```
+
+### Alternative Methods (Legacy/Testing)
+```bash
+# Headless Mode (No Dashboard)
+make run-launcher
+
+# Run specific component
+make run-bot
+make run-news-radar
 ```
 
 ## 🔒 Security
@@ -226,14 +270,14 @@ For detailed security information, see [`SECURITY.md`](SECURITY.md).
 
 ## 🤖 Componenti del Sistema
 
-EarlyBird è composto da 4 processi gestiti automaticamente dal launcher:
+EarlyBird è composto da 4 processi gestiti automaticamente dal Launcher V3.7:
 
 | Processo | Script | Descrizione |
 |----------|--------|-------------|
 | **Pipeline Principale** | `src/main.py` | Odds + News + Analysis (ciclo ogni 120 min) |
 | **Telegram Bot** | `src/run_bot.py` | Comandi admin via Telegram |
-| **Telegram Monitor** | `run_telegram_monitor.py` | Scraper canali Telegram per insider intel |
-| **News Radar** | `run_news_radar.py` | Hunter autonomo 24/7 per leghe minori |
+| **Telegram Monitor** | `run_telegram_monitor.py` | Scraper canali Telegram per insider intel (squad image scraping) |
+| **News Radar** | `run_news_radar.py` | Hunter autonomo 24/7 per leghe minori (autonomous news monitoring) |
 
 ### 🔔 News Radar (Hunter Autonomo 24/7) ⭐ CRITICAL
 
@@ -301,14 +345,25 @@ EarlyBird opera in modalità **headless** (CLI + Telegram). Nessuna dashboard we
 
 ```bash
 # Full System (Recommended)
-python go_live.py                    # Launch everything
+python go_live.py                    # Launch everything (V3.1 Headless Launcher)
+
+# Launcher V3.7 - Process Orchestrator
+python src/launcher.py               # Direct launcher with process orchestration
+
+# Individual Components
+python src/main.py                   # Pipeline Principale
+python src/run_bot.py                # Telegram Bot
+python run_telegram_monitor.py       # Telegram Monitor
+python run_news_radar.py             # News Radar
+
+# Shell Scripts
+./start_system.sh                    # Sistema Completo con Test Monitor (V7.1)
+./run_forever.sh                     # Launcher Script (V3.3)
+./run_tests_monitor.sh               # Test Monitor
 
 # VPS Deployment (24/7)
 ./setup_vps.sh                       # One-time setup
 screen -S earlybird ./run_forever.sh # Watchdog with auto-restart
-
-# Utilities
-python mapping_tool.py               # Map teams to FotMob IDs
 ```
 
 ### 🤖 Telegram Commands
@@ -331,13 +386,56 @@ Ogni notte alle **04:00 UTC**:
 - Aggiornamento pesi Optimizer
 - Report su Telegram con statistiche
 
+## 🧪 Testing
+
+Il progetto utilizza **pytest** come framework di testing con marker per categorizzare i test:
+
+### Test Markers
+| Marker | Descrizione |
+|--------|-------------|
+| `unit` | Unit tests per singole funzioni |
+| `integration` | Integration tests per componenti |
+| `regression` | Regression tests per bug fixes |
+| `contract` | Contract tests per API contracts |
+| `snapshot` | Snapshot tests per output consistency |
+| `chaos` | Chaos tests per resilience testing |
+| `slow` | Slow tests (es. network calls) |
+| `e2e` | End-to-end tests per flussi completi |
+| `performance` | Performance tests per benchmarking |
+| `security` | Security tests per vulnerability checks |
+
+### Esecuzione Test
+```bash
+# Esegui tutti i test
+pytest
+
+# Esegui test specifici per marker
+pytest -m unit
+pytest -m integration
+pytest -m regression
+
+# Esegui test con verbose output
+pytest -v
+
+# Esegui test con coverage
+pytest --cov=src
+
+# Esegui test specifici
+pytest tests/test_analyzer_v61_fixes.py
+```
+
 ## 🏗️ Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  EARLYBIRD V7.2 - VERIFIED INTELLIGENCE ENGINE                  │
+│  EARLYBIRD V8.3 - LEARNING LOOP INTEGRITY FIX                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
+│  LAUNCHER V3.7 - Process Orchestrator                           │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  4 Processes: main, bot, monitor, news_radar            │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
 │  TIER 0: BROWSER MONITOR (Real-Time AI Analysis)                │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  Playwright + DeepSeek AI - Active web monitoring       │   │
@@ -351,6 +449,12 @@ Ogni notte alle **04:00 UTC**:
 │         └────────────────┼────────────────┘                     │
 │                          ▼                                       │
 │  ┌─────────────────────────────────────────────────────────┐   │
+│  │  INTELLIGENCE ROUTER (V7.0) ⭐ NEW                       │   │
+│  │  • DeepSeek Primary + Tavily Pre-Enrichment             │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                          │                                       │
+│                          ▼                                       │
+│  ┌─────────────────────────────────────────────────────────┐   │
 │  │  NEWS HUNTER (Orchestrator)                              │   │
 │  │  • Multi-source correlation                             │   │
 │  │  • News Decay (λ per league tier)                       │   │
@@ -361,12 +465,14 @@ Ogni notte alle **04:00 UTC**:
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  DEEPSEEK V3 (AI Reasoning via OpenRouter)               │   │
 │  │  • Triangulate 6 data sources                           │   │
+│  │  • Tactical Veto (V8.0) ⭐ NEW                           │   │
+│  │  • B-Team Detection (V2.0) ⭐ NEW                        │   │
 │  │  • Smart Combo Builder                                  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          │                                       │
 │                          ▼                                       │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  VERIFICATION LAYER (V7.0) ⭐ NEW                        │   │
+│  │  VERIFICATION LAYER (V7.0)                              │   │
 │  │  • Fact-check with Tavily/Perplexity                    │   │
 │  │  • Player impact validation                             │   │
 │  │  • Score adjustment / Market change                     │   │
@@ -382,11 +488,12 @@ Ogni notte alle **04:00 UTC**:
 ## 📈 Performance
 
 - **Coverage**: 30+ leagues, tiered scanning
-- **Alerts**: ~1-2 premium alerts/day (threshold 8.6 - V8.6 Quality Boost)
+- **Alerts**: ~1-2 premium alerts/day (threshold 8.6 - Premium Quality)
 - **Quality**: "Cream of the Crop" signals only (dynamic 7.5-9.0 range)
 - **Lookahead**: 96 hours (4 days)
 - **Cycle**: Every 120 minutes
 - **Self-Learning**: Weights auto-adjust based on CLV + results
+- **ROI Accuracy**: Enhanced with `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at` tracking (V8.3)
 
 ## 📁 Project Structure
 
@@ -404,24 +511,29 @@ earlybird/
 │   │   ├── search_provider.py  # Brave + DDG + Serper
 │   │   ├── ingest_fixtures.py  # Odds API
 │   │   ├── league_manager.py   # Tier system
-│   │   └── weather_provider.py # Open-Meteo
+│   │   ├── weather_provider.py # Open-Meteo
+│   │   └── opportunity_radar.py # Opportunity Radar (V2.0) ⭐ NEW
 │   ├── processing/             # News orchestration
 │   │   ├── news_hunter.py      # Multi-tier aggregator
 │   │   ├── telegram_listener.py
 │   │   └── sources_config.py
 │   ├── analysis/               # AI analysis
-│   │   ├── analyzer.py         # DeepSeek triangulation
+│   │   ├── analyzer.py         # DeepSeek triangulation + Tactical Veto (V8.0)
 │   │   ├── verification_layer.py  # Alert fact-checking ⭐ V7.0
 │   │   ├── clv_tracker.py      # CLV monitoring ⭐ V5.0
-│   │   ├── market_intelligence.py  # RLM + Steam Move
+│   │   ├── market_intelligence.py  # RLM + Steam Move (V1.1)
 │   │   ├── fatigue_engine.py   # Fatigue V2.0
 │   │   ├── biscotto_engine.py  # Biscotto V2.0
 │   │   ├── math_engine.py      # Poisson + Kelly
 │   │   ├── optimizer.py        # Strategy weights
 │   │   ├── settler.py          # Result verification
-│   │   └── reporter.py         # CSV export
+│   │   ├── reporter.py         # CSV export
+│   │   ├── player_intel.py     # B-Team Detection (V2.0) ⭐ NEW
+│   │   ├── news_scorer.py      # News Intelligence ⭐ NEW
+│   │   ├── squad_analyzer.py   # Squad analysis
+│   │   └── image_ocr.py        # Telegram Intelligence (OCR) ⭐ NEW
 │   ├── services/               # Background services
-│   │   ├── intelligence_router.py  # DeepSeek + Tavily routing ⭐ V7.0
+│   │   ├── intelligence_router.py  # DeepSeek + Tavily routing (V7.0) ⭐ NEW
 │   │   ├── browser_monitor.py  # Playwright monitoring
 │   │   ├── news_radar.py       # Autonomous hunter
 │   │   ├── twitter_intel_cache.py  # Tweet caching ⭐ V7.0
@@ -432,7 +544,9 @@ earlybird/
 │   ├── database/               # SQLite models
 │   │   ├── models.py           # Match, NewsLog, TeamAlias
 │   │   ├── db.py               # Connection management
-│   │   └── migration.py        # Auto-migration
+│   │   ├── migration.py        # Auto-migration
+│   │   ├── migration_v73.py    # V7.3 temporal reset migration
+│   │   └── migration_v83_odds_fix.py  # V8.3 odds tracking migration
 │   ├── utils/                  # Utilities
 │   │   ├── discovery_queue.py  # Thread-safe queue ⭐ V6.0
 │   │   ├── parallel_enrichment.py  # FotMob parallel ⭐ V6.0
@@ -443,21 +557,42 @@ earlybird/
 │   │   └── ai_parser.py
 │   ├── main.py                 # Pipeline principale
 │   ├── run_bot.py              # Telegram bot
-│   └── launcher.py             # Process orchestrator
+│   ├── launcher.py             # Process orchestrator (V3.7)
+│   └── deploy_v83_odds_fix.py  # V8.3 odds tracking deployment
 ├── tests/                      # 75+ test files
 ├── config/                     # Settings
 ├── data/                       # SQLite DB + optimizer weights
 ├── temp/                       # CSV reports (auto-cleaned)
-├── go_live.py                  # Main launcher
+├── go_live.py                  # Main launcher (V3.1)
 ├── run_telegram_monitor.py     # Telegram scraper
 ├── run_news_radar.py           # News radar launcher
 ├── setup_vps.sh                # VPS setup
-└── run_forever.sh              # VPS watchdog
+├── run_forever.sh              # VPS watchdog (V3.3)
+└── start_system.sh             # Sistema Completo con Test Monitor (V7.1)
 ```
 
 ## 🔄 Changelog
 
-### V7.2 (Current)
+### V8.3 (Current) - Learning Loop Integrity Fix ⭐ NEW
+- **Odds Tracking Columns**: Added `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at` for accurate ROI calculations
+- **Database Migration**: `migration_v83_odds_fix.py` for schema updates
+- **Tactical Veto (V8.0)**: Applied when market signals contradict tactical reality
+- **B-Team Detection (V2.0)**: Financial Intelligence for detecting B-Team/Reserves lineups
+- **BTTS Intelligence (V4.1)**: Head-to-Head BTTS Trend Analysis
+- **Motivation Intelligence (V4.2)**: Title race, relegation, dead rubber analysis
+- **Twitter Intel (V7.0)**: Cached Twitter Intel for search grounding
+- **News Intelligence**: News scoring and aggregation
+- **Telegram Intelligence**: Squad image scraping and OCR analysis
+- **Opportunity Radar (V2.0)**: Narrative-First Intelligence Scanner
+- **Intelligence Router (V7.0)**: Routes to DeepSeek (primary) with Tavily pre-enrichment
+- **Market Intelligence (V1.1)**: Steam Move, Reverse Line, News Decay
+- **V7.3**: Added `last_alert_time` column for temporal reset
+- **V5.3**: Odds type conversion and validation fixes
+- **V5.2**: Input validation and edge case handling in optimizer
+- **V7.2**: Signal handling fixes in news_radar
+- **V8.0**: asyncio.run() instead of deprecated get_event_loop()
+
+### V8.0
 - **Circuit Breaker**: Auto-fallback Tavily → Brave → DDG dopo failures
 - **Native News Parameters**: Tavily `topic="news"` + `days` per filtering ottimale
 - **Budget Status API**: Monitoring usage per componente
@@ -512,5 +647,5 @@ earlybird/
 
 ---
 
-*EarlyBird V7.2 - Verified Intelligence Engine*
-*Powered by DeepSeek V3 + Tavily AI Search + Verification Layer + CLV Tracking*
+*EarlyBird V8.3 - Learning Loop Integrity Fix*
+*Powered by DeepSeek V3 + Tavily AI Search + Verification Layer + CLV Tracking + Tactical Veto + B-Team Detection*

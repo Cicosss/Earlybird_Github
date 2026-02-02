@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/tavily_query_builder.py
+# hypothesis_version: 6.151.4
+
+[200, 500, ' | ', ':', ': ', '@', 'Head-to-head history', 'TavilyResponse', '\\d+\\.\\s*', '|']

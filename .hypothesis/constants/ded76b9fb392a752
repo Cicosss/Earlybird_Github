@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/stats_drawer.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.2, 0.25, 0.3, 0.5, 1.0, 1.2, 2.5, 4.0, 4.25, 5.25, 5.5, 7.0, 7.5, 1000.0, -999, 100, 150, 1000, '\nText summary:', '#0f172a', '#1e293b', '#22c55e', '#334155', '#3b82f6', '#94a3b8', '#eab308', '#ef4444', '#f8fafc', '%d/%m/%Y %H:%M', 'CAPITALE', 'DRAWDOWN', 'EARLYBIRD STATS', 'Mai', 'N/A', 'PERDENTI', 'PROFITTO', 'ROI', 'SCOMMESSE', 'VINCENTI', 'WIN RATE', '_', '__main__', 'accent_blue', 'accent_green', 'accent_red', 'accent_yellow', 'background', 'best_driver', 'best_league', 'bets', 'bold', 'border', 'capital', 'card_bg', 'center', 'color', 'drivers', 'global', 'label', 'last_updated', 'losses', 'max_drawdown', 'none', 'normal', 'off', 'overall_roi', 'profit', 'r', 'roi', 'sans-serif', 'sharpe', 'soccer_', 'stats', 'text_primary', 'text_secondary', 'tight', 'total_bets', 'total_profit', 'value', 'win_rate', 'wins', 'x', 'y', '📈', '📉', '🟡', '🟢']

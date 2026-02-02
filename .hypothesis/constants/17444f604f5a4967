@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/alerting/health_monitor.py
+# hypothesis_version: 6.151.4
+
+[200, 300, 401, 403, 429, 3600, '/', 'CRITICAL', 'ERROR', 'Heartbeat sent', 'N/A', 'ODDS_API_KEY', 'SELECT 1', 'WARNING', 'database_error', 'database_unavailable', 'disk_check_failed', 'disk_full', 'last_error', 'last_scan', 'matches_processed', 'news_items_analyzed', 'odds_api_auth', 'odds_api_connection', 'odds_api_forbidden', 'odds_api_quota', 'odds_api_timeout', 'remaining', 'total_alerts_sent', 'total_errors', 'total_scans', 'uptime', 'used', '━━━━━━━━━━━━━━━━━━━━', '⚪', '✅ System operational', '🔴', '🟠', '🟡']

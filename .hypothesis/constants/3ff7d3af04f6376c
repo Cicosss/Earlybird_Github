@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/run_bot.py
+# hypothesis_version: 6.151.4
+
+[0.0, 3600, 4000, 5000000, ' (⏸️ Pausa)', '--test', '/debug', '/help', '/ping', '/report', '/resume', '/settle', '/start', '/stat', '/status', '/stop', '=', 'DeepSeek', 'Gemini', 'TELEGRAM_API_HASH', 'TELEGRAM_API_ID', 'TELEGRAM_BOT_TOKEN', '__main__', 'ai_provider', 'avg_clv', 'bot.log', 'clv_positive_rate', 'consecutive_429s', 'earlybird.log', 'earlybird_cmd_bot', 'html', 'losses', 'md', 'news_discovered', 'paused', 'pending', 'roi_pct', 'running', 'settled', 'store_true', 'temp', 'temp/error_log.txt', 'utf-8', 'w', 'wins', '✅ Dashboard inviata', '✅ Debug log inviato', '✅ Report CSV inviato', '✅ Status inviato', '✨', '📈', '📉', '🔌 Bot disconnesso', '🔴', '🛑 Bot fermato', '🟢', '🤖']

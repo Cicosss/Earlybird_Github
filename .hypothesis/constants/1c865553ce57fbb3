@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/alert_feedback_loop.py
+# hypothesis_version: 6.151.4
+
+['; ', 'AlertFeedbackLoop', 'AlertModification', 'FeedbackLoopStatus', 'HIGH', 'MEDIUM', 'MODIFY', 'Over', 'PASSED', 'Under', 'adjusted_score', 'affected_team', 'category', 'change market', 'completed', 'data', 'error', 'failed', 'feedback_loop_active', 'feedback_loop_failed', 'feedback_loop_used', 'field', 'final_recommendation', 'impact', 'lower', 'market', 'match_id', 'max_iterations', 'news_summary', 'original', 'original_analysis_id', 'original_rejected', 'original_value', 'over', 'pending', 'processing', 'reason', 'reasoning', 'recommended_market', 'reduce', 'reprocessed', 'score', 'statistics', 'suggested', 'suggested_market', 'suggested_value', 'summary', 'under', 'url', 'verification_status']

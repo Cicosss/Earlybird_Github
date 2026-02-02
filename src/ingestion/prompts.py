@@ -151,7 +151,8 @@ def build_deep_dive_prompt(
 def build_betting_stats_prompt(
     home_team: str,
     away_team: str,
-    league: str
+    league: str,
+    match_date: Optional[str] = None
 ) -> str:
     """
     Build the betting stats prompt for corners/cards data enrichment.
@@ -160,13 +161,15 @@ def build_betting_stats_prompt(
         home_team: Home team name
         away_team: Away team name
         league: League name
+        match_date: Match date string (optional)
 
     Returns:
         Formatted prompt string for betting stats analysis
     """
     # This is a placeholder - the actual template would be defined above
     # For now, return a basic prompt structure
-    return f"""TASK: Analyze betting statistics for the match {home_team} vs {away_team} in {league}.
+    date_str = f" scheduled for {match_date}" if match_date else ""
+    return f"""TASK: Analyze betting statistics for the match {home_team} vs {away_team} in {league}{date_str}.
 
 Focus on:
 1. Average corners per match for both teams (home and away)

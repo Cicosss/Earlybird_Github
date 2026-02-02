@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/launcher.py
+# hypothesis_version: 6.151.4
+
+[300, '--status', '--test', '-c', '-f', '-o', '-p', '=', 'Pipeline Principale', '__main__', 'bot', 'cmd', 'earlybird', 'key', 'last_start_time', 'main', 'monitor', 'name', 'news_radar', 'pgrep', 'pid,cmd', 'process', 'ps', 'restarts', 'run_news_radar.py', 'script', 'scripts', 'src/main.py', 'src/run_bot.py', 'src/run_scraper.py', 'store_true']

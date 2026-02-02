@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/trafilatura_extractor.py
+# hypothesis_version: 6.151.4
+
+[100, '<!--.*?-->', '<[^>]+>', '<article', '<body', '<div class=', '<h1', '<h2', '<h3', '<main', '<p ', '<p>', '<p[^>]*>(.*?)</p>', '<section', 'Access Denied', 'Page Not Found', '\\s+', '^\\s*$', 'extract', 'failed', 'is_available', 'is_valid_html', 'raw', 'regex', 'success', 'total_attempts', 'trafilatura', 'trafilatura.core', 'validation_failed']

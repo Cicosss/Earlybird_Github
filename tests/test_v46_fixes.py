@@ -312,6 +312,7 @@ class TestPoissonResultNormalization:
             away_lambda=0.0,
             most_likely_score="0-0",
             over_25_prob=0.0,
+            under_25_prob=0.0,
             btts_prob=0.0
         )
         

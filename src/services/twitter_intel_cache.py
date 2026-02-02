@@ -188,14 +188,32 @@ class TwitterIntelCache:
             return False
         # Cache valida per 360 minuti (6 ore) per risparmiare quota Gemini API
         # Con 1500 req/day limit, refresh ogni 6h = 4 refresh/day = ~20 chiamate/day per Twitter
-        return datetime.now(timezone.utc) - self._last_full_refresh < timedelta(minutes=360)
-    
+        now = datetime.now(timezone.utc)
+        # Handle both naive and timezone-aware datetimes
+        if self._last_full_refresh.tzinfo is None:
+            # Naive datetime - convert to UTC (assuming naive is in local time, convert to UTC)
+            # Use timestamp to properly convert to UTC
+            last_refresh = datetime.fromtimestamp(self._last_full_refresh.timestamp(), tz=timezone.utc)
+        else:
+            # Timezone-aware datetime - convert to UTC if needed
+            last_refresh = self._last_full_refresh.astimezone(timezone.utc) if self._last_full_refresh.tzinfo else self._last_full_refresh
+        return now - last_refresh < timedelta(minutes=360)
+
     @property
     def cache_age_minutes(self) -> int:
         """Età della cache in minuti"""
         if not self._last_full_refresh:
             return -1
-        return int((datetime.now(timezone.utc) - self._last_full_refresh).total_seconds() / 60)
+        now = datetime.now(timezone.utc)
+        # Handle both naive and timezone-aware datetimes
+        if self._last_full_refresh.tzinfo is None:
+            # Naive datetime - convert to UTC (assuming naive is in local time, convert to UTC)
+            # Use timestamp to properly convert to UTC
+            last_refresh = datetime.fromtimestamp(self._last_full_refresh.timestamp(), tz=timezone.utc)
+        else:
+            # Timezone-aware datetime - convert to UTC if needed
+            last_refresh = self._last_full_refresh.astimezone(timezone.utc) if self._last_full_refresh.tzinfo else self._last_full_refresh
+        return int((now - last_refresh).total_seconds() / 60)
     
     def _normalize_handle(self, handle: str) -> str:
         """

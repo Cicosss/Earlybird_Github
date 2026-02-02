@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/smart_cache.py
+# hypothesis_version: 6.151.4
+
+[100, 200, 300, 500, 3600, '\n✅ All tests passed!', '  ✅ Passed', '%(message)s', 'Basic get failed', 'Test 6: Cache miss', 'Test 7: Cache stats', '__main__', 'close', 'close_match', 'data', 'default', 'evictions', 'far', 'far_match', 'hit_rate_pct', 'hits', 'hours_threshold', 'imminent', 'imminent_match', 'key1', 'match_cache', 'match_data', 'match_time', 'max_size', 'medium', 'misses', 'name', 'nonexistent', 'search', 'search_cache', 'size', 'started_match', 'team_cache', 'team_data', 'test', 'ttl_seconds', 'value1']

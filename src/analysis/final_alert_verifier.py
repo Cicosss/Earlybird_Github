@@ -18,6 +18,7 @@ from datetime import datetime
 from src.ingestion.perplexity_provider import get_perplexity_provider
 from src.database.models import NewsLog, SessionLocal
 from src.database.models import Match
+from src.utils.validators import safe_get
 
 logger = logging.getLogger(__name__)
 
@@ -202,9 +203,10 @@ class FinalAlertVerifier:
                 f"KELLY STAKE: {math_edge.get('kelly_stake', 0):.1f}%"
             )
         
-        if context_data.get('verification_info', {}).get('inconsistencies'):
+        inconsistencies = safe_get(context_data, 'verification_info', 'inconsistencies')
+        if inconsistencies and isinstance(inconsistencies, list):
             extracted_lines.append("INCONSISTENCIES:")
-            for inc in context_data['verification_info']['inconsistencies'][:3]:
+            for inc in inconsistencies[:3]:
                 extracted_lines.append(f"  - {inc}")
         
         source_verification_lines = []

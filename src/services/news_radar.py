@@ -47,6 +47,7 @@ from src.utils.content_analysis import (
     get_relevance_analyzer,
     get_positive_news_filter,
 )
+from src.utils.validators import safe_get
 
 # V2.0: Import high-value signal detection
 from src.utils.high_value_detector import (
@@ -116,13 +117,25 @@ HTTP_MIN_CONTENT_LENGTH = 200
 # OpenRouter API
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Trafilatura import with fallback
+# Trafilatura extraction via centralized module (handles warning suppression)
 try:
-    import trafilatura
-    TRAFILATURA_AVAILABLE = True
+    from src.utils.trafilatura_extractor import (
+        extract_with_trafilatura as _central_extract,
+        extract_with_fallback as _extract_with_fallback,
+        is_valid_html,
+        TRAFILATURA_AVAILABLE,
+        record_extraction,
+    )
+    # Keep trafilatura import for backward compatibility in type hints
+    if TRAFILATURA_AVAILABLE:
+        import trafilatura
 except ImportError:
     TRAFILATURA_AVAILABLE = False
-    logger.warning("⚠️ [NEWS-RADAR] trafilatura not installed, using raw text extraction")
+    _central_extract = None
+    _extract_with_fallback = None
+    is_valid_html = lambda x: True  # type: ignore
+    record_extraction = lambda x, y: None  # type: ignore
+    logger.warning("⚠️ [NEWS-RADAR] trafilatura_extractor not available, using raw text extraction")
 
 
 # ============================================
@@ -763,11 +776,40 @@ class ContentExtractor:
         """
         Extract clean article text using Trafilatura.
         
+        V8.4: Now uses centralized extractor with:
+        - Pre-validation to avoid "discarding data: None" warnings
+        - Intelligent fallback chain (trafilatura → regex → raw)
+        
         Requirements: 2.1
         """
         if not TRAFILATURA_AVAILABLE or not html:
             return None
         
+        # V8.4: Use centralized extractor with pre-validation
+        if _central_extract is not None:
+            # Pre-validate HTML to avoid trafilatura warnings
+            if not is_valid_html(html):
+                logger.debug("[NEWS-RADAR] HTML validation failed, skipping trafilatura")
+                record_extraction('validation', False)
+                return None
+            
+            text = _central_extract(html)
+            if text:
+                record_extraction('trafilatura', True)
+                return text
+            
+            # Try fallback extraction (regex/raw)
+            if _extract_with_fallback is not None:
+                text, method = _extract_with_fallback(html)
+                if text:
+                    record_extraction(method, True)
+                    logger.debug(f"[NEWS-RADAR] Fallback extraction succeeded: {method}")
+                    return text
+            
+            record_extraction('trafilatura', False)
+            return None
+        
+        # Legacy fallback if centralized extractor not available
         try:
             text = trafilatura.extract(
                 html,
@@ -1423,7 +1465,7 @@ class TelegramAlerter:
                 
                 if response.status_code == 429:
                     # Rate limited - wait and retry
-                    retry_after = response.json().get("parameters", {}).get("retry_after", 5)
+                    retry_after = safe_get(response.json(), "parameters", "retry_after", default=5)
                     logger.warning(f"⚠️ [NEWS-RADAR] Telegram rate limited, waiting {retry_after}s")
                     await asyncio.sleep(retry_after)
                     continue

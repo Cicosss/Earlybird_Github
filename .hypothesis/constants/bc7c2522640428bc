@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/radar_enrichment.py
+# hypothesis_version: 6.151.4
+
+[' | ', 'Danger Zone', 'European Spots', 'Lotta Scudetto', 'Metà Classifica', 'Mid-Table', 'Relegation', 'Sconosciuto', 'Title Race', 'Unknown', 'Zona Europa', 'Zona Pericolo', 'Zona Retrocessione', 'away_team', 'current_draw_odd', 'database', 'fotmob_cache', 'home_team', 'is_home', 'league', 'match_id', 'matches_remaining', 'none', 'opening_draw_odd', 'position', 'source', 'start_time', 'total_teams', 'zone']

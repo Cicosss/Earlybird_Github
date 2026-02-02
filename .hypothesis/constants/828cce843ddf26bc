@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/math_engine.py
+# hypothesis_version: 6.151.4
+
+[-0.07, 0.0, 0.01, 0.05, 0.1, 0.3, 0.5, 0.6, 0.8, 0.99, 1.0, 1.01, 1.05, 1.2, 1.35, 1.65, 1.75, 1.85, 1.9, 2.0, 2.1, 2.5, 3.8, 4.5, 5.0, 5.5, 99.0, 100.0, 999.0, 100, '\n💰 Edge Analysis:', '1X', '1x', '=', 'AWAY', 'BTTS', 'DRAW', 'HOME', 'High', 'Low', 'Medium', 'OVER_25', 'UNDER_25', 'UNKNOWN', 'Unknown', 'X2', '__main__', 'away', 'away_score', 'best_edge', 'best_market', 'btts', 'btts_hits', 'btts_rate', 'draw', 'edges', 'error', 'expected_goals', 'home', 'home_score', 'most_likely_score', 'over_25', 'poisson', 'total_games', 'trend_signal', 'under_25', 'x2', '✅ VALUE', '❌ No Value']

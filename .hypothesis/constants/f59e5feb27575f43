@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/discovery_queue.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.4, 0.5, 0.65, 0.85, 0.95, 360, 1000, 3600, 'HIGH', 'INJURY', 'LINEUP', 'LOW', 'MEDIUM', 'OTHER', 'SUSPENSION', 'VERY_HIGH', '_uuid', 'affected_team', 'by_league', 'category', 'confidence', 'current_size', 'discovered_at', 'freshness_tag', 'gemini_confidence', 'leagues_count', 'link', 'match_id', 'max_entries', 'minutes_old', 'oldest_age_hours', 'snippet', 'source', 'source_name', 'team', 'title', 'total_evicted', 'total_expired', 'total_popped', 'total_pushed', 'ttl_hours', 'url', '⏰ AGING', '📜 STALE', '🔥 FRESH']

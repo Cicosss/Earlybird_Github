@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/shared_cache.py
+# hypothesis_version: 6.151.4
+
+[100, 1000, 10000, '/', 'NFC', '\\b\\w{3,}\\b', '_ga', '_gl', 'added', 'browser_monitor', 'by_source', 'checked', 'content_cache_size', 'duplicates', 'fbclid', 'fuzzy_enabled', 'fuzzy_matches', 'gclid', 'hsCtaTracking', 'ignore', 'main_pipeline', 'max_entries', 'mc_cid', 'mc_eid', 'mkt_tok', 'news_radar', 'ref', 'simhash_cache_size', 'source', 'ttl_hours', 'unknown', 'url_cache_size', 'utf-8', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']

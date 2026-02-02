@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/tavily_budget.py
+# hypothesis_version: 6.151.4
+
+[0.5, 100, 'main_pipeline', 'settlement_clv']

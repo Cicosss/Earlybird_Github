@@ -256,11 +256,22 @@ async def main():
     
     if client:
         try:
+            # Try to start the client - this may fail if session file is missing/corrupted
+            # and requires interactive authentication
             await client.start()
             logger.info("✅ Client Telegram connesso (User Session)")
-            
+
             await monitor_loop()
-            
+
+        except EOFError:
+            # Session file missing or corrupted - requires interactive authentication
+            # which is not possible in background mode
+            logger.error("❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto")
+            logger.error("❌ Il monitor richiede autenticazione interattiva (impossibile in background)")
+            logger.error("💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione")
+            logger.error("💡 Oppure disabilitare il Telegram Monitor nel launcher")
+            # Exit gracefully instead of crashing
+            return
         finally:
             if client and client.is_connected():
                 logger.info("🔌 Disconnessione client...")

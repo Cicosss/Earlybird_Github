@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/biscotto_engine.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.08, 0.28, 1.0, 1.5, 2.0, 2.5, 2.6, 3.0, 10.0, 15.0, 25.0, 100, ' | ', 'AVOID', 'BET X (Alta fiducia)', 'CRASH', 'DRIFT', 'EXTREME', 'HIGH', 'LOW', 'MEDIUM', 'NONE', 'REVERSE', 'STABLE', 'Unknown', 'danger', 'european', 'league', 'matches_remaining', 'mid', 'points', 'position', 'promotion', 'relegation', 'safe', 'soccer_italy_serie_b', 'soccer_turkey_1_lig', 'soccer_usa_mls', 'start_time', 'title', 'total_teams', 'zone']

@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
 from config.settings import SERPER_API_KEY
+from src.utils.validators import safe_get
 
 # Try to import search provider (DuckDuckGo)
 try:
@@ -371,7 +372,7 @@ RULES:
             next_match = team_data.get('nextMatch')
             if not next_match:
                 fixtures = team_data.get('fixtures', {})
-                next_match = fixtures.get('allFixtures', {}).get('nextMatch')
+                next_match = safe_get(fixtures, 'allFixtures', 'nextMatch')
             
             if not next_match:
                 logger.info(f"⚠️ No upcoming match for {team_name}")
@@ -396,7 +397,7 @@ RULES:
                 'opponent_id': opponent.get('id'),
                 'match_time': match_time,
                 'is_home': is_home,
-                'competition': next_match.get('tournament', {}).get('name', 'Unknown')
+                'competition': safe_get(next_match, 'tournament', 'name', default='Unknown')
             }
             
         except Exception as e:

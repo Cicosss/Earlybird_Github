@@ -34,6 +34,7 @@ from src.processing.sources_config import (
     get_beat_writers,
     BeatWriter
 )
+from src.utils.validators import safe_dict_get
 
 # V8.0: Reddit monitoring removed - provided no betting edge
 
@@ -1035,11 +1036,11 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> L
                     'match_id': match_id,
                     'team': team_alias,
                     'keyword': f'dynamic_{country_code}',
-                    'title': item.get('title'),
-                    'snippet': item.get('snippet'),
-                    'link': item.get('link'),
-                    'date': item.get('date'),
-                    'source': item.get('source', f'Dynamic ({country_code})'),
+                    'title': safe_dict_get(item, 'title', default=''),
+                    'snippet': safe_dict_get(item, 'snippet', default=''),
+                    'link': safe_dict_get(item, 'link', default=''),
+                    'date': safe_dict_get(item, 'date', default=None),
+                    'source': safe_dict_get(item, 'source', default=f'Dynamic ({country_code})'),
                     'search_type': 'dynamic_country'
                 })
             
@@ -1081,11 +1082,11 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> L
                         'match_id': match_id,
                         'team': team_alias,
                         'keyword': f'dynamic_{country_code}',
-                        'title': item.get('title'),
-                        'snippet': item.get('snippet'),
-                        'link': item.get('link'),
-                        'date': item.get('date'),
-                        'source': item.get('source', f'Dynamic ({country_code})'),
+                        'title': safe_dict_get(item, 'title', default=''),
+                        'snippet': safe_dict_get(item, 'snippet', default=''),
+                        'link': safe_dict_get(item, 'link', default=''),
+                        'date': safe_dict_get(item, 'date', default=None),
+                        'source': safe_dict_get(item, 'source', default=f'Dynamic ({country_code})'),
                         'search_type': 'dynamic_country'
                     })
             logging.info(f"   🌍 [Serper] Dynamic search found {len(results)} results")
@@ -1151,11 +1152,11 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> Lis
                         'match_id': match_id,
                         'team': team_alias,
                         'keyword': strat['name'],
-                        'title': item.get('title'),
-                        'snippet': item.get('snippet', item.get('description', '')),
-                        'link': item.get('link'),
-                        'date': item.get('date'),
-                        'source': item.get('source', strat['name']),
+                        'title': safe_dict_get(item, 'title', default=''),
+                        'snippet': safe_dict_get(item, 'snippet', default='') or safe_dict_get(item, 'description', default=''),
+                        'link': safe_dict_get(item, 'link', default=''),
+                        'date': safe_dict_get(item, 'date', default=None),
+                        'source': safe_dict_get(item, 'source', default=strat['name']),
                         'search_type': f"exotic_{strat['name']}",
                         'strategy': strategy['name'],
                     })
@@ -1205,11 +1206,11 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> Lis
                         'match_id': match_id,
                         'team': team_alias,
                         'keyword': strat['name'],
-                        'title': item.get('title'),
-                        'snippet': item.get('snippet', item.get('description', '')),
-                        'link': item.get('link'),
-                        'date': item.get('date'),
-                        'source': item.get('source', strat['name']),
+                        'title': safe_dict_get(item, 'title', default=''),
+                        'snippet': safe_dict_get(item, 'snippet', default='') or safe_dict_get(item, 'description', default=''),
+                        'link': safe_dict_get(item, 'link', default=''),
+                        'date': safe_dict_get(item, 'date', default=None),
+                        'source': safe_dict_get(item, 'source', default=strat['name']),
                         'search_type': f"exotic_{strat['name']}",
                         'strategy': strategy['name'],
                     })
@@ -1400,11 +1401,11 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> List[D
                     'match_id': match_id,
                     'team': team_alias,
                     'keyword': 'local_news',
-                    'title': item.get('title'),
-                    'snippet': item.get('snippet'),
-                    'link': item.get('link'),
-                    'date': item.get('date'),
-                    'source': item.get('source', 'DuckDuckGo'),
+                    'title': safe_dict_get(item, 'title', default=''),
+                    'snippet': safe_dict_get(item, 'snippet', default=''),
+                    'link': safe_dict_get(item, 'link', default=''),
+                    'date': safe_dict_get(item, 'date', default=None),
+                    'source': safe_dict_get(item, 'source', default='DuckDuckGo'),
                     'search_type': 'ddg_local'
                 })
             
@@ -1481,11 +1482,11 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> List[D
                             'match_id': match_id,
                             'team': team_alias,
                             'keyword': kw_string[:30],
-                            'title': item.get('title'),
-                            'snippet': item.get('snippet'),
-                            'link': item.get('link'),
-                            'date': item.get('date'),
-                            'source': item.get('source'),
+                            'title': safe_dict_get(item, 'title', default=''),
+                            'snippet': safe_dict_get(item, 'snippet', default=''),
+                            'link': safe_dict_get(item, 'link', default=''),
+                            'date': safe_dict_get(item, 'date', default=None),
+                            'source': safe_dict_get(item, 'source', default=''),
                             'search_type': 'local_site_dork'
                         })
                 logging.info(f"   📰 Found {len(results)} local news results")
@@ -1554,17 +1555,17 @@ def search_news_generic(team_alias: str, keywords: List[str], country_code: str,
                 data = response.json()
                 if 'organic' in data:
                     for item in data['organic']:
-                        results.append({
-                            'match_id': match_id,
-                            'team': team_alias,
-                            'keyword': keyword,
-                            'title': item.get('title'),
-                            'snippet': item.get('snippet'),
-                            'link': item.get('link'),
-                            'date': item.get('date'),
-                            'source': item.get('source'),
-                            'search_type': 'generic'
-                        })
+                            results.append({
+                                'match_id': match_id,
+                                'team': team_alias,
+                                'keyword': keyword,
+                                'title': safe_dict_get(item, 'title', default=''),
+                                'snippet': safe_dict_get(item, 'snippet', default=''),
+                                'link': safe_dict_get(item, 'link', default=''),
+                                'date': safe_dict_get(item, 'date', default=None),
+                                'source': safe_dict_get(item, 'source', default=''),
+                                'search_type': 'generic'
+                            })
             else:
                 _check_serper_response(response, query=query)
                 
@@ -1706,7 +1707,7 @@ def search_beat_writers(team_alias: str, league_key: str, match_id: str) -> List
                 for item in data['organic']:
                     # Try to identify which insider posted
                     source_handle = "Unknown Insider"
-                    link = item.get('link', '').lower()
+                    link = safe_dict_get(item, 'link', default='').lower()
                     for handle in insider_handles:
                         if handle.lower().replace('@', '') in link:
                             source_handle = handle
@@ -1716,10 +1717,10 @@ def search_beat_writers(team_alias: str, league_key: str, match_id: str) -> List
                         'match_id': match_id,
                         'team': team_alias,
                         'keyword': 'beat_writer',
-                        'title': item.get('title'),
-                        'snippet': item.get('snippet'),
-                        'link': item.get('link'),
-                        'date': item.get('date'),
+                        'title': safe_dict_get(item, 'title', default=''),
+                        'snippet': safe_dict_get(item, 'snippet', default=''),
+                        'link': safe_dict_get(item, 'link', default=''),
+                        'date': safe_dict_get(item, 'date', default=None),
                         'source': source_handle,
                         'search_type': 'insider_beat_writer',
                         'confidence': 'HIGH'  # Beat writers are reliable
@@ -2021,8 +2022,8 @@ def _apply_news_decay(all_news: List[Dict[str, Any]], match: MatchModel, sport_k
             logging.debug(f"Could not calculate minutes_to_kickoff: {e}")
     
     for item in all_news:
-        news_date = item.get('date')
-        source_type = item.get('source_type', item.get('search_type', 'mainstream'))
+        news_date = safe_dict_get(item, 'date', default=None)
+        source_type = safe_dict_get(item, 'source_type', default='') or safe_dict_get(item, 'search_type', default='mainstream')
         
         try:
             multiplier, minutes_old = calculate_news_freshness_multiplier(

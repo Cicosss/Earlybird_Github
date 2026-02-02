@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/run_news_radar.py
+# hypothesis_version: 6.151.4
+
+[1.0, '--config', '=', 'Press Ctrl+C to stop', '__main__', 'news_radar.log', 'utf-8', '📊 Final Statistics']

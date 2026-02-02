@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/article_reader.py
+# hypothesis_version: 6.151.4
+
+[15.0, 100, 500, '<[^>]+>', '<title>(.*?)</title>', 'Empty HTML content', 'Empty URL provided', '\\s+', 'article_reader', 'deep_dive', 'deep_dive_error', 'deep_dive_method', 'error', 'link', 'raw', 'snippet', 'title', 'trafilatura']

@@ -20,6 +20,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Dict, Any
 
+# Import safe dictionary access utilities
+from src.utils.validators import safe_dict_get
+
 logger = logging.getLogger(__name__)
 
 
@@ -1123,22 +1126,22 @@ class OptimizedResponseParser:
         away_stats = self._parse_team_stats(text, self.away_original)
         
         # Set corner averages
-        verified.home_corner_avg = home_stats.get('corners')
-        verified.away_corner_avg = away_stats.get('corners')
+        verified.home_corner_avg = safe_dict_get(home_stats, 'corners', default=None)
+        verified.away_corner_avg = safe_dict_get(away_stats, 'corners', default=None)
         verified.corner_confidence = "MEDIUM" if verified.home_corner_avg or verified.away_corner_avg else "LOW"
         
         # V7.2: Set goals per game (season average) - separate from form goals_scored
-        verified.home_goals_per_game = home_stats.get('goals')
-        verified.away_goals_per_game = away_stats.get('goals')
+        verified.home_goals_per_game = safe_dict_get(home_stats, 'goals', default=None)
+        verified.away_goals_per_game = safe_dict_get(away_stats, 'goals', default=None)
         
         # V7.7: Parse xG stats
         home_xg_stats = self._parse_xg_stats(text, self.home_original)
         away_xg_stats = self._parse_xg_stats(text, self.away_original)
         
-        verified.home_xg = home_xg_stats.get('xg')
-        verified.away_xg = away_xg_stats.get('xg')
-        verified.home_xga = home_xg_stats.get('xga')
-        verified.away_xga = away_xg_stats.get('xga')
+        verified.home_xg = safe_dict_get(home_xg_stats, 'xg', default=None)
+        verified.away_xg = safe_dict_get(away_xg_stats, 'xg', default=None)
+        verified.home_xga = safe_dict_get(home_xg_stats, 'xga', default=None)
+        verified.away_xga = safe_dict_get(away_xg_stats, 'xga', default=None)
         verified.xg_confidence = "MEDIUM" if (verified.home_xg or verified.away_xg) else "LOW"
         
         if verified.home_xg or verified.away_xg:
@@ -1149,19 +1152,20 @@ class OptimizedResponseParser:
         if h2h_data:
             verified.h2h = H2HStats(
                 matches_analyzed=5,
-                avg_goals=h2h_data.get('goals', 0.0),
-                avg_cards=h2h_data.get('cards', 0.0),
-                avg_corners=h2h_data.get('corners', 0.0),
+                avg_goals=safe_dict_get(h2h_data, 'goals', default=0.0),
+                avg_cards=safe_dict_get(h2h_data, 'cards', default=0.0),
+                avg_corners=safe_dict_get(h2h_data, 'corners', default=0.0),
             )
-            verified.h2h_corner_avg = h2h_data.get('corners')
+            verified.h2h_corner_avg = safe_dict_get(h2h_data, 'corners', default=None)
             verified.h2h_confidence = "MEDIUM" if verified.h2h.has_data() else "LOW"
         
         # 4. Parse referee stats
         ref_data = self._parse_referee_stats(text, combined_text)
-        if ref_data and ref_data.get('cards_per_game'):
+        cards_per_game = safe_dict_get(ref_data, 'cards_per_game', default=None)
+        if ref_data and cards_per_game:
             verified.referee = RefereeStats(
                 name=request.fotmob_referee_name or self.referee_original,
-                cards_per_game=ref_data['cards_per_game']
+                cards_per_game=cards_per_game
             )
             verified.referee_confidence = "MEDIUM"
         
@@ -1176,11 +1180,11 @@ class OptimizedResponseParser:
             if home_form:
                 verified.home_form = FormStats(
                     # V7.2: goals_scored is now total (not per-game), no multiplication needed
-                    goals_scored=int(home_form.get('goals_scored', 0)),
-                    goals_conceded=int(home_form.get('goals_conceded', 0)),
-                    wins=home_form.get('wins', 0),
-                    draws=home_form.get('draws', 0),
-                    losses=home_form.get('losses', 0),
+                    goals_scored=int(safe_dict_get(home_form, 'goals_scored', default=0)),
+                    goals_conceded=int(safe_dict_get(home_form, 'goals_conceded', default=0)),
+                    wins=safe_dict_get(home_form, 'wins', default=0),
+                    draws=safe_dict_get(home_form, 'draws', default=0),
+                    losses=safe_dict_get(home_form, 'losses', default=0),
                 )
         
         if verified.away_form is None:
@@ -1188,11 +1192,11 @@ class OptimizedResponseParser:
             if away_form:
                 verified.away_form = FormStats(
                     # V7.2: goals_scored is now total (not per-game), no multiplication needed
-                    goals_scored=int(away_form.get('goals_scored', 0)),
-                    goals_conceded=int(away_form.get('goals_conceded', 0)),
-                    wins=away_form.get('wins', 0),
-                    draws=away_form.get('draws', 0),
-                    losses=away_form.get('losses', 0),
+                    goals_scored=int(safe_dict_get(away_form, 'goals_scored', default=0)),
+                    goals_conceded=int(safe_dict_get(away_form, 'goals_conceded', default=0)),
+                    wins=safe_dict_get(away_form, 'wins', default=0),
+                    draws=safe_dict_get(away_form, 'draws', default=0),
+                    losses=safe_dict_get(away_form, 'losses', default=0),
                 )
         
         # V7.1: HIGH confidence if FotMob form available, MEDIUM if parsed from text
@@ -1985,13 +1989,14 @@ class TavilyVerifier:
             return verified
         
         # Get AI answer and search results
-        answer = response.get("answer", "") or ""
-        results = response.get("results", [])
+        answer = safe_dict_get(response, "answer", default="")
+        results = safe_dict_get(response, "results", default=[])
         
         # Combine all text for parsing
         all_text = answer
-        for r in results[:5]:  # Top 5 results
-            all_text += " " + r.get("content", "")
+        if isinstance(results, list):
+            for r in results[:5]:  # Top 5 results
+                all_text += " " + safe_dict_get(r, "content", default="")
         
         # Parse player impacts
         verified.home_player_impacts = self._parse_player_impacts(
@@ -2633,7 +2638,7 @@ class TavilyVerifier:
         if not response:
             return VerifiedData(source="tavily_v2", data_confidence="LOW")
         
-        combined_text = response.get("answer", "")
+        combined_text = safe_dict_get(response, "answer", default="")
         
         if not combined_text:
             return VerifiedData(source="tavily_v2", data_confidence="LOW")
@@ -2723,19 +2728,19 @@ class TavilyVerifier:
             
             if perplexity_data:
                 total_time = time.time() - start_time
-                logger.info(f"✅ [V2.6] Perplexity rescued data after Tavily failure")
-                return {
-                    "query": "perplexity_rescue_v2.6",
-                    "answer": f"Perplexity corner data: home={perplexity_data.get('home_corners_avg')}, away={perplexity_data.get('away_corners_avg')}",
-                    "results": [],
-                    "response_time": total_time,
-                    "provider": "perplexity_v2.6_rescue",
-                    "queries_executed": 1,
-                    "primary_extraction_rate": 0,
-                    "fallback_executed": False,
-                    "perplexity_corners": perplexity_data,
-                    "perplexity_fallback_executed": True,
-                }
+            logger.info(f"✅ [V2.6] Perplexity rescued data after Tavily failure")
+            return {
+                "query": "perplexity_rescue_v2.6",
+                "answer": f"Perplexity corner data: home={safe_dict_get(perplexity_data, 'home_corners_avg', default='Unknown')}, away={safe_dict_get(perplexity_data, 'away_corners_avg', default='Unknown')}",
+                "results": [],
+                "response_time": total_time,
+                "provider": "perplexity_v2.6_rescue",
+                "queries_executed": 1,
+                "primary_extraction_rate": 0,
+                "fallback_executed": False,
+                "perplexity_corners": perplexity_data,
+                "perplexity_fallback_executed": True,
+            }
             
             logger.error("❌ [VERIFICATION V2.4] Primary queries failed and Perplexity unavailable")
             return None
@@ -2759,8 +2764,8 @@ class TavilyVerifier:
             
             if fallback_response:
                 # Combine primary and fallback answers
-                combined_answer = primary_response.get("answer", "") + " " + fallback_response.get("answer", "")
-                combined_results = primary_response.get("results", []) + fallback_response.get("results", [])
+                combined_answer = safe_dict_get(primary_response, "answer", default="") + " " + safe_dict_get(fallback_response, "answer", default="")
+                combined_results = safe_dict_get(primary_response, "results", default=[]) + safe_dict_get(fallback_response, "results", default=[])
                 
                 # V2.6: Check if corners still missing after Tavily fallback
                 # V7.1: Also check if form is missing
@@ -2798,11 +2803,11 @@ class TavilyVerifier:
                     "results": combined_results,
                     "response_time": total_time,
                     "query_times": {
-                        **primary_response.get("query_times", {}),
-                        **fallback_response.get("query_times", {}),
+                        **safe_dict_get(primary_response, "query_times", default={}),
+                        **safe_dict_get(fallback_response, "query_times", default={}),
                     },
                     "provider": "tavily_v2.4_fallback",
-                    "queries_executed": primary_response.get("queries_executed", 0) + fallback_response.get("queries_executed", 0),
+                    "queries_executed": safe_dict_get(primary_response, "queries_executed", default=0) + safe_dict_get(fallback_response, "queries_executed", default=0),
                     "primary_extraction_rate": extraction_rate,
                     "fallback_executed": True,
                     "missing_data_types": missing_data,
@@ -3019,22 +3024,22 @@ class TavilyVerifier:
                 return None
             
             # Extract corner data
-            home_corners = betting_stats.get("home_corners_avg")
-            away_corners = betting_stats.get("away_corners_avg")
-            corners_signal = betting_stats.get("corners_signal", "Unknown")
-            data_confidence = betting_stats.get("data_confidence", "Low")
+            home_corners = safe_dict_get(betting_stats, "home_corners_avg", default=None)
+            away_corners = safe_dict_get(betting_stats, "away_corners_avg", default=None)
+            corners_signal = safe_dict_get(betting_stats, "corners_signal", default="Unknown")
+            data_confidence = safe_dict_get(betting_stats, "data_confidence", default="Low")
             
             # V7.1: Extract form data
-            home_form_wins = betting_stats.get("home_form_wins")
-            home_form_draws = betting_stats.get("home_form_draws")
-            home_form_losses = betting_stats.get("home_form_losses")
-            away_form_wins = betting_stats.get("away_form_wins")
-            away_form_draws = betting_stats.get("away_form_draws")
-            away_form_losses = betting_stats.get("away_form_losses")
+            home_form_wins = safe_dict_get(betting_stats, "home_form_wins", default=None)
+            home_form_draws = safe_dict_get(betting_stats, "home_form_draws", default=None)
+            home_form_losses = safe_dict_get(betting_stats, "home_form_losses", default=None)
+            away_form_wins = safe_dict_get(betting_stats, "away_form_wins", default=None)
+            away_form_draws = safe_dict_get(betting_stats, "away_form_draws", default=None)
+            away_form_losses = safe_dict_get(betting_stats, "away_form_losses", default=None)
             
             # V7.1: Extract referee data
-            referee_name = betting_stats.get("referee_name")
-            referee_cards_avg = betting_stats.get("referee_cards_avg")
+            referee_name = safe_dict_get(betting_stats, "referee_name", default=None)
+            referee_cards_avg = safe_dict_get(betting_stats, "referee_cards_avg", default=None)
             
             # Validate we got actual corner data
             if home_corners is None and away_corners is None:
@@ -3053,11 +3058,11 @@ class TavilyVerifier:
             result = {
                 "home_corners_avg": home_corners,
                 "away_corners_avg": away_corners,
-                "corners_total_avg": betting_stats.get("corners_total_avg"),
+                "corners_total_avg": safe_dict_get(betting_stats, "corners_total_avg", default=None),
                 "corners_signal": corners_signal,
-                "corners_reasoning": betting_stats.get("corners_reasoning", ""),
+                "corners_reasoning": safe_dict_get(betting_stats, "corners_reasoning", default=""),
                 "data_confidence": data_confidence,
-                "sources_found": betting_stats.get("sources_found", "Perplexity search"),
+                "sources_found": safe_dict_get(betting_stats, "sources_found", default="Perplexity search"),
                 "response_time": elapsed,
                 "provider": "perplexity_v2.6",
             }
@@ -3067,21 +3072,21 @@ class TavilyVerifier:
                 result["home_form_wins"] = home_form_wins
                 result["home_form_draws"] = home_form_draws
                 result["home_form_losses"] = home_form_losses
-                result["home_goals_scored_last5"] = betting_stats.get("home_goals_scored_last5")
-                result["home_goals_conceded_last5"] = betting_stats.get("home_goals_conceded_last5")
+                result["home_goals_scored_last5"] = safe_dict_get(betting_stats, "home_goals_scored_last5", default=None)
+                result["home_goals_conceded_last5"] = safe_dict_get(betting_stats, "home_goals_conceded_last5", default=None)
             
             if away_form_wins is not None:
                 result["away_form_wins"] = away_form_wins
                 result["away_form_draws"] = away_form_draws
                 result["away_form_losses"] = away_form_losses
-                result["away_goals_scored_last5"] = betting_stats.get("away_goals_scored_last5")
-                result["away_goals_conceded_last5"] = betting_stats.get("away_goals_conceded_last5")
+                result["away_goals_scored_last5"] = safe_dict_get(betting_stats, "away_goals_scored_last5", default=None)
+                result["away_goals_conceded_last5"] = safe_dict_get(betting_stats, "away_goals_conceded_last5", default=None)
             
             # V7.1: Add referee data if available
             if referee_name and referee_name != "Unknown" and referee_cards_avg:
                 result["referee_name"] = referee_name
                 result["referee_cards_avg"] = referee_cards_avg
-                result["referee_strictness"] = betting_stats.get("referee_strictness", "Unknown")
+                result["referee_strictness"] = safe_dict_get(betting_stats, "referee_strictness", default="Unknown")
             
             return result
             
@@ -3233,7 +3238,7 @@ class PerplexityVerifier:
             return verified
         
         # Parse player impacts from response
-        player_impacts = response.get("player_impacts", {})
+        player_impacts = safe_dict_get(response, "player_impacts", default={})
         if isinstance(player_impacts, dict):
             for name in request.home_missing_players:
                 score = player_impacts.get(name, 5)
@@ -3254,7 +3259,7 @@ class PerplexityVerifier:
         verified.away_total_impact = sum(p.impact_score for p in verified.away_player_impacts)
         
         # Parse form stats
-        home_form_data = response.get("home_form", {})
+        home_form_data = safe_dict_get(response, "home_form", default={})
         if isinstance(home_form_data, dict):
             verified.home_form = FormStats(
                 goals_scored=home_form_data.get("goals_scored", 0),
@@ -3264,7 +3269,7 @@ class PerplexityVerifier:
                 losses=home_form_data.get("losses", 0),
             )
         
-        away_form_data = response.get("away_form", {})
+        away_form_data = safe_dict_get(response, "away_form", default={})
         if isinstance(away_form_data, dict):
             verified.away_form = FormStats(
                 goals_scored=away_form_data.get("goals_scored", 0),
@@ -3277,7 +3282,7 @@ class PerplexityVerifier:
         verified.form_confidence = "MEDIUM" if verified.home_form or verified.away_form else "LOW"
         
         # Parse H2H stats
-        h2h_data = response.get("h2h", {})
+        h2h_data = safe_dict_get(response, "h2h", default={})
         if isinstance(h2h_data, dict):
             verified.h2h = H2HStats(
                 matches_analyzed=h2h_data.get("matches", 0),
@@ -3288,7 +3293,7 @@ class PerplexityVerifier:
             verified.h2h_confidence = "MEDIUM" if verified.h2h.has_data() else "LOW"
         
         # Parse referee stats
-        referee_data = response.get("referee", {})
+        referee_data = safe_dict_get(response, "referee", default={})
         if isinstance(referee_data, dict) and request.fotmob_referee_name:
             cards_avg = referee_data.get("cards_per_game", 0.0)
             if cards_avg > 0:
@@ -3299,7 +3304,7 @@ class PerplexityVerifier:
                 verified.referee_confidence = "MEDIUM"
         
         # Parse corner stats
-        corners_data = response.get("corners", {})
+        corners_data = safe_dict_get(response, "corners", default={})
         if isinstance(corners_data, dict):
             verified.home_corner_avg = corners_data.get("home", None)
             verified.away_corner_avg = corners_data.get("away", None)
@@ -3402,8 +3407,8 @@ class VerificationOrchestrator:
                     verified = self._tavily.parse_optimized_response(response, request)
                     
                     # Log fallback status
-                    if response.get("fallback_executed"):
-                        logger.info(f"🔄 [VERIFICATION] Fallback executed for: {response.get('missing_data_types', [])}")
+                    if safe_dict_get(response, "fallback_executed", default=False):
+                        logger.info(f"🔄 [VERIFICATION] Fallback executed for: {safe_dict_get(response, 'missing_data_types', default=[])}")
                     
                     # V2.6: Integrate Perplexity corner data if available
                     # V7.1: Also integrate form and referee data
@@ -3411,56 +3416,57 @@ class VerificationOrchestrator:
                     if perplexity_data and response.get("perplexity_fallback_executed"):
                         # Only update if corners were missing from Tavily
                         if verified.home_corner_avg is None:
-                            verified.home_corner_avg = perplexity_data.get("home_corners_avg")
+                            verified.home_corner_avg = safe_dict_get(perplexity_data, "home_corners_avg", default=None)
                         if verified.away_corner_avg is None:
-                            verified.away_corner_avg = perplexity_data.get("away_corners_avg")
+                            verified.away_corner_avg = safe_dict_get(perplexity_data, "away_corners_avg", default=None)
                         
                         # Update confidence if we got corner data
                         if verified.home_corner_avg is not None or verified.away_corner_avg is not None:
-                            perplexity_confidence = perplexity_data.get("data_confidence", "Low")
+                            perplexity_confidence = safe_dict_get(perplexity_data, "data_confidence", default="Low")
                             verified.corner_confidence = "MEDIUM" if perplexity_confidence in ["High", "Medium"] else "LOW"
                             verified.source = f"{verified.source}+perplexity_v2.6"
                             logger.info(f"✅ [V2.6] Perplexity corners integrated: home={verified.home_corner_avg}, away={verified.away_corner_avg}")
                         
                         # V7.1: Integrate form data if missing from Tavily
-                        if verified.home_form is None and perplexity_data.get("home_form_wins") is not None:
+                        if verified.home_form is None and safe_dict_get(perplexity_data, "home_form_wins", default=None) is not None:
                             verified.home_form = FormStats(
-                                goals_scored=perplexity_data.get("home_goals_scored_last5") or 0,
-                                goals_conceded=perplexity_data.get("home_goals_conceded_last5") or 0,
-                                wins=perplexity_data.get("home_form_wins") or 0,
-                                draws=perplexity_data.get("home_form_draws") or 0,
-                                losses=perplexity_data.get("home_form_losses") or 0,
+                                goals_scored=safe_dict_get(perplexity_data, "home_goals_scored_last5", default=0) or 0,
+                                goals_conceded=safe_dict_get(perplexity_data, "home_goals_conceded_last5", default=0) or 0,
+                                wins=safe_dict_get(perplexity_data, "home_form_wins", default=0) or 0,
+                                draws=safe_dict_get(perplexity_data, "home_form_draws", default=0) or 0,
+                                losses=safe_dict_get(perplexity_data, "home_form_losses", default=0) or 0,
                             )
                             verified.form_confidence = "MEDIUM"
                             logger.info(f"✅ [V7.1] Perplexity home form integrated: W{verified.home_form.wins} D{verified.home_form.draws} L{verified.home_form.losses}")
                         
-                        if verified.away_form is None and perplexity_data.get("away_form_wins") is not None:
+                        if verified.away_form is None and safe_dict_get(perplexity_data, "away_form_wins", default=None) is not None:
                             verified.away_form = FormStats(
-                                goals_scored=perplexity_data.get("away_goals_scored_last5") or 0,
-                                goals_conceded=perplexity_data.get("away_goals_conceded_last5") or 0,
-                                wins=perplexity_data.get("away_form_wins") or 0,
-                                draws=perplexity_data.get("away_form_draws") or 0,
-                                losses=perplexity_data.get("away_form_losses") or 0,
+                                goals_scored=safe_dict_get(perplexity_data, "away_goals_scored_last5", default=0) or 0,
+                                goals_conceded=safe_dict_get(perplexity_data, "away_goals_conceded_last5", default=0) or 0,
+                                wins=safe_dict_get(perplexity_data, "away_form_wins", default=0) or 0,
+                                draws=safe_dict_get(perplexity_data, "away_form_draws", default=0) or 0,
+                                losses=safe_dict_get(perplexity_data, "away_form_losses", default=0) or 0,
                             )
                             verified.form_confidence = "MEDIUM"
                             logger.info(f"✅ [V7.1] Perplexity away form integrated: W{verified.away_form.wins} D{verified.away_form.draws} L{verified.away_form.losses}")
                         
                         # V7.1: Integrate referee data if missing from Tavily
-                        if verified.referee is None and perplexity_data.get("referee_cards_avg"):
-                            referee_name = perplexity_data.get("referee_name", "Unknown")
+                        if verified.referee is None and safe_dict_get(perplexity_data, "referee_cards_avg", default=None):
+                            referee_name = safe_dict_get(perplexity_data, "referee_name", default="Unknown")
                             if referee_name and referee_name != "Unknown":
                                 verified.referee = RefereeStats(
                                     name=referee_name,
-                                    cards_per_game=perplexity_data.get("referee_cards_avg") or 0.0,
+                                    cards_per_game=safe_dict_get(perplexity_data, "referee_cards_avg", default=0.0) or 0.0,
                                 )
                                 verified.referee_confidence = "MEDIUM"
                                 logger.info(f"✅ [V7.1] Perplexity referee integrated: {referee_name} ({verified.referee.cards_per_game} cards/game)")
+
                     
                     # Check if we got good data
                     # V2.6: If Perplexity found corners, return even with LOW confidence
                     # (corner data is valuable for combo suggestions)
                     has_perplexity_corners = (
-                        response.get("perplexity_fallback_executed") and 
+                        safe_dict_get(response, "perplexity_fallback_executed", default=False) and 
                         (verified.home_corner_avg is not None or verified.away_corner_avg is not None)
                     )
                     

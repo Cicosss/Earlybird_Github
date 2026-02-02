@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/squad_analyzer.py
+# hypothesis_version: 6.151.4
+
+['11', 'ALANYASPOR', 'BESIKTAS', 'CONVOCADOS', 'CONVOCAȚI', 'CORDOVA', 'DZEKO', 'FENERBAHCE', 'FORMAZIONE', 'GALATASARAY', 'HADEBE', 'ICARDI', 'IMMOBILE', 'KADRO', 'LINEUP', 'LIVAKOVIC', 'MUSLERA', 'NDOUR', 'OSIMHEN', 'RAFA SILVA', 'SKŁAD', 'SQUAD', 'SQUAD_LIST_ALERT', 'SQUAD_LIST_OCR', 'STARTING XI', 'TADIC', 'category', 'detected_names', 'match_id', 'missing_players', 'score', 'source', 'summary', 'team', 'url']

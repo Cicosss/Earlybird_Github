@@ -34,6 +34,7 @@ from config.settings import (
 )
 from src.ingestion.tavily_key_rotator import TavilyKeyRotator, get_tavily_key_rotator
 from src.utils.http_client import get_http_client
+from src.utils.validators import safe_get
 
 # V7.3: Import SharedContentCache for cross-component deduplication
 try:
@@ -602,7 +603,7 @@ class TavilyProvider:
                 return None
             
             data = response.json()
-            web_results = data.get("web", {}).get("results", [])
+            web_results = safe_get(data, "web", "results", default=[])
             
             results = []
             for item in web_results[:max_results]:

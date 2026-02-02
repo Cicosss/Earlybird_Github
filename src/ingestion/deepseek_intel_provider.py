@@ -38,6 +38,7 @@ from src.ingestion.prompts import (
 )
 from src.utils.ai_parser import parse_ai_json, normalize_deep_dive_response
 from src.utils.http_client import get_http_client
+from src.utils.validators import safe_list_get, safe_get
 
 # V6.0: CooldownManager import removed - OpenRouter/DeepSeek has high rate limits
 # and should not share cooldown state with Gemini Direct API
@@ -345,7 +346,14 @@ Be conservative in your assessments when lacking current data.
                 logger.warning(f"⚠️ [DEEPSEEK] Empty response for {operation_name}")
                 return None
             
-            content = choices[0].get("message", {}).get("content", "")
+            # V7.0: Safe array access with bounds checking
+            first_choice = safe_list_get(choices, 0)
+            if not first_choice:
+                logger.warning(f"⚠️ [DEEPSEEK] No choices in response for {operation_name}")
+                return None
+            
+            # V7.0: Safe nested dictionary access with type checking
+            content = safe_get(first_choice, "message", "content", default="")
             if not content:
                 logger.warning(f"⚠️ [DEEPSEEK] No content in response for {operation_name}")
                 return None

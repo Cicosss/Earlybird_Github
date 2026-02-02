@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/weather_provider.py
+# hypothesis_version: 6.151.4
+
+[0.0, 5.0, 40.0, -180, 180, 200, '%Y-%m-%d', '+00:00', ', ', '; ', 'Avoid Over Corners', 'EXTREME', 'HIGH', 'MEDIUM', 'NORMAL', 'UTC', 'Under Goals likely', 'Z', 'betting_advice', 'conditions', 'end_date', 'hourly', 'impacts', 'lat', 'latitude', 'lon', 'longitude', 'precipitation', 'precipitation_mm', 'rain_mm', 'raw', 'snow_cm', 'snowfall', 'snowfall_cm', 'start_date', 'status', 'summary', 'temp_c', 'temperature_2m', 'temperature_c', 'time', 'timezone', 'wind_kmh', 'windspeed_10m']

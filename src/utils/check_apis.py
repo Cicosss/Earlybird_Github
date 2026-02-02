@@ -22,6 +22,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from dotenv import load_dotenv
 load_dotenv()
 
+# Import safe access utilities
+from src.utils.validators import safe_list_get, safe_get
+
 # Colori per output
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -223,7 +226,10 @@ def test_openrouter_api():
             return False
         
         data = response.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # V7.0: Safe array access with bounds checking
+        first_choice = safe_list_get(data.get("choices", []), 0)
+        # V7.0: Safe nested dictionary access with type checking
+        content = safe_get(first_choice, "message", "content", default="")
         
         print_ok(f"Autenticazione OK | Risposta: {content[:30]}")
         return True
@@ -282,7 +288,7 @@ def test_brave_api():
                 continue
             
             data = response.json()
-            results = data.get("web", {}).get("results", [])
+            results = safe_get(data, "web", "results", default=[])
             print_ok(f"  Key {i}: OK | Risultati: {len(results)}")
             working_keys += 1
             
@@ -340,7 +346,10 @@ def test_perplexity_api():
             return False
         
         data = response.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # V7.0: Safe array access with bounds checking
+        first_choice = safe_list_get(data.get("choices", []), 0)
+        # V7.0: Safe nested dictionary access with type checking
+        content = safe_get(first_choice, "message", "content", default="")
         
         print_ok(f"Autenticazione OK | Risposta: {content[:30]}")
         return True

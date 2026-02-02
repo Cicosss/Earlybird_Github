@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/http_client.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.3, 0.5, 1.0, 2.0, 15.0, 403, 429, 502, 503, 504, 1000, '\nClient stats:', '=', 'Accept', 'Accept-Language', 'EarlyBirdHTTPClient', 'FallbackHTTPClient', 'HTTP CLIENT TEST', 'HTTPX not available', 'User-Agent', '__main__', 'brave', 'default', 'duckduckgo', 'en-US,en;q=0.9', 'fallback_mode', 'fingerprint_stats', 'fotmob', 'httpx_available', 'jitter_max', 'jitter_min', 'json', 'min_interval', 'rate_limiters', 'request_count', 'serper']

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/clv_tracker.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.01, 0.05, 0.5, 0.99, 1.0, 2.0, 7.0, 100, 400, '%Y-%m-%d', '=', 'CONTEXT_PLAY', 'CONTRARIAN', 'EXCELLENT', 'GOOD', 'INJURY_INTEL', 'INSUFFICIENT_DATA', 'LOSS', 'MARGINAL', 'MATH_VALUE', 'NO_EDGE', 'SHARP_MONEY', 'WIN', 'avg_clv', 'basic', 'bets_with_clv', 'clv_avg', 'clv_positive_rate', 'edge_quality', 'is_validated', 'max_clv', 'median_clv', 'min_clv', 'news', 'positive_clv_rate', 'sample_size', 'settlement_clv', 'std_dev', 'total_bets', '✅', '✅ VALIDATED', '❌', '❌ NOT VALIDATED']

@@ -534,7 +534,7 @@ def analyze_biscotto(
     home_context = None
     away_context = None
     
-    if home_motivation:
+    if home_motivation and isinstance(home_motivation, dict):
         home_context = analyze_classifica_context(
             team_name=home_team,
             position=home_motivation.get('position', 0),
@@ -543,8 +543,8 @@ def analyze_biscotto(
             zone=home_motivation.get('zone', 'Unknown'),
             matches_remaining=matches_remaining
         )
-    
-    if away_motivation:
+
+    if away_motivation and isinstance(away_motivation, dict):
         away_context = analyze_classifica_context(
             team_name=away_team,
             position=away_motivation.get('position', 0),
@@ -774,8 +774,8 @@ def get_enhanced_biscotto_analysis(
     # V4.4: Extract matches_remaining from motivation context
     # Use the minimum of both teams (most conservative for end-of-season detection)
     matches_remaining = None
-    home_remaining = home_motivation.get('matches_remaining') if home_motivation else None
-    away_remaining = away_motivation.get('matches_remaining') if away_motivation else None
+    home_remaining = home_motivation.get('matches_remaining') if home_motivation and isinstance(home_motivation, dict) else None
+    away_remaining = away_motivation.get('matches_remaining') if away_motivation and isinstance(away_motivation, dict) else None
     
     if home_remaining is not None and away_remaining is not None:
         matches_remaining = min(home_remaining, away_remaining)

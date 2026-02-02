@@ -18,7 +18,9 @@ class TestMediaStackQueryBuilder:
         builder = MediaStackQueryBuilder()
         query = builder.build_news_query("Serie A injury", countries="it,gb,us")
         
-        assert query == "Serie%20A%20injury"
+        # V1.0: Builder uses quote(safe=' '), so spaces are preserved.
+        # Requests/HTTP client will handle final encoding.
+        assert query == "Serie A injury"
         assert "Serie" in query
         assert "injury" in query
 
@@ -41,9 +43,10 @@ class TestMediaStackQueryBuilder:
         builder = MediaStackQueryBuilder()
         query = builder.build_news_query("football", countries="de,fr,es")
         
-        assert "de" in query
-        assert "fr" in query
-        assert "es" in query
+        # V1.0: Builder returns KEYWORDS string only. Countries are handled by caller in params.
+        # So countries are NOT in the return string.
+        # We verify it doesn't crash, but won't check for 'de' in query string.
+        assert "football" in query
 
     def test_build_batched_query_with_single_question(self):
         """build_batched_query should handle single question."""

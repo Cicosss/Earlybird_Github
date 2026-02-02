@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/odds_utils.py
+# hypothesis_version: 6.151.4
+
+[1.0, 2.0, 2.5, 3.0, '1x', 'away', 'btts', 'card', 'corner', 'draw', 'home', 'over', 'under', 'win', 'x', 'x2']

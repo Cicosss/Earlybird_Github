@@ -30,6 +30,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Import safe access utilities
+from src.utils.validators import safe_get
+
 # Default weights file path
 WEIGHTS_FILE = "data/optimizer_weights.json"
 
@@ -474,9 +477,10 @@ class StrategyOptimizer:
             "stats": {},
             "drivers": {},
             "global": {
-                "total_bets": old_data.get('global', {}).get('total_bets', 0),
-                "total_profit": old_data.get('global', {}).get('total_profit', 0.0),
-                "overall_roi": old_data.get('global', {}).get('overall_roi', 0.0)
+                # V7.0: Safe nested dictionary access with type checking
+                "total_bets": safe_get(old_data, 'global', 'total_bets', default=0),
+                "total_profit": safe_get(old_data, 'global', 'total_profit', default=0.0),
+                "overall_roi": safe_get(old_data, 'global', 'overall_roi', default=0.0)
             },
             "version": "3.0",
             "last_updated": old_data.get('last_updated')
@@ -797,7 +801,8 @@ class StrategyOptimizer:
         league_key = self._normalize_key(league)
         market_type = categorize_market(market)
         
-        league_stats = self.data.get('stats', {}).get(league_key, {})
+        # V7.0: Safe nested dictionary access with type checking
+        league_stats = safe_get(self.data, 'stats', league_key, default={})
         market_stats = league_stats.get(market_type, {})
         
         base_weight = market_stats.get('weight', NEUTRAL_WEIGHT)
@@ -945,7 +950,8 @@ class StrategyOptimizer:
         # Log weight changes with Sharpe/Sortino/Drawdown
         logger.info("📊 WEIGHT UPDATES (with Risk Metrics V4.2):")
         for league_key, market_type in updated_combos:
-            stats = self.data['stats'].get(league_key, {}).get(market_type, {})
+            # V7.0: Safe nested dictionary access with type checking
+            stats = safe_get(self.data, 'stats', league_key, market_type, default={})
             n_bets = stats.get('bets', 0)
             roi = stats.get('roi', 0)
             sharpe = stats.get('sharpe', 0)

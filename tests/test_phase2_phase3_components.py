@@ -248,27 +248,28 @@ class TestMathEngineKelly:
         """Kelly = 0 quando non c'è value (edge negativo)."""
         from src.analysis.math_engine import MathPredictor
         
-        edge = MathPredictor.calculate_edge(
+        edge_result = MathPredictor.calculate_edge(
             math_prob=0.30,  # 30% probability
             bookmaker_odd=2.0,  # 50% implied - no value!
             sample_size=50
         )
         
-        assert edge.kelly_stake == 0
-        assert edge.has_value is False
+        # V8.3: Minimum stake is 5.0%
+        assert edge_result.kelly_stake == 5.0
+        assert edge_result.has_value is False
     
     def test_kelly_rejects_low_odds(self):
         """Odds troppo basse (<=1.05) devono essere rifiutate."""
         from src.analysis.math_engine import MathPredictor
         
-        edge = MathPredictor.calculate_edge(
+        edge_result = MathPredictor.calculate_edge(
             math_prob=0.99,
             bookmaker_odd=1.02,  # Too low
             sample_size=50
         )
         
-        assert edge.kelly_stake == 0
-        assert edge.has_value is False
+        assert edge_result.kelly_stake == 0
+        assert edge_result.has_value is False
     
     def test_shrinkage_kelly_reduces_stake_for_small_samples(self):
         """Shrinkage Kelly deve ridurre lo stake con pochi sample."""

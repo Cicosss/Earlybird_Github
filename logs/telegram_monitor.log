@@ -1,204 +1,224 @@
-2026-02-01 00:10:06,038 - INFO - ==================================================
-2026-02-01 00:10:06,040 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:10:06,040 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:10:06,041 - INFO - ==================================================
-2026-02-01 00:10:06,158 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:10:06,158 - INFO - ✅ Database initialized
-2026-02-01 00:10:06,636 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:10:08,393 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:10:08,585 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:10:08,592 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:10:08,601 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:10:08,647 - INFO - ✅ Client disconnesso
-2026-02-01 00:10:29,727 - INFO - ==================================================
-2026-02-01 00:10:29,728 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:10:29,729 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:10:29,730 - INFO - ==================================================
-2026-02-01 00:10:29,777 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:10:29,777 - INFO - ✅ Database initialized
-2026-02-01 00:10:29,778 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:10:29,809 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:10:30,128 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:10:30,128 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:10:30,128 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:10:30,150 - INFO - ✅ Client disconnesso
-2026-02-01 00:10:48,888 - INFO - ==================================================
-2026-02-01 00:10:48,888 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:10:48,888 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:10:48,888 - INFO - ==================================================
-2026-02-01 00:10:48,937 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:10:48,937 - INFO - ✅ Database initialized
-2026-02-01 00:10:48,939 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:10:48,973 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:10:49,161 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:10:49,161 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:10:49,162 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:10:49,184 - INFO - ✅ Client disconnesso
-2026-02-01 00:11:12,222 - INFO - ==================================================
-2026-02-01 00:11:12,223 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:11:12,223 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:11:12,224 - INFO - ==================================================
-2026-02-01 00:11:12,312 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:11:12,312 - INFO - ✅ Database initialized
-2026-02-01 00:11:12,314 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:11:12,345 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:11:12,511 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:11:12,533 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:11:12,534 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:11:12,548 - INFO - ✅ Client disconnesso
-2026-02-01 00:11:29,527 - INFO - ==================================================
-2026-02-01 00:11:29,527 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:11:29,528 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:11:29,528 - INFO - ==================================================
-2026-02-01 00:11:29,566 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:11:29,566 - INFO - ✅ Database initialized
-2026-02-01 00:11:29,567 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:11:29,597 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:11:29,779 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:11:29,780 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:11:29,782 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:11:29,791 - INFO - ✅ Client disconnesso
-2026-02-01 00:12:06,960 - INFO - ==================================================
-2026-02-01 00:12:06,963 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:12:06,963 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:12:06,963 - INFO - ==================================================
-2026-02-01 00:12:07,000 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:12:07,000 - INFO - ✅ Database initialized
-2026-02-01 00:12:07,001 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:12:07,033 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:12:07,185 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:12:07,186 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:12:07,187 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:12:07,207 - INFO - ✅ Client disconnesso
-2026-02-01 00:13:12,190 - INFO - ==================================================
-2026-02-01 00:13:12,190 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:13:12,190 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:13:12,190 - INFO - ==================================================
-2026-02-01 00:13:12,221 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:13:12,222 - INFO - ✅ Database initialized
-2026-02-01 00:13:12,222 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:13:12,305 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:13:12,458 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:13:12,458 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:13:12,459 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:13:12,478 - INFO - ✅ Client disconnesso
-2026-02-01 00:14:17,048 - INFO - ==================================================
-2026-02-01 00:14:17,049 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:14:17,049 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:14:17,049 - INFO - ==================================================
-2026-02-01 00:14:17,087 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:14:17,087 - INFO - ✅ Database initialized
-2026-02-01 00:14:17,088 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:14:17,117 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:14:17,263 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:14:17,263 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:14:17,265 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:14:17,278 - INFO - ✅ Client disconnesso
-2026-02-01 00:15:21,676 - INFO - ==================================================
-2026-02-01 00:15:21,676 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:15:21,676 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:15:21,677 - INFO - ==================================================
-2026-02-01 00:15:21,708 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:15:21,708 - INFO - ✅ Database initialized
-2026-02-01 00:15:21,709 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:15:22,801 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:15:22,949 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:15:22,949 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:15:22,950 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:15:22,961 - INFO - ✅ Client disconnesso
-2026-02-01 00:16:27,044 - INFO - ==================================================
-2026-02-01 00:16:27,044 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:16:27,044 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:16:27,045 - INFO - ==================================================
-2026-02-01 00:16:27,083 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:16:27,084 - INFO - ✅ Database initialized
-2026-02-01 00:16:27,085 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:16:27,118 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:16:27,343 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:16:27,344 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:16:27,345 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:16:27,375 - INFO - ✅ Client disconnesso
-2026-02-01 00:17:31,728 - INFO - ==================================================
-2026-02-01 00:17:31,728 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:17:31,729 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:17:31,729 - INFO - ==================================================
-2026-02-01 00:17:31,764 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:17:31,764 - INFO - ✅ Database initialized
-2026-02-01 00:17:31,765 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:17:31,795 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:17:32,043 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:17:32,043 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:17:32,044 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:17:32,059 - INFO - ✅ Client disconnesso
-2026-02-01 00:18:37,196 - INFO - ==================================================
-2026-02-01 00:18:37,196 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:18:37,196 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:18:37,196 - INFO - ==================================================
-2026-02-01 00:18:37,238 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:18:37,238 - INFO - ✅ Database initialized
-2026-02-01 00:18:37,240 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:18:37,270 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:18:37,454 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:18:37,455 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:18:37,456 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:18:37,471 - INFO - ✅ Client disconnesso
-2026-02-01 00:19:42,328 - INFO - ==================================================
-2026-02-01 00:19:42,330 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:19:42,330 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:19:42,330 - INFO - ==================================================
-2026-02-01 00:19:42,438 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:19:42,440 - INFO - ✅ Database initialized
-2026-02-01 00:19:42,445 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:19:42,518 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:19:42,682 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:19:42,683 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:19:42,684 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:19:42,696 - INFO - ✅ Client disconnesso
-2026-02-01 00:20:47,230 - INFO - ==================================================
-2026-02-01 00:20:47,231 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:20:47,231 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:20:47,232 - INFO - ==================================================
-2026-02-01 00:20:47,289 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:20:47,290 - INFO - ✅ Database initialized
-2026-02-01 00:20:47,292 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:20:47,323 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:20:47,469 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:20:47,476 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:20:47,482 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:20:47,516 - INFO - ✅ Client disconnesso
-2026-02-01 00:21:51,900 - INFO - ==================================================
-2026-02-01 00:21:51,900 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:21:51,900 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:21:51,900 - INFO - ==================================================
-2026-02-01 00:21:51,935 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:21:51,935 - INFO - ✅ Database initialized
-2026-02-01 00:21:51,936 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:21:51,967 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:21:52,130 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:21:52,131 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:21:52,132 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:21:52,141 - INFO - ✅ Client disconnesso
-2026-02-01 00:22:59,331 - INFO - ==================================================
-2026-02-01 00:22:59,332 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:22:59,332 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:22:59,333 - INFO - ==================================================
-2026-02-01 00:22:59,427 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:22:59,428 - INFO - ✅ Database initialized
-2026-02-01 00:22:59,447 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:22:59,476 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:22:59,632 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:22:59,634 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:22:59,639 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:22:59,650 - INFO - ✅ Client disconnesso
-2026-02-01 00:24:02,278 - INFO - ==================================================
-2026-02-01 00:24:02,278 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
-2026-02-01 00:24:02,278 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 00:24:02,278 - INFO - ==================================================
-2026-02-01 00:24:02,322 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 00:24:02,322 - INFO - ✅ Database initialized
-2026-02-01 00:24:02,324 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 00:24:02,355 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:24:02,721 - INFO - 🔌 Disconnessione client...
-2026-02-01 00:24:02,721 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 00:24:02,722 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 00:24:02,729 - INFO - ✅ Client disconnesso
+2026-02-01 21:17:25,622 - INFO - ==================================================
+2026-02-01 21:17:25,623 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:17:25,623 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:17:25,623 - INFO - ==================================================
+2026-02-01 21:17:25,688 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:17:25,688 - INFO - ✅ Database initialized
+2026-02-01 21:17:25,690 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:17:25,722 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:17:25,879 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:17:25,879 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:17:25,879 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:17:25,879 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:17:25,880 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:17:25,880 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:17:25,881 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:17:25,891 - INFO - ✅ Client disconnesso
+2026-02-01 21:19:30,427 - INFO - ==================================================
+2026-02-01 21:19:30,427 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:19:30,427 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:19:30,428 - INFO - ==================================================
+2026-02-01 21:19:30,463 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:19:30,463 - INFO - ✅ Database initialized
+2026-02-01 21:19:30,465 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:19:30,515 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:19:30,801 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:19:30,802 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:19:30,802 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:19:30,802 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:19:30,802 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:19:30,803 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:19:30,803 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:19:30,814 - INFO - ✅ Client disconnesso
+2026-02-01 21:21:35,244 - INFO - ==================================================
+2026-02-01 21:21:35,245 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:21:35,245 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:21:35,245 - INFO - ==================================================
+2026-02-01 21:21:35,280 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:21:35,280 - INFO - ✅ Database initialized
+2026-02-01 21:21:35,281 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:21:35,311 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:21:35,457 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:21:35,458 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:21:35,458 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:21:35,458 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:21:35,458 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:21:35,458 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:21:35,459 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:21:35,476 - INFO - ✅ Client disconnesso
+2026-02-01 21:23:41,006 - INFO - ==================================================
+2026-02-01 21:23:41,006 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:23:41,006 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:23:41,006 - INFO - ==================================================
+2026-02-01 21:23:41,041 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:23:41,042 - INFO - ✅ Database initialized
+2026-02-01 21:23:41,044 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:23:41,075 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:23:41,321 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:23:41,321 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:23:41,322 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:23:41,322 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:23:41,322 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:23:41,322 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:23:41,323 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:23:41,332 - INFO - ✅ Client disconnesso
+2026-02-01 21:26:01,193 - INFO - ==================================================
+2026-02-01 21:26:02,693 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:26:02,699 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:26:02,699 - INFO - ==================================================
+2026-02-01 21:26:13,874 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:26:14,192 - INFO - ✅ Database initialized
+2026-02-01 21:26:16,987 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:26:17,634 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:26:35,385 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:26:35,395 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:26:35,395 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:26:35,395 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:26:35,395 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:26:35,396 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:26:35,396 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:26:46,286 - INFO - ✅ Client disconnesso
+2026-02-01 21:28:19,415 - INFO - ==================================================
+2026-02-01 21:28:19,418 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:28:19,419 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:28:19,419 - INFO - ==================================================
+2026-02-01 21:28:19,593 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:28:19,593 - INFO - ✅ Database initialized
+2026-02-01 21:28:19,604 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:28:19,638 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:28:19,830 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:28:19,830 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:28:19,830 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:28:19,830 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:28:19,830 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:28:19,830 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:28:19,831 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:28:19,847 - INFO - ✅ Client disconnesso
+2026-02-01 21:29:24,444 - INFO - ==================================================
+2026-02-01 21:29:24,473 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:29:24,473 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:29:24,473 - INFO - ==================================================
+2026-02-01 21:29:24,867 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:29:24,868 - INFO - ✅ Database initialized
+2026-02-01 21:29:24,883 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:29:24,925 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:29:25,105 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:29:25,105 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:29:25,105 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:29:25,105 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:29:25,105 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:29:25,105 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:29:25,106 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:29:25,122 - INFO - ✅ Client disconnesso
+2026-02-01 21:31:41,428 - INFO - ==================================================
+2026-02-01 21:31:41,428 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:31:41,428 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:31:41,428 - INFO - ==================================================
+2026-02-01 21:31:41,464 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:31:41,464 - INFO - ✅ Database initialized
+2026-02-01 21:31:41,465 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:31:41,494 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:31:41,643 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:31:41,643 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:31:41,643 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:31:41,643 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:31:41,643 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:31:41,644 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:31:41,645 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:31:41,672 - INFO - ✅ Client disconnesso
+2026-02-01 21:33:37,440 - INFO - ==================================================
+2026-02-01 21:33:37,441 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:33:37,441 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:33:37,441 - INFO - ==================================================
+2026-02-01 21:33:37,475 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:33:37,476 - INFO - ✅ Database initialized
+2026-02-01 21:33:37,476 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:33:37,506 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:33:37,668 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:33:37,668 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:33:37,668 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:33:37,669 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:33:37,669 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:33:37,669 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:33:37,670 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:33:37,679 - INFO - ✅ Client disconnesso
+2026-02-01 21:35:43,410 - INFO - ==================================================
+2026-02-01 21:35:43,410 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:35:43,410 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:35:43,410 - INFO - ==================================================
+2026-02-01 21:35:43,446 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:35:43,447 - INFO - ✅ Database initialized
+2026-02-01 21:35:43,448 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:35:43,479 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:35:43,642 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:35:43,643 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:35:43,643 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:35:43,643 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:35:43,643 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:35:43,643 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:35:43,644 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:35:43,667 - INFO - ✅ Client disconnesso
+2026-02-01 21:37:48,441 - INFO - ==================================================
+2026-02-01 21:37:48,441 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:37:48,441 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:37:48,441 - INFO - ==================================================
+2026-02-01 21:37:48,475 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:37:48,475 - INFO - ✅ Database initialized
+2026-02-01 21:37:48,476 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:37:48,506 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:37:48,658 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:37:48,658 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:37:48,658 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:37:48,658 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:37:48,658 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:37:48,658 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:37:48,659 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:37:48,677 - INFO - ✅ Client disconnesso
+2026-02-01 21:39:53,429 - INFO - ==================================================
+2026-02-01 21:39:53,430 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:39:53,430 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:39:53,430 - INFO - ==================================================
+2026-02-01 21:39:53,466 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:39:53,466 - INFO - ✅ Database initialized
+2026-02-01 21:39:53,468 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:39:53,497 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:39:53,643 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:39:53,644 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:39:53,644 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:39:53,644 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:39:53,644 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:39:53,644 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:39:53,645 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:39:53,660 - INFO - ✅ Client disconnesso
+2026-02-01 21:42:03,979 - INFO - ==================================================
+2026-02-01 21:42:03,980 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:42:03,980 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:42:03,980 - INFO - ==================================================
+2026-02-01 21:42:04,039 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:42:04,039 - INFO - ✅ Database initialized
+2026-02-01 21:42:04,041 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:42:04,116 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:42:04,377 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:42:04,378 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:42:04,378 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:42:04,378 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:42:04,378 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:42:04,378 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:42:04,378 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:42:04,385 - INFO - ✅ Client disconnesso
+2026-02-01 21:44:03,368 - INFO - ==================================================
+2026-02-01 21:44:03,368 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-01 21:44:03,368 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-01 21:44:03,368 - INFO - ==================================================
+2026-02-01 21:44:03,399 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-01 21:44:03,399 - INFO - ✅ Database initialized
+2026-02-01 21:44:03,401 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-01 21:44:03,435 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:44:03,597 - ERROR - ❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto
+2026-02-01 21:44:03,597 - ERROR - ❌ Il monitor richiede autenticazione interattiva (impossibile in background)
+2026-02-01 21:44:03,597 - ERROR - 💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione
+2026-02-01 21:44:03,597 - ERROR - 💡 Oppure disabilitare il Telegram Monitor nel launcher
+2026-02-01 21:44:03,597 - INFO - 🔌 Disconnessione client...
+2026-02-01 21:44:03,597 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-01 21:44:03,597 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-01 21:44:03,608 - INFO - ✅ Client disconnesso

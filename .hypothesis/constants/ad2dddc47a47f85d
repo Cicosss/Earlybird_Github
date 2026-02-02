@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/image_ocr.py
+# hypothesis_version: 6.151.4
+
+[0.4, 2.0, 200, 1000, '--psm 6', 'Empty text', 'L', 'Valid squad content', 'absent', 'absenti', 'alineacion', 'assenti', 'available', 'bajas', 'bench', 'cezali', 'convocados', 'convocati', 'desfalques', 'echipa', 'eksik', 'escalacao', 'file://', 'formation', 'formazione', 'ilk', 'indisponibili', 'injured', 'kadro', 'kontuzjowani', 'lineup', 'list', 'missing', 'out', 'panchina', 'podstawowy', 'relacionados', 'reservas', 'rezerve', 'rezerwowi', 'sakat', 'sklad', 'squad', 'starting', 'suplentes', 'suspended', 'team', 'titolari', 'titulares', 'titulari', 'tur+ita+pol+eng', 'xi', 'yedek']

@@ -645,7 +645,7 @@ def run_verification_check(
 
 
 # Reporter moved to manual /report command in run_telegram_monitor.py
-from src.alerting.notifier import send_alert, send_status_message, send_document
+from src.alerting.notifier import send_alert, send_status_message, send_document, send_biscotto_alert
 from src.alerting.health_monitor import get_health_monitor
 from config.settings import (
     MATCH_LOOKAHEAD_HOURS,
@@ -783,6 +783,8 @@ def is_biscotto_suspect(match) -> dict:
     
     # Calculate drop percentage with full validation
     # V6.1: Ensure both values are valid before division
+    # V8.3: Initialize drop_pct to avoid UnboundLocalError
+    drop_pct = 0
     if (opening_draw and 
         isinstance(opening_draw, (int, float)) and 
         opening_draw > 0 and
@@ -1329,15 +1331,19 @@ def run_pipeline():
                 
                 # Home team context
                 home_motivation = home_context.get('motivation', {})
-                home_fatigue = home_context.get('fatigue', {})
-                
-                if home_motivation.get('zone') != 'Unknown':
+
+                # Safe access: motivation could be a string instead of dict
+                if isinstance(home_motivation, dict) and home_motivation.get('zone') != 'Unknown':
                     context_parts.append(f"{home_team_validated}: {home_motivation.get('zone')} (Pos: {home_motivation.get('position')})")
                     # High motivation = high potential
                     if home_motivation.get('zone') in ['Title Race', 'Relegation', 'European Spots']:
                         high_potential = True
                 
-                # V5.2: Safe access - fatigue_level could be None (not just 'Unknown')
+                # V5.3: Safe access - fatigue could be a string instead of dict (defense-in-depth)
+                home_fatigue = home_context.get('fatigue', {})
+                if not isinstance(home_fatigue, dict):
+                    home_fatigue = {'fatigue_level': str(home_fatigue) if home_fatigue else 'Unknown', 'hours_since_last': None}
+                
                 home_fatigue_level = home_fatigue.get('fatigue_level')
                 if home_fatigue_level and home_fatigue_level != 'Unknown':
                     fatigue_short = home_fatigue_level.split(' - ')[0]
@@ -1348,12 +1354,16 @@ def run_pipeline():
                 
                 # Away team context
                 away_motivation = away_context.get('motivation', {})
-                away_fatigue = away_context.get('fatigue', {})
-                
-                if away_motivation.get('zone') != 'Unknown':
+
+                # Safe access: motivation could be a string instead of dict
+                if isinstance(away_motivation, dict) and away_motivation.get('zone') != 'Unknown':
                     context_parts.append(f"{away_team_validated}: {away_motivation.get('zone')} (Pos: {away_motivation.get('position')})")
                 
-                # V5.2: Safe access - fatigue_level could be None (not just 'Unknown')
+                # V5.3: Safe access - fatigue could be a string instead of dict (defense-in-depth)
+                away_fatigue = away_context.get('fatigue', {})
+                if not isinstance(away_fatigue, dict):
+                    away_fatigue = {'fatigue_level': str(away_fatigue) if away_fatigue else 'Unknown', 'hours_since_last': None}
+                
                 away_fatigue_level = away_fatigue.get('fatigue_level')
                 if away_fatigue_level and away_fatigue_level != 'Unknown':
                     fatigue_short = away_fatigue_level.split(' - ')[0]

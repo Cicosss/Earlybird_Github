@@ -23,6 +23,7 @@ from openai import OpenAI
 from src.database.models import NewsLog
 from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
+from src.utils.validators import safe_get
 
 
 def normalize_unicode(text: str) -> str:
@@ -1321,13 +1322,13 @@ def analyze_with_triangulation(
         table_context = ""
         
         # Priority 1: Use league table data (most reliable)
-        if league_table_context and not league_table_context.get('error'):
-            h_rank = league_table_context.get('home_rank')
-            h_zone = league_table_context.get('home_zone', 'Unknown')
-            h_form = league_table_context.get('home_form')
-            a_rank = league_table_context.get('away_rank')
-            a_zone = league_table_context.get('away_zone', 'Unknown')
-            a_form = league_table_context.get('away_form')
+        if league_table_context and isinstance(league_table_context, dict) and not league_table_context.get('error'):
+            h_rank = safe_get(league_table_context, 'home_rank')
+            h_zone = safe_get(league_table_context, 'home_zone', default='Unknown')
+            h_form = safe_get(league_table_context, 'home_form')
+            a_rank = safe_get(league_table_context, 'away_rank')
+            a_zone = safe_get(league_table_context, 'away_zone', default='Unknown')
+            a_form = safe_get(league_table_context, 'away_form')
             
             if h_rank:
                 form_str = f", Form: {h_form}" if h_form else ""
@@ -1340,13 +1341,13 @@ def analyze_with_triangulation(
                 table_context = "⚠️ MOTIVATION MISMATCH: One team is desperate, the other is safe"
         
         # Priority 2: Fallback to Gemini/Perplexity deep_dive data
-        if deep_dive:
+        if deep_dive and isinstance(deep_dive, dict):
             if not motivation_home or motivation_home == "Unknown":
-                motivation_home = (deep_dive.get('motivation_home') or "Unknown").strip()
+                motivation_home = (safe_get(deep_dive, 'motivation_home') or "Unknown").strip()
             if not motivation_away or motivation_away == "Unknown":
-                motivation_away = (deep_dive.get('motivation_away') or "Unknown").strip()
+                motivation_away = (safe_get(deep_dive, 'motivation_away') or "Unknown").strip()
             if not table_context:
-                table_context = (deep_dive.get('table_context') or "").strip()
+                table_context = (safe_get(deep_dive, 'table_context') or "").strip()
         
         # Add motivation to tactical context if not Unknown
         home_team = snippet_data.get('home_team') or team_name
@@ -1521,8 +1522,8 @@ def analyze_with_triangulation(
         if INJURY_IMPACT_AVAILABLE:
             try:
                 # Extract context data from snippet_data (passed from main.py)
-                home_context = snippet_data.get('home_context')
-                away_context = snippet_data.get('away_context')
+                home_context = safe_get(snippet_data, 'home_context')
+                away_context = safe_get(snippet_data, 'away_context')
                 
                 # Only calculate if we have injury data for at least one team
                 has_home_injuries = (

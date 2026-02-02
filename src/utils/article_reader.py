@@ -23,13 +23,25 @@ except ImportError:
     _HTTP_CLIENT_AVAILABLE = False
     logger.warning("HTTP client not available for article_reader")
 
-# Trafilatura import with fallback
+# Trafilatura via centralized module (V8.4: handles warning suppression)
 try:
-    import trafilatura
-    _TRAFILATURA_AVAILABLE = True
+    from src.utils.trafilatura_extractor import (
+        extract_with_trafilatura as _central_extract,
+        extract_with_fallback,
+        is_valid_html,
+        TRAFILATURA_AVAILABLE as _TRAFILATURA_AVAILABLE,
+        record_extraction,
+    )
+    # Keep trafilatura import for fetch_url functionality
+    if _TRAFILATURA_AVAILABLE:
+        import trafilatura
 except ImportError:
     _TRAFILATURA_AVAILABLE = False
-    logger.warning("⚠️ [ARTICLE-READER] trafilatura not installed, using raw text extraction")
+    _central_extract = None
+    extract_with_fallback = None
+    is_valid_html = lambda x: True  # type: ignore
+    record_extraction = lambda x, y: None  # type: ignore
+    logger.warning("⚠️ [ARTICLE-READER] trafilatura_extractor not available, using raw text extraction")
 
 
 @dataclass
@@ -133,35 +145,69 @@ def fetch_full_article(
             method="error"
         )
     
-    # Step 2: Extract article text using Trafilatura
+    # Step 2: Extract article text using Trafilatura (V8.4: with pre-validation)
     if _TRAFILATURA_AVAILABLE:
         try:
-            # Use Trafilatura for clean article extraction
+            # V8.4: Use centralized extractor if available
+            if _central_extract is not None and html_content:
+                # Pre-validate HTML before extraction
+                if is_valid_html(html_content):
+                    record_extraction('trafilatura', True)
+                    extracted = _central_extract(html_content)
+                    
+                    if extracted and len(extracted.strip()) > 100:
+                        # Try to get title from HTML
+                        import re
+                        title_match = re.search(r'<title[^>]*>(.*?)</title>', html_content, re.IGNORECASE | re.DOTALL)
+                        title = title_match.group(1).strip() if title_match else ""
+                        
+                        logger.info(
+                            f"✅ [ARTICLE-READER] Trafilatura extracted {len(extracted)} chars "
+                            f"from {url[:60]}..."
+                        )
+                        
+                        return ArticleResult(
+                            title=title,
+                            content=extracted,
+                            url=url,
+                            success=True,
+                            method="trafilatura"
+                        )
+                else:
+                    record_extraction('validation', False)
+                    logger.debug(f"[ARTICLE-READER] HTML validation failed for {url[:40]}...")
+            
+            # Fallback: Use Trafilatura's fetch_url for more complete extraction
             downloaded = trafilatura.fetch_url(url)
             if downloaded:
-                extracted = trafilatura.extract(
-                    downloaded,
-                    include_comments=False,
-                    include_tables=False,
-                    no_fallback=False
-                )
-                
-                if extracted and len(extracted.strip()) > 100:
-                    # Get title from Trafilatura
-                    title = trafilatura.extract_title(downloaded) or ""
-                    
-                    logger.info(
-                        f"✅ [ARTICLE-READER] Trafilatura extracted {len(extracted)} chars "
-                        f"from {url[:60]}..."
+                # Pre-validate downloaded content
+                if is_valid_html(downloaded):
+                    extracted = trafilatura.extract(
+                        downloaded,
+                        include_comments=False,
+                        include_tables=False,
+                        no_fallback=False
                     )
                     
-                    return ArticleResult(
-                        title=title,
-                        content=extracted,
-                        url=url,
-                        success=True,
-                        method="trafilatura"
-                    )
+                    if extracted and len(extracted.strip()) > 100:
+                        # Get title from Trafilatura
+                        title = trafilatura.extract_title(downloaded) or ""
+                        
+                        logger.info(
+                            f"✅ [ARTICLE-READER] Trafilatura extracted {len(extracted)} chars "
+                            f"from {url[:60]}..."
+                        )
+                        record_extraction('trafilatura', True)
+                        
+                        return ArticleResult(
+                            title=title,
+                            content=extracted,
+                            url=url,
+                            success=True,
+                            method="trafilatura"
+                        )
+                else:
+                    record_extraction('validation', False)
         except Exception as e:
             logger.debug(f"Trafilatura extraction failed: {e}")
     

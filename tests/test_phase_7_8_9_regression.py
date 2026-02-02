@@ -105,16 +105,16 @@ class TestPhase8AlertDispatch:
     """Phase 8: Alert Dispatch tests."""
     
     def test_alert_threshold_value(self):
-        """Alert threshold should be 8.6 (Cream of the Crop)."""
+        """Alert threshold should be 9.0 (Elite Quality - V8.3)."""
         from config.settings import ALERT_THRESHOLD_HIGH
         
-        assert ALERT_THRESHOLD_HIGH == 8.6
+        assert ALERT_THRESHOLD_HIGH == 9.0
     
     def test_deduplication_first_alert(self):
         """First alert (highest_sent=0) should always send if above threshold."""
         from config.settings import ALERT_THRESHOLD_HIGH
         
-        score = 8.8
+        score = 9.2  # V8.3: Score above 9.0 threshold
         highest_sent = 0.0
         delta = score - highest_sent
         

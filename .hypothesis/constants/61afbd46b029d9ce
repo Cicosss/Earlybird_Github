@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/freshness.py
+# hypothesis_version: 6.151.4
+
+[0.01, 0.023, 0.05, 0.14, 1.0, 360, 'AGING', 'FRESH', 'STALE', 'agora', 'ahora', 'ayer', 'gestern', 'hier', 'ieri', 'jetzt', 'just now', 'maintenant', 'now', 'ontem', 'soccer_epl', 'soccer_italy_serie_a', 'soccer_spain_la_liga', 'yesterday', '⏰ AGING', '📜 STALE', '🔥 FRESH']

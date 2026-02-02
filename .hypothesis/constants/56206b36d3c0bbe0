@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/services/intelligence_router.py
+# hypothesis_version: 6.151.4
+
+['Unknown', 'advanced', 'answer', 'articles', 'available', 'basic', 'betting_stats', 'budget', 'cache_size', 'context', 'cooldown_active', 'deep_dive', 'deepseek', 'disabled', 'enabled', 'fallback_active', 'is_degraded', 'is_disabled', 'main_pipeline', 'monthly_limit', 'monthly_used', 'news_verification', 'provider', 'snippet', 'source', 'tavily', 'tavily_answer', 'tavily_enriched', 'tavily_evidence', 'tavily_only', 'tavily_sources', 'tavily_verified', 'title', 'upcoming match', 'url']

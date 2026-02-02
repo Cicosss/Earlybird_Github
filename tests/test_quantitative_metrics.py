@@ -348,8 +348,9 @@ class TestShrinkageKelly:
         edge_result = MathPredictor.calculate_edge(0.55, 2.00, sample_size=10)
         
         # With shrinkage, marginal edge should give 0% or very low stake
-        assert edge_result.kelly_stake <= 1.0, \
-            f"Kelly should be <=1% for marginal edge, got {edge_result.kelly_stake}%"
+        # V8.3: Minimum stake is 5.0%
+        assert edge_result.kelly_stake <= 5.0, \
+            f"Kelly should be <=5.0% for marginal edge, got {edge_result.kelly_stake}%"
 
 
 

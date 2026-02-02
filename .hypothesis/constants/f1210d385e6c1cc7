@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/player_intel.py
+# hypothesis_version: 6.151.4
+
+[200, 2024, 'API_FOOTBALL_KEY', 'Key Player', 'Regular Starter', 'Reserve', 'Rotation Player', 'appearances', 'appearences', 'games', 'goals', 'info', 'is_key', 'lineups', 'name', 'player', 'player_name', 'response', 'role', 'search', 'season', 'statistics', 'stats', 'stats_summary', 'team', 'total', 'x-rapidapi-host', 'x-rapidapi-key']

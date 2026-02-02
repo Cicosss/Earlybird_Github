@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/prompts.py
+# hypothesis_version: 6.151.4
+
+['%Y-%m-%d', 'NFC', 'ignore', 'utf-8']

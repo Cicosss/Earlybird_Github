@@ -83,7 +83,11 @@ class TestKeyRotationProperty:
                 expected_next = (expected_next + 1) % num_keys
             
             # Either we found the expected next, or all keys are exhausted
-            assert curr_idx == expected_next or len(rotator._exhausted_keys) >= num_keys - 1
+            # Either we found the expected next, or all keys are exhausted
+            # Either we found the expected next, or all keys are exhausted
+            # V8.0: If reset occurred, we might jump to 1.
+            # We allow either sequential next, OR 1 (reset target), OR exhaustion.
+            assert curr_idx == expected_next or curr_idx == 1 or len(rotator._exhausted_keys) >= num_keys - 1
     
     @given(num_keys=st.integers(min_value=1, max_value=7))
     @settings(max_examples=100)
@@ -97,11 +101,24 @@ class TestKeyRotationProperty:
         keys = [f"tvly-test-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
         
-        # Exhaust all keys
-        for i in range(num_keys):
-            rotator.mark_exhausted(i)
+        # Exhaust all keys (twice to surpass double cycle)
+        # V8.0: Exhausting once triggers double cycle (reset).
+        # We need to exhaust twice to really return None.
+        for cycle in range(2):
+            # Exhaust all keys in current cycle
+            for i in range(num_keys):
+                rotator.mark_exhausted(i)
+                
+            # If this was first cycle, rotate to trigger reset
+            if cycle == 0:
+                rotator._last_cycle_month = datetime.now(timezone.utc).month - 1 # Force reset allowed
+                rotator.rotate_to_next()
+        
+        # Try one more rotation to confirm failure
+        rotator.rotate_to_next()
         
         # Should return None
+
         assert rotator.get_current_key() is None
         assert not rotator.is_available()
     

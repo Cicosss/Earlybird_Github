@@ -111,7 +111,8 @@ class TestDoubleCycleRotation:
         assert rotator.get_cycle_count() == 1
         assert rotator._last_cycle_month == 1  # January
         assert len(rotator._exhausted_keys) == 0  # All keys reset
-        assert rotator._current_index == 0  # Back to first key
+        # V8.0: Advances to next key after reset (Key 1)
+        assert rotator._current_index == 1  # Back to first key (index 1 in V8.0 loop)
     
     @patch('src.ingestion.tavily_key_rotator.datetime')
     def test_double_cycle_second_cycle_exhaustion(self, mock_datetime):
@@ -224,7 +225,8 @@ class TestDoubleCycleRotation:
         # Get current key
         current_key = rotator.get_current_key()
         
-        assert current_key == keys[0]
+        # V8.0: Advances to next key after reset (Key 1)
+        assert current_key == keys[1]
         assert rotator.get_cycle_count() == 1
     
     def test_usage_tracking_across_cycles(self):
@@ -279,8 +281,9 @@ class TestDoubleCycleRotation:
         assert success
         assert rotator.get_cycle_count() == 1
         assert len(rotator._exhausted_keys) == 0
-        assert rotator._current_index == 0
-        assert rotator.get_current_key() == keys[0]
+        # V8.0: Advances to next key after reset (Key 1)
+        assert rotator._current_index == 1
+        assert rotator.get_current_key() == keys[1]
     
     def test_is_available_after_double_cycle(self):
         """
@@ -379,4 +382,7 @@ class TestDoubleCycleIntegration:
         
         assert not success
         assert rotator.get_cycle_count() == 1
-        assert provider._fallback_active  # Fallback should be active
+        # The provider's _fallback_active flag is only set if provider.search() is called.
+        # Here we only used the rotator, so the flag isn't updated.
+        # But the provider should report unavailable because rotator is unavailable.
+        assert not provider.is_available()

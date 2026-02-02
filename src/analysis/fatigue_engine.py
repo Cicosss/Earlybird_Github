@@ -557,8 +557,14 @@ def get_enhanced_fatigue_context(
         Tuple of (FatigueDifferential, formatted_context_string)
     """
     # Extract hours since last from FotMob context
+    # V5.3: Defense-in-depth - handle case where fatigue is string instead of dict
     home_fatigue_data = home_context.get('fatigue', {})
+    if not isinstance(home_fatigue_data, dict):
+        home_fatigue_data = {'fatigue_level': str(home_fatigue_data) if home_fatigue_data else 'Unknown', 'hours_since_last': None}
+    
     away_fatigue_data = away_context.get('fatigue', {})
+    if not isinstance(away_fatigue_data, dict):
+        away_fatigue_data = {'fatigue_level': str(away_fatigue_data) if away_fatigue_data else 'Unknown', 'hours_since_last': None}
     
     home_hours = home_fatigue_data.get('hours_since_last')
     away_hours = away_fatigue_data.get('hours_since_last')

@@ -18,6 +18,7 @@ from sqlalchemy.orm import joinedload
 from src.database.models import Match, NewsLog
 from src.database.db import get_db_context
 from src.ingestion.data_provider import get_data_provider
+from src.utils.validators import safe_get
 from config.settings import SETTLEMENT_MIN_SCORE, DEFAULT_ODDS_GOALS
 
 logger = logging.getLogger(__name__)
@@ -238,8 +239,9 @@ def get_match_result(home_team: str, away_team: str, match_time: datetime) -> Op
         previous = all_fixtures.get('fixtures', [])
         
         for match in previous:
-            match_home = match.get('home', {}).get('name', '')
-            match_away = match.get('away', {}).get('name', '')
+            # V7.0: Safe nested dictionary access with type checking
+            match_home = safe_get(match, 'home', 'name', default='')
+            match_away = safe_get(match, 'away', 'name', default='')
             
             if (home_team.lower() in match_home.lower() or match_home.lower() in home_team.lower()) and \
                (away_team.lower() in match_away.lower() or match_away.lower() in away_team.lower()):
@@ -268,8 +270,9 @@ def get_match_result(home_team: str, away_team: str, match_time: datetime) -> Op
                             'match_id': match_id
                         }
                 
-                home_score = match.get('home', {}).get('score')
-                away_score = match.get('away', {}).get('score')
+                # V7.0: Safe nested dictionary access with type checking
+                home_score = safe_get(match, 'home', 'score')
+                away_score = safe_get(match, 'away', 'score')
                 
                 if home_score is not None and away_score is not None:
                     return {

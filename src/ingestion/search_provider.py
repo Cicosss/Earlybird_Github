@@ -305,10 +305,28 @@ class SearchProvider:
         rate_limiter = self._http_client._get_rate_limiter("duckduckgo")
         rate_limiter.wait_sync()
         
+        # DIAGNOSTIC: Log query complexity before making request
+        query_length = len(query)
+        # SOLUTION B: Using reliable engines only (duckduckgo, brave, google)
+        # Grokipedia disabled due to timeout issues with complex queries
+        # NOTE: "bing" engine not available in DDGS library
+        logger.debug(f"[DDGS-DIAG] Starting DuckDuckGo search - Query length: {query_length} chars, Max results: {num_results}, Timeout: {DDGS_TIMEOUT}s, Engines: duckduckgo,brave,google")
+        if query_length > 200:
+            logger.debug(f"[DDGS-DIAG] Long query detected (first 100 chars): {query[:100]}...")
+        
         try:
-            ddgs = DDGS()
+            # DIAGNOSTIC: Pass timeout parameter to DDGS constructor
+            ddgs = DDGS(timeout=DDGS_TIMEOUT)
             # timelimit="w" filters to past week - prevents stale news
-            raw_results = ddgs.text(query, max_results=num_results, timelimit="w")
+            # SOLUTION B: Disable Grokipedia engine (unreliable for complex queries)
+            # Use only reliable engines: duckduckgo, brave, google
+            # NOTE: "bing" engine is not available in DDGS library
+            raw_results = ddgs.text(
+                query, 
+                max_results=num_results, 
+                timelimit="w",
+                backend="duckduckgo,brave,google"  # Skip grokipedia (bing not available)
+            )
             
             results = []
             for item in raw_results:
@@ -332,6 +350,11 @@ class SearchProvider:
             
         except Exception as e:
             error_msg = str(e).lower()
+            error_type = type(e).__name__
+            
+            # DIAGNOSTIC: Enhanced error logging with query context
+            logger.error(f"[DDGS-ERROR] Search failed - Error type: {error_type}, Query length: {query_length}, Error: {e}")
+            
             if "ratelimit" in error_msg or "rate" in error_msg or "429" in error_msg:
                 logger.warning(f"⚠️ DuckDuckGo rate limit raggiunto: {e}")
                 # Trigger fingerprint rotation on rate limit
@@ -340,7 +363,7 @@ class SearchProvider:
                 logger.warning(f"⚠️ DuckDuckGo accesso negato (possibile blocco IP): {e}")
                 self._http_client._fingerprint.force_rotate()
             elif "timeout" in error_msg:
-                logger.warning(f"⚠️ DuckDuckGo timeout - servizio lento")
+                logger.warning(f"⚠️ DuckDuckGo timeout - servizio lento (query length: {query_length} chars)")
             elif "connection" in error_msg:
                 logger.warning(f"⚠️ DuckDuckGo errore connessione: {e}")
             else:

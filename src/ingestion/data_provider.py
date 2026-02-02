@@ -68,6 +68,9 @@ FOTMOB_MAX_RETRIES = 3
 
 # V6.1: Thread-safe rate limiting for VPS multi-thread scenarios
 import threading
+
+# Import safe access utilities for V7.0 defensive programming
+from src.utils.validators import safe_get
 _fotmob_rate_limit_lock = threading.Lock()
 _last_fotmob_request_time = 0.0
 
@@ -871,10 +874,11 @@ class FotMobProvider:
                         content = match_data.get('content', {})
                         
                         # Try multiple FotMob H2H paths
+                        # V7.0: Safe nested dictionary access with type checking
                         raw_h2h = (
-                            content.get('h2h', {}).get('matches', []) or
-                            content.get('matchFacts', {}).get('h2h', {}).get('matches', []) or
-                            content.get('h2h', []) or
+                            safe_get(content, 'h2h', 'matches') or
+                            safe_get(content, 'matchFacts', 'h2h', 'matches') or
+                            safe_get(content, 'h2h') or
                             []
                         )
                         
@@ -1094,7 +1098,8 @@ class FotMobProvider:
                 if not isinstance(table, dict):
                     continue
                     
-                rows = table.get('table', {}).get('all', [])
+                # V7.0: Safe nested dictionary access with type checking
+                rows = safe_get(table, 'table', 'all', default=[])
                 if not rows:
                     rows = table.get('all', [])
                 
@@ -1185,8 +1190,9 @@ class FotMobProvider:
             
             next_match = team_data.get('nextMatch')
             if not next_match:
-                fixtures = team_data.get('fixtures', {})
-                upcoming = fixtures.get('allFixtures', {}).get('nextMatch')
+                # V7.0: Safe nested dictionary access with type checking
+                fixtures = safe_get(team_data, 'fixtures')
+                upcoming = safe_get(fixtures, 'allFixtures', 'nextMatch')
                 if upcoming:
                     next_match = upcoming
             
@@ -1206,7 +1212,8 @@ class FotMobProvider:
                 "team_id": team_id,
                 "team_name": fotmob_name,
                 "match_id": match_id,
-                "opponent": next_match.get('opponent', {}).get('name', 'Unknown'),
+                # V7.0: Safe nested dictionary access with type checking
+            "opponent": safe_get(next_match, 'opponent', 'name', default='Unknown'),
                 "match_time": next_match.get('utcTime'),
                 "is_home": is_home,
                 "injuries": injuries,
@@ -1334,8 +1341,8 @@ class FotMobProvider:
             if not team_details or team_details.get('error'):
                 return {
                     'injuries': [],
-                    'motivation': 'Unknown',
-                    'fatigue': 'Unknown',
+                    'motivation': {'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'},
+                    'fatigue': {'fatigue_level': 'Unknown', 'hours_since_last': None},
                     'error': team_details.get('error', 'Unknown error') if team_details else 'Team not found'
                 }
             
@@ -1346,14 +1353,25 @@ class FotMobProvider:
             table_context = self.get_table_context(team_name)
             
             # Build full context
+            # V5.3: motivation and fatigue are always dicts for consistent API
+            motivation_dict = {
+                'zone': table_context.get('zone', 'Unknown'),
+                'position': table_context.get('position'),
+                'motivation': table_context.get('motivation', 'Unknown')
+            }
+            fatigue_dict = {
+                'fatigue_level': 'Unknown',  # Would need match history to calculate
+                'hours_since_last': None
+            }
+            
             context = {
                 'team_name': team_name,
                 'injuries': injuries,
-                'motivation': table_context.get('motivation', 'Unknown'),
-                'motivation_zone': table_context.get('zone', 'Unknown'),
+                'motivation': motivation_dict,
+                'motivation_zone': table_context.get('zone', 'Unknown'),  # Keep for backward compat
                 'table_position': table_context.get('position'),
                 'form': table_context.get('form'),
-                'fatigue': 'Unknown',  # Would need match history to calculate
+                'fatigue': fatigue_dict,
                 'error': None
             }
             
@@ -1364,8 +1382,8 @@ class FotMobProvider:
             logger.error(f"Error getting full team context for {team_name}: {e}")
             return {
                 'injuries': [],
-                'motivation': 'Unknown',
-                'fatigue': 'Unknown',
+                'motivation': {'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'},
+                'fatigue': {'fatigue_level': 'Unknown', 'hours_since_last': None},
                 'error': str(e)
             }
 

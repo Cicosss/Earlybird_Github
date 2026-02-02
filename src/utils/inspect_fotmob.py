@@ -14,6 +14,7 @@ import requests
 import json
 import argparse
 import sys
+from src.utils.validators import safe_get
 
 # Browser headers to avoid 403
 HEADERS = {
@@ -48,7 +49,7 @@ def get_team_last_match(team_id: int) -> int:
     resp.raise_for_status()
     
     data = resp.json()
-    fixtures = data.get('fixtures', {}).get('allFixtures', {})
+    fixtures = safe_get(data, 'fixtures', 'allFixtures', default={})
     previous = fixtures.get('previousMatches', [])
     
     if previous:
@@ -78,7 +79,7 @@ def inspect_stats(match_data: dict):
     
     # Try different known paths
     paths_to_try = [
-        ('Periods.All.stats', lambda d: d.get('Periods', {}).get('All', {}).get('stats', [])),
+        ('Periods.All.stats', lambda d: safe_get(d, 'Periods', 'All', 'stats', default=[])),
         ('Ede', lambda d: d.get('Ede', [])),
         ('stats', lambda d: d.get('stats', [])),
     ]
@@ -190,8 +191,8 @@ def main():
         
         # Show match info
         general = match_data.get('general', {})
-        home = general.get('homeTeam', {}).get('name', 'Home')
-        away = general.get('awayTeam', {}).get('name', 'Away')
+        home = safe_get(general, 'homeTeam', 'name', default='Home')
+        away = safe_get(general, 'awayTeam', 'name', default='Away')
         print(f"⚽ Match: {home} vs {away}")
         
         # Inspect stats

@@ -25,6 +25,7 @@ from config.settings import BRAVE_API_KEY
 from src.ingestion.brave_key_rotator import BraveKeyRotator, get_brave_key_rotator
 from src.ingestion.brave_budget import BudgetManager, get_brave_budget_manager
 from src.utils.http_client import get_http_client
+from src.utils.validators import safe_get
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +173,7 @@ class BraveSearchProvider:
             data = response.json()
             
             # Parse results from web.results
-            web_results = data.get("web", {}).get("results", [])
+            web_results = safe_get(data, "web", "results", default=[])
             
             results = []
             for item in web_results[:limit]:

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/database/telegram_channel_model.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.5, 0.6, 2.0, 200, 'BLACKLISTED', 'NEUTRAL', 'avg_timestamp_lag', 'channel_id', 'channel_name', 'database is locked', 'echo_messages', 'id', 'idx_channel_trust', 'idx_msg_channel_time', 'insider_hits', 'is_active', 'is_blacklisted', 'late_messages', 'locked', 'message_time', 'red_flags_count', 'telegram_channels', 'total_messages', 'trust_level', 'trust_score']

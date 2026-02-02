@@ -494,6 +494,158 @@ def validate_analysis_result(analysis: Dict[str, Any]) -> ValidationResult:
 
 
 # ============================================
+# SAFE DICTIONARY ACCESS UTILITIES
+# ============================================
+
+def safe_get(data: Any, *keys, default: Any = None) -> Any:
+    """
+    Safely access nested dictionary keys with type checking.
+    
+    This function prevents AttributeError crashes when accessing nested dictionaries
+    that might contain non-dict values (strings, None, etc.).
+    
+    Args:
+        data: The data structure to access (dict, list, or any type)
+        *keys: One or more keys to access in sequence
+        default: Default value to return if any access fails
+        
+    Returns:
+        The value at the nested key path, or default if access fails
+        
+    Examples:
+        >>> safe_get({'a': {'b': {'c': 1}}}, 'a', 'b', 'c')
+        1
+        >>> safe_get({'a': 'not_a_dict'}, 'a', 'b')
+        None
+        >>> safe_get({'a': {'b': 1}}, 'a', 'missing', default='fallback')
+        'fallback'
+        >>> safe_get(None, 'a', 'b')
+        None
+    """
+    current = data
+    
+    for key in keys:
+        # Check if current is a dict before accessing
+        if isinstance(current, dict):
+            current = current.get(key)
+            if current is None:
+                return default
+        else:
+            # Current is not a dict (could be string, None, list, etc.)
+            return default
+    
+    return current if current is not None else default
+
+
+def safe_list_get(data: Any, index: int, default: Any = None) -> Any:
+    """
+    Safely access list elements with bounds checking.
+    
+    This function prevents IndexError crashes when accessing list elements
+    that might not exist or when data is not a list.
+    
+    Args:
+        data: The data structure to access (list or any type)
+        index: The index to access
+        default: Default value to return if access fails
+        
+    Returns:
+        The element at the index, or default if access fails
+        
+    Examples:
+        >>> safe_list_get([1, 2, 3], 1)
+        2
+        >>> safe_list_get([1, 2, 3], 10)
+        None
+        >>> safe_list_get('not_a_list', 0)
+        None
+        >>> safe_list_get([], 0, default='empty')
+        'empty'
+    """
+    if isinstance(data, list) and 0 <= index < len(data):
+        return data[index]
+    return default
+
+
+def safe_dict_get(data: Any, key: Any, default: Any = None) -> Any:
+    """
+    Safely access a dictionary key with type checking.
+    
+    This is a single-level version of safe_get for simpler use cases.
+    
+    Args:
+        data: The data structure to access (dict or any type)
+        key: The key to access
+        default: Default value to return if access fails
+        
+    Returns:
+        The value at the key, or default if access fails
+        
+    Examples:
+        >>> safe_dict_get({'a': 1}, 'a')
+        1
+        >>> safe_dict_get('not_a_dict', 'a')
+        None
+        >>> safe_dict_get({'a': 1}, 'missing', default='fallback')
+        'fallback'
+    """
+    if isinstance(data, dict):
+        return data.get(key, default)
+    return default
+
+
+def ensure_dict(data: Any, default: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Ensure that data is a dictionary, converting or defaulting if not.
+    
+    This is useful for defense-in-depth when you expect a dict but might
+    receive a string, None, or other type.
+    
+    Args:
+        data: The data to ensure is a dict
+        default: Default dict to return if data is not a dict (defaults to empty dict)
+        
+    Returns:
+        A dictionary (either the original if it's a dict, or the default)
+        
+    Examples:
+        >>> ensure_dict({'a': 1})
+        {'a': 1}
+        >>> ensure_dict('string_value')
+        {}
+        >>> ensure_dict(None, default={'fallback': True})
+        {'fallback': True}
+    """
+    if isinstance(data, dict):
+        return data
+    return default if default is not None else {}
+
+
+def ensure_list(data: Any, default: Optional[List[Any]] = None) -> List[Any]:
+    """
+    Ensure that data is a list, converting or defaulting if not.
+    
+    Args:
+        data: The data to ensure is a list
+        default: Default list to return if data is not a list (defaults to empty list)
+        
+    Returns:
+        A list (either the original if it's a list, or the default)
+        
+    Examples:
+        >>> ensure_list([1, 2, 3])
+        [1, 2, 3]
+        >>> ensure_list('not_a_list')
+        []
+        >>> ensure_list(None, default=['fallback'])
+        ['fallback']
+    """
+    if isinstance(data, list):
+        return data
+    return default if default is not None else []
+
+
+# ============================================
 # ALERT PAYLOAD VALIDATOR
 # ============================================
 

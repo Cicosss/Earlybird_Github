@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/url_normalizer.py
+# hypothesis_version: 6.151.4
+
+[0.4, '\n🔄 Similarity Check:', '/', '=', '[^\\w\\s]', '__main__', '_amp', 'about', 'after', 'all', 'amp', 'and', 'are', 'been', 'before', 'breaking', 'but', 'cmpid', 'could', 'duplicate_content', 'duplicate_url', 'fbclid', 'for', 'from', 'game', 'gclid', 'had', 'has', 'have', 'how', 'igshid', 'injured', 'injury', 'issue', 'latest', 'match', 'ncid', 'news', 'not', 'ocid', 'partner', 'player', 'players', 'problem', 'ref', 'report', 'ruled', 'said', 'says', 'should', 'sidelined', 'source', 'star', 'team', 'that', 'the', 'their', 'they', 'this', 'twclid', 'unique_content', 'unique_urls', 'update', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term', 'via', 'was', 'were', 'what', 'when', 'where', 'which', 'who', 'will', 'with', 'would']

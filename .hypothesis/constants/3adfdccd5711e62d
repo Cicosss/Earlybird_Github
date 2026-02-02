@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/reporter.py
+# hypothesis_version: 6.151.4
+
+[7200, '%Y-%m-%d', '%d/%m %H:%M', 'AI_Confidence', 'Da verificare', 'Data/Ora', 'Esito', 'Lega', 'Mercato', 'Motivo', 'N/A', 'PENDING', 'Partita', 'Pending', 'Pronostico', 'Quote_1X2', 'Risultato', 'Unknown', 'away_team', 'combo_suggestion', 'current_away_odd', 'current_draw_odd', 'current_home_odd', 'home_team', 'league', 'leagues_covered', 'match', 'primary_driver', 'recommended_market', 'score', 'start_time', 'temp', 'top_score', 'total_alerts', 'utf-8-sig', 'w']

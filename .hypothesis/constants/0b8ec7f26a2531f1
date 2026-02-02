@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/database/maintenance.py
+# hypothesis_version: 6.151.4
+
+[100, 1024, '%(message)s', '*.log', '.', '=', '__main__', 'error', 'logs_deleted', 'logs_truncated', 'matches_deleted', 'oldest_match_date', 'rb+', 'temp', 'temp_files_deleted', 'total_logs', 'total_matches']

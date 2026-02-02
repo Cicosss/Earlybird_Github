@@ -143,13 +143,25 @@ BLOCKED_RESOURCE_PATTERNS = [
     '**/*adservice*',  # Ads
 ]
 
-# V7.0: Trafilatura import with fallback
+# V7.0/V8.4: Trafilatura via centralized module (handles warning suppression)
 try:
-    import trafilatura
-    TRAFILATURA_AVAILABLE = True
+    from src.utils.trafilatura_extractor import (
+        extract_with_trafilatura as _central_extract,
+        extract_with_fallback as _extract_with_fallback,
+        is_valid_html,
+        TRAFILATURA_AVAILABLE,
+        record_extraction,
+    )
+    # Keep trafilatura import for backward compatibility
+    if TRAFILATURA_AVAILABLE:
+        import trafilatura
 except ImportError:
     TRAFILATURA_AVAILABLE = False
-    logger.warning("⚠️ [BROWSER-MONITOR] trafilatura not installed, using raw text extraction")
+    _central_extract = None
+    _extract_with_fallback = None
+    is_valid_html = lambda x: True  # type: ignore
+    record_extraction = lambda x, y: None  # type: ignore
+    logger.warning("⚠️ [BROWSER-MONITOR] trafilatura_extractor not available, using raw text extraction")
 
 # V7.2: Human behavior simulation configuration
 BEHAVIOR_SIMULATION_ENABLED = True  # Can be disabled for testing
@@ -1065,10 +1077,14 @@ class BrowserMonitor:
     
     def _extract_with_trafilatura(self, html: str) -> Optional[str]:
         """
-        V7.0: Extract clean article text using Trafilatura.
+        V7.0/V8.4: Extract clean article text using Trafilatura.
         
         Trafilatura provides 88-92% accuracy vs 70% for raw text extraction.
         It removes navigation, ads, footers, and extracts only article content.
+        
+        V8.4: Now uses centralized extractor with:
+        - Pre-validation to avoid "discarding data: None" warnings
+        - Intelligent fallback chain (trafilatura → regex → raw)
         
         Args:
             html: Raw HTML content
@@ -1079,6 +1095,32 @@ class BrowserMonitor:
         if not TRAFILATURA_AVAILABLE or not html:
             return None
         
+        # V8.4: Use centralized extractor with pre-validation
+        if _central_extract is not None:
+            # Pre-validate HTML to avoid trafilatura warnings
+            if not is_valid_html(html):
+                logger.debug("[BROWSER-MONITOR] HTML validation failed, skipping trafilatura")
+                record_extraction('validation', False)
+                return None
+            
+            text = _central_extract(html)
+            if text:
+                self._trafilatura_extractions += 1
+                record_extraction('trafilatura', True)
+                return text
+            
+            # Try fallback extraction (regex/raw) for better content recovery
+            if _extract_with_fallback is not None:
+                text, method = _extract_with_fallback(html)
+                if text:
+                    record_extraction(method, True)
+                    logger.debug(f"[BROWSER-MONITOR] Fallback extraction succeeded: {method}")
+                    return text
+            
+            record_extraction('trafilatura', False)
+            return None
+        
+        # Legacy fallback if centralized extractor not available
         try:
             # Extract with trafilatura (fast, accurate)
             text = trafilatura.extract(

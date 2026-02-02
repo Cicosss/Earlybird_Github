@@ -295,42 +295,104 @@ class RelevanceAnalyzer:
     
     # Relevance keywords (multilingual)
     INJURY_KEYWORDS = [
-        # English
+        # ========== ENGLISH (Scotland, Australia) ==========
         "injury", "injured", "out", "ruled out", "miss", "absent", "sidelined",
         "hamstring", "knee", "ankle", "muscle", "strain", "sprain", "fracture",
-        # Italian
+        "team news", "fitness doubt", "recovery", "rehabilitation",
+        
+        # ========== ITALIAN ==========
         "infortunio", "infortunato", "assente", "fuori", "indisponibile",
-        # Spanish
-        "lesión", "lesionado", "baja", "ausente",
-        # Portuguese
-        "lesão", "lesionado", "ausente", "fora",
-        # Polish
-        "kontuzja", "kontuzjowany", "nieobecny",
-        # Turkish
-        "sakatlık", "sakatlandı", "yok", "eksik",
-        # German
-        "verletzung", "verletzt", "fehlt", "ausfall",
-        # French
-        "blessure", "blessé", "absent", "forfait"
+        
+        # ========== SPANISH (Argentina, Mexico) - V1.7 ==========
+        "lesión", "lesiones", "lesionado", "lesionados", "lesionada", "lesionadas",
+        "baja", "bajas", "ausente", "ausentes", "descarta", "descartado", "descartados",
+        "fuera del partido", "no estará", "se perderá", "no jugará",
+        "molestia", "molestias", "recuperación", "rehabilitación",
+        
+        # ========== PORTUGUESE (Brazil Serie B) - V1.7 ==========
+        "lesão", "lesões", "lesionado", "lesionados", "ausente", "fora",
+        "machucado", "machucados", "contundido", "contundidos",
+        "desfalque", "desfalques", "baixa", "baixas",
+        "problema físico", "dores", "tratamento",
+        
+        # ========== POLISH (Poland Ekstraklasa) - V1.7 ==========
+        "kontuzja", "kontuzjowany", "kontuzjowani", "nieobecny", "nieobecni",
+        "uraz", "urazy", "wypadł", "pauzuje", "nie zagra",
+        
+        # ========== TURKISH (Turkey Super Lig) - V1.7 ==========
+        "sakatlık", "sakatlandı", "sakatlar", "yok", "eksik", "eksikler",
+        "tedavi", "toparlanıyor", "oynamayacak", "kadroda yok",
+        
+        # ========== GREEK (Greece Super League) - V1.7 ==========
+        "τραυματίας", "τραυματίες", "τραυματισμός", "απουσία", "απουσίες",
+        "εκτός", "αποθεραπεία", "δεν παίζει", "χάνει το ματς",
+        
+        # ========== GERMAN (Austria Bundesliga) - V1.7 ==========
+        "verletzung", "verletzt", "verletzte", "fehlt", "ausfall", "ausfälle",
+        "muskelverletzung", "knieverletzung", "reha", "pausiert",
+        
+        # ========== FRENCH (France, Belgium) - V1.7 ==========
+        "blessure", "blessé", "blessés", "absent", "absents", "forfait",
+        "indisponible", "incertain", "touché", "pépins physiques",
+        
+        # ========== DUTCH (Netherlands, Belgium) - V1.7 ==========
+        "blessure", "geblesseerd", "geblesseerden", "afwezig", "mist",
+        "herstel", "uitgevallen", "niet fit", "twijfelgeval",
+        
+        # ========== NORWEGIAN (Norway Eliteserien) - V1.7 ==========
+        "skade", "skadet", "skadde", "ute", "mister", "borte",
+        "rekonvalesens", "ikke klar", "usikker",
+        
+        # ========== JAPANESE (J-League) - V1.7 ==========
+        "怪我", "負傷", "欠場", "離脱", "治療中", "欠席", "出場停止",
+        "ケガ", "故障", "リハビリ",
+        
+        # ========== CHINESE (China Super League) - V1.7 ==========
+        "伤病", "受伤", "缺阵", "伤停", "伤愈", "养伤", "伤势",
     ]
     
     SUSPENSION_KEYWORDS = [
-        # English
+        # ========== ENGLISH ==========
         "suspended", "suspension", "ban", "banned", "red card", "sent off",
-        # Italian
+        "serving suspension", "yellow card accumulation",
+        
+        # ========== ITALIAN ==========
         "squalificato", "squalifica", "espulso",
-        # Spanish
-        "sancionado", "sanción", "expulsado",
-        # Portuguese
-        "suspenso", "suspensão", "expulso",
-        # Polish
-        "zawieszony", "zawieszenie", "czerwona kartka",
-        # Turkish
-        "cezalı", "ceza", "kırmızı kart",
-        # German
-        "gesperrt", "sperre", "rote karte",
-        # French
-        "suspendu", "suspension", "carton rouge"
+        
+        # ========== SPANISH (Argentina, Mexico) ==========
+        "sancionado", "sanción", "expulsado", "tarjeta roja", "suspendido",
+        "acumulación de amarillas", "vio la roja",
+        
+        # ========== PORTUGUESE (Brazil) ==========
+        "suspenso", "suspensão", "expulso", "cartão vermelho",
+        "pendurado", "gancho",
+        
+        # ========== POLISH ==========
+        "zawieszony", "zawieszenie", "czerwona kartka", "pauzuje za kartki",
+        
+        # ========== TURKISH ==========
+        "cezalı", "ceza", "kırmızı kart", "ihraç", "men cezası",
+        
+        # ========== GREEK - V1.7 ==========
+        "τιμωρία", "αποβολή", "κόκκινη κάρτα", "τιμωρημένος",
+        
+        # ========== GERMAN (Austria) ==========
+        "gesperrt", "sperre", "rote karte", "gelbsperre",
+        
+        # ========== FRENCH (France, Belgium) ==========
+        "suspendu", "suspension", "carton rouge", "expulsé",
+        
+        # ========== DUTCH (Netherlands, Belgium) - V1.7 ==========
+        "geschorst", "schorsing", "rode kaart", "gele kaart",
+        
+        # ========== NORWEGIAN - V1.7 ==========
+        "utestengt", "suspensjon", "rødt kort", "karantene",
+        
+        # ========== JAPANESE - V1.7 ==========
+        "出場停止", "退場", "累積警告", "レッドカード",
+        
+        # ========== CHINESE - V1.7 ==========
+        "停赛", "红牌", "禁赛", "累计黄牌",
     ]
     
     NATIONAL_TEAM_KEYWORDS = [
@@ -424,6 +486,30 @@ class RelevanceAnalyzer:
         "شباب", "ناشئين", "فريق الشباب"
     ]
     
+    # GENERAL SPORTS KEYWORDS - V1.9: For PT/ES content without injury keywords
+    # These keywords indicate sports relevance and help identify betting-relevant content
+    # when team names are present but no specific injury/suspension keywords
+    GENERAL_SPORTS_KEYWORDS = [
+        # Portuguese
+        "sucesso", "determinantes", "temporada", "campeonato", "vitória",
+        "derrota", "título", "campeão", "partida", "jogo", "competição",
+        "liga", "classificação", "desempenho", "estratégia", "preparação",
+        "objetivo", "campeonato", "futebol", "equipe", "clube",
+        "vence", "venceu", "perde", "perdeu", "empata", "empatou",
+        "enfrenta", "enfrentou", "joga", "jogou", "recebe", "recebeu",
+        "visita", "visitou", "derrota", "derrotou", "goleia", "goleou",
+        "bate", "bateu", "supera", "superou", "elimina", "eliminou",
+        # Spanish
+        "éxito", "determinantes", "temporada", "campeonato", "victoria",
+        "derrota", "título", "campeón", "partido", "juego", "competición",
+        "liga", "clasificación", "rendimiento", "estrategia", "preparación",
+        "objetivo", "fútbol", "equipo", "club",
+        "vence", "venció", "pierde", "perdió", "empata", "empató",
+        "enfrenta", "enfrentó", "juega", "jugó", "recibe", "recibió",
+        "visita", "visitó", "derrota", "derrotó", "golea", "goleó",
+        "bate", "bató", "supera", "superó", "elimina", "eliminó",
+    ]
+    
     def __init__(self):
         """Initialize with compiled regex patterns for efficiency."""
         self._injury_pattern = self._compile_pattern(self.INJURY_KEYWORDS)
@@ -431,15 +517,60 @@ class RelevanceAnalyzer:
         self._national_pattern = self._compile_pattern(self.NATIONAL_TEAM_KEYWORDS)
         self._cup_pattern = self._compile_pattern(self.CUP_ABSENCE_KEYWORDS)
         self._youth_pattern = self._compile_pattern(self.YOUTH_CALLUP_KEYWORDS)
+        self._general_sports_pattern = self._compile_pattern(self.GENERAL_SPORTS_KEYWORDS)
     
     def _compile_pattern(self, keywords: List[str]) -> re.Pattern:
-        """Compile keywords into case-insensitive regex pattern."""
-        pattern = r'\b(' + '|'.join(re.escape(kw) for kw in keywords) + r')\b'
+        """
+        Compile keywords into case-insensitive regex pattern.
+        
+        V1.7: Smart handling for CJK (Chinese/Japanese) which don't use word boundaries (\\b).
+        Separates keywords into boundary-enforced and boundary-free groups.
+        
+        V1.8: Extended to include Greek characters which also don't use word boundaries.
+        """
+        boundary_kw = []
+        no_boundary_kw = []
+        
+        # Helper to detect non-Latin characters (CJK, Greek, Cyrillic)
+        # These scripts don't use word boundaries the same way as Latin
+        # Using Unicode ranges for common non-Latin blocks
+        def is_non_latin(s):
+            return any(
+                '\u4e00' <= c <= '\u9fff' or  # CJK Unified Ideographs (Chinese, Japanese Kanji)
+                '\u3040' <= c <= '\u30ff' or  # Hiragana and Katakana (Japanese)
+                '\u0370' <= c <= '\u03FF' or  # Greek and Coptic
+                '\u0400' <= c <= '\u04FF'      # Cyrillic (for future expansion)
+                for c in s
+            )
+            
+        for kw in keywords:
+            if is_non_latin(kw):
+                no_boundary_kw.append(re.escape(kw))
+            else:
+                boundary_kw.append(re.escape(kw))
+        
+        parts = []
+        if boundary_kw:
+            # Traditional word boundary logic for Latin/Cyrillic/Greek
+            parts.append(r'\b(?:' + '|'.join(boundary_kw) + r')\b')
+        if no_boundary_kw:
+            # No boundaries for non-Latin scripts (CJK, Greek, Cyrillic)
+            parts.append(r'(?:' + '|'.join(no_boundary_kw) + r')')
+            
+        if not parts:
+            # Fallback pattern that matches nothing
+            return re.compile(r'(?!x)x')
+            
+        pattern = '|'.join(parts)
         return re.compile(pattern, re.IGNORECASE)
     
     def analyze(self, content: str) -> AnalysisResult:
         """
         Analyze content for betting relevance.
+        
+        V1.9: Enhanced to consider team extraction as relevance factor for PT/ES content.
+        When a known team name is extracted, content is considered relevant even without
+        injury/suspension keywords, especially when general sports keywords are present.
         
         Args:
             content: Text content to analyze
@@ -462,10 +593,30 @@ class RelevanceAnalyzer:
         national_matches = len(self._national_pattern.findall(content))
         cup_matches = len(self._cup_pattern.findall(content))
         youth_matches = len(self._youth_pattern.findall(content))
+        general_sports_matches = len(self._general_sports_pattern.findall(content))
+        
+        # V1.9: Try to extract team name BEFORE checking relevance
+        # This allows us to use team extraction as a relevance factor
+        affected_team = self._extract_team_name(content)
         
         total_matches = injury_matches + suspension_matches + national_matches + cup_matches + youth_matches
         
+        # V1.9: If no injury/suspension keywords but team name is found,
+        # check for general sports keywords (PT/ES relevance)
         if total_matches == 0:
+            if affected_team and general_sports_matches > 0:
+                # Content has team name + general sports keywords = relevant
+                # Use lower confidence since no specific injury/suspension info
+                confidence = min(0.3 + (general_sports_matches * 0.05), 0.5)
+                summary = self._generate_summary(content, "OTHER")
+                return AnalysisResult(
+                    is_relevant=True,
+                    category="OTHER",
+                    affected_team=affected_team,
+                    confidence=confidence,
+                    summary=summary
+                )
+            # No team name or no general sports keywords = not relevant
             return AnalysisResult(
                 is_relevant=False,
                 category="OTHER",
@@ -492,8 +643,10 @@ class RelevanceAnalyzer:
         # More matches = higher confidence, capped at 0.85 (leave room for DeepSeek)
         confidence = min(0.3 + (total_matches * 0.1), 0.85)
         
-        # Try to extract team name (simple heuristic)
-        affected_team = self._extract_team_name(content)
+        # V1.9: Boost confidence when team name is extracted
+        # This helps prioritize content with identifiable teams
+        if affected_team:
+            confidence = min(confidence + 0.1, 0.85)
         
         # Generate summary
         summary = self._generate_summary(content, category)
@@ -511,6 +664,8 @@ class RelevanceAnalyzer:
         Try to extract team name from content using heuristics.
         
         V1.3: Fixed pattern order - check known clubs FIRST to avoid false positives.
+        V1.6: Added Brazilian, Argentine, Honduran and other South American clubs
+              for multi-language support (Portuguese/Spanish articles).
         """
         # Common words to exclude (articles, prepositions, etc.)
         excluded_words = {
@@ -521,36 +676,229 @@ class RelevanceAnalyzer:
             'face', 'play', 'beat', 'lose', 'win', 'draw', 'meet', 'host', 'visit',
             'martin', 'oxford', 'hugo', 'saka', 'kerkez',  # Common player names
             'glance', 'clear', 'points', 'match', 'game', 'news', 'sport',
-            'football', 'soccer', 'live', 'update', 'breaking', 'report'
+            'football', 'soccer', 'live', 'update', 'breaking', 'report',
+            # Portuguese/Spanish common words
+            'para', 'com', 'por', 'sem', 'mais', 'como', 'sobre', 'entre',
+            'jogo', 'partida', 'resultado', 'gol', 'time', 'clube',
+            'sucesso', 'vitória', 'derrota', 'empate', 'campeonato',
         }
         
         # Pattern 1 (PRIORITY): Known club names directly - most reliable
         known_clubs = [
+            # ========== ENGLAND - Premier League ==========
             'Arsenal', 'Chelsea', 'Liverpool', 'Manchester United', 'Manchester City',
             'Tottenham', 'West Ham', 'Newcastle', 'Aston Villa', 'Brighton',
             'Bournemouth', 'Brentford', 'Crystal Palace', 'Everton', 'Fulham',
             'Nottingham Forest', 'Southampton', 'Wolves', 'Leicester', 'Leeds',
-            'AC Milan', 'Inter Milan', 'Juventus', 'Roma', 'Napoli', 'Lazio', 'Atalanta', 'Fiorentina',
-            'Real Madrid', 'Barcelona', 'Atletico Madrid', 'Sevilla', 'Valencia', 'Villarreal',
+            'Ipswich', 'Luton', 'Sheffield United', 'Burnley',
+            # National League
+            'Chesterfield',
+            
+            # ========== ITALY - Serie A ==========
+            'AC Milan', 'Inter Milan', 'Juventus', 'Roma', 'Napoli', 'Lazio', 
+            'Atalanta', 'Fiorentina',
+            
+            # ========== SPAIN - La Liga ==========
+            'Real Madrid', 'Barcelona', 'Atletico Madrid', 'Sevilla', 'Valencia', 
+            'Villarreal',
+            
+            # ========== GERMANY - Bundesliga ==========
             'Bayern Munich', 'Borussia Dortmund', 'RB Leipzig', 'Bayer Leverkusen',
+            
+            # ========== FRANCE - Ligue 1 ==========
             'PSG', 'Paris Saint-Germain', 'Lyon', 'Marseille', 'Monaco', 'Lille',
-            'Ajax', 'PSV', 'Feyenoord', 'Porto', 'Benfica', 'Sporting Lisbon',
-            # Additional clubs
-            'Bournemouth', 'Ipswich', 'Luton', 'Sheffield United', 'Burnley',
-            'Galatasaray', 'Fenerbahce', 'Besiktas', 'Trabzonspor',
-            'Celtic', 'Rangers', 'Olympiacos', 'Panathinaikos', 'AEK Athens',
-            'Sporting CP', 'Braga', 'Vitoria Guimaraes',
-            'Anderlecht', 'Club Brugge', 'Genk', 'Standard Liege',
+            
+            # ========== NETHERLANDS - Eredivisie (V1.7 Tier 2) ==========
+            'Ajax', 'PSV', 'PSV Eindhoven', 'Feyenoord', 'AZ Alkmaar', 'AZ',
+            'FC Twente', 'Twente', 'FC Utrecht', 'Utrecht', 'Vitesse',
+            'SC Heerenveen', 'Heerenveen', 'Sparta Rotterdam', 'Sparta',
+            'Go Ahead Eagles', 'Fortuna Sittard', 'RKC Waalwijk', 'NEC Nijmegen',
+            'PEC Zwolle', 'Excelsior', 'Heracles Almelo', 'FC Volendam',
+            
+            # ========== PORTUGAL ==========
+            'Porto', 'Benfica', 'Sporting Lisbon', 'Sporting CP', 'Braga',
+            'Vitoria Guimaraes', 'Rio Ave', 'Boavista', 'Maritimo',
+            
+            # ========== TURKEY - Süper Lig (V1.7 Elite 7) ==========
+            'Galatasaray', 'Fenerbahce', 'Fenerbahçe', 'Besiktas', 'Beşiktaş',
+            'Trabzonspor', 'Basaksehir', 'Başakşehir', 'Istanbul Basaksehir',
+            'Antalyaspor', 'Konyaspor', 'Kasimpasa', 'Kasımpaşa', 'Sivasspor',
+            'Alanyaspor', 'Kayserispor', 'Adana Demirspor', 'Gaziantep FK',
+            'Rizespor', 'Çaykur Rizespor', 'Hatayspor', 'Samsunspor',
+            'Pendikspor', 'Istanbulspor', 'Fatih Karagümrük', 'Ankaragücü',
+            
+            # ========== GREECE - Super League (V1.7 Elite 7) ==========
+            'Olympiacos', 'Olympiakos', 'Ολυμπιακός', 
+            'Panathinaikos', 'Παναθηναϊκός', 
+            'AEK Athens', 'AEK', 'ΑΕΚ', 
+            'PAOK', 'PAOK Thessaloniki', 'ΠΑΟΚ', 
+            'Aris Thessaloniki', 'Aris', 'Άρης', 
+            'Panetolikos', 'Παναιτωλικός', 
+            'Asteras Tripolis', 'Αστέρας Τρίπολης', 
+            'Atromitos', 'Ατρόμητος', 
+            'OFI Crete', 'ΟΦΗ', 
+            'Volos', 'Volos NFC', 'Βόλος', 
+            'Lamia', 'Λαμία', 
+            'Ionikos', 'Ιωνικός', 
+            'Giannina', 'PAS Giannina', 'ΠΑΣ Γιάννινα', 
+            'Levadiakos', 'Λεβαδειακός',
+            
+            # ========== SCOTLAND - Premiership (V1.7 Elite 7) ==========
+            'Celtic', 'Rangers', 'Aberdeen', 'Hearts', 'Heart of Midlothian',
+            'Hibernian', 'Hibs', 'Dundee', 'Dundee United', 'Kilmarnock',
+            'Motherwell', 'Ross County', 'Livingston', 'St Mirren',
+            'St Johnstone', 'Partick Thistle', 'Dundee FC',
+            
+            # ========== BELGIUM - First Division (V1.7 Tier 2) ==========
+            'Anderlecht', 'Club Brugge', 'Club Bruges', 'Genk', 'KRC Genk',
+            'Standard Liege', 'Standard Liège', 'Antwerp', 'Royal Antwerp',
+            'Gent', 'KAA Gent', 'Union Saint-Gilloise', 'Union SG', 'Cercle Brugge',
+            'Mechelen', 'KV Mechelen', 'Charleroi', 'Kortrijk', 'Sint-Truiden',
+            'Westerlo', 'OH Leuven', 'Eupen', 'RWD Molenbeek',
+            
+            # ========== BRAZIL - Brasileirão (V1.6) ==========
+            # Série A - Top 20
+            'Flamengo', 'Palmeiras', 'Corinthians', 'São Paulo', 'Sao Paulo',
+            'Santos', 'Fluminense', 'Botafogo', 'Vasco', 'Vasco da Gama',
+            'Athletico Paranaense', 'Athletico-PR', 'Grêmio', 'Gremio',
+            'Internacional', 'Inter de Porto Alegre', 'Cruzeiro', 'Atlético Mineiro',
+            'Atletico Mineiro', 'Atlético-MG', 'Bahia', 'Fortaleza', 'Ceará', 'Ceara',
+            'Sport Recife', 'Vitória', 'Vitoria', 'Juventude', 'América Mineiro',
+            'America Mineiro', 'Cuiabá', 'Cuiaba', 'Red Bull Bragantino', 'Bragantino',
+            'Coritiba', 'Goiás', 'Goias', 'Avaí', 'Avai', 'Chapecoense',
+            # Série B (V1.7 Tier 2)
+            'Guarani', 'Ponte Preta', 'Novorizontino', 'Mirassol', 'Vila Nova',
+            'CRB', 'CSA', 'Sport', 'Náutico', 'Santa Cruz', 'ABC', 'Londrina',
+            'Operário', 'Brusque', 'Ituano', 'Sampaio Corrêa',
+            # Common shortened names (used in media)
+            'Mengão', 'Mengao', 'Timão', 'Timao', 'Tricolor', 'Colorado',
+            'Verdão', 'Verdao', 'Peixe', 'Fogão', 'Fogao', 'Galo',
+            
+            # ========== ARGENTINA - Primera División (V1.6 Elite 7) ==========
+            'River Plate', 'Boca Juniors', 'Racing Club', 'Independiente',
+            'San Lorenzo', 'Estudiantes', 'Vélez Sarsfield', 'Velez Sarsfield',
+            'Lanús', 'Lanus', 'Rosario Central', "Newell's Old Boys", 'Newells',
+            'Talleres', 'Argentinos Juniors', 'Defensa y Justicia', 'Banfield',
+            'Godoy Cruz', 'Huracán', 'Huracan', 'Tigre', 'Colón', 'Colon',
+            'Unión', 'Union', 'Central Córdoba', 'Platense', 'Sarmiento',
+            
+            # ========== MEXICO - Liga MX (V1.6 Elite 7) ==========
+            'Club América', 'Club America', 'Chivas', 'Guadalajara', 'Cruz Azul',
+            'Pumas', 'UNAM', 'Tigres', 'Monterrey', 'Rayados', 'Santos Laguna',
+            'León', 'Leon', 'Toluca', 'Pachuca', 'Atlas', 'Tijuana', 'Xolos',
+            'Necaxa', 'Puebla', 'Querétaro', 'Queretaro', 'Mazatlán', 'Mazatlan',
+            'Juárez', 'FC Juarez', 'San Luis', 'Atlético San Luis',
+            
+            # ========== POLAND - Ekstraklasa (V1.7 Elite 7) ==========
+            'Legia Warsaw', 'Legia Warszawa', 'Lech Poznan', 'Lech Poznań',
+            'Raków Częstochowa', 'Rakow', 'Jagiellonia Białystok', 'Jagiellonia',
+            'Pogoń Szczecin', 'Pogon', 'Górnik Zabrze', 'Gornik Zabrze',
+            'Śląsk Wrocław', 'Slask Wroclaw', 'Cracovia', 'Wisła Kraków', 'Wisla Krakow',
+            'Piast Gliwice', 'Warta Poznań', 'Korona Kielce', 'Zagłębie Lubin',
+            'Radomiak', 'Stal Mielec', 'Widzew Łódź', 'Widzew Lodz', 'Puszcza Niepołomice',
+            
+            # ========== AUSTRALIA - A-League (V1.7 Elite 7) ==========
+            'Melbourne Victory', 'Sydney FC', 'Western Sydney Wanderers', 'WSW',
+            'Melbourne City', 'Brisbane Roar', 'Adelaide United', 'Perth Glory',
+            'Central Coast Mariners', 'Mariners', 'Wellington Phoenix', 'Macarthur FC',
+            'Western United', 'Newcastle Jets', 'Auckland FC',
+            
+            # ========== NORWAY - Eliteserien (V1.7 Tier 2) ==========
+            'Bodø/Glimt', 'Bodo Glimt', 'Molde', 'Rosenborg', 'Viking',
+            'Brann', 'Strømsgodset', 'Stromsgodset', 'Lillestrøm', 'Lillestrom',
+            'Sarpsborg', 'Tromsø', 'Tromso', 'Odd', 'Vålerenga', 'Valerenga',
+            'Haugesund', 'HamKam', 'Sandefjord', 'Kristiansund', 'Aalesund',
+            
+            # ========== FRANCE - Ligue 1 (V1.7 Tier 2) ==========
+            'PSG', 'Paris Saint-Germain', 'Lyon', 'Olympique Lyon', 'OL',
+            'Marseille', 'Olympique Marseille', 'OM', 'Monaco', 'AS Monaco',
+            'Lille', 'LOSC', 'Nice', 'OGC Nice', 'Lens', 'RC Lens',
+            'Rennes', 'Stade Rennais', 'Nantes', 'FC Nantes', 'Montpellier',
+            'Strasbourg', 'RC Strasbourg', 'Brest', 'Stade Brestois',
+            'Toulouse', 'Reims', 'Stade de Reims', 'Lorient', 'Le Havre',
+            'Clermont', 'Metz', 'Auxerre',
+            
+            # ========== AUSTRIA - Bundesliga (V1.7 Tier 2) ==========
+            'Red Bull Salzburg', 'Salzburg', 'Sturm Graz', 'SK Sturm',
+            'Rapid Wien', 'Rapid Vienna', 'Austria Wien', 'Austria Vienna',
+            'LASK', 'LASK Linz', 'Wolfsberg', 'WAC', 'Hartberg', 'TSV Hartberg',
+            'Altach', 'SCR Altach', 'Rheindorf Altach', 'Austria Klagenfurt',
+            'WSG Tirol', 'Blau-Weiß Linz', 'Austria Lustenau',
+            
+            # ========== CHINA - Super League (V1.7 Tier 2) ==========
+            'Shanghai Port', 'Shanghai SIPG', '上海海港',
+            'Shanghai Shenhua', '上海申花',
+            'Shandong Taishan', '山东泰山',
+            'Beijing Guoan', '北京国安',
+            'Guangzhou FC', 'Guangzhou Evergrande', '广州队',
+            'Henan Songshan', '河南嵩山龙门',
+            'Wuhan Three Towns', '武汉三镇',
+            'Chengdu Rongcheng', '成都蓉城',
+            'Qingdao Hainiu', '青岛海牛',
+            'Tianjin Jinmen Tiger', '天津津门虎',
+            'Zhejiang FC', '浙江队',
+            'Changchun Yatai', '长春亚泰',
+            'Cangzhou Mighty Lions', '沧州雄狮',
+            'Dalian Pro', '大连人',
+            'Nantong Zhiyun', '南通支云',
+            'Shenzhen FC', '深圳队',
+            
+            # ========== JAPAN - J-League (V1.7 Tier 2) ==========
+            'Vissel Kobe', 'ヴィッセル神戸',
+            'Yokohama F Marinos', 'Marinos', '横浜F・マリノス',
+            'Kawasaki Frontale', '川崎フロンターレ',
+            'Urawa Reds', 'Urawa Red Diamonds', '浦和レッズ',
+            'FC Tokyo', 'FC東京',
+            'Kashima Antlers', '鹿島アントラーズ',
+            'Nagoya Grampus', '名古屋グランパス',
+            'Cerezo Osaka', 'セレッソ大阪',
+            'Gamba Osaka', 'ガンバ大阪',
+            'Sanfrecce Hiroshima', 'サンフレッチェ広島',
+            'Kashiwa Reysol', '柏レイソル',
+            'Consadole Sapporo', '北海道コンサドーレ札幌',
+            'Sagan Tosu', 'サガン鳥栖',
+            'Avispa Fukuoka', 'アビスパ福岡',
+            'Albirex Niigata', 'アルビレックス新潟',
+            'Shonan Bellmare', '湘南ベルマーレ',
+            'Kyoto Sanga', '京都サンガ',
+            'Jubilo Iwata', 'ジュビロ磐田',
+            'Tokyo Verdy', '東京ヴェルディ',
+            'Machida Zelvia', '町田ゼルビア',
+            
+            # ========== HONDURAS - Liga Nacional (V1.6) ==========
+            'Olimpia Honduras', 'Motagua', 'Real España', 'Real Espana',
+            'Marathón', 'Marathon', 'Victoria Honduras', 'UPNFM', 'Honduras Progreso',
+            'Vida', 'Real Sociedad Honduras', 'Platense Honduras', 'Lobos UPNFM',
+            'Olancho FC', 'Génesis', 'Genesis',
+            
+            # ========== COLOMBIA/CHILE/PERU (V1.6) ==========
+            # Colombia
+            'Atlético Nacional', 'Atletico Nacional', 'Millonarios', 'América de Cali',
+            'America de Cali', 'Independiente Medellín', 'Junior Barranquilla',
+            'Deportivo Cali', 'Santa Fe', 'Once Caldas',
+            # Chile
+            'Colo-Colo', 'Colo Colo', 'Universidad de Chile', 'Universidad Católica',
+            'Cobreloa', "O'Higgins", 'Huachipato',
+            # Peru
+            'Alianza Lima', 'Universitario', 'Sporting Cristal', 'Cienciano',
+            'Melgar', 'Deportivo Municipal',
+            
+            # ========== INDONESIA (V1.6) ==========
+            'Persija Jakarta', 'Persebaya', 'Arema FC', 'Persib Bandung',
+            'Bali United', 'PSM Makassar', 'Persik Kediri', 'PSIS Semarang',
+            'Madura United', 'Borneo FC', 'Persita Tangerang', 'Dewa United',
         ]
         
+        # DEBUG: Check if we have CJK clubs in list and if content matches
         # Check known clubs first (case-insensitive)
         content_lower = content.lower()
         for club in known_clubs:
             if club.lower() in content_lower:
                 return club
         
-        # Pattern 2: "[Team] FC/United/City/etc." - for unknown clubs
-        team_suffix_pattern = r'\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+(?:FC|United|City|Town|Athletic|Rovers|Wanderers|Albion|Hotspur|Villa|Palace|County|SC|CF|SV|BV)\b'
+        # Pattern 2: "[Team] FC/United/City/etc." - for unknown clubs (European + Americas)
+        # V1.6: Added South American suffixes: EC, SE, CR, CA, AC, AP
+        team_suffix_pattern = r'\b([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+)?)\s+(?:FC|United|City|Town|Athletic|Rovers|Wanderers|Albion|Hotspur|Villa|Palace|County|SC|CF|SV|BV|EC|SE|CR|CA|AC|AP|Futebol Clube|Esporte Clube|Sport Club)\b'
         match = re.search(team_suffix_pattern, content)
         if match:
             team = match.group(0).strip()
@@ -558,12 +906,55 @@ class RelevanceAnalyzer:
             if first_word not in excluded_words:
                 return team
         
-        # Pattern 3: "X's player/star/striker" - possessive form
+        # Pattern 3: "X's player/star/striker" - possessive form (English)
         possessive_pattern = r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)'s\s+(?:player|star|striker|midfielder|defender|goalkeeper|manager|coach|boss)"
         match = re.search(possessive_pattern, content)
         if match:
             team = match.group(1).strip()
             if team.lower() not in excluded_words and len(team) > 2:
+                return team
+        
+        # Pattern 4 (V1.8): Portuguese/Spanish possessive - "jogador do [Team]" / "jugador del [Team]"
+        # V1.8: Added Brazilian variants: lateral, volante, puntero, centroavante
+        pt_es_pattern = r'\b(?:jogador|atacante|zagueiro|goleiro|meia|lateral|volante|puntero|centroavante|técnico|treinador|jugador|delantero|defensor|portero|entrenador|DT)\s+(?:do|da|de|del|de la|de los|el|la)\s+([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+){0,2})'
+        match = re.search(pt_es_pattern, content)
+        if match:
+            team = match.group(1).strip()
+            if team.lower() not in excluded_words and len(team) > 2:
+                return team
+        
+        # Pattern 5 (V1.8): Common Brazilian news patterns - "[Team] vence/perde/enfrenta"
+        # V1.8: Support multi-word team names (e.g., "São Paulo vence")
+        # V1.8: Added past tense variants (venceu, perdeu, empatou, etc.)
+        br_action_pattern = r'\b([A-Z][a-zA-ZÀ-ÿ]+(?:\s+[A-Z][a-zA-ZÀ-ÿ]+){0,2})\s+(?:vence|perde|empata|enfrenta|joga|recebe|visita|derrota|goleia|bate|supera|elimina|venceu|perdeu|empatou|enfrentou|jogou|recebeu|visitou|derrotou|goleou|bateu|superou|eliminou)\b'
+        match = re.search(br_action_pattern, content)
+        if match:
+            team = match.group(1).strip()
+            if team.lower() not in excluded_words and len(team) > 3:
+                return team
+        
+        # Pattern 6 (V1.8): CJK team names (Chinese/Japanese)
+        # Match CJK team names without word boundaries
+        # CJK characters don't use word boundaries like Latin scripts
+        cjk_team_pattern = r'([\u4e00-\u9fff\u3040-\u30ff]+(?:\s+[\u4e00-\u9fff\u3040-\u30ff]+)*)'
+        match = re.search(cjk_team_pattern, content)
+        if match:
+            team = match.group(1).strip()
+            # Verify it's a known CJK team to avoid false positives
+            cjk_teams = [c for c in known_clubs if any('\u4e00' <= ch <= '\u9fff' or '\u3040' <= ch <= '\u30ff' for ch in c)]
+            if team in cjk_teams:
+                return team
+        
+        # Pattern 7 (V1.8): Greek team names
+        # Match Greek team names without word boundaries
+        # Greek characters don't use word boundaries like Latin scripts
+        greek_team_pattern = r'([\u0370-\u03FF]+(?:\s+[\u0370-\u03FF]+)*)'
+        match = re.search(greek_team_pattern, content)
+        if match:
+            team = match.group(1).strip()
+            # Verify it's a known Greek team to avoid false positives
+            greek_teams = [c for c in known_clubs if any('\u0370' <= ch <= '\u03FF' for ch in c)]
+            if team in greek_teams:
                 return team
         
         return None
@@ -586,13 +977,16 @@ class RelevanceAnalyzer:
             return clean_content if clean_content else "Notizia rilevata - verifica il link"
         
         # Keywords to look for based on category
+        # V1.6: Expanded with Portuguese/Spanish keywords for South American sources
+        # Keywords to look for based on category
+        # V1.7: Use centralized keywords lists for multi-language support (Greek, CJK, etc.)
+        # V1.8: Fixed critical bug - changed self.CUP_KEYWORDS to self.CUP_ABSENCE_KEYWORDS
         category_keywords = {
-            'INJURY': ['injury', 'injured', 'out', 'miss', 'absent', 'sidelined', 'ruled out', 
-                       'hamstring', 'knee', 'ankle', 'infortunio', 'lesión', 'blessure'],
-            'SUSPENSION': ['suspended', 'suspension', 'ban', 'red card', 'squalifica', 'sanción', 'suspendu'],
-            'NATIONAL_TEAM': ['national team', 'call-up', 'international', 'nazionale', 'selección', 'équipe nationale'],
-            'CUP_ABSENCE': ['cup', 'rested', 'rotation', 'coppa', 'copa', 'coupe'],
-            'YOUTH_CALLUP': ['youth', 'primavera', 'u19', 'u21', 'academy', 'giovanili', 'juvenil', 'jeunes'],
+            'INJURY': self.INJURY_KEYWORDS,
+            'SUSPENSION': self.SUSPENSION_KEYWORDS,
+            'NATIONAL_TEAM': self.NATIONAL_TEAM_KEYWORDS,
+            'CUP_ABSENCE': self.CUP_ABSENCE_KEYWORDS,
+            'YOUTH_CALLUP': self.YOUTH_CALLUP_KEYWORDS,
         }
         
         keywords = category_keywords.get(category, [])
@@ -627,15 +1021,24 @@ class RelevanceAnalyzer:
             # Score based on keyword matches
             score = sum(1 for kw in keywords if kw.lower() in segment.lower())
             
-            # Bonus for segments with team names
+            # Bonus for segments with team names (European + South American)
+            # V1.6: Added Brazilian, Argentine, and other South American clubs
             if re.search(r'\b(Arsenal|Chelsea|Liverpool|Manchester|Tottenham|Newcastle|West Ham|'
                         r'Milan|Inter|Juventus|Roma|Napoli|Real Madrid|Barcelona|Bayern|'
-                        r'PSG|Dortmund|Ajax|Porto|Benfica)\b', segment, re.IGNORECASE):
+                        r'PSG|Dortmund|Ajax|Porto|Benfica|'
+                        r'Flamengo|Palmeiras|Corinthians|São Paulo|Sao Paulo|Santos|Fluminense|Botafogo|'
+                        r'Vasco|Grêmio|Gremio|Internacional|Cruzeiro|Atlético Mineiro|Atletico Mineiro|'
+                        r'River Plate|Boca Juniors|Racing|Independiente|San Lorenzo|'
+                        r'Olimpia|Motagua|Real España|Real Espana|Marathón|Marathon)\b', segment, re.IGNORECASE):
                 score += 2
             
             # Bonus for segments that look like news headlines (contains verb-like patterns)
+            # V1.6: Added Portuguese/Spanish verb patterns
             if re.search(r'\b(miss|ruled out|injured|suspended|called up|promoted|out for|'
-                        r'sidelined|absent|returns|doubtful|uncertain)\b', segment, re.IGNORECASE):
+                        r'sidelined|absent|returns|doubtful|uncertain|'
+                        r'lesionado|machucado|suspenso|convocado|ausente|fora|contundido|'
+                        r'desfalque|operação|cirurgia|recuperação|tratamento|'
+                        r'baja|sancionado|expulsado|fuera|lesión)\b', segment, re.IGNORECASE):
                 score += 1
             
             if score > best_score:

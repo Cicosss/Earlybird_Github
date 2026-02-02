@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/ai_parser.py
+# hypothesis_version: 6.151.4
+
+[1000, 'Empty response text', 'JSON', 'None reported', 'Unknown', '```', '```json', 'biscotto_potential', 'btts_impact', 'h2h', 'h2h_results', 'injuries', 'injury_impact', 'internal_crisis', 'motivation_away', 'motivation_home', 'raw_intel', 'raw_response', 'referee_intel', 'referee_stats', 'table_context', 'turnover_risk', 'utf-8', '{', '}']

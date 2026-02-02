@@ -26,6 +26,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
+from src.utils.validators import safe_get
 
 logger = logging.getLogger(__name__)
 
@@ -1075,7 +1076,8 @@ if __name__ == "__main__":
             )
             print(f"   Status: {response.status_code}")
             if hasattr(response, 'json'):
-                print(f"   Headers sent: {response.json().get('headers', {}).get('User-Agent', 'N/A')[:60]}...")
+                user_agent = safe_get(response.json(), 'headers', 'User-Agent', default='N/A')
+                print(f"   Headers sent: {user_agent[:60]}...")
         except Exception as e:
             print(f"   Error: {e}")
         

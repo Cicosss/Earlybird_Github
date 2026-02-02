@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/radar_odds_check.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.02, 0.05, 0.1, 3600, 'MAJOR_MOVE', 'MINOR_MOVE', 'Quote incomplete', 'SIGNIFICANT_MOVE', 'STABLE', 'UNKNOWN']
