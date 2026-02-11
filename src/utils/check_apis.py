@@ -9,6 +9,7 @@ Verifica:
 4. Brave API - Auth + Test query (3 keys)
 5. Perplexity API - Auth + Test query
 6. Tavily API - Auth + Test query (7 keys)
+7. Supabase Database - Connection test (V9.0)
 
 Uso: python3 src/utils/check_apis.py
 """
@@ -425,6 +426,208 @@ def test_tavily_api():
         return False
 
 
+def test_supabase_api():
+    """Test Supabase Database connection (V9.0)."""
+    print("\n" + "=" * 60)
+    print("🗄️  SUPABASE DATABASE - Test Connessione (V9.0)")
+    print("=" * 60)
+    
+    supabase_url = os.getenv("SUPABASE_URL", "")
+    supabase_key = os.getenv("SUPABASE_KEY", "")
+    
+    if not supabase_url or not supabase_key:
+        print_err("SUPABASE_URL o SUPABASE_KEY non configurata in .env")
+        return False
+    
+    print(f"   URL: {supabase_url}")
+    print(f"   Key: {supabase_key[:12]}...{supabase_key[-4:]}")
+    
+    try:
+        # Import Supabase provider
+        from src.database.supabase_provider import get_supabase
+        
+        # Get singleton instance
+        provider = get_supabase()
+        
+        # Test connection with continents query
+        if not provider.test_connection():
+            error = provider.get_connection_error()
+            print_err(f"Connessione fallita: {error}")
+            return False
+        
+        # Fetch continents to verify data access
+        continents = provider.fetch_continents()
+        
+        print_ok(f"Connessione attiva | Continenti trovate: {len(continents)}")
+        
+        if continents:
+            print(f"\n📋 Continenti disponibili:")
+            print("-" * 50)
+            for continent in continents[:10]:
+                continent_id = continent.get("id", "N/A")
+                continent_name = continent.get("name", "N/A")
+                print(f"   🌍 {continent_id}: {continent_name}")
+            
+            if len(continents) > 10:
+                print(f"   ... e altre {len(continents) - 10} continenti")
+        
+        # Get cache stats
+        stats = provider.get_cache_stats()
+        print(f"\n📊 Cache Statistics:")
+        print(f"   Cache entries: {stats['cache_entries']}")
+        print(f"   Cache TTL: {stats['cache_ttl_seconds']} seconds (1 hour)")
+        print(f"   Mirror exists: {stats['mirror_exists']}")
+        
+        return True
+        
+    except ImportError as e:
+        print_err(f"Modulo Supabase non disponibile: {e}")
+        print_warn("Esegui: pip install supabase")
+        return False
+    except Exception as e:
+        print_err(f"Errore durante il test: {e}")
+        return False
+
+
+def test_continental_orchestrator():
+    """Test ContinentalOrchestrator connection and functionality (V9.0)."""
+    print("\n" + "=" * 60)
+    print("🌍 CONTINENTAL ORCHESTRATOR - Test Connessione (V9.0)")
+    print("=" * 60)
+    
+    try:
+        # Import ContinentalOrchestrator
+        from src.processing.continental_orchestrator import (
+            ContinentalOrchestrator,
+            get_continental_orchestrator,
+            CONTINENTAL_WINDOWS,
+            MIRROR_FILE_PATH
+        )
+        
+        print_ok("Modulo ContinentalOrchestrator importato")
+        
+        # Display continental windows
+        print(f"\n📋 Finestre Continentali UTC:")
+        print("-" * 50)
+        for continent, hours in CONTINENTAL_WINDOWS.items():
+            print(f"   {continent:8} : {hours[0]:02d}:00-{hours[-1]:02d}:00 UTC ({len(hours)} ore)")
+        
+        # Test 1: Check local mirror file exists
+        print(f"\n📁 Verifica File Mirror:")
+        print("-" * 50)
+        if MIRROR_FILE_PATH.exists():
+            print_ok(f"Mirror file trovato: {MIRROR_FILE_PATH}")
+            try:
+                import json
+                with open(MIRROR_FILE_PATH, 'r', encoding='utf-8') as f:
+                    mirror_data = json.load(f)
+                timestamp = mirror_data.get("timestamp", "N/A")
+                data = mirror_data.get("data", {})
+                continents = data.get("continents", [])
+                countries = data.get("countries", [])
+                leagues = data.get("leagues", [])
+                print_ok(f"Mirror caricato da: {timestamp}")
+                print(f"   Continenti: {len(continents)}")
+                print(f"   Paesi: {len(countries)}")
+                print(f"   Leghe: {len(leagues)}")
+            except Exception as e:
+                print_err(f"Errore caricamento mirror: {e}")
+                return False
+        else:
+            print_warn(f"Mirror file non trovato: {MIRROR_FILE_PATH}")
+        
+        # Test 2: Initialize orchestrator
+        print(f"\n🔧 Inizializzazione Orchestrator:")
+        print("-" * 50)
+        orchestrator = get_continental_orchestrator()
+        print_ok("Orchestrator inizializzato")
+        
+        # Test 3: Check continental status
+        print(f"\n🌍 Stato Continentale:")
+        print("-" * 50)
+        status = orchestrator.get_continental_status()
+        print(f"   UTC Hour corrente: {status['current_utc_hour']:02d}:00")
+        print(f"   Maintenance window: {'SI' if status['in_maintenance_window'] else 'NO'}")
+        print(f"   Supabase disponibile: {'SI' if status['supabase_available'] else 'NO'}")
+        print(f"\n   Attività Continenti:")
+        for continent, info in status['continents'].items():
+            active_str = "🟢 ATTIVA" if info['is_currently_active'] else "🔴 INATTIVA"
+            print(f"      {continent:8} : {active_str}")
+        
+        # Test 4: Get active leagues for current time
+        print(f"\n🎯 Leghe Attive per Tempo Corrente:")
+        print("-" * 50)
+        result = orchestrator.get_active_leagues_for_current_time()
+        
+        print(f"   Settlement mode: {'SI' if result['settlement_mode'] else 'NO'}")
+        print(f"   Source: {result['source'].upper()}")
+        print(f"   UTC Hour: {result['utc_hour']:02d}:00")
+        print(f"   Continent blocks: {', '.join(result['continent_blocks']) if result['continent_blocks'] else 'Nessuno'}")
+        print(f"   Leghe da scansionare: {len(result['leagues'])}")
+        
+        if result['leagues']:
+            print(f"\n   Lista Leghe:")
+            for league in result['leagues'][:10]:
+                print(f"      📌 {league}")
+            if len(result['leagues']) > 10:
+                print(f"      ... e altre {len(result['leagues']) - 10} leghe")
+        
+        # Test 5: Verify fallback mechanism
+        print(f"\n🔄 Verifica Meccanismo Fallback:")
+        print("-" * 50)
+        if result['source'] == 'supabase':
+            print_ok("Dati caricati da Supabase (connessione primaria)")
+        elif result['source'] == 'mirror':
+            print_warn("Dati caricati da Mirror (fallback attivo)")
+        else:
+            print_warn("Nessun dato caricato (maintenance window)")
+        
+        # Test 6: Validate response structure
+        print(f"\n✅ Verifica Struttura Risposta:")
+        print("-" * 50)
+        required_keys = ['leagues', 'continent_blocks', 'settlement_mode', 'source', 'utc_hour']
+        missing_keys = [k for k in required_keys if k not in result]
+        
+        if missing_keys:
+            print_err(f"Chiavi mancanti nella risposta: {missing_keys}")
+            return False
+        else:
+            print_ok("Struttura risposta valida")
+        
+        # Test 7: Check if leagues list is valid
+        if result['leagues']:
+            print_ok(f"Lista leghe valida: {len(result['leagues'])} elementi")
+            # Check if all leagues are strings
+            if all(isinstance(league, str) for league in result['leagues']):
+                print_ok("Tutte le leghe sono stringhe valide")
+            else:
+                print_err("Alcune leghe non sono stringhe valide")
+                return False
+        
+        # Summary
+        print(f"\n📊 Riepilogo:")
+        print("-" * 50)
+        print_ok(f"ContinentalOrchestrator operativo")
+        print(f"   - Supabase: {'Disponibile' if status['supabase_available'] else 'Non disponibile'}")
+        print(f"   - Mirror: {'Disponibile' if MIRROR_FILE_PATH.exists() else 'Non disponibile'}")
+        print(f"   - Leghe attive: {len(result['leagues'])}")
+        print(f"   - Source: {result['source'].upper()}")
+        
+        return True
+        
+    except ImportError as e:
+        print_err(f"Modulo ContinentalOrchestrator non disponibile: {e}")
+        return False
+    except Exception as e:
+        print_err(f"Errore durante il test: {e}")
+        import traceback
+        print(f"   Stack trace:")
+        for line in traceback.format_exc().split('\n')[:10]:
+            if line.strip():
+                print(f"   {line}")
+        return False
+
+
 def main():
     print("\n" + "=" * 60)
     print("🦅 EARLYBIRD API DIAGNOSTIC TOOL")
@@ -439,6 +642,8 @@ def main():
     results["brave"] = test_brave_api()
     results["perplexity"] = test_perplexity_api()
     results["tavily"] = test_tavily_api()
+    results["supabase"] = test_supabase_api()
+    results["continental_orchestrator"] = test_continental_orchestrator()
     
     # Summary
     print("\n" + "=" * 60)

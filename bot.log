@@ -1,26 +1,10 @@
-2026-02-01 20:56:08,806 - INFO - ==================================================
-2026-02-01 20:56:08,806 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-02-01 20:56:08,806 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 20:56:08,806 - INFO - ==================================================
-2026-02-01 20:56:08,810 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 20:56:08,811 - INFO - ✅ Database initialized
-2026-02-01 20:56:08,942 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-01 20:56:10,150 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-01 20:56:10,500 - INFO - Phone migrated to 4
-2026-02-01 20:56:10,507 - INFO - Reconnecting to new data center 4
-2026-02-01 20:56:10,569 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-01 20:56:10,570 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-01 20:56:10,570 - INFO - Connecting to 149.154.167.92:443/TcpFull...
-2026-02-01 20:56:11,850 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
-2026-02-01 20:56:12,301 - INFO - ✅ Command handlers registrati
-2026-02-01 20:56:12,302 - INFO - ✅ Bot connesso e in ascolto...
-2026-02-01 21:09:00,105 - INFO - ==================================================
-2026-02-01 21:09:00,106 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-02-01 21:09:00,106 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-01 21:09:00,106 - INFO - ==================================================
-2026-02-01 21:09:00,109 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 21:09:00,109 - INFO - ✅ Database initialized
-2026-02-01 21:09:00,110 - INFO - Connecting to 149.154.167.92:443/TcpFull...
-2026-02-01 21:09:00,142 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
-2026-02-01 21:09:00,426 - INFO - ✅ Command handlers registrati
-2026-02-01 21:09:00,426 - INFO - ✅ Bot connesso e in ascolto...
+2026-02-10 13:23:10,987 - INFO - ==================================================
+2026-02-10 13:23:10,987 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-02-10 13:23:10,987 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-10 13:23:10,987 - INFO - ==================================================
+2026-02-10 13:23:10,992 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-10 13:23:10,992 - INFO - ✅ Database initialized
+2026-02-10 13:23:10,993 - INFO - Connecting to 149.154.167.92:443/TcpFull...
+2026-02-10 13:23:11,101 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
+2026-02-10 13:23:11,503 - INFO - ✅ Command handlers registrati
+2026-02-10 13:23:11,503 - INFO - ✅ Bot connesso e in ascolto...

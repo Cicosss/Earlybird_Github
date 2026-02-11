@@ -141,6 +141,8 @@ class MediaStackBudget:
         Reset monthly counters.
         """
         self._monthly_used = 0
+        self._daily_used = 0  # Also reset daily counter
+        self._component_usage = {component: 0 for component in self._allocations}
         self._last_reset_month = datetime.now(timezone.utc).month
         logger.info("📅 MediaStack budget: Monthly reset")
 

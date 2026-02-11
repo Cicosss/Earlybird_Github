@@ -1,7 +1,7 @@
 # ==============================================================================
 # Earlybird Project - Single Source of Truth Makefile
 # ==============================================================================
-# Version: V8.3 (Learning Loop Integrity Fix)
+# Version: V9.5 (Supabase Database Integration + API Handshake)
 #
 # This Makefile is the authoritative source for all operational commands.
 # All test and run commands MUST use this Makefile, not generic pytest or python commands.
@@ -70,8 +70,8 @@ COLOR_BLUE := \033[34m
 # PHONY Targets
 # ==============================================================================
 
-.PHONY: help test test-unit test-integration test-regression test-coverage
-.PHONY: setup setup-python setup-system install
+.PHONY: help test test-unit test-integration test-regression test-coverage test-continental
+.PHONY: setup setup-python setup-system install setup-telegram-auth
 .PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor
 .PHONY: check-apis check-health check-database
 .PHONY: clean clean-db clean-all
@@ -96,11 +96,13 @@ help:
 	@echo "  make test-integration  - Run integration tests only"
 	@echo "  make test-regression   - Run regression tests only"
 	@echo "  make test-coverage     - Run tests with coverage report"
+	@echo "  make test-continental  - Run ContinentalOrchestrator integration tests"
 	@echo ""
 	@echo "$(COLOR_BOLD)Setup Commands:$(COLOR_RESET)"
 	@echo "  make setup             - Full setup (System + Python)"
 	@echo "  make setup-python      - Python dependencies only"
 	@echo "  make setup-system      - System dependencies only"
+	@echo "  make setup-telegram-auth - Setup Telegram user session (one-time)"
 	@echo "  make install           - Alias for setup"
 	@echo ""
 	@echo "$(COLOR_BOLD)Run Commands:$(COLOR_RESET)"
@@ -151,6 +153,11 @@ test-coverage: check-env
 	@$(PYTEST) -c $(PYTEST_INI) -v --cov=src --cov-report=html --cov-report=term
 	@echo "$(COLOR_GREEN)Coverage report generated in $(COVERAGE_REPORT)/$(COLOR_RESET)"
 
+test-continental: check-env
+	@echo "$(COLOR_GREEN)Running ContinentalOrchestrator integration tests...$(COLOR_RESET)"
+	@$(PYTEST) -c $(PYTEST_INI) -v -m integration tests/test_continental_orchestrator.py
+	@echo "$(COLOR_GREEN)ContinentalOrchestrator tests complete!$(COLOR_RESET)"
+
 # ==============================================================================
 # Setup Commands
 # ==============================================================================
@@ -173,6 +180,13 @@ setup-python: check-env
 	@$(PYTHON) -m pip install --break-system-packages --upgrade pip
 	@$(PYTHON) -m pip install --break-system-packages -r requirements.txt
 	@echo "$(COLOR_GREEN)Python dependencies installed successfully!$(COLOR_RESET)"
+
+setup-telegram-auth: check-env
+	@echo "$(COLOR_GREEN)Setting up Telegram user session...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)This is a ONE-TIME setup to enable access to private Telegram channels$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)You will need to enter your phone number and OTP code$(COLOR_RESET)"
+	@echo ""
+	@$(PYTHON) $(SETUP_TELEGRAM_AUTH)
 
 install: setup
 

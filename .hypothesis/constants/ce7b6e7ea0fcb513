@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/database/supabase_provider.py
+# hypothesis_version: 6.151.4
+
+[3600, '*', '=', 'No API key provided', 'SUPABASE_KEY', 'SUPABASE_URL', 'SupabaseProvider', 'Unknown', '__main__', 'active_hours_utc', 'active_leagues_full', 'api_key', 'cache_entries', 'cache_keys', 'cache_ttl_seconds', 'connected', 'continent', 'continent_id', 'continents', 'countries', 'countries_all', 'country', 'country_id', 'data', 'error', 'id', 'invalid', 'invalid_count', 'is_active', 'iso_code', 'league', 'league_id', 'leagues', 'leagues_all', 'mirror_exists', 'name', 'news_sources', 'r', 'soccer_', 'social_sources', 'social_sources_all', 'sources', 'sources_all', 'tier_name', 'timestamp', 'total', 'utf-8', 'valid', 'valid_count', 'w']

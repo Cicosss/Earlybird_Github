@@ -90,7 +90,9 @@ class TestMediaStackBudget:
 
     def test_reset_monthly_clears_monthly_counters(self):
         """reset_monthly should clear monthly counters."""
-        budget = MediaStackBudget()
+        # Create budget with custom allocations that include "news_radar"
+        allocations = {"search_provider": 0, "news_radar": 0}
+        budget = MediaStackBudget(allocations=allocations)
         
         budget.record_call("search_provider")
         budget.record_call("news_radar")

@@ -324,6 +324,10 @@ ALERT_PAYLOAD_CONTRACT = Contract(
                   description="Mercato consigliato"),
         FieldSpec("verification_info", required=False, field_type=dict,
                   description="Info verifica V7.0"),
+        FieldSpec("is_convergent", required=False, field_type=bool,
+                  description="V9.5: True se segnale confermato da Web e Social"),
+        FieldSpec("convergence_sources", required=False, field_type=dict,
+                  description="V9.5: Dettagli fonti convergenti (web/social)"),
     ]
 )
 

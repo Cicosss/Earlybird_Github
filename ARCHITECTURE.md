@@ -1,4 +1,4 @@
-# 🏗️ EarlyBird V8.0 - Architecture Documentation
+# 🏗️ EarlyBird V9.0 - Architecture Documentation
 
 ## Overview
 
@@ -17,6 +17,14 @@ EarlyBird è un sistema di betting intelligence **self-learning** che utilizza t
 - 🔌 **Plug & Play VPS Launch**: System boots and operates even without .env file using hardcoded defaults (2026-01-31)
 - 🔐 **Environment Injection**: Hardcoded API keys injected into os.environ for external library compatibility (2026-01-31)
 - 🛡️ **Graceful Degradation**: Components gracefully skip functionality when API keys are missing instead of crashing (2026-01-31)
+ 
+**V9.0 Highlights** (2026-02-08):
+- 🗄️ **Supabase Database Integration**: New intelligence source with enterprise-grade bridge
+- 🔄 **Singleton Pattern**: Single connection instance via get_supabase() for optimal resource usage
+- 📊 **Hierarchical Fetching**: Continental-Country-League-Sources map with structured queries
+- 💾 **Smart Cache**: 1-hour in-memory cache (3600s TTL) to minimize API calls
+- 🪞 **Fail-Safe Mirror**: Automatic local backup to data/supabase_mirror.json with fallback logic
+- 🔌 **Connection Diagnostics**: Integrated into check_apis.py for health monitoring
 
 **V6.0 Highlights**:
 - 🐦 **Twitter Intel Cache**: Sostituisce broken site:twitter.com search

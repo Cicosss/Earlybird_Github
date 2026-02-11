@@ -1,9 +1,13 @@
-# 🦅 EarlyBird V8.3 - Deploy Instructions
+# 🦅 EarlyBird V9.5 - Deploy Instructions
 
 Guida definitiva per il deploy su Ubuntu VPS.
 
 **Version History:**
-- **V8.3** (Current) - Learning Loop Integrity Fix
+- **V9.5** (Current) - Supabase Database Integration
+  - Added Supabase database connection for continental orchestration
+  - Integrated ContinentalOrchestrator for time-based league scheduling
+  - Added API Handshake validation (make check-apis) as mandatory pre-deploy step
+- **V8.3** - Learning Loop Integrity Fix
   - Added `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at` columns for accurate ROI calculations
   - Fixed learning loop data integrity issues
 - **V8.0** - Tactical Brain Integration
@@ -15,6 +19,18 @@ Guida definitiva per il deploy su Ubuntu VPS.
 - **V7.0** - Intelligence Router with DeepSeek primary + Tavily pre-enrichment
 - **V5.3** - Odds type conversion and validation fixes
 - **V5.2** - Input validation and edge case handling in optimizer
+
+**Novità V9.5:**
+- 🗄️ **Supabase Integration**: Added cloud database for continental orchestration
+- 🌍 **Continental Orchestrator**: Time-based league scheduling across continents
+- 🚨 **API Handshake**: Mandatory pre-deploy validation of all API credentials (make check-apis)
+- 🔄 **Mirror Fallback**: Local mirror file for resilience during Supabase outages
+- 🚪 **3-Level Intelligence Gate**: Zero-cost keyword filtering (95% token savings)
+  - Level 1: 147 native keywords in 9 languages (FREE)
+  - Level 2: DeepSeek V3 translation and classification
+  - Level 3: DeepSeek R1 deep reasoning for BET/NO BET verdict
+- 🤖 **Dual-Model Hierarchy**: Model A (Standard) + Model B (Reasoner)
+- 🔴 **Cross-Source Convergence**: Detects signals in both Web and Social sources
 
 **Novità V8.3:**
 - 🎯 **Learning Loop Integrity**: Fixed ROI calculation accuracy with proper odds tracking
@@ -30,7 +46,7 @@ Guida definitiva per il deploy su Ubuntu VPS.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        EARLYBIRD V8.3                            │
+│                        EARLYBIRD V9.5                            │
 └─────────────────────────────────────────────────────────────────┘
                               │
         ┌─────────────────────┼─────────────────────┐
@@ -88,10 +104,67 @@ Guida definitiva per il deploy su Ubuntu VPS.
    - Opportunity Radar (V2.0): Narrative-first scanner
 
 4. **Test Framework**
-   - pytest with 11 markers (unit, integration, regression, contract, snapshot, chaos, slow, e2e, performance, security)
-   - Contract testing for interface validation
-   - Snapshot testing for regression detection
-   - Chaos testing for resilience verification
+    - pytest with 11 markers (unit, integration, regression, contract, snapshot, chaos, slow, e2e, performance, security)
+    - Contract testing for interface validation
+    - Snapshot testing for regression detection
+    - Chaos testing for resilience verification
+
+---
+
+## 📡 Telegram Session Setup (One-Time)
+
+Per abilitare l'accesso completo ai canali Telegram (inclusi canali privati per insider intel), è necessario creare una sessione utente Telegram.
+
+### Funzionalità
+
+| Modalità | Funzionalità | Canali Accessibili |
+|----------|--------------|-------------------|
+| **Senza Sessione** | 50% | Solo canali pubblici |
+| **Con Sessione** | 100% | Pubblici + Privati |
+
+### Setup (One-Time)
+
+```bash
+# Metodo 1: Usando make (raccomandato)
+make setup-telegram-auth
+
+# Metodo 2: Esecuzione diretta
+python setup_telegram_auth.py
+```
+
+Quando richiesto:
+1. Inserisci il numero: `+393703342314`
+2. Inserisci il codice OTP ricevuto su Telegram
+3. Se richiesto, inserisci la password 2FA
+
+Il file `data/earlybird_monitor.session` verrà creato automaticamente.
+
+### Fallback Automatico
+
+Il sistema [`run_telegram_monitor.py`](run_telegram_monitor.py:266) implementa un sistema di fallback a 3 livelli:
+
+1. **Priorità 1**: Sessione Utente (100% - canali privati + pubblici)
+2. **Priorità 2**: Bot Token (50% - solo canali pubblici)
+3. **Priorità 3**: Modalità IDLE con retry ogni 5 minuti
+
+Questo significa che anche senza la sessione utente, il monitor funziona al 50% e non crasha.
+
+### Note Importanti
+
+- ⚠️ **Non condividere il file sessione**: Contiene token di autenticazione sensibili
+- 💾 **Backup della sessione**: Mantieni una copia del file sessione localmente
+- 🔄 **Session expiration**: Le sessioni Telegram possono scadere dopo inattività prolungata
+- 📱 **Multi-device**: Se usi Telegram su altri dispositivi, la sessione potrebbe invalidarsi
+
+### Deploy su VPS
+
+Per il deploy su VPS:
+
+1. Esegui `make setup-telegram-auth` localmente per creare la sessione
+2. Copia il file `data/earlybird_monitor.session` sulla VPS
+3. Assicurati che le credenziali TELEGRAM_API_ID e TELEGRAM_API_HASH siano nel file `.env` della VPS
+
+Per dettagli completi, vedi [`TELEGRAM_SESSION_SETUP.md`](TELEGRAM_SESSION_SETUP.md:1).
 
 ---
 
@@ -160,18 +233,21 @@ pytest tests/test_validators.py -v
 - [ ] `pytest tests/ -m unit` passa senza errori
 - [ ] `pytest tests/test_validators.py` passa
 - [ ] Verificato che i log critici siano presenti (usa `log_capture`)
-- [ ] API keys verificate (`python src/utils/check_apis.py`)
+- [ ] API keys verificate (`make check-apis`)
 
 ---
 
-## 🧠 INTELLIGENCE FEATURES (V8.3)
+## 🧠 INTELLIGENCE FEATURES (V9.5)
 
-Il sistema include 10+ modelli di intelligence per l'analisi predittiva e decisionale.
+Il sistema include 12+ modelli di intelligence per l'analisi predittiva e decisionale.
 
 ### Core Intelligence Features
 
 | Feature | Version | Location | Description |
 |---------|---------|----------|-------------|
+| **🚪 Intelligence Gate** | V9.5 ⭐ NEW | `src/utils/intelligence_gate.py` | 3-level gating for 95% token savings |
+| **🤖 Dual-Model Hierarchy** | V9.5 ⭐ NEW | `src/utils/intelligence_gate.py` | Model A (Standard) + Model B (Reasoner) |
+| **🔴 Cross-Source Convergence** | V9.5 ⭐ NEW | `src/analysis/analyzer.py` | Web + Social signal matching |
 | **Intelligence Router** | V7.0 | `src/services/intelligence_router.py` | Routes to DeepSeek (primary) with Tavily pre-enrichment |
 | **Market Intelligence** | V1.1 | `src/analysis/market_intelligence.py` | Steam Move, Reverse Line, News Decay analysis |
 | **Tactical Veto** | V8.0 | `src/analysis/` | Applied when market signals contradict tactical reality |
@@ -182,6 +258,56 @@ Il sistema include 10+ modelli di intelligence per l'analisi predittiva e decisi
 | **News Intelligence** | - | `src/analysis/news_scorer.py` | News scoring and aggregation |
 | **Telegram Intelligence** | - | `src/analysis/image_ocr.py` | Squad image scraping and OCR analysis |
 | **Opportunity Radar** | V2.0 | `src/ingestion/opportunity_radar.py` | Narrative-First Intelligence Scanner |
+
+### V9.5 New Features
+
+#### 🚪 Intelligence Gate (V9.5) ⭐ NEW
+3-level tiered gating system for processing global intelligence at 5% of current cost:
+
+| Level | Type | Model | Cost |
+|-------|------|-------|------|
+| **Level 1** | Zero-Cost Keyword Check | Python locale | FREE |
+| **Level 2** | Economic AI Translation | DeepSeek V3 | ~$0.001/call |
+| **Level 3** | Deep R1 Reasoning | DeepSeek R1 | ~$0.01/call |
+
+**Keywords:** 147 total (75 injury + 72 team) in 9 languages:
+- Spanish, Arabic, French, German, Portuguese, Polish, Turkish, Russian, Dutch
+
+**Expected Savings:** 95% reduction in token costs
+
+**Usage:**
+```python
+from src.utils.intelligence_gate import (
+    level_1_keyword_check,
+    level_2_translate_and_classify,
+    level_3_deep_reasoning,
+    apply_intelligence_gate
+)
+
+# Level 1 - Zero cost (local Python)
+passed, keyword = level_1_keyword_check("El jugador tiene una lesión")
+
+# Level 2 - Economic ($0.001/call)
+result = await level_2_translate_and_classify(text)
+
+# Level 3 - Deep reasoning ($0.01/call)
+verdict = await level_3_deep_reasoning(intel_package)
+
+# Combined gate (Level 1 + 2)
+gate_result = await apply_intelligence_gate(text)
+```
+
+#### 🤖 Dual-Model Hierarchy (V9.5) ⭐ NEW
+
+| Model | ID | Purpose |
+|-------|-----|---------|
+| **Model A (Standard)** | `deepseek/deepseek-chat` | Translation, metadata extraction, low-priority tasks |
+| **Model B (Reasoner)** | `deepseek/deepseek-r1-0528:free` | Triangulation, Verification, BET/NO BET verdict |
+
+#### 🔴 Cross-Source Convergence (V9.5) ⭐ NEW
+- Detects when the same signal appears in both Web (Brave) and Social (Nitter)
+- High-priority tag: 🔴 CONFERMA MULTIPLA: WEB + SOCIAL
+- Signal matching criteria: type, team reference, time window (24h), confidence > 0.6
 
 ### Feature Details
 
@@ -548,6 +674,7 @@ cd earlybird
 
 # 3. Inizializzazione
 cp .env.template .env  # O ripristina il tuo .env salvato
+make check-apis        # 🚨 CRITICAL: API Handshake - MUST PASS before proceeding
 make migrate
 
 # 4. 🚀 GO LIVE (Dashboard Mode)
@@ -613,12 +740,31 @@ TELEGRAM_API_HASH=your_api_hash
 ### Verifica API Keys
 ```bash
 source venv/bin/activate
-python src/utils/check_apis.py
+make check-apis
 ```
+
+> 🚨 **CRITICAL STEP - API HANDSHAKE:** This command validates all API credentials (Odds, Brave, OpenRouter, Tavily, Perplexity, Supabase, etc.) before starting the bot. **DO NOT PROCEED** until all checks pass successfully.
 
 ---
 
 ## 4️⃣ Inizializzazione
+
+### ⚡ CRITICAL: API Handshake (MANDATORY - Run BEFORE starting the bot)
+```bash
+source venv/bin/activate
+make check-apis
+```
+
+> 🚨 **STOP:** Do NOT proceed with database initialization or bot startup until `make check-apis` passes successfully. This command verifies:
+> - **Odds API** - Authentication and league discovery
+> - **Brave API** - Search functionality (3 keys)
+> - **OpenRouter API** - AI model access
+> - **Tavily API** - Search capabilities (7 keys)
+> - **Perplexity API** - Fallback search
+> - **Supabase Database** - Connection and data access (V9.0)
+> - **Continental Orchestrator** - League scheduling (V9.0)
+>
+> This prevents "Blind Start" on the VPS. Every deploy must begin with a successful API Handshake.
 
 ### Database
 ```bash
@@ -957,7 +1103,7 @@ python3 run_news_radar.py
 - [ ] ZIP creato con `.env` incluso (V8.3)
 - [ ] Upload su VPS completato
 - [ ] `setup_vps.sh` eseguito senza errori
-- [ ] API keys verificate (`check_apis.py`)
+- [ ] API keys verificate (`make check-apis`) - **CRITICAL: Must pass before proceeding**
 - [ ] Database inizializzato
 - [ ] **V8.3 Migration eseguita** (`python3 src/deploy_v83_odds_fix.py`)
 - [ ] Telegram autenticato (se necessario)

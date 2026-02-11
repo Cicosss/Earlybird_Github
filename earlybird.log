@@ -1,14 +1,14 @@
-2026-02-01 20:56:06,785 - INFO - 🚨 Emergency cleanup triggered due to high disk usage.
-2026-02-01 20:56:06,814 - INFO -    ℹ️ temp/ folder already empty
-2026-02-01 20:56:06,814 - INFO - ✅ Emergency cleanup completed: 0 logs truncated, 0 temp files deleted
-2026-02-01 20:56:06,814 - INFO - 🦅 EARLYBIRD NEWS & ODDS MONITOR - 24/7 MODE ACTIVATED
-2026-02-01 20:56:06,814 - INFO - 🎯 ELITE QUALITY FILTERING - High Bar Configuration:
-2026-02-01 20:56:06,814 - INFO -    Standard Matches: Score >= 9.0 (was 8.6)
-2026-02-01 20:56:06,814 - INFO -    Radar Matches (Insider News): Score >= 7.5 (was 7.0)
-2026-02-01 20:56:06,814 - INFO - Health Monitor initialized
-2026-02-01 20:56:06,814 - INFO - 📝 No optimizer data found, starting fresh
-2026-02-01 20:56:06,814 - INFO - 📊 Optimizer V3.0 initialized with 0 historical bets
-2026-02-01 20:56:06,814 - INFO - 📊 OPTIMIZER V5.0 SUMMARY (Sample Size Guards + Sortino)
+2026-02-10 13:23:10,896 - INFO - 🚨 Emergency cleanup triggered due to high disk usage.
+2026-02-10 13:23:10,928 - INFO -    ℹ️ temp/ folder already empty
+2026-02-10 13:23:10,928 - INFO - ✅ Emergency cleanup completed: 0 logs truncated, 0 temp files deleted
+2026-02-10 13:23:10,928 - INFO - 🦅 EARLYBIRD NEWS & ODDS MONITOR - 24/7 MODE ACTIVATED
+2026-02-10 13:23:10,928 - INFO - 🎯 ELITE QUALITY FILTERING - High Bar Configuration:
+2026-02-10 13:23:10,928 - INFO -    Standard Matches: Score >= 9.0 (was 8.6)
+2026-02-10 13:23:10,928 - INFO -    Radar Matches (Insider News): Score >= 7.5 (was 7.0)
+2026-02-10 13:23:10,928 - INFO - Health Monitor initialized
+2026-02-10 13:23:10,928 - INFO - 📝 No optimizer data found, starting fresh
+2026-02-10 13:23:10,928 - INFO - 📊 Optimizer V3.0 initialized with 0 historical bets
+2026-02-10 13:23:10,929 - INFO - 📊 OPTIMIZER V5.0 SUMMARY (Sample Size Guards + Sortino)
 Total bets: 0
 Overall ROI: 0.0%
 Last updated: None
@@ -19,320 +19,1171 @@ Last updated: None
    ACTIVE (>50 bets): 0 strategies
 
 ⏳ No active adjustments yet (need more data)
-2026-02-01 20:56:06,814 - INFO - 🌐 [BROWSER-MONITOR] V7.7 Created (Browser stability fix + Smart API Routing)
-2026-02-01 20:56:06,816 - INFO - ✅ [BROWSER-MONITOR] Loaded 14 sources from config/browser_sources.json
-2026-02-01 20:56:06,816 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
-2026-02-01 20:56:06,816 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
-2026-02-01 20:56:06,816 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
-2026-02-01 20:56:06,816 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
-2026-02-01 20:56:06,816 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
-2026-02-01 20:56:06,816 - INFO - 📊 BudgetManager initialized: 7000 calls/month, 6 components
-2026-02-01 20:56:06,816 - INFO - 🔍 [BROWSER-MONITOR] Tavily short content expansion enabled
-2026-02-01 20:56:06,816 - INFO - 🌐 [BROWSER-MONITOR] Launching Playwright...
-2026-02-01 20:56:08,030 - INFO - ✅ [BROWSER-MONITOR] Playwright initialized
-2026-02-01 20:56:08,035 - INFO - ✅ [BROWSER-MONITOR] Started with 14 sources
-2026-02-01 20:56:08,035 - INFO - 🔄 [BROWSER-MONITOR] Scan loop started
-2026-02-01 20:56:08,039 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BBC Sport Football...
-2026-02-01 20:56:08,817 - INFO - 🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7
-2026-02-01 20:56:08,817 - INFO - 📦 [QUEUE] Global discovery queue initialized
-2026-02-01 20:56:08,817 - INFO - 📢 [QUEUE] High-priority callback registered (threshold=0.85, categories={'SUSPENSION', 'INJURY', 'LINEUP'})
-2026-02-01 20:56:08,817 - INFO - 📢 [QUEUE] High-priority callback registered for event-driven processing
-2026-02-01 20:56:09,149 - INFO - Status message sent to Telegram
-2026-02-01 20:56:09,155 - INFO - Heartbeat sent
-2026-02-01 20:56:09,160 - INFO - 
-⏰ CYCLE 1 START: 20:56:09
-2026-02-01 20:56:09,160 - INFO - 🐦 REFRESHING TWITTER INTEL CACHE...
-2026-02-01 20:56:09,160 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
-2026-02-01 20:56:09,163 - INFO - 🐦 Extracting tweets from 50 accounts...
-2026-02-01 20:56:09,179 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
-2026-02-01 20:56:09,179 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
-2026-02-01 20:56:09,179 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
-2026-02-01 20:56:09,179 - WARNING - ⚠️ MediaStackKeyRotator: No valid API keys found!
-2026-02-01 20:56:09,179 - INFO - 📊 MediaStackBudget initialized: 1 components (monitoring only - free unlimited tier)
-2026-02-01 20:56:09,179 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
-2026-02-01 20:56:09,179 - INFO - 🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)
-2026-02-01 20:56:09,179 - INFO - 🔮 Perplexity Provider initialized (Fallback)
-2026-02-01 20:56:09,179 - INFO - 🔀 IntelligenceRouter V7.0 initialized (DeepSeek primary, Tavily enabled, Perplexity fallback)
-2026-02-01 20:56:09,179 - INFO - 🐦 [DEEPSEEK] Extracting tweets from 50 accounts in 5 batches...
-2026-02-01 20:56:09,180 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40RudyGaletti OR %40UEFA...
-2026-02-01 20:56:09,833 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540RudyGaletti+OR+%252540UEFAcomCetinCY+OR+%252540_sabirhan+OR+%252540Onuranli+OR+%252540BocaEnLaCopa+OR+%252540CABJ_English+OR+%252540marc_cart+OR+%252540INDEPENDIENTEgc+OR+%252540AllFutbolMX+OR+%252540karentapia_a+football&count=10&freshness=pw "HTTP/2 200 OK"
-2026-02-01 20:56:09,835 - INFO - 🔍 [BRAVE] Found 0 results
-2026-02-01 20:56:12,642 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.bbc.com/sport/football...
-2026-02-01 20:56:12,782 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540RudyGaletti%20OR%20%2540UEFAcomCetinCY%20OR%20%2540_sabirhan%20OR%20%2540Onuranli%20OR%20%2540BocaEnLaCopa%20OR%20%2540CABJ_English%20OR%20%2540marc_cart%20OR%20%2540INDEPENDIENTEgc%20OR%20%2540AllFutbolMX%20OR%20%2540karentapia_a%20football 200
-2026-02-01 20:56:13,180 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540RudyGaletti+OR+%2540UEFAcomCetinCY+OR+%2540_sabirhan+OR+%2540Onuranli+OR+%2540BocaEnLaCopa+OR+%2540CABJ_English+OR+%2540marc_cart+OR+%2540INDEPENDIENTEgc+OR+%2540AllFutbolMX+OR+%2540karentapia_a+football&limit=1 200
-2026-02-01 20:56:13,511 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540RudyGaletti+OR+%2540UEFAcomCetinCY+OR+%2540_sabirhan+OR+%2540Onuranli+OR+%2540BocaEnLaCopa+OR+%2540CABJ_English+OR+%2540marc_cart+OR+%2540INDEPENDIENTEgc+OR+%2540AllFutbolMX+OR+%2540karentapia_a+football&source=web&tf=pw 429
-2026-02-01 20:56:14,352 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540RudyGaletti+OR+%2540UEFAcomCetinCY+OR+%2540_sabirhan+OR+%2540Onuranli+OR+%2540BocaEnLaCopa+OR+%2540CABJ_English+OR+%2540marc_cart+OR+%2540INDEPENDIENTEgc+OR+%2540AllFutbolMX+OR+%2540karentapia_a+football&web=1&searchid=5548321 200
-2026-02-01 20:56:14,391 - INFO - 🤖 [DEEPSEEK] twitter_batch_1...
-2026-02-01 20:56:17,928 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
-2026-02-01 20:56:20,739 - INFO - ✅ [DEEPSEEK] twitter_batch_1 complete
-2026-02-01 20:56:20,741 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40soymemozavala OR %40He...
-2026-02-01 20:56:21,293 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540soymemozavala+OR+%252540HellasFooty+OR+%252540A_McQuarrie+OR+%252540LianosKostas+OR+%252540AnthonyRJoseph+OR+%252540anthonyabrown+OR+%252540alan_pattullo+OR+%252540ScottBurns75+OR+%252540AleagueHub+OR+%252540joeylynchy+football&count=10&freshness=pw "HTTP/2 200 OK"
-2026-02-01 20:56:21,293 - INFO - 🔍 [BRAVE] Found 0 results
-2026-02-01 20:56:22,673 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540soymemozavala%20OR%20%2540HellasFooty%20OR%20%2540A_McQuarrie%20OR%20%2540LianosKostas%20OR%20%2540AnthonyRJoseph%20OR%20%2540anthonyabrown%20OR%20%2540alan_pattullo%20OR%20%2540ScottBurns75%20OR%20%2540AleagueHub%20OR%20%2540joeylynchy%20football 200
-2026-02-01 20:56:22,986 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540soymemozavala+OR+%2540HellasFooty+OR+%2540A_McQuarrie+OR+%2540LianosKostas+OR+%2540AnthonyRJoseph+OR+%2540anthonyabrown+OR+%2540alan_pattullo+OR+%2540ScottBurns75+OR+%2540AleagueHub+OR+%2540joeylynchy+football&limit=1 200
-2026-02-01 20:56:23,597 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3Dsite%25253Atwitter.com%2BOR%2Bsite%25253Ax.com%2B%252540soymemozavala%2BOR%2B%252540HellasFooty%2BOR%2B%252540A_McQuarrie%2BOR%2B%252540LianosKostas%2BOR%2B%252540AnthonyRJoseph%2BOR%2B%252540anthonyabrown%2BOR%2B%252540alan_pattullo%2BOR%2B%252540ScottBurns75%2BOR%2B%252540AleagueHub%2BOR%2B%252540joeylynchy%2Bfootball%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=0&pc=srp&uxe=none&cm=2&hl=en&src=1 200
-2026-02-01 20:56:23,787 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
-2026-02-01 20:56:24,562 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540soymemozavala+OR+%2540HellasFooty+OR+%2540A_McQuarrie+OR+%2540LianosKostas+OR+%2540AnthonyRJoseph+OR+%2540anthonyabrown+OR+%2540alan_pattullo+OR+%2540ScottBurns75+OR+%2540AleagueHub+OR+%2540joeylynchy+football&web=1&searchid=8389536 200
-2026-02-01 20:56:24,583 - INFO - 🤖 [DEEPSEEK] twitter_batch_2...
-2026-02-01 20:56:25,396 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
-2026-02-01 20:56:29,929 - INFO - ✅ [DEEPSEEK] twitter_batch_2 complete
-2026-02-01 20:56:29,950 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40JamesDodd89 OR %40tary...
-2026-02-01 20:56:30,662 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540JamesDodd89+OR+%252540tarynheddo+OR+%252540polishscout+OR+%252540Ryan_Hubbard+OR+%252540golskapodcast+OR+%252540fitjar+OR+%252540StianWahl+OR+%252540ELundefugl52724+OR+%252540georgeboxall22+OR+%252540FrenchFtWeekly+football&count=10&freshness=pw "HTTP/2 200 OK"
-2026-02-01 20:56:30,671 - INFO - 🔍 [BRAVE] Found 0 results
-2026-02-01 20:56:32,512 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540JamesDodd89%20OR%20%2540tarynheddo%20OR%20%2540polishscout%20OR%20%2540Ryan_Hubbard%20OR%20%2540golskapodcast%20OR%20%2540fitjar%20OR%20%2540StianWahl%20OR%20%2540ELundefugl52724%20OR%20%2540georgeboxall22%20OR%20%2540FrenchFtWeekly%20football 200
-2026-02-01 20:56:33,483 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540JamesDodd89+OR+%2540tarynheddo+OR+%2540polishscout+OR+%2540Ryan_Hubbard+OR+%2540golskapodcast+OR+%2540fitjar+OR+%2540StianWahl+OR+%2540ELundefugl52724+OR+%2540georgeboxall22+OR+%2540FrenchFtWeekly+football&limit=1 200
-2026-02-01 20:56:33,799 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
-2026-02-01 20:56:34,844 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_6c7136c9-8fa4-4eb6-8d0b-55bafe28e7f5 200
-2026-02-01 20:56:35,511 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540JamesDodd89+OR+%2540tarynheddo+OR+%2540polishscout+OR+%2540Ryan_Hubbard+OR+%2540golskapodcast+OR+%2540fitjar+OR+%2540StianWahl+OR+%2540ELundefugl52724+OR+%2540georgeboxall22+OR+%2540FrenchFtWeekly+football&source=web&tf=pw 200
-2026-02-01 20:56:35,550 - INFO - 🤖 [DEEPSEEK] twitter_batch_3...
-2026-02-01 20:56:37,628 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
-2026-02-01 20:56:39,854 - WARNING - discarding data: None
-2026-02-01 20:56:42,143 - WARNING - discarding data: None
-2026-02-01 20:56:42,225 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.bbc.com/sport/football...
-2026-02-01 20:56:42,234 - INFO - 🔍 [TAVILY] Searching: football soccer news www.bbc.com Football Tables Skip to tab...
-2026-02-01 20:56:42,612 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:56:42,613 - INFO - 🔍 [TAVILY] Found 3 results in 0.38s
-2026-02-01 20:56:42,613 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 267 → 880 chars
-2026-02-01 20:56:42,663 - INFO - ✅ [DEEPSEEK] twitter_batch_3 complete
-2026-02-01 20:56:42,665 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40GFFN OR %40mattspiro O...
-2026-02-01 20:56:43,237 - INFO - 🔍 [TAVILY] Searching: football soccer news www.bbc.com Transfers - February 2026 C...
-2026-02-01 20:56:43,309 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540GFFN+OR+%252540mattspiro+OR+%252540MarcCorneel+OR+%252540Purple_RSCA_+OR+%252540GBeNeFN+OR+%252540ATscoutFootball+OR+%252540austrianfooty+OR+%252540Sky_Johannes+OR+%252540EredivisieMike+OR+%252540FootballOranje_+football&count=10&freshness=pw "HTTP/2 200 OK"
-2026-02-01 20:56:43,310 - INFO - 🔍 [BRAVE] Found 0 results
-2026-02-01 20:56:43,365 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:56:43,366 - INFO - 🔍 [TAVILY] Found 3 results in 0.13s
-2026-02-01 20:56:43,366 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 150 → 897 chars
-2026-02-01 20:56:43,371 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Flashscore News...
-2026-02-01 20:56:44,791 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540GFFN%20OR%20%2540mattspiro%20OR%20%2540MarcCorneel%20OR%20%2540Purple_RSCA_%20OR%20%2540GBeNeFN%20OR%20%2540ATscoutFootball%20OR%20%2540austrianfooty%20OR%20%2540Sky_Johannes%20OR%20%2540EredivisieMike%20OR%20%2540FootballOranje_%20football 200
-2026-02-01 20:56:48,026 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.flashscore.com/news/football...
-2026-02-01 20:56:49,377 - INFO - Error in engine brave: TimeoutException("Request timed out: RuntimeError('error sending request for url (https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football&limit=1): operation timed out\\n\\nCaused by:\\n    operation timed out')")
-2026-02-01 20:56:49,946 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football&source=web&tf=pw 429
-2026-02-01 20:56:50,730 - INFO - response: https://www.mojeek.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football 200
-2026-02-01 20:56:51,071 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
-2026-02-01 20:56:51,659 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3Dsite%25253Atwitter.com%2BOR%2Bsite%25253Ax.com%2B%252540GFFN%2BOR%2B%252540mattspiro%2BOR%2B%252540MarcCorneel%2BOR%2B%252540Purple_RSCA_%2BOR%2B%252540GBeNeFN%2BOR%2B%252540ATscoutFootball%2BOR%2B%252540austrianfooty%2BOR%2B%252540Sky_Johannes%2BOR%2B%252540EredivisieMike%2BOR%2B%252540FootballOranje_%2Bfootball%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=0&pc=srp&uxe=none&cm=2&hl=en&src=1 200
-2026-02-01 20:56:52,531 - INFO - response: https://consent.yahoo.com/v2/collectConsent?sessionId=3_cc-session_8939a3b6-50d8-4d01-94db-d2aced995544 200
-2026-02-01 20:56:53,440 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football&web=1&searchid=4514224 200
-2026-02-01 20:56:53,452 - INFO - 🤖 [DEEPSEEK] twitter_batch_4...
-2026-02-01 20:56:56,853 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
-2026-02-01 20:57:01,141 - INFO - ✅ [DEEPSEEK] twitter_batch_4 complete
-2026-02-01 20:57:01,142 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40joe_baker21 OR %40scot...
-2026-02-01 20:57:01,817 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540joe_baker21+OR+%252540scott_redfearn+OR+%252540titan_plus+OR+%252540shogunsoccer+OR+%252540visselkobe_en+OR+%252540JFN_en+OR+%252540BrasilEdition+OR+%252540raphaprates+OR+%252540CABRALNETO10+OR+%252540oluwashina+football&count=10&freshness=pw "HTTP/2 200 OK"
-2026-02-01 20:57:01,828 - INFO - 🔍 [BRAVE] Found 0 results
-2026-02-01 20:57:03,689 - INFO - response: https://grokipedia.com/api/typeahead?query=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&limit=1 200
-2026-02-01 20:57:03,817 - INFO - response: https://en.wikipedia.org/w/api.php?action=opensearch&profile=fuzzy&limit=1&search=site%253Atwitter.com%20OR%20site%253Ax.com%20%2540joe_baker21%20OR%20%2540scott_redfearn%20OR%20%2540titan_plus%20OR%20%2540shogunsoccer%20OR%20%2540visselkobe_en%20OR%20%2540JFN_en%20OR%20%2540BrasilEdition%20OR%20%2540raphaprates%20OR%20%2540CABRALNETO10%20OR%20%2540oluwashina%20football 200
-2026-02-01 20:57:04,093 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3Dsite%25253Atwitter.com%2BOR%2Bsite%25253Ax.com%2B%252540joe_baker21%2BOR%2B%252540scott_redfearn%2BOR%2B%252540titan_plus%2BOR%2B%252540shogunsoccer%2BOR%2B%252540visselkobe_en%2BOR%2B%252540JFN_en%2BOR%2B%252540BrasilEdition%2BOR%2B%252540raphaprates%2BOR%2B%252540CABRALNETO10%2BOR%2B%252540oluwashina%2Bfootball%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=0&pc=srp&uxe=none&cm=2&hl=en&src=1 200
-2026-02-01 20:57:05,075 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.flashscore.com/news/football...
-2026-02-01 20:57:05,407 - INFO - response: https://www.mojeek.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football 200
-2026-02-01 20:57:05,961 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&source=web&tf=pw 429
-2026-02-01 20:57:06,250 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
-2026-02-01 20:57:06,705 - INFO - response: https://search.yahoo.com/search;_ylt=nv74BCoW_YM9M80-Y2rIiebQ;_ylu=dn_qFtU84Y3TMJ13OFtjegVWyRQiHKClySFu-rrdwSLbXwU?p=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&btf=w 200
-2026-02-01 20:57:06,788 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Ajax confirm signing of Arsenal left-back Oleksand for Ajax
-2026-02-01 20:57:06,789 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Ajax confirm signing of Arsenal left-back Oleksand... for Ajax (confidence: 0.90)
-2026-02-01 20:57:06,797 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Ajax confirm signing of for Arsenal
-2026-02-01 20:57:06,798 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Ajax confirm signing of for Arsenal (confidence: 0.70)
-2026-02-01 20:57:06,806 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Tottenham weighing up late transfer options ahead  for Arsenal
-2026-02-01 20:57:06,807 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Tottenham weighing up late transfer options ahead ... for Arsenal (confidence: 0.80)
-2026-02-01 20:57:06,808 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Gazeta Esportiva Brazil...
-2026-02-01 20:57:07,959 - INFO - response: https://yandex.com/search/site/?text=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&web=1&searchid=8355091 200
-2026-02-01 20:57:07,994 - INFO - 🤖 [DEEPSEEK] twitter_batch_5...
-2026-02-01 20:57:09,299 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
-2026-02-01 20:57:10,775 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.gazetaesportiva.com/...
-2026-02-01 20:57:14,897 - INFO - ✅ [DEEPSEEK] twitter_batch_5 complete
-2026-02-01 20:57:14,898 - INFO - ✅ [DEEPSEEK] Twitter: 0/50 accounts with posts, 0 total posts (5 batches OK, 0 failed)
-2026-02-01 20:57:14,898 - INFO - ✅ Twitter Intel extracted via DeepSeek (complete)
-2026-02-01 20:57:14,900 - INFO - ✅ Twitter Intel refresh complete: 0 accounts with data, 0 tweets cached, 100% coverage (source: deepseek)
-2026-02-01 20:57:14,900 - INFO - 🚀 STARTING EARLYBIRD V6.0 PIPELINE (DeepSeek Intel + FotMob + Triangulation)
-2026-02-01 20:57:14,901 - INFO - 🤖 DeepSeek Intel Provider: ATTIVO (Primary)
-2026-02-01 20:57:14,921 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-01 20:57:14,924 - INFO - ✅ Market Intelligence DB initialized (odds_snapshots table)
-2026-02-01 20:57:14,926 - INFO - 🔍 Checking database schema for migrations...
-2026-02-01 20:57:14,927 - INFO - ✅ Database schema is up-to-date
-2026-02-01 20:57:14,929 - INFO - ✅ FotMob Provider initialized (UA rotation enabled)
-2026-02-01 20:57:14,929 - INFO - 🔍 Auto-discovering active niche leagues...
-2026-02-01 20:57:14,930 - INFO - 🔍 Checking for active leagues...
-2026-02-01 20:57:15,320 - INFO - 📊 Fetched 71 sports/leagues from API
-2026-02-01 20:57:15,324 - INFO - ✅ Active: 7 Tier1, 5 Tier2
-2026-02-01 20:57:15,330 - INFO - 🎯 Found 5 active niche leagues. Processing top 5 to save quota.
-2026-02-01 20:57:15,331 - INFO -    📌 soccer_turkey_super_league
-2026-02-01 20:57:15,331 - INFO -    📌 soccer_argentina_primera_division
-2026-02-01 20:57:15,331 - INFO -    📌 soccer_mexico_ligamx
-2026-02-01 20:57:15,331 - INFO -    📌 soccer_greece_super_league
-2026-02-01 20:57:15,331 - INFO -    📌 soccer_spl
-2026-02-01 20:57:15,331 - INFO - 📊 Refreshing fixtures and odds from The-Odds-API...
-2026-02-01 20:57:15,332 - INFO - 🚀 Starting Fixture Ingestion - Smart Frequency Strategy...
-2026-02-01 20:57:15,692 - INFO - 💰 API Quota: 19900 remaining (used: 100)
-2026-02-01 20:57:15,692 - INFO - 🔍 Checking for active leagues...
-2026-02-01 20:57:15,860 - INFO - 📊 Fetched 71 sports/leagues from API
-2026-02-01 20:57:15,860 - INFO - ✅ Active: 7 Tier1, 5 Tier2
-2026-02-01 20:57:15,860 - INFO - 🎯 Elite 6 Strategy: 9 leagues available
-2026-02-01 20:57:15,893 - INFO - ⏭️ SKIP soccer_turkey_super_league: HIGH_ALERT_FRESH (updated 0.2h ago)
-2026-02-01 20:57:15,894 - INFO - ⏭️ SKIP soccer_argentina_primera_division: HIGH_ALERT_FRESH (updated 0.2h ago)
-2026-02-01 20:57:15,895 - INFO - ⏭️ SKIP soccer_mexico_ligamx: HIGH_ALERT_FRESH (updated 0.2h ago)
-2026-02-01 20:57:15,896 - INFO - ⏭️ SKIP soccer_greece_super_league: MAINTENANCE_FRESH (updated 0.2h ago)
-2026-02-01 20:57:15,897 - INFO - ⏭️ SKIP soccer_spl: MAINTENANCE_FRESH (updated 0.2h ago)
-2026-02-01 20:57:15,898 - INFO - 📊 soccer_australia_aleague: NO_MATCHES_DISCOVERY
-2026-02-01 20:57:15,898 - INFO - 🌎 Fetching soccer_australia_aleague with regions=au
-2026-02-01 20:57:16,079 - INFO - ✅ soccer_australia_aleague: 0 matches
-2026-02-01 20:57:16,083 - INFO - ⏭️ SKIP soccer_poland_ekstraklasa: HIGH_ALERT_FRESH (updated 0.2h ago)
-2026-02-01 20:57:16,086 - INFO - 📊 soccer_austria_bundesliga: NO_MATCHES_DISCOVERY
-2026-02-01 20:57:16,088 - INFO - 🌎 Fetching soccer_austria_bundesliga with regions=eu,uk
-2026-02-01 20:57:16,228 - INFO - ✅ soccer_austria_bundesliga: 0 matches
-2026-02-01 20:57:16,230 - INFO - 📊 soccer_netherlands_eredivisie: NO_MATCHES_DISCOVERY
-2026-02-01 20:57:16,230 - INFO - 🌎 Fetching soccer_netherlands_eredivisie with regions=eu,uk
-2026-02-01 20:57:16,389 - INFO - ✅ soccer_netherlands_eredivisie: 0 matches
-2026-02-01 20:57:16,389 - INFO - 🏁 Ingestion complete: 0 matches | 3 fetched | 6 skipped (fresh)
-2026-02-01 20:57:16,390 - INFO - 💹 Checking for significant odds movements...
-2026-02-01 20:57:16,392 - INFO - 🍪 Scanning for Biscotto suspects (suspicious Draw odds)...
-2026-02-01 20:57:16,397 - INFO - Trovate 20 partite Elite da analizzare nelle prossime 72 ore.
-2026-02-01 20:57:16,398 - INFO - 🔄 Tier 2 Fallback: Reset giornaliero ( → 2026-02-01)
-2026-02-01 20:57:16,567 - INFO - ✅ Exact match: Boca Juniors (ID: 10077)
-2026-02-01 20:57:18,359 - INFO - ✅ Found 7 unavailable players for Boca Juniors
-2026-02-01 20:57:18,359 - INFO - 
-============================================================
-2026-02-01 20:57:18,359 - INFO - 🔎 INVESTIGATING: Boca Juniors vs Newells Old Boys (soccer_argentina_primera_division)
-2026-02-01 20:57:18,359 - INFO - ============================================================
-2026-02-01 20:57:18,360 - INFO -    📂 Case Status: First investigation
-2026-02-01 20:57:18,360 - INFO -    📊 Checking FotMob for official data...
-2026-02-01 20:57:18,360 - INFO - ⚡ [PARALLEL] Starting enrichment for Boca Juniors vs Newells Old Boys
-2026-02-01 20:57:18,471 - INFO - ✅ Full team context for Boca Juniors: 0 injuries, motivation=Unknown
-2026-02-01 20:57:18,471 - INFO - ✅ Found 7 unavailable players for Boca Juniors
-2026-02-01 20:57:20,429 - INFO - ✅ Turnover risk for Boca Juniors: HIGH (squad: 0)
-2026-02-01 20:57:20,430 - INFO - ✅ Team stats for Boca Juniors: goals=None, cards=None
-2026-02-01 20:57:20,430 - INFO - ✅ Team stats for Newells Old Boys: goals=None, cards=None
-2026-02-01 20:57:20,431 - INFO - ✅ Tactical insights for Boca Juniors vs Newells Old Boys: Balanced
-2026-02-01 20:57:21,422 - INFO - ✅ Turnover risk for Newells Old Boys: HIGH (squad: 0)
-2026-02-01 20:57:23,328 - ERROR - ❌ FotMob errore HTTP 404
-2026-02-01 20:57:23,328 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 5101913
-2026-02-01 20:57:23,818 - INFO - 🔍 Fuzzy match: 'Newells Old Boys' → 'Newell's Old Boys' (score: 0.97)
-2026-02-01 20:57:25,620 - INFO - ✅ Full team context for Newells Old Boys: 0 injuries, motivation=Unknown
-2026-02-01 20:57:25,621 - INFO - ⚡ [PARALLEL] Completed in 7260ms: 9/10 successful
-2026-02-01 20:57:25,621 - INFO -    ⚡ [PARALLEL] Enrichment completed in 7260ms (9 calls)
-2026-02-01 20:57:25,621 - INFO -    ✅ FotMob: Clean bill of health
-2026-02-01 20:57:25,621 - ERROR - Pipeline Critical Error: 'str' object has no attribute 'get'
+2026-02-10 13:23:10,929 - INFO - 🌐 [BROWSER-MONITOR] V7.7 Created (Browser stability fix + Smart API Routing)
+2026-02-10 13:23:10,930 - INFO - ✅ [BROWSER-MONITOR] Loaded 14 sources from config/browser_sources.json
+2026-02-10 13:23:10,930 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-10 13:23:10,930 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-10 13:23:10,930 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-10 13:23:10,931 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-10 13:23:10,931 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-10 13:23:10,931 - INFO - 📊 BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-10 13:23:10,931 - INFO - 🔍 [BROWSER-MONITOR] Tavily short content expansion enabled
+2026-02-10 13:23:10,931 - INFO - 🌐 [BROWSER-MONITOR] Launching Playwright...
+2026-02-10 13:23:12,836 - INFO - ✅ [BROWSER-MONITOR] Playwright initialized
+2026-02-10 13:23:12,836 - INFO - ✅ [BROWSER-MONITOR] Started with 14 sources
+2026-02-10 13:23:12,836 - INFO - 🔄 [BROWSER-MONITOR] Scan loop started
+2026-02-10 13:23:12,837 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BBC Sport Football...
+2026-02-10 13:23:12,930 - INFO - 🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7
+2026-02-10 13:23:12,931 - INFO - 📦 [QUEUE] Global discovery queue initialized
+2026-02-10 13:23:12,931 - INFO - 📢 [QUEUE] High-priority callback registered (threshold=0.85, categories={'SUSPENSION', 'INJURY', 'LINEUP'})
+2026-02-10 13:23:12,931 - INFO - 📢 [QUEUE] High-priority callback registered for event-driven processing
+2026-02-10 13:23:13,236 - INFO - Status message sent to Telegram
+2026-02-10 13:23:13,237 - INFO - Heartbeat sent
+2026-02-10 13:23:13,237 - INFO - 
+⏰ CYCLE 1 START: 13:23:13
+2026-02-10 13:23:13,238 - INFO - 🔄 Refreshing Supabase mirror at start of cycle...
+2026-02-10 13:23:13,238 - INFO - 🔄 Refreshing local mirror at cycle start...
+2026-02-10 13:23:13,238 - INFO - 🔄 Creating local mirror with social_sources and news_sources metadata...
+2026-02-10 13:23:14,279 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/continents?select=%2A "HTTP/2 200 OK"
+2026-02-10 13:23:14,303 - INFO - Fetched 3 continents
+2026-02-10 13:23:14,646 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/countries?select=%2A "HTTP/2 200 OK"
+2026-02-10 13:23:14,650 - INFO - Fetched 28 countries
+2026-02-10 13:23:14,766 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/leagues?select=%2A "HTTP/2 200 OK"
+2026-02-10 13:23:14,784 - INFO - Fetched 56 leagues
+2026-02-10 13:23:14,920 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/sources?select=%2A "HTTP/2 404 Not Found"
+2026-02-10 13:23:14,921 - WARNING - Supabase query failed for sources: {'message': "Could not find the table 'public.sources' in the schema cache", 'code': 'PGRST205', 'hint': "Perhaps you meant the table 'public.news_sources'", 'details': None}
+2026-02-10 13:23:14,921 - INFO - Falling back to mirror for sources
+2026-02-10 13:23:14,936 - INFO - ✅ Mirror checksum validated: c613d897...
+2026-02-10 13:23:14,937 - INFO - ✅ Loaded mirror from 2026-02-10T12:11:23.500891 (vV9.5)
+2026-02-10 13:23:14,938 - INFO - Fetched 0 sources
+2026-02-10 13:23:15,124 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/social_sources?select=%2A "HTTP/2 200 OK"
+2026-02-10 13:23:15,265 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/news_sources?select=%2A "HTTP/2 200 OK"
+2026-02-10 13:23:15,273 - INFO - ✅ Captured 38 social_sources
+2026-02-10 13:23:15,276 - INFO - ✅ Captured 140 news_sources
+2026-02-10 13:23:15,276 - INFO - ℹ️ No Nitter cache data available
+2026-02-10 13:23:15,278 - INFO - ✅ UTF-8 integrity validated
+2026-02-10 13:23:15,289 - INFO - ✅ Supabase data mirrored to data/supabase_mirror.json (vV9.5, checksum: cd16ebce...)
+2026-02-10 13:23:15,290 - INFO - ✅ Local mirror created successfully with social_sources and news_sources metadata
+2026-02-10 13:23:15,290 - INFO - ✅ Mirror refreshed successfully
+2026-02-10 13:23:15,290 - INFO - ✅ Supabase mirror refreshed successfully
+2026-02-10 13:23:15,293 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-02-10 13:23:15,293 - INFO - 🐦 Refreshing Twitter Intel cache...
+2026-02-10 13:23:15,293 - WARNING - ⚠️ Twitter Intel refresh failed: 'TwitterIntelCache' object has no attribute 'refresh'
+2026-02-10 13:23:15,293 - INFO - 📡 Running Opportunity Radar...
+2026-02-10 13:23:15,307 - INFO - 🎯 Opportunity Radar initialized
+2026-02-10 13:23:15,308 - INFO - 🎯 OPPORTUNITY RADAR SCAN STARTING...
+2026-02-10 13:23:15,310 - INFO - 🔍 Scanning GLOBAL...
+2026-02-10 13:23:15,311 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
+2026-02-10 13:23:15,311 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
+2026-02-10 13:23:15,311 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
+2026-02-10 13:23:15,312 - WARNING - ⚠️ MediaStackKeyRotator: No valid API keys found!
+2026-02-10 13:23:15,312 - INFO - 📊 MediaStackBudget initialized: 1 components (monitoring only - free unlimited tier)
+2026-02-10 13:23:15,312 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
+2026-02-10 13:23:15,313 - INFO - 🔍 [DDG] Scanning GLOBAL...
+2026-02-10 13:23:15,313 - INFO - 🔍 [BRAVE] Searching: (site:flashscore.com OR site:onefootball.com OR site:sports....
+2026-02-10 13:23:16,711 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aflashscore.com+OR+site%253Aonefootball.com+OR+site%253Asports.yahoo.com%2529+%2528second+string+OR+reserves+OR+youthful+side%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 13:23:16,716 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-10 13:23:16,717 - INFO - 🔍 [GLOBAL] Found 5 results via DDG
+2026-02-10 13:23:16,717 - INFO - 🔍 Scanning ARGENTINA...
+2026-02-10 13:23:16,717 - INFO - 🔍 [DDG] Scanning ARGENTINA...
+2026-02-10 13:23:16,717 - INFO - 🔍 [BRAVE] Searching: (site:ole.com.ar OR site:tycsports.com OR site:mundoalbicele...
+2026-02-10 13:23:17,754 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aole.com.ar+OR+site%253Atycsports.com+OR+site%253Amundoalbiceleste.com%2529+%2528equipo+alternativo+OR+muletto+OR+rotaci%25C3%25B3n+masiva%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-10 13:23:17,756 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-10 13:23:17,840 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.bbc.com/sport/football...
+2026-02-10 13:23:19,890 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-10 13:23:20,527 - INFO - response: https://search.brave.com/search?q=%28site%3Aole.com.ar+OR+site%3Atycsports.com+OR+site%3Amundoalbiceleste.com%29+%28equipo+alternativo+OR+muletto+OR+rotaci%C3%B3n+masiva%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-10 13:23:20,610 - INFO - 🔍 [ARGENTINA] Found 5 results via DDG
+2026-02-10 13:23:20,611 - INFO - 🔍 Scanning BRAZIL...
+2026-02-10 13:23:20,611 - INFO - 🔍 [DDG] Scanning BRAZIL...
+2026-02-10 13:23:20,611 - INFO - 🔍 [BRAVE] Searching: (site:globoesporte.globo.com OR site:uol.com.br OR site:samb...
+2026-02-10 13:23:21,508 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Agloboesporte.globo.com+OR+site%253Auol.com.br+OR+site%253Asambafoot.com%2529+%2528time+misto+OR+poupados+OR+reservas%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 13:23:21,510 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-10 13:23:21,510 - INFO - 🔍 [BRAZIL] Found 5 results via DDG
+2026-02-10 13:23:21,512 - INFO - 🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...
+2026-02-10 13:23:23,650 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-10 13:23:41,138 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.bbc.com/sport/football...
+2026-02-10 13:23:41,140 - INFO - 🔍 [TAVILY] Searching: football soccer news www.bbc.com Football Scores & Fixtures ...
+2026-02-10 13:23:49,404 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:23:49,459 - INFO - 🔍 [TAVILY] Found 0 results in 8.32s
+2026-02-10 13:23:49,578 - INFO - 🔍 [TAVILY] Searching: football soccer news www.bbc.com Football Tables Skip to tab...
+2026-02-10 13:23:52,019 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:23:52,021 - INFO - 🔍 [TAVILY] Found 3 results in 2.44s
+2026-02-10 13:23:52,021 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 267 → 899 chars
+2026-02-10 13:23:52,088 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Flashscore News...
+2026-02-10 13:23:58,484 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.flashscore.com/news/football...
+2026-02-10 13:24:15,349 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.flashscore.com/news/football...
+2026-02-10 13:24:15,356 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Big blow for FC Midtjylland as captain is ruled ou for Chelsea
+2026-02-10 13:24:15,356 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Big blow for FC Midtjylland as captain is ruled ou... for Chelsea (confidence: 0.70)
+2026-02-10 13:24:17,316 - WARNING - ⚠️ AI Risposta Lenta: deepseek/deepseek-r1-0528:free ha impiegato 55.8s (soglia: 45s)
+2026-02-10 13:24:17,316 - INFO - ✅ deepseek/deepseek-r1-0528:free risposta ricevuta con successo
+2026-02-10 13:24:17,318 - INFO - 🔍 Scanning TURKEY...
+2026-02-10 13:24:17,319 - INFO - 🔍 [DDG] Scanning TURKEY...
+2026-02-10 13:24:17,319 - INFO - 🔍 [BRAVE] Searching: (site:fanatik.com.tr OR site:turkish-football.com OR site:da...
+2026-02-10 13:24:17,916 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Afanatik.com.tr+OR+site%253Aturkish-football.com+OR+site%253Adailysabah.com%2529+%2528rotasyon+OR+yedek+a%25C4%259F%25C4%25B1rl%25C4%25B1kl%25C4%25B1+OR+kadro+d%25C4%25B1%25C5%259F%25C4%25B1%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-10 13:24:17,917 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-10 13:24:19,786 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-10 13:24:20,252 - INFO - response: https://search.brave.com/search?q=%28site%3Afanatik.com.tr+OR+site%3Aturkish-football.com+OR+site%3Adailysabah.com%29+%28rotasyon+OR+yedek+a%C4%9F%C4%B1rl%C4%B1kl%C4%B1+OR+kadro+d%C4%B1%C5%9F%C4%B1%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-10 13:24:20,970 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Afanatik.com.tr%2BOR%2Bsite%253Aturkish-football.com%2BOR%2Bsite%253Adailysabah.com%2529%2B%2528rotasyon%2BOR%2Byedek%2Ba%25C4%259F%25C4%25B1rl%25C4%25B1kl%25C4%25B1%2BOR%2Bkadro%2Bd%25C4%25B1%25C5%259F%25C4%25B1%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-10 13:24:20,978 - ERROR - [DDGS-ERROR] Search failed - Error type: DDGSException, Query length: 373, Error: No results found.
+2026-02-10 13:24:20,978 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-10 13:24:20,978 - WARNING - All search backends failed for: (site:fanatik.com.tr OR site:turkish-football.com ...
+2026-02-10 13:24:20,978 - INFO - 🔍 [TURKEY] Found 0 results via DDG
+2026-02-10 13:24:20,978 - INFO - 🔍 Scanning MEXICO...
+2026-02-10 13:24:20,979 - INFO - 🔍 [DDG] Scanning MEXICO...
+2026-02-10 13:24:20,979 - INFO - 🔍 [BRAVE] Searching: (site:mediotiempo.com OR site:espn.com.mx OR site:record.com...
+2026-02-10 13:24:21,274 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Amediotiempo.com+OR+site%253Aespn.com.mx+OR+site%253Arecord.com.mx%2529+%2528rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-10 13:24:21,276 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-10 13:24:23,044 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-10 13:24:23,528 - INFO - response: https://search.brave.com/search?q=%28site%3Amediotiempo.com+OR+site%3Aespn.com.mx+OR+site%3Arecord.com.mx%29+%28rotation+squad+OR+equipo+alternativo+OR+descanso+titulares%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-10 13:24:23,538 - INFO - 🔍 [MEXICO] Found 5 results via DDG
+2026-02-10 13:24:23,539 - INFO - 🔍 Scanning GREECE...
+2026-02-10 13:24:23,539 - INFO - 🔍 [DDG] Scanning GREECE...
+2026-02-10 13:24:23,539 - INFO - 🔍 [BRAVE] Searching: (site:agonasport.com OR site:greekcitytimes.com OR site:gazz...
+2026-02-10 13:24:23,777 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aagonasport.com+OR+site%253Agreekcitytimes.com+OR+site%253Agazzetta.gr%2529+%2528rotation+expected+OR+rested+for+europe+OR+reserves%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 422 Unprocessable Entity"
+2026-02-10 13:24:23,777 - ERROR - ❌ Brave Search error: HTTP 422
+2026-02-10 13:24:24,040 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for global (conf=0.90, cat=INJURY)
+2026-02-10 13:24:24,041 - INFO - 🚨 [HIGH-PRIORITY] News discovered for global - flagged for priority processing
+2026-02-10 13:24:24,041 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Everton's Jack Grealish to miss remainder of seaso for Everton
+2026-02-10 13:24:24,041 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Everton's Jack Grealish to miss remainder of seaso... for Everton (confidence: 0.90)
+2026-02-10 13:24:24,043 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Gazeta Esportiva Brazil...
+2026-02-10 13:24:25,307 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-10 13:24:25,623 - INFO - response: https://search.brave.com/search?q=%28site%3Aagonasport.com+OR+site%3Agreekcitytimes.com+OR+site%3Agazzetta.gr%29+%28rotation+expected+OR+rested+for+europe+OR+reserves%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-10 13:24:27,957 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.gazetaesportiva.com/...
+2026-02-10 13:24:27,960 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Aagonasport.com%2BOR%2Bsite%253Agreekcitytimes.com%2BOR%2Bsite%253Agazzetta.gr%2529%2B%2528rotation%2Bexpected%2BOR%2Brested%2Bfor%2Beurope%2BOR%2Breserves%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-10 13:24:28,028 - INFO - 🔍 [GREECE] Found 1 results via DDG
+2026-02-10 13:24:28,028 - INFO - 🔍 Scanning PORTUGAL...
+2026-02-10 13:24:28,029 - INFO - 🔍 [DDG] Scanning PORTUGAL...
+2026-02-10 13:24:28,029 - INFO - 🔍 [BRAVE] Searching: (site:ojogo.pt OR site:abola.pt OR site:record.pt) (suplente...
+2026-02-10 13:24:28,750 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aojogo.pt+OR+site%253Aabola.pt+OR+site%253Arecord.pt%2529+%2528suplentes+OR+reservas+OR+equipa+B%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 13:24:28,753 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-10 13:24:28,753 - INFO - 🔍 [PORTUGAL] Found 5 results via DDG
+2026-02-10 13:24:28,755 - INFO - 🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...
+2026-02-10 13:24:29,600 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-10 13:24:46,493 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.gazetaesportiva.com/...
+2026-02-10 13:25:00,099 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Luiz Gustavo debuted for Athletico-PR in their 5-0 for Athletico-PR
+2026-02-10 13:25:00,100 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Luiz Gustavo debuted for Athletico-PR in their 5-0... for Athletico-PR (confidence: 0.80)
+2026-02-10 13:25:09,607 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Atlético-MG struggles away under Sampaoli, with po for Atlético-MG
+2026-02-10 13:25:09,608 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Atlético-MG struggles away under Sampaoli, with po... for Atlético-MG (confidence: 0.80)
+2026-02-10 13:25:17,945 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Bahia signs Argentine forward Alejo Véliz from Tot for Bahia
+2026-02-10 13:25:17,946 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Bahia signs Argentine forward Alejo Véliz from Tot... for Bahia (confidence: 0.90)
+2026-02-10 13:25:26,509 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Justino's red card affected Botafogo's performance for Botafogo
+2026-02-10 13:25:26,512 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Justino's red card affected Botafogo's performance... for Botafogo (confidence: 0.80)
+2026-02-10 13:25:30,053 - WARNING - ⚠️ AI Risposta Lenta: deepseek/deepseek-r1-0528:free ha impiegato 61.3s (soglia: 45s)
+2026-02-10 13:25:30,054 - INFO - ✅ deepseek/deepseek-r1-0528:free risposta ricevuta con successo
+2026-02-10 13:25:30,055 - INFO - 🎯 AI Extraction: Sporting Clube de Portugal | B_TEAM | Conf: 9
+2026-02-10 13:25:30,057 - INFO - 🚀 RADAR TRIGGER: Sporting Clube de Portugal | B_TEAM
+2026-02-10 13:25:30,057 - INFO -    📰 Sporting CP has reintegrated recovered player Salvador Blopa into their secondary team (B team) rather than the main squad.
+2026-02-10 13:25:30,058 - INFO - ✅ FotMob Provider initialized (UA rotation enabled)
+2026-02-10 13:25:31,232 - WARNING - ⚠️ Team not found: Sporting Clube de Portugal
+2026-02-10 13:25:31,233 - WARNING - ⚠️ Could not resolve team: Sporting Clube de Portugal
+2026-02-10 13:25:31,235 - INFO - 🔍 Scanning COLOMBIA...
+2026-02-10 13:25:31,238 - INFO - 🔍 [DDG] Scanning COLOMBIA...
+2026-02-10 13:25:31,240 - INFO - 🔍 [BRAVE] Searching: (site:eltiempo.com OR site:futbolred.com OR site:espn.com.co...
+2026-02-10 13:25:32,845 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Aeltiempo.com+OR+site%253Afutbolred.com+OR+site%253Aespn.com.co%2529+%2528suplentes+OR+rotaci%25C3%25B3n+OR+juveniles%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 13:25:32,848 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-10 13:25:32,848 - INFO - 🔍 [COLOMBIA] Found 5 results via DDG
+2026-02-10 13:25:32,849 - INFO - 🔍 Scanning AFRICA...
+2026-02-10 13:25:32,849 - INFO - 🔍 [DDG] Scanning AFRICA...
+2026-02-10 13:25:32,849 - INFO - 🔍 [BRAVE] Searching: (site:kingfut.com OR site:ghanasoccernet.com OR site:kickoff...
+2026-02-10 13:25:33,136 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Globo Esporte SP...
+2026-02-10 13:25:33,979 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Akingfut.com+OR+site%253Aghanasoccernet.com+OR+site%253Akickoff.com%2529+%2528unpaid+wages+OR+strike+OR+financial+crisis%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 13:25:33,981 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 13:25:40,846 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-10 13:25:41,048 - INFO - response: https://search.brave.com/search?q=%28site%3Akingfut.com+OR+site%3Aghanasoccernet.com+OR+site%3Akickoff.com%29+%28unpaid+wages+OR+strike+OR+financial+crisis%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-10 13:25:46,487 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://ge.globo.com/sp/tem-esporte/...
+2026-02-10 13:25:46,903 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Akingfut.com%2BOR%2Bsite%253Aghanasoccernet.com%2BOR%2Bsite%253Akickoff.com%2529%2B%2528unpaid%2Bwages%2BOR%2Bstrike%2BOR%2Bfinancial%2Bcrisis%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-10 13:25:46,914 - INFO - 🔍 [AFRICA] Found 4 results via DDG
+2026-02-10 13:25:46,915 - INFO - 🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...
+2026-02-10 13:25:47,743 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-10 13:26:12,108 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://ge.globo.com/sp/tem-esporte/...
+2026-02-10 13:26:12,110 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Distante 22km do clube sen...
+2026-02-10 13:26:15,245 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:26:15,247 - INFO - 🔍 [TAVILY] Found 3 results in 3.14s
+2026-02-10 13:26:15,247 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 338 → 1003 chars
+2026-02-10 13:26:24,900 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Lance aconteceu no jogo en...
+2026-02-10 13:26:28,903 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:26:28,905 - INFO - 🔍 [TAVILY] Found 3 results in 4.00s
+2026-02-10 13:26:28,906 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 270 → 895 chars
+2026-02-10 13:26:37,240 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Duelo terminou em 3 a 1 e ...
+2026-02-10 13:26:41,536 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:26:41,538 - INFO - 🔍 [TAVILY] Found 3 results in 4.30s
+2026-02-10 13:26:41,538 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 280 → 867 chars
+2026-02-10 13:26:41,545 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Carcará ainda não venceu e...
+2026-02-10 13:26:44,951 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:26:44,952 - INFO - 🔍 [TAVILY] Found 2 results in 3.41s
+2026-02-10 13:26:44,953 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 261 → 881 chars
+2026-02-10 13:26:53,701 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Nathan Oliveira protagoniz...
+2026-02-10 13:26:58,110 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:26:58,111 - INFO - 🔍 [TAVILY] Found 3 results in 4.41s
+2026-02-10 13:26:58,111 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 280 → 933 chars
+2026-02-10 13:26:58,154 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BeSoccer News...
+2026-02-10 13:27:01,155 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: YSScores News...
+2026-02-10 13:27:05,078 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.ysscores.com/en/news...
+2026-02-10 13:27:10,124 - WARNING - ⚠️ AI Risposta Lenta: deepseek/deepseek-r1-0528:free ha impiegato 83.2s (soglia: 45s)
+2026-02-10 13:27:10,143 - INFO - ✅ deepseek/deepseek-r1-0528:free risposta ricevuta con successo
+2026-02-10 13:27:10,158 - INFO - 🎯 AI Extraction: Kaizer Chiefs | KEY_RETURN | Conf: 10
+2026-02-10 13:27:10,160 - INFO - 🚀 RADAR TRIGGER: Kaizer Chiefs | KEY_RETURN
+2026-02-10 13:27:10,161 - INFO -    📰 Kaizer Chiefs coach Khalil Ben Youssef defends Given Msimango, who has returned from a long-term injury and played full matches in recent games amid concerns about the team's shortage of centre-backs.
+2026-02-10 13:27:10,472 - INFO - ✅ Exact match: Kaizer Chiefs (ID: 6279)
+2026-02-10 13:27:10,476 - INFO - ✅ Resolved: 'Kaizer Chiefs' → 'Kaizer Chiefs' (ID: 6279)
+2026-02-10 13:27:12,059 - INFO - 📝 Created radar match: radar_kaizer_chiefs_zamalek_sc_20260210
+2026-02-10 13:27:12,122 - INFO - ✅ Supabase Provider module loaded
+2026-02-10 13:27:12,123 - INFO - ✅ Intelligence Router module loaded
+2026-02-10 13:27:12,131 - INFO - ✅ Intelligent Deduplication module loaded
+2026-02-10 13:27:12,131 - INFO - ✅ Market Intelligence module loaded
+2026-02-10 13:27:12,131 - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-02-10 13:27:12,132 - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-02-10 13:27:12,132 - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-02-10 13:27:12,132 - INFO - ✅ Twitter Intel Cache loaded
+2026-02-10 13:27:12,134 - WARNING - analyze_single_match not found or not callable in main.py
+2026-02-10 13:27:12,135 - INFO - 🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...
+2026-02-10 13:27:13,000 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-10 13:27:25,784 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.ysscores.com/en/news...
+2026-02-10 13:27:25,796 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for global (conf=0.85, cat=INJURY)
+2026-02-10 13:27:25,797 - INFO - 🚨 [HIGH-PRIORITY] News discovered for global - flagged for priority processing
+2026-02-10 13:27:25,797 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Carvajal and Arbeloa: A Severed Relationship and a for Real Madrid
+2026-02-10 13:27:25,797 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Carvajal and Arbeloa: A Severed Relationship and a... for Real Madrid (confidence: 0.85)
+2026-02-10 13:27:25,808 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for global (conf=0.85, cat=INJURY)
+2026-02-10 13:27:25,808 - INFO - 🚨 [HIGH-PRIORITY] News discovered for global - flagged for priority processing
+2026-02-10 13:27:25,808 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Slot spoke about the absence of players: "My feeli for Arsenal
+2026-02-10 13:27:25,808 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Slot spoke about the absence of players: "My feeli... for Arsenal (confidence: 0.85)
+2026-02-10 13:27:25,812 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for global (conf=0.85, cat=INJURY)
+2026-02-10 13:27:25,813 - INFO - 🚨 [HIGH-PRIORITY] News discovered for global - flagged for priority processing
+2026-02-10 13:27:25,813 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Doubts About Raphinha's Participation Against Atle for Barcelona
+2026-02-10 13:27:25,813 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Doubts About Raphinha's Participation Against Atle... for Barcelona (confidence: 0.85)
+2026-02-10 13:27:37,780 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Rashford's future at Barcelona hinges on president for Barcelona
+2026-02-10 13:27:37,781 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Rashford's future at Barcelona hinges on president... for Barcelona (confidence: 0.80)
+2026-02-10 13:27:37,786 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Jogada 10 Brazil...
+2026-02-10 13:27:42,140 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://jogada10.com.br...
+2026-02-10 13:28:03,496 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://jogada10.com.br...
+2026-02-10 13:28:23,629 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Vasco da Gama signs Claudio Spinelli, a 29-year-ol for Vasco da Gama
+2026-02-10 13:28:23,630 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Vasco da Gama signs Claudio Spinelli, a 29-year-ol... for Vasco da Gama (confidence: 0.90)
+2026-02-10 13:28:33,264 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Cruzeiro loans midfielder Rodriguinho to Fortaleza for Cruzeiro
+2026-02-10 13:28:33,265 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Cruzeiro loans midfielder Rodriguinho to Fortaleza... for Cruzeiro (confidence: 0.80)
+2026-02-10 13:28:40,928 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Allan close to joining Corinthians from Flamengo o for Corinthians
+2026-02-10 13:28:40,928 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Allan close to joining Corinthians from Flamengo o... for Corinthians (confidence: 0.90)
+2026-02-10 13:28:40,936 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Correio do Povo Inter...
+2026-02-10 13:28:46,729 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.correiodopovo.com.br/esporte...
+2026-02-10 13:29:20,290 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.correiodopovo.com.br/esporte...
+2026-02-10 13:29:20,311 - INFO - 🔍 [TAVILY] Searching: football soccer news www.correiodopovo.com.br Acompanhe a at...
+2026-02-10 13:29:25,408 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:29:25,413 - INFO - 🔍 [TAVILY] Found 3 results in 5.10s
+2026-02-10 13:29:25,414 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 102 → 859 chars
+2026-02-10 13:29:33,820 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Pezzolano may repeat the same lineup against Palme for Inter
+2026-02-10 13:29:33,821 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Pezzolano may repeat the same lineup against Palme... for Inter (confidence: 0.80)
+2026-02-10 13:29:33,836 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Chesterfield FC News...
+2026-02-10 13:29:38,185 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://chesterfield-fc.co.uk/news...
+2026-02-10 13:29:55,480 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://chesterfield-fc.co.uk/news...
+2026-02-10 13:30:03,492 - INFO - 🔍 [TAVILY] Searching: football soccer news chesterfield-fc.co.uk There are back-to...
+2026-02-10 13:30:04,379 - WARNING - ⚠️ AI Risposta Lenta: deepseek/deepseek-r1-0528:free ha impiegato 172.2s (soglia: 45s)
+2026-02-10 13:30:04,380 - INFO - ✅ deepseek/deepseek-r1-0528:free risposta ricevuta con successo
+2026-02-10 13:30:04,381 - ERROR - AI extraction failed: Empty response text
+2026-02-10 13:30:04,383 - INFO - 🔍 Scanning ASIA...
+2026-02-10 13:30:04,385 - INFO - 🔍 [DDG] Scanning ASIA...
+2026-02-10 13:30:04,387 - INFO - 🔍 [BRAVE] Searching: (site:scmp.com OR site:kleagueunited.com OR site:football-tr...
+2026-02-10 13:30:05,532 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%2528site%253Ascmp.com+OR+site%253Akleagueunited.com+OR+site%253Afootball-tribe.com%2529+%2528unpaid+wages+OR+financial+crisis+OR+second+string%2529+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%25C3%25B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%25C4%25B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 13:30:05,533 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 13:30:09,330 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:30:09,332 - INFO - 🔍 [TAVILY] Found 3 results in 5.84s
+2026-02-10 13:30:09,332 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 465 → 1130 chars
+2026-02-10 13:30:09,373 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Almost exactly 21 years ago, the previous ‘most tr for Chesterfield
+2026-02-10 13:30:09,373 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Almost exactly 21 years ago, the previous ‘most tr... for Chesterfield (confidence: 0.70)
+2026-02-10 13:30:09,397 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: 96FM Bauru Brazil...
+2026-02-10 13:30:13,422 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: STV Scotland Football...
+2026-02-10 13:30:14,227 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 202 Accepted"
+2026-02-10 13:30:14,551 - INFO - response: https://search.brave.com/search?q=%28site%3Ascmp.com+OR+site%3Akleagueunited.com+OR+site%3Afootball-tribe.com%29+%28unpaid+wages+OR+financial+crisis+OR+second+string%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&source=web&tf=pw 200
+2026-02-10 13:30:18,480 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://news.stv.tv/section/sport/footba...
+2026-02-10 13:30:20,439 - INFO - response: https://consent.google.com/ml?continue=https://www.google.com/search%3Fq%3D%2528site%253Ascmp.com%2BOR%2Bsite%253Akleagueunited.com%2BOR%2Bsite%253Afootball-tribe.com%2529%2B%2528unpaid%2Bwages%2BOR%2Bfinancial%2Bcrisis%2BOR%2Bsecond%2Bstring%2529%2Bfootball%2B-basket%2B-basketball%2B-euroleague%2B-nba%2B-pallacanestro%2B-baloncesto%2B-koszyk%25C3%25B3wka%2B-basketbol%2B-nfl%2B-american%2Bfootball%2B-touchdown%2B-women%2B-woman%2B-ladies%2B-feminine%2B-femminile%2B-femenino%2B-kobiet%2B-kad%25C4%25B1n%2B-bayan%2B-wsl%2B-liga%2Bf%2B-handball%2B-volleyball%2B-rugby%2B-futsal%26filter%3D1%26start%3D0%26hl%3Den-US%26lr%3Dlang_en%26cr%3DcountryUS%26tbs%3Dqdr%253Aw&gl=IT&m=1&pc=srp&uxe=none&cm=2&hl=en&src=1 200
+2026-02-10 13:30:20,447 - ERROR - [DDGS-ERROR] Search failed - Error type: DDGSException, Query length: 376, Error: No results found.
+2026-02-10 13:30:20,448 - WARNING - ⚠️ DuckDuckGo errore ricerca: No results found.
+2026-02-10 13:30:20,453 - WARNING - All search backends failed for: (site:scmp.com OR site:kleagueunited.com OR site:f...
+2026-02-10 13:30:20,455 - INFO - 🔍 [ASIA] Found 0 results via DDG
+2026-02-10 13:30:20,458 - INFO - 🎯 RADAR SCAN COMPLETE: 2 opportunities triggered
+2026-02-10 13:30:20,460 - INFO - ✅ Opportunity Radar completed
+2026-02-10 13:30:20,460 - INFO - 🚀 STARTING EARLYBIRD V6.1 PIPELINE (ContinentalOrchestrator + DeepSeek Intel + FotMob + Triangulation)
+2026-02-10 13:30:20,501 - INFO - 🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)
+2026-02-10 13:30:20,501 - INFO -    Model A (Standard): deepseek/deepseek-chat
+2026-02-10 13:30:20,502 - INFO -    Model B (Reasoner): deepseek/deepseek-r1-0528:free
+2026-02-10 13:30:20,502 - INFO - 🔮 Perplexity Provider initialized (Fallback)
+2026-02-10 13:30:20,503 - INFO - 🔀 IntelligenceRouter V7.0 initialized (DeepSeek primary, Tavily enabled, Perplexity fallback)
+2026-02-10 13:30:20,503 - INFO - 🤖 DeepSeek Intel Provider: ATTIVO (Primary)
+2026-02-10 13:30:20,515 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-10 13:30:20,516 - INFO - ✅ Market Intelligence DB initialized (odds_snapshots table)
+2026-02-10 13:30:20,516 - INFO - 🔍 Checking database schema for migrations...
+2026-02-10 13:30:20,518 - INFO - ✅ Database schema is up-to-date
+2026-02-10 13:30:20,518 - INFO - 🌍 Initializing ContinentalOrchestrator for 'Follow the Sun' scheduling...
+2026-02-10 13:30:20,519 - INFO - Supabase provider initialized successfully
+2026-02-10 13:30:20,519 - INFO - ✅ ContinentalOrchestrator: Supabase connection available
+2026-02-10 13:30:20,520 - INFO - 🕐 Current UTC time: 12:00
+2026-02-10 13:30:20,520 - INFO - 🌍 Active continental blocks: AFRICA, LATAM
+2026-02-10 13:30:21,056 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/leagues?select=%2A&is_active=eq.True "HTTP/2 200 OK"
+2026-02-10 13:30:21,063 - INFO - Fetched 28 countries
+2026-02-10 13:30:21,064 - INFO - Fetched 3 continents
+2026-02-10 13:30:21,065 - INFO - Found 13 active leagues
+2026-02-10 13:30:21,065 - INFO - Found 4 active leagues for continent AFRICA
+2026-02-10 13:30:21,065 - INFO - Found 0 active leagues for continent LATAM
+2026-02-10 13:30:21,065 - INFO - 📋 Found 4 active leagues from Supabase
+2026-02-10 13:30:21,066 - INFO - API Key Validation: All 4 API keys are valid
+2026-02-10 13:30:21,066 - INFO - Fetched 3 continents
+2026-02-10 13:30:21,066 - INFO - Fetched 28 countries
+2026-02-10 13:30:21,066 - INFO - Fetched 56 leagues
+2026-02-10 13:30:21,214 - INFO - HTTP Request: GET https://jtpxabdskyewrwvkayws.supabase.co/rest/v1/sources?select=%2A "HTTP/2 404 Not Found"
+2026-02-10 13:30:21,216 - WARNING - Supabase query failed for sources: {'message': "Could not find the table 'public.sources' in the schema cache", 'code': 'PGRST205', 'hint': "Perhaps you meant the table 'public.news_sources'", 'details': None}
+2026-02-10 13:30:21,216 - INFO - Falling back to mirror for sources
+2026-02-10 13:30:21,221 - INFO - ✅ Mirror checksum validated: cd16ebce...
+2026-02-10 13:30:21,221 - INFO - ✅ Loaded mirror from 2026-02-10T12:23:15.282949 (vV9.5)
+2026-02-10 13:30:21,222 - INFO - Fetched 0 sources
+2026-02-10 13:30:21,224 - INFO - ✅ UTF-8 integrity validated
+2026-02-10 13:30:21,227 - INFO - ✅ Supabase data mirrored to data/supabase_mirror.json (vV9.5, checksum: c613d897...)
+2026-02-10 13:30:21,227 - INFO - ✅ Local mirror updated successfully with social_sources and news_sources
+2026-02-10 13:30:21,227 - INFO - ✅ Local mirror updated successfully
+2026-02-10 13:30:21,227 - INFO - 🎯 Total leagues to scan: 4
+2026-02-10 13:30:21,227 - INFO -    📌 soccer_morocco_botola_pro
+2026-02-10 13:30:21,227 - INFO -    📌 soccer_algeria_ligue_professionnelle_1
+2026-02-10 13:30:21,227 - INFO -    📌 soccer_egypt_second_division_a
+2026-02-10 13:30:21,227 - INFO -    📌 soccer_tunisia_ligue_professionnelle_1
+2026-02-10 13:30:21,228 - INFO - 🌍 ContinentalOrchestrator Results:
+2026-02-10 13:30:21,228 - INFO -    UTC Hour: 12:00
+2026-02-10 13:30:21,228 - INFO -    Source: supabase
+2026-02-10 13:30:21,228 - INFO -    Active Continental Blocks: AFRICA, LATAM
+2026-02-10 13:30:21,228 - INFO -    Settlement Mode: False
+2026-02-10 13:30:21,228 - INFO -    Leagues to Scan: 4
+2026-02-10 13:30:21,228 - INFO - 📊 Refreshing fixtures and odds from The-Odds-API...
+2026-02-10 13:30:21,228 - INFO - 🚀 Starting Fixture Ingestion - Smart Frequency Strategy...
+2026-02-10 13:30:21,784 - INFO - 💰 API Quota: 19890 remaining (used: 110)
+2026-02-10 13:30:21,785 - INFO - 🔍 Checking for active leagues...
+2026-02-10 13:30:22,439 - INFO - 📊 Fetched 74 sports/leagues from API
+2026-02-10 13:30:22,440 - INFO - ✅ Active: 7 Tier1, 5 Tier2
+2026-02-10 13:30:22,442 - INFO - 🎯 Elite 6 Strategy: 9 leagues available
+2026-02-10 13:30:22,479 - INFO - 📊 soccer_turkey_super_league: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:22,480 - INFO - 🌎 Fetching soccer_turkey_super_league with regions=eu,uk
+2026-02-10 13:30:22,751 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:22,763 - INFO - New: Antalyaspor vs Samsunspor | H3.76/X3.21/A2.01 | O2.29/U1.57
+2026-02-10 13:30:22,773 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:22,775 - INFO - New: Galatasaray vs Eyüpspor | H1.1/X9.0/A18.0 | ONone/UNone
+2026-02-10 13:30:22,779 - INFO - 📊 Sharp bookie found: betfair_ex_uk
+2026-02-10 13:30:22,781 - INFO - New: Genclerbirligi SK vs Çaykur Rizespor | H2.7/X3.15/A2.55 | O1.94/U1.74
+2026-02-10 13:30:22,783 - INFO - ✅ soccer_turkey_super_league: 3 matches
+2026-02-10 13:30:22,785 - INFO - 📊 soccer_argentina_primera_division: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:22,785 - INFO - 🌎 Fetching soccer_argentina_primera_division with regions=us,eu
+2026-02-10 13:30:23,013 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-10 13:30:23,014 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 2.38) for CA Tigre BA vs Aldosivi Mar del Plata
+2026-02-10 13:30:23,016 - INFO - New: CA Tigre BA vs Aldosivi Mar del Plata | H1.84/X2.95/A4.2 | O2.95/U1.39
+2026-02-10 13:30:23,019 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-10 13:30:23,020 - INFO - New: Argentinos Juniors vs River Plate | H2.15/X2.8/A3.0 | O2.34/U1.48
+2026-02-10 13:30:23,022 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-10 13:30:23,023 - INFO - New: Independiente vs Lanus | H1.96/X2.85/A3.2 | O2.39/U1.46
+2026-02-10 13:30:23,025 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-10 13:30:23,027 - INFO - New: Defensa y Justicia vs Velez Sarsfield BA | H2.7/X2.7/A2.45 | O2.75/U1.44
+2026-02-10 13:30:23,032 - INFO - 📊 Sharp bookie found: betfair_ex_eu
+2026-02-10 13:30:23,033 - INFO - New: Union Santa Fe vs San Lorenzo | H2.2/X2.7/A3.2 | O3.15/U1.35
+2026-02-10 13:30:23,034 - INFO - ✅ soccer_argentina_primera_division: 8 matches
+2026-02-10 13:30:23,035 - INFO - 📊 soccer_mexico_ligamx: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:23,035 - INFO - 🌎 Fetching soccer_mexico_ligamx with regions=us
+2026-02-10 13:30:23,257 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 0.24) for Puebla vs Pumas
+2026-02-10 13:30:23,260 - INFO - New: Puebla vs Pumas | H2.8/X3.2/A2.55 | O1.94/U1.76
+2026-02-10 13:30:23,263 - INFO - 🎯 🎯 SMART MONEY on DRAW (diff: 0.46) for Toluca vs Tijuana
+2026-02-10 13:30:23,266 - INFO - New: Toluca vs Tijuana | H1.28/X5.5/A8.5 | O1.55/U2.3
+2026-02-10 13:30:23,268 - INFO - ✅ soccer_mexico_ligamx: 10 matches
+2026-02-10 13:30:23,270 - INFO - 📊 soccer_greece_super_league: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:23,271 - INFO - 🌎 Fetching soccer_greece_super_league with regions=eu,uk
+2026-02-10 13:30:23,570 - INFO - ✅ soccer_greece_super_league: 10 matches
+2026-02-10 13:30:23,573 - INFO - 📊 soccer_spl: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:23,574 - INFO - 🌎 Fetching soccer_spl with regions=eu,uk
+2026-02-10 13:30:23,875 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:23,877 - INFO - New: Hearts vs Hibernian | H1.79/X3.35/A4.5 | O1.93/U1.8
+2026-02-10 13:30:23,880 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:23,881 - INFO - New: Dundee United vs Aberdeen | H2.28/X3.4/A3.05 | O1.7/U2.07
+2026-02-10 13:30:23,884 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:23,885 - INFO - New: Celtic vs Livingston | H1.15/X7.5/A17.0 | O1.36/U2.9
+2026-02-10 13:30:23,887 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:23,888 - INFO - New: Falkirk F.C. vs Dundee FC | H1.7/X3.64/A4.89 | O1.88/U1.85
+2026-02-10 13:30:23,890 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:23,891 - INFO - New: Kilmarnock vs St Mirren | H2.9/X3.05/A2.33 | O2.08/U1.72
+2026-02-10 13:30:23,892 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:23,892 - INFO - New: Motherwell vs Rangers | H3.25/X3.7/A2.02 | O1.85/U1.88
+2026-02-10 13:30:23,893 - INFO - ✅ soccer_spl: 16 matches
+2026-02-10 13:30:23,894 - INFO - 📊 soccer_australia_aleague: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:23,894 - INFO - 🌎 Fetching soccer_australia_aleague with regions=au
+2026-02-10 13:30:24,180 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 0.35) for Western Sydney Wanderers vs Wellington Phoenix FC
+2026-02-10 13:30:24,184 - INFO - New: Western Sydney Wanderers vs Wellington Phoenix FC | H1.44/X4.5/A6.5 | O1.5/U2.38
+2026-02-10 13:30:24,190 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 0.23) for Perth Glory vs Newcastle Jets FC
+2026-02-10 13:30:24,193 - INFO - New: Perth Glory vs Newcastle Jets FC | H2.8/X3.8/A2.3 | ONone/UNone
+2026-02-10 13:30:24,196 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 0.26) for Melbourne Victory vs Brisbane Roar
+2026-02-10 13:30:24,199 - INFO - New: Melbourne Victory vs Brisbane Roar | H1.72/X3.8/A4.6 | O1.65/U2.08
+2026-02-10 13:30:24,202 - INFO - 🎯 🎯 SMART MONEY on DRAW (diff: 0.19) for Sydney FC vs Adelaide United
+2026-02-10 13:30:24,204 - INFO - New: Sydney FC vs Adelaide United | H1.8/X4.0/A3.8 | ONone/UNone
+2026-02-10 13:30:24,207 - INFO - ✅ soccer_australia_aleague: 20 matches
+2026-02-10 13:30:24,209 - INFO - 📊 soccer_poland_ekstraklasa: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:24,209 - INFO - 🌎 Fetching soccer_poland_ekstraklasa with regions=eu,uk
+2026-02-10 13:30:24,490 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:24,493 - INFO - New: Radomiak Radom vs Korona Kielce | H2.05/X3.3/A2.9 | O1.9/U1.8
+2026-02-10 13:30:24,497 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:24,499 - INFO - New: GKS Katowice vs Legia Warszawa | H3.3/X3.4/A2.2 | O1.93/U1.85
+2026-02-10 13:30:24,503 - INFO - ✅ soccer_poland_ekstraklasa: 22 matches
+2026-02-10 13:30:24,505 - INFO - 📊 soccer_france_ligue_one: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:24,506 - INFO - 🌎 Fetching soccer_france_ligue_one with regions=eu,uk
+2026-02-10 13:30:24,749 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:24,752 - INFO - New: Rennes vs Paris Saint Germain | H6.28/X5.17/A1.46 | O1.4/U2.75
+2026-02-10 13:30:24,757 - INFO - 📊 Sharp bookie found: pinnacle
+2026-02-10 13:30:24,759 - INFO - 🎯 🎯 SMART MONEY on AWAY (diff: 0.20) for AS Monaco vs Nantes
+2026-02-10 13:30:24,762 - INFO - New: AS Monaco vs Nantes | H1.48/X5.04/A6.18 | O1.44/U2.5
+2026-02-10 13:30:24,765 - INFO - ✅ soccer_france_ligue_one: 24 matches
+2026-02-10 13:30:24,767 - INFO - 📊 soccer_belgium_first_div: NO_MATCHES_DISCOVERY
+2026-02-10 13:30:24,767 - INFO - 🌎 Fetching soccer_belgium_first_div with regions=eu,uk
+2026-02-10 13:30:24,969 - INFO - 📊 Sharp bookie found: betfair_ex_uk
+2026-02-10 13:30:24,970 - INFO - New: KV Mechelen vs Genk | H3.25/X3.35/A1.96 | O1.71/U1.97
+2026-02-10 13:30:24,971 - INFO - ✅ soccer_belgium_first_div: 25 matches
+2026-02-10 13:30:24,989 - INFO - 🏁 Ingestion complete: 25 matches | 9 fetched | 0 skipped (fresh)
+2026-02-10 13:30:24,990 - INFO - 🧠 Initializing Analysis Engine...
+2026-02-10 13:30:24,990 - INFO - 💹 Checking for significant odds movements...
+2026-02-10 13:30:24,993 - INFO - 🍪 Scanning for Biscotto suspects (suspicious Draw odds)...
+2026-02-10 13:30:24,999 - INFO - Trovate 10 partite Elite da analizzare nelle prossime 72 ore.
+2026-02-10 13:30:25,000 - INFO - 🔄 Tier 2 Fallback: Reset giornaliero ( → 2026-02-10)
+2026-02-10 13:30:25,000 - INFO - 
+🔍 Investigating Hearts vs Hibernian (soccer_spl)...
+2026-02-10 13:30:25,001 - INFO - ⚡ [PARALLEL] Starting enrichment for Hearts vs Hibernian
+2026-02-10 13:30:27,082 - INFO - ✅ Turnover risk for Hearts: HIGH (squad: 0)
+2026-02-10 13:30:28,250 - INFO - ✅ Turnover risk for Hibernian: HIGH (squad: 0)
+2026-02-10 13:30:28,251 - INFO - ✅ Team stats for Hearts: goals=None, cards=None
+2026-02-10 13:30:28,252 - INFO - ✅ Team stats for Hibernian: goals=None, cards=None
+2026-02-10 13:30:28,253 - INFO - ✅ Tactical insights for Hearts vs Hibernian: Balanced
+2026-02-10 13:30:29,238 - INFO - ✅ Exact match: Hearts (ID: 9860)
+2026-02-10 13:30:30,184 - INFO - ✅ Exact match: Hibernian (ID: 10251)
+2026-02-10 13:30:31,099 - INFO - ✅ Exact match: Hearts (ID: 9860)
+2026-02-10 13:30:32,591 - INFO - ✅ Full team context for Hearts: 0 injuries, motivation={'zone': 'Champions League', 'position': 1, 'motivation': 'Top of table - Secure Champions League'}
+2026-02-10 13:30:33,478 - INFO - ✅ Full team context for Hibernian: 0 injuries, motivation={'zone': 'Mid-Table', 'position': 5, 'motivation': 'Mid-table safety - No pressure'}
+2026-02-10 13:30:34,112 - INFO - ✅ Found 5 unavailable players for Hearts
+2026-02-10 13:30:35,214 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://news.stv.tv/section/sport/footba...
+2026-02-10 13:30:36,067 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:30:36,067 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4818909
+2026-02-10 13:30:36,069 - INFO - ⚡ [PARALLEL] Completed in 11068ms: 9/10 successful
+2026-02-10 13:30:36,070 - INFO - ⚖️ Injury Differential: Hearts (LOW) vs Hibernian (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:30:36,070 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:30:36,071 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:30:36,072 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:30:36,072 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:30:40,083 - ERROR - ❌ Analysis failed for Hearts vs Hibernian: RetryError[<Future at 0x7f5c92fad410 state=finished raised TypeError>]
+2026-02-10 13:30:40,096 - WARNING - ⚠️ Analysis error for Hearts vs Hibernian: RetryError[<Future at 0x7f5c92fad410 state=finished raised TypeError>]
+2026-02-10 13:30:40,102 - INFO - 
+🔍 Investigating Dundee United vs Aberdeen (soccer_spl)...
+2026-02-10 13:30:40,105 - INFO - ⚡ [PARALLEL] Starting enrichment for Dundee United vs Aberdeen
+2026-02-10 13:30:41,819 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: McEntee, the 25-year-old defender signed from Wals for Rangers
+2026-02-10 13:30:41,819 - INFO - 🌐 [BROWSER-MONITOR] Discovered: McEntee, the 25-year-old defender signed from Wals... for Rangers (confidence: 0.70)
+2026-02-10 13:30:42,179 - INFO - ✅ Turnover risk for Dundee United: HIGH (squad: 0)
+2026-02-10 13:30:43,215 - INFO - ✅ Turnover risk for Aberdeen: HIGH (squad: 0)
+2026-02-10 13:30:43,215 - INFO - ✅ Team stats for Dundee United: goals=None, cards=None
+2026-02-10 13:30:43,216 - INFO - ✅ Team stats for Aberdeen: goals=None, cards=None
+2026-02-10 13:30:43,216 - INFO - ✅ Tactical insights for Dundee United vs Aberdeen: Balanced
+2026-02-10 13:30:44,351 - INFO - ✅ Exact match: Dundee United (ID: 9938)
+2026-02-10 13:30:45,253 - INFO - ✅ Exact match: Aberdeen (ID: 8485)
+2026-02-10 13:30:46,187 - INFO - ✅ Exact match: Dundee United (ID: 9938)
+2026-02-10 13:30:46,923 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for scottish_premiership (conf=0.85, cat=INJURY)
+2026-02-10 13:30:46,924 - INFO - 🚨 [HIGH-PRIORITY] News discovered for scottish_premiership - flagged for priority processing
+2026-02-10 13:30:46,924 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: However, Antman did not kick on as expected but af for Go Ahead Eagles
+2026-02-10 13:30:46,924 - INFO - 🌐 [BROWSER-MONITOR] Discovered: However, Antman did not kick on as expected but af... for Go Ahead Eagles (confidence: 0.85)
+2026-02-10 13:30:47,591 - INFO - ✅ Full team context for Dundee United: 0 injuries, motivation={'zone': 'Relegation Battle', 'position': 8, 'motivation': 'Fight against relegation'}
+2026-02-10 13:30:48,811 - INFO - ✅ Full team context for Aberdeen: 0 injuries, motivation={'zone': 'Mid-Table', 'position': 7, 'motivation': 'Mid-table safety - No pressure'}
+2026-02-10 13:30:49,203 - INFO - ✅ Found 2 unavailable players for Dundee United
+2026-02-10 13:30:51,287 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:30:51,291 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4818907
+2026-02-10 13:30:51,292 - INFO - ⚡ [PARALLEL] Completed in 11187ms: 9/10 successful
+2026-02-10 13:30:51,293 - INFO - ⚖️ Injury Differential: Dundee United (LOW) vs Aberdeen (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:30:51,293 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:30:51,293 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:30:51,293 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:30:51,294 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:30:54,180 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Rangers' Youssef Chermiti and Emmanuel Fernandez m for Rangers
+2026-02-10 13:30:54,180 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Rangers' Youssef Chermiti and Emmanuel Fernandez m... for Rangers (confidence: 0.80)
+2026-02-10 13:30:54,186 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Tribun Palembang Superball...
+2026-02-10 13:30:55,295 - ERROR - ❌ Analysis failed for Dundee United vs Aberdeen: RetryError[<Future at 0x7f5c91549490 state=finished raised TypeError>]
+2026-02-10 13:30:55,300 - WARNING - ⚠️ Analysis error for Dundee United vs Aberdeen: RetryError[<Future at 0x7f5c91549490 state=finished raised TypeError>]
+2026-02-10 13:30:55,303 - INFO - 
+🔍 Investigating Celtic vs Livingston (soccer_spl)...
+2026-02-10 13:30:55,305 - INFO - ⚡ [PARALLEL] Starting enrichment for Celtic vs Livingston
+2026-02-10 13:30:55,510 - INFO - 📖 Manual mapping: Celtic → Celtic FC
+2026-02-10 13:30:57,237 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Hondudiario Deportes...
+2026-02-10 13:30:57,410 - INFO - ✅ Turnover risk for Celtic: HIGH (squad: 0)
+2026-02-10 13:30:57,410 - INFO - 📖 Manual mapping: Celtic → Celtic FC
+2026-02-10 13:30:58,369 - INFO - ✅ Turnover risk for Livingston: HIGH (squad: 0)
+2026-02-10 13:30:58,369 - INFO - ✅ Team stats for Celtic: goals=None, cards=None
+2026-02-10 13:30:58,372 - INFO - ✅ Team stats for Livingston: goals=None, cards=None
+2026-02-10 13:30:58,372 - INFO - ✅ Tactical insights for Celtic vs Livingston: Balanced
+2026-02-10 13:31:00,460 - INFO - ✅ Exact match: Livingston (ID: 8282)
+2026-02-10 13:31:00,964 - INFO - 🔗 [BROWSER-MONITOR] Found 4 links on https://www.hondudiario.com/category/dep...
+2026-02-10 13:31:02,503 - INFO - ✅ Exact match: Celtic (ID: 9925)
+2026-02-10 13:31:03,969 - INFO - ✅ Full team context for Livingston: 0 injuries, motivation={'zone': 'Relegation Zone', 'position': 12, 'motivation': 'Direct relegation threat'}
+2026-02-10 13:31:04,383 - INFO - ✅ Exact match: Celtic (ID: 9925)
+2026-02-10 13:31:06,309 - INFO - ✅ Full team context for Celtic: 0 injuries, motivation={'zone': 'European Spots', 'position': 3, 'motivation': 'Push for European qualification'}
+2026-02-10 13:31:06,593 - INFO - ✅ Found 5 unavailable players for Celtic
+2026-02-10 13:31:08,156 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:31:08,156 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4818906
+2026-02-10 13:31:08,160 - INFO - ⚡ [PARALLEL] Completed in 12854ms: 9/10 successful
+2026-02-10 13:31:08,161 - INFO - ⚖️ Injury Differential: Celtic (LOW) vs Livingston (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:31:08,161 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:31:08,161 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:31:08,162 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:31:08,162 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:31:12,168 - ERROR - ❌ Analysis failed for Celtic vs Livingston: RetryError[<Future at 0x7f5caaee7ad0 state=finished raised TypeError>]
+2026-02-10 13:31:12,173 - WARNING - ⚠️ Analysis error for Celtic vs Livingston: RetryError[<Future at 0x7f5caaee7ad0 state=finished raised TypeError>]
+2026-02-10 13:31:12,176 - INFO - 
+🔍 Investigating Falkirk F.C. vs Dundee FC (soccer_spl)...
+2026-02-10 13:31:12,177 - INFO - ⚡ [PARALLEL] Starting enrichment for Falkirk F.C. vs Dundee FC
+2026-02-10 13:31:14,276 - INFO - ✅ Turnover risk for Falkirk F.C.: HIGH (squad: 0)
+2026-02-10 13:31:15,376 - INFO - ✅ Turnover risk for Dundee FC: HIGH (squad: 0)
+2026-02-10 13:31:15,378 - INFO - ✅ Team stats for Falkirk F.C.: goals=None, cards=None
+2026-02-10 13:31:15,379 - INFO - ✅ Team stats for Dundee FC: goals=None, cards=None
+2026-02-10 13:31:15,380 - INFO - ✅ Tactical insights for Falkirk F.C. vs Dundee FC: Balanced
+2026-02-10 13:31:17,425 - INFO - ✅ Exact match: Dundee FC (ID: 8284)
+2026-02-10 13:31:19,400 - INFO - ✅ First-word match: Falkirk F.C. → Falkirk (ID: 8596)
+2026-02-10 13:31:19,421 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 4/4 pages from https://www.hondudiario.com/category/dep...
+2026-02-10 13:31:19,472 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: El Heraldo Honduras Deportes...
+2026-02-10 13:31:20,791 - INFO - ✅ Full team context for Dundee FC: 0 injuries, motivation={'zone': 'Relegation Zone', 'position': 10, 'motivation': 'Direct relegation threat'}
+2026-02-10 13:31:21,303 - INFO - ✅ First-word match: Falkirk F.C. → Falkirk (ID: 8596)
+2026-02-10 13:31:23,711 - INFO - ✅ Full team context for Falkirk F.C.: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:31:24,692 - INFO - ✅ Found 3 unavailable players for Falkirk
+2026-02-10 13:31:25,699 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:31:25,701 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4818908
+2026-02-10 13:31:25,703 - INFO - ⚡ [PARALLEL] Completed in 13526ms: 9/10 successful
+2026-02-10 13:31:25,703 - INFO - ⚖️ Injury Differential: Falkirk F.C. (LOW) vs Dundee FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:31:25,704 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:31:25,704 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:31:25,704 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:31:25,750 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:31:27,772 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.elheraldo.hn/deportes...
+2026-02-10 13:31:29,756 - ERROR - ❌ Analysis failed for Falkirk F.C. vs Dundee FC: RetryError[<Future at 0x7f5c82ea9dd0 state=finished raised TypeError>]
+2026-02-10 13:31:29,763 - WARNING - ⚠️ Analysis error for Falkirk F.C. vs Dundee FC: RetryError[<Future at 0x7f5c82ea9dd0 state=finished raised TypeError>]
+2026-02-10 13:31:29,766 - INFO - 
+🔍 Investigating Kilmarnock vs St Mirren (soccer_spl)...
+2026-02-10 13:31:29,768 - INFO - ⚡ [PARALLEL] Starting enrichment for Kilmarnock vs St Mirren
+2026-02-10 13:31:31,827 - INFO - ✅ Turnover risk for Kilmarnock: HIGH (squad: 0)
+2026-02-10 13:31:32,988 - INFO - ✅ Turnover risk for St Mirren: HIGH (squad: 0)
+2026-02-10 13:31:32,989 - INFO - ✅ Team stats for Kilmarnock: goals=None, cards=None
+2026-02-10 13:31:32,989 - INFO - ✅ Team stats for St Mirren: goals=None, cards=None
+2026-02-10 13:31:32,989 - INFO - ✅ Tactical insights for Kilmarnock vs St Mirren: Balanced
+2026-02-10 13:31:34,015 - INFO - ✅ Exact match: Kilmarnock (ID: 8597)
+2026-02-10 13:31:35,024 - INFO - 🔍 Fuzzy match: 'St Mirren' → 'St. Mirren' (score: 1.00)
+2026-02-10 13:31:35,840 - INFO - ✅ Exact match: Kilmarnock (ID: 8597)
+2026-02-10 13:31:37,302 - INFO - ✅ Full team context for Kilmarnock: 0 injuries, motivation={'zone': 'Relegation Zone', 'position': 11, 'motivation': 'Direct relegation threat'}
+2026-02-10 13:31:38,318 - INFO - ✅ Full team context for St Mirren: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:31:38,920 - INFO - ✅ Found 4 unavailable players for Kilmarnock
+2026-02-10 13:31:40,789 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:31:40,789 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4818910
+2026-02-10 13:31:40,790 - INFO - ⚡ [PARALLEL] Completed in 11021ms: 9/10 successful
+2026-02-10 13:31:40,790 - INFO - ⚖️ Injury Differential: Kilmarnock (LOW) vs St Mirren (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:31:40,790 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:31:40,790 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:31:40,790 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:31:40,790 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:31:44,793 - ERROR - ❌ Analysis failed for Kilmarnock vs St Mirren: RetryError[<Future at 0x7f5c90368ad0 state=finished raised TypeError>]
+2026-02-10 13:31:44,823 - WARNING - ⚠️ Analysis error for Kilmarnock vs St Mirren: RetryError[<Future at 0x7f5c90368ad0 state=finished raised TypeError>]
+2026-02-10 13:31:44,824 - INFO - 
+🔍 Investigating Motherwell vs Rangers (soccer_spl)...
+2026-02-10 13:31:44,825 - INFO - ⚡ [PARALLEL] Starting enrichment for Motherwell vs Rangers
+2026-02-10 13:31:45,935 - INFO - 📖 Manual mapping: Rangers → Rangers FC
+2026-02-10 13:31:46,877 - INFO - ✅ Turnover risk for Motherwell: HIGH (squad: 0)
+2026-02-10 13:31:47,933 - INFO - ✅ Turnover risk for Rangers: HIGH (squad: 0)
+2026-02-10 13:31:47,933 - INFO - ✅ Team stats for Motherwell: goals=None, cards=None
+2026-02-10 13:31:47,933 - INFO - ✅ Team stats for Rangers: goals=None, cards=None
+2026-02-10 13:31:47,934 - INFO - ✅ Tactical insights for Motherwell vs Rangers: Balanced
+2026-02-10 13:31:48,989 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.elheraldo.hn/deportes...
+2026-02-10 13:31:48,990 - INFO - 🔍 [TAVILY] Searching: football soccer news www.elheraldo.hn Con sus figuras y un i...
+2026-02-10 13:31:49,025 - INFO - ✅ Exact match: Motherwell (ID: 9927)
+2026-02-10 13:31:50,919 - INFO - ✅ Exact match: Motherwell (ID: 9927)
+2026-02-10 13:31:52,380 - INFO - ✅ Full team context for Motherwell: 0 injuries, motivation={'zone': 'European Spots', 'position': 4, 'motivation': 'Push for European qualification'}
+2026-02-10 13:31:53,059 - INFO - ✅ Exact match: Rangers (ID: 8548)
+2026-02-10 13:31:53,968 - INFO - ✅ Found 4 unavailable players for Motherwell
+2026-02-10 13:31:55,639 - INFO - ✅ Full team context for Rangers: 0 injuries, motivation={'zone': 'Champions League', 'position': 2, 'motivation': 'Top of table - Secure Champions League'}
+2026-02-10 13:31:56,959 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:31:56,960 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4818911
+2026-02-10 13:31:56,963 - INFO - ⚡ [PARALLEL] Completed in 12138ms: 9/10 successful
+2026-02-10 13:31:56,964 - INFO - ⚖️ Injury Differential: Motherwell (LOW) vs Rangers (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:31:56,964 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:31:56,964 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:31:56,965 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:31:56,965 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:31:57,322 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 13:31:57,324 - INFO - 🔍 [TAVILY] Found 0 results in 8.33s
+2026-02-10 13:31:57,456 - INFO - 🌐 [BROWSER-MONITOR] Cycle complete: 14 URLs, 7 relevant items
+2026-02-10 13:32:00,967 - ERROR - ❌ Analysis failed for Motherwell vs Rangers: RetryError[<Future at 0x7f5c82df1c50 state=finished raised TypeError>]
+2026-02-10 13:32:00,971 - WARNING - ⚠️ Analysis error for Motherwell vs Rangers: RetryError[<Future at 0x7f5c82df1c50 state=finished raised TypeError>]
+2026-02-10 13:32:00,973 - INFO - 
+🔍 Investigating CA Tigre BA vs Aldosivi Mar del Plata (soccer_argentina_primera_division)...
+2026-02-10 13:32:00,974 - INFO - ⚡ [PARALLEL] Starting enrichment for CA Tigre BA vs Aldosivi Mar del Plata
+2026-02-10 13:32:03,056 - INFO - ✅ Turnover risk for CA Tigre BA: HIGH (squad: 0)
+2026-02-10 13:32:13,280 - INFO - ✅ Turnover risk for Aldosivi Mar del Plata: HIGH (squad: 0)
+2026-02-10 13:32:13,280 - INFO - ✅ Team stats for CA Tigre BA: goals=None, cards=None
+2026-02-10 13:32:13,280 - INFO - ✅ Team stats for Aldosivi Mar del Plata: goals=None, cards=None
+2026-02-10 13:32:13,281 - INFO - ✅ Tactical insights for CA Tigre BA vs Aldosivi Mar del Plata: Balanced
+2026-02-10 13:32:13,435 - WARNING - ⚠️ Team not found: CA Tigre BA
+2026-02-10 13:32:13,435 - INFO - ✅ Full team context for CA Tigre BA: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:32:13,587 - WARNING - ⚠️ Team not found: CA Tigre BA
+2026-02-10 13:32:14,664 - INFO - ✅ First-word match: Aldosivi Mar del Plata → Aldosivi (ID: 161728)
+2026-02-10 13:32:15,986 - INFO - ✅ Full team context for Aldosivi Mar del Plata: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:32:15,987 - INFO - ⚡ [PARALLEL] Completed in 15013ms: 9/10 successful
+2026-02-10 13:32:15,989 - INFO - ⚖️ Injury Differential: CA Tigre BA (LOW) vs Aldosivi Mar del Plata (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:32:15,990 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:32:15,990 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:32:15,991 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:32:15,991 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:32:19,994 - ERROR - ❌ Analysis failed for CA Tigre BA vs Aldosivi Mar del Plata: RetryError[<Future at 0x7f5c91bdfb10 state=finished raised TypeError>]
+2026-02-10 13:32:20,013 - WARNING - ⚠️ Analysis error for CA Tigre BA vs Aldosivi Mar del Plata: RetryError[<Future at 0x7f5c91bdfb10 state=finished raised TypeError>]
+2026-02-10 13:32:20,014 - INFO - 
+🔍 Investigating Argentinos Juniors vs River Plate (soccer_argentina_primera_division)...
+2026-02-10 13:32:20,015 - INFO - ⚡ [PARALLEL] Starting enrichment for Argentinos Juniors vs River Plate
+2026-02-10 13:32:22,150 - INFO - ✅ Turnover risk for Argentinos Juniors: HIGH (squad: 0)
+2026-02-10 13:32:23,105 - INFO - ✅ Turnover risk for River Plate: HIGH (squad: 0)
+2026-02-10 13:32:23,106 - INFO - ✅ Team stats for Argentinos Juniors: goals=None, cards=None
+2026-02-10 13:32:23,106 - INFO - ✅ Team stats for River Plate: goals=None, cards=None
+2026-02-10 13:32:23,106 - INFO - ✅ Tactical insights for Argentinos Juniors vs River Plate: Balanced
+2026-02-10 13:32:24,261 - INFO - ✅ Exact match: Argentinos Juniors (ID: 10086)
+2026-02-10 13:32:25,392 - INFO - ✅ Exact match: River Plate (ID: 10076)
+2026-02-10 13:32:26,128 - INFO - ✅ Exact match: Argentinos Juniors (ID: 10086)
+2026-02-10 13:32:27,771 - INFO - ✅ Full team context for Argentinos Juniors: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:32:28,782 - INFO - ✅ Full team context for River Plate: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:32:29,151 - INFO - ✅ Found 2 unavailable players for Argentinos Juniors
+2026-02-10 13:32:30,950 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:32:30,951 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 5101939
+2026-02-10 13:32:30,955 - INFO - ⚡ [PARALLEL] Completed in 10940ms: 9/10 successful
+2026-02-10 13:32:30,956 - INFO - ⚖️ Injury Differential: Argentinos Juniors (LOW) vs River Plate (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:32:30,956 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:32:30,956 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:32:30,956 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:32:30,956 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:32:34,962 - ERROR - ❌ Analysis failed for Argentinos Juniors vs River Plate: RetryError[<Future at 0x7f5c916301d0 state=finished raised TypeError>]
+2026-02-10 13:32:34,973 - WARNING - ⚠️ Analysis error for Argentinos Juniors vs River Plate: RetryError[<Future at 0x7f5c916301d0 state=finished raised TypeError>]
+2026-02-10 13:32:34,974 - INFO - 
+🔍 Investigating Western Sydney Wanderers vs Wellington Phoenix FC (soccer_australia_aleague)...
+2026-02-10 13:32:34,975 - INFO - ⚡ [PARALLEL] Starting enrichment for Western Sydney Wanderers vs Wellington Phoenix FC
+2026-02-10 13:32:37,041 - INFO - ✅ Turnover risk for Western Sydney Wanderers: HIGH (squad: 0)
+2026-02-10 13:32:38,053 - INFO - ✅ Turnover risk for Wellington Phoenix FC: HIGH (squad: 0)
+2026-02-10 13:32:38,056 - INFO - ✅ Team stats for Western Sydney Wanderers: goals=None, cards=None
+2026-02-10 13:32:38,056 - INFO - ✅ Team stats for Wellington Phoenix FC: goals=None, cards=None
+2026-02-10 13:32:38,056 - INFO - ✅ Tactical insights for Western Sydney Wanderers vs Wellington Phoenix FC: Balanced
+2026-02-10 13:32:42,587 - INFO - ✅ Full team context for Western Sydney Wanderers: 0 injuries, motivation={'zone': 'Relegation Zone', 'position': 12, 'motivation': 'Direct relegation threat'}
+2026-02-10 13:32:43,163 - INFO - ✅ Suffix-stripped match: Wellington Phoenix FC → Wellington Phoenix (ID: 78785)
+2026-02-10 13:32:45,657 - INFO - ✅ Full team context for Wellington Phoenix FC: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:32:47,358 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:32:47,360 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4965705
+2026-02-10 13:32:47,366 - INFO - ⚡ [PARALLEL] Completed in 12390ms: 9/10 successful
+2026-02-10 13:32:47,595 - INFO - ⚖️ Injury Differential: Western Sydney Wanderers (LOW) vs Wellington Phoenix FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:32:47,596 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:32:47,596 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:32:47,597 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:32:47,597 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:32:51,616 - ERROR - ❌ Analysis failed for Western Sydney Wanderers vs Wellington Phoenix FC: RetryError[<Future at 0x7f5c82777ad0 state=finished raised TypeError>]
+2026-02-10 13:32:51,695 - WARNING - ⚠️ Analysis error for Western Sydney Wanderers vs Wellington Phoenix FC: RetryError[<Future at 0x7f5c82777ad0 state=finished raised TypeError>]
+2026-02-10 13:32:51,708 - INFO - 
+🔍 Investigating Perth Glory vs Newcastle Jets FC (soccer_australia_aleague)...
+2026-02-10 13:32:51,719 - INFO - ⚡ [PARALLEL] Starting enrichment for Perth Glory vs Newcastle Jets FC
+2026-02-10 13:32:53,842 - INFO - ✅ Turnover risk for Perth Glory: HIGH (squad: 0)
+2026-02-10 13:32:54,987 - INFO - ✅ Turnover risk for Newcastle Jets FC: HIGH (squad: 0)
+2026-02-10 13:32:54,988 - INFO - ✅ Team stats for Perth Glory: goals=None, cards=None
+2026-02-10 13:32:54,988 - INFO - ✅ Team stats for Newcastle Jets FC: goals=None, cards=None
+2026-02-10 13:32:54,989 - INFO - ✅ Tactical insights for Perth Glory vs Newcastle Jets FC: Balanced
+2026-02-10 13:32:55,956 - INFO - ✅ Exact match: Perth Glory (ID: 7961)
+2026-02-10 13:32:57,860 - INFO - ✅ Exact match: Perth Glory (ID: 7961)
+2026-02-10 13:32:59,142 - INFO - ✅ Full team context for Perth Glory: 0 injuries, motivation={'zone': 'Relegation Battle', 'position': 9, 'motivation': 'Fight against relegation'}
+2026-02-10 13:32:59,943 - INFO - ✅ Suffix-stripped match: Newcastle Jets FC → Newcastle Jets (ID: 6454)
+2026-02-10 13:33:02,268 - INFO - ✅ Full team context for Newcastle Jets FC: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 13:33:03,900 - ERROR - ❌ FotMob errore HTTP 404
+2026-02-10 13:33:03,900 - WARNING - ⚠️ FotMob match lineup non disponibili per ID 4965706
+2026-02-10 13:33:03,904 - INFO - ⚡ [PARALLEL] Completed in 12185ms: 9/10 successful
+2026-02-10 13:33:03,906 - INFO - ⚖️ Injury Differential: Perth Glory (LOW) vs Newcastle Jets FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 13:33:03,907 - WARNING - ⚠️ Injury impact analysis failed: cannot unpack non-iterable InjuryDifferential object
+2026-02-10 13:33:03,908 - WARNING - ⚠️ Fatigue analysis failed: get_enhanced_fatigue_context() got an unexpected keyword argument 'home_stats'
+2026-02-10 13:33:03,909 - WARNING - ⚠️ Market intelligence analysis failed: analyze_market_intelligence() got an unexpected keyword argument 'home_context'
+2026-02-10 13:33:03,910 - WARNING - ⚠️ News hunting failed: run_hunter_for_match() got an unexpected keyword argument 'home_team'
+2026-02-10 13:33:07,912 - ERROR - ❌ Analysis failed for Perth Glory vs Newcastle Jets FC: RetryError[<Future at 0x7f5c8257add0 state=finished raised TypeError>]
+2026-02-10 13:33:07,918 - WARNING - ⚠️ Analysis error for Perth Glory vs Newcastle Jets FC: RetryError[<Future at 0x7f5c8257add0 state=finished raised TypeError>]
+2026-02-10 13:33:07,920 - CRITICAL - 💥 UNEXPECTED CRITICAL ERROR in cycle 1: TypeError: should_activate_tier2_fallback() missing 2 required positional arguments: 'alerts_sent' and 'high_potential_count'
 Traceback (most recent call last):
-  File "/home/linux/Earlybird_Github/src/main.py", line 1344, in run_pipeline
-    home_fatigue_level = home_fatigue.get('fatigue_level')
-                         ^^^^^^^^^^^^^^^^
-AttributeError: 'str' object has no attribute 'get'
-2026-02-01 20:57:25,622 - INFO - 🏁 TRIANGULATION CYCLE FINISHED
-2026-02-01 20:57:25,622 - INFO - 🩺 Running system diagnostics...
-2026-02-01 20:57:25,622 - WARNING - DISK CRITICAL: 96.4% used
-2026-02-01 20:57:26,153 - INFO - New issue detected: disk_full (ERROR)
-2026-02-01 20:57:27,482 - INFO - Status message sent to Telegram
-2026-02-01 20:57:27,484 - INFO - Diagnostic alert sent (1 issues)
-2026-02-01 20:57:27,485 - INFO - 💤 Sleeping for 360 minutes (6 hours) until next cycle...
-2026-02-01 20:57:31,568 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.gazetaesportiva.com/...
-2026-02-01 20:57:31,568 - INFO - 🔍 [TAVILY] Searching: football soccer news www.gazetaesportiva.com Internacional x...
-2026-02-01 20:57:32,037 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:57:32,037 - INFO - 🔍 [TAVILY] Found 3 results in 0.47s
-2026-02-01 20:57:32,037 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 482 → 1168 chars
-2026-02-01 20:57:41,247 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for brasileirao (conf=0.90, cat=LINEUP)
-2026-02-01 20:57:41,247 - INFO - 🚨 [HIGH-PRIORITY] News discovered for brasileirao - flagged for priority processing
-2026-02-01 20:57:41,247 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Atlético-MG announces mixed squad for Campeonato M for Atlético-MG
-2026-02-01 20:57:41,248 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Atlético-MG announces mixed squad for Campeonato M... for Atlético-MG (confidence: 0.90)
-2026-02-01 20:57:41,260 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for brasileirao (conf=0.85, cat=INJURY)
-2026-02-01 20:57:41,261 - INFO - 🚨 [HIGH-PRIORITY] News discovered for brasileirao - flagged for priority processing
-2026-02-01 20:57:41,261 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Out of these cookies, the cookies that are categor for Everton
-2026-02-01 20:57:41,261 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Out of these cookies, the cookies that are categor... for Everton (confidence: 0.85)
-2026-02-01 20:57:47,933 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Botafogo prohibited from selling players due to le for Botafogo
-2026-02-01 20:57:47,934 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Botafogo prohibited from selling players due to le... for Botafogo (confidence: 0.80)
-2026-02-01 20:57:47,935 - INFO - 🔍 [TAVILY] Searching: football soccer news www.gazetaesportiva.com Capixaba marca ...
-2026-02-01 20:57:48,358 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:57:48,359 - INFO - 🔍 [TAVILY] Found 3 results in 0.42s
-2026-02-01 20:57:48,359 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 468 → 1121 chars
-2026-02-01 20:57:48,373 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Globo Esporte SP...
-2026-02-01 20:57:59,815 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://ge.globo.com/sp/tem-esporte/...
-2026-02-01 20:58:30,422 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://ge.globo.com/sp/tem-esporte/...
-2026-02-01 20:58:30,423 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Distante 22km do clube sen...
-2026-02-01 20:58:30,423 - INFO - 🔄 Fingerprint rotated (threshold): safari_mac_17 → chrome_mac_131 (next rotation in ~25 requests)
-2026-02-01 20:58:30,849 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:58:30,851 - INFO - 🔍 [TAVILY] Found 3 results in 0.43s
-2026-02-01 20:58:30,851 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 338 → 954 chars
-2026-02-01 20:58:31,423 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Competição começa no dia 3...
-2026-02-01 20:58:31,546 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:58:31,547 - INFO - 🔍 [TAVILY] Found 3 results in 0.12s
-2026-02-01 20:58:31,547 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 267 → 858 chars
-2026-02-01 20:58:31,549 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Competição começa no dia 30 de janeiro, com jogo i for Unknown Team
-2026-02-01 20:58:31,549 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Competição começa no dia 30 de janeiro, com jogo i... for Unknown Team (confidence: 0.70)
-2026-02-01 20:58:32,423 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Times marcam no fim de cad...
-2026-02-01 20:58:32,547 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:58:32,549 - INFO - 🔍 [TAVILY] Found 3 results in 0.12s
-2026-02-01 20:58:32,549 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 284 → 854 chars
-2026-02-01 20:58:33,423 - INFO - 🔍 [TAVILY] Searching: football soccer news ge.globo.com Carcará atua com um a meno...
-2026-02-01 20:58:33,546 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 20:58:33,548 - INFO - 🔍 [TAVILY] Found 3 results in 0.12s
-2026-02-01 20:58:33,548 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 269 → 844 chars
-2026-02-01 20:58:33,553 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BeSoccer News...
-2026-02-01 20:58:36,554 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: YSScores News...
-2026-02-01 20:58:39,260 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.ysscores.com/en/news...
-2026-02-01 20:58:58,703 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.ysscores.com/en/news...
-2026-02-01 20:58:58,706 - INFO - 🚨 [QUEUE] High-priority discovery! Triggering callback for global (conf=0.85, cat=SUSPENSION)
-2026-02-01 20:58:58,706 - INFO - 🚨 [HIGH-PRIORITY] News discovered for global - flagged for priority processing
-2026-02-01 20:58:58,706 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Real Madrid Snatches a Dramatic Win Against Vallec for Real Madrid
-2026-02-01 20:58:58,706 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Real Madrid Snatches a Dramatic Win Against Vallec... for Real Madrid (confidence: 0.85)
-2026-02-01 20:58:58,716 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Jogada 10 Brazil...
-2026-02-01 20:59:06,250 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://jogada10.com.br...
-2026-02-01 20:59:25,485 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://jogada10.com.br...
-2026-02-01 20:59:25,492 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Após representarem muito bem o Rio de Janeiro na j for Braga
-2026-02-01 20:59:25,493 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Após representarem muito bem o Rio de Janeiro na j... for Braga (confidence: 0.70)
-2026-02-01 20:59:25,499 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Determinantes para o sucesso de Flamengo e Corinth for Unknown Team
-2026-02-01 20:59:25,499 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Determinantes para o sucesso de Flamengo e Corinth... for Unknown Team (confidence: 0.85)
-2026-02-01 20:59:25,501 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Clubes com as duas maiores torcidas do Brasil, Fla for Unknown Team
-2026-02-01 20:59:25,501 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Clubes com as duas maiores torcidas do Brasil, Fla... for Unknown Team (confidence: 0.70)
-2026-02-01 20:59:25,501 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Correio do Povo Inter...
-2026-02-01 20:59:29,114 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.correiodopovo.com.br/esporte...
-2026-02-01 20:59:38,427 - WARNING - discarding data: None
-2026-02-01 20:59:41,094 - WARNING - discarding data: None
-2026-02-01 20:59:44,306 - WARNING - discarding data: None
-2026-02-01 20:59:50,930 - WARNING - discarding data: None
-2026-02-01 20:59:52,709 - WARNING - discarding data: None
-2026-02-01 20:59:55,894 - WARNING - discarding data: None
-2026-02-01 20:59:58,561 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.correiodopovo.com.br/esporte...
-2026-02-01 20:59:58,615 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Edição digital Login Copa do Mundo ASSINE 130 ANOS for Unknown Team
-2026-02-01 20:59:58,615 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Edição digital Login Copa do Mundo ASSINE 130 ANOS... for Unknown Team (confidence: 0.85)
-2026-02-01 20:59:58,617 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Chesterfield FC News...
-2026-02-01 21:00:01,323 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://chesterfield-fc.co.uk/news...
-2026-02-01 21:00:17,844 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://chesterfield-fc.co.uk/news...
-2026-02-01 21:00:17,850 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Then, just before we were all about to enjoy our h for Bristol Rovers
-2026-02-01 21:00:17,850 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Then, just before we were all about to enjoy our h... for Bristol Rovers (confidence: 0.70)
-2026-02-01 21:00:17,855 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: 96FM Bauru Brazil...
-2026-02-01 21:00:21,244 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: STV Scotland Football...
-2026-02-01 21:00:23,699 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://news.stv.tv/section/sport/footba...
-2026-02-01 21:00:39,690 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://news.stv.tv/section/sport/footba...
-2026-02-01 21:00:39,699 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Celtic started with Dane Murray in central defence for Celtic
-2026-02-01 21:00:39,699 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Celtic started with Dane Murray in central defence... for Celtic (confidence: 0.70)
-2026-02-01 21:00:43,079 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Rangers' lineup changes and new signings return, i for Rangers
-2026-02-01 21:00:43,079 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Rangers' lineup changes and new signings return, i... for Rangers (confidence: 0.80)
-2026-02-01 21:00:46,100 - INFO - 🌐 [BROWSER-MONITOR] Registered discovery: Livingston's poor form continues; manager criticiz for Livingston
-2026-02-01 21:00:46,101 - INFO - 🌐 [BROWSER-MONITOR] Discovered: Livingston's poor form continues; manager criticiz... for Livingston (confidence: 0.80)
-2026-02-01 21:00:46,104 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Tribun Palembang Superball...
-2026-02-01 21:00:49,105 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Hondudiario Deportes...
-2026-02-01 21:00:52,372 - INFO - 🔗 [BROWSER-MONITOR] Found 4 links on https://www.hondudiario.com/category/dep...
-2026-02-01 21:00:57,784 - WARNING - discarding data: None
-2026-02-01 21:01:05,741 - WARNING - discarding data: None
-2026-02-01 21:01:14,501 - WARNING - discarding data: None
-2026-02-01 21:01:26,481 - WARNING - discarding data: None
-2026-02-01 21:01:30,291 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 4/4 pages from https://www.hondudiario.com/category/dep...
-2026-02-01 21:01:30,325 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: El Heraldo Honduras Deportes...
-2026-02-01 21:01:38,621 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.elheraldo.hn/deportes...
-2026-02-01 21:02:00,670 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.elheraldo.hn/deportes...
-2026-02-01 21:02:00,671 - INFO - 🔍 [TAVILY] Searching: football soccer news www.elheraldo.hn TeÃ³fimo LÃ³pez pudo m...
-2026-02-01 21:02:03,798 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 21:02:03,800 - INFO - 🔍 [TAVILY] Found 3 results in 3.13s
-2026-02-01 21:02:03,800 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 339 → 992 chars
-2026-02-01 21:02:03,806 - INFO - 🔍 [TAVILY] Searching: football soccer news www.elheraldo.hn Â¿CuÃ¡ntos millones de...
-2026-02-01 21:02:05,827 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
-2026-02-01 21:02:05,829 - INFO - 🔍 [TAVILY] Found 3 results in 2.02s
-2026-02-01 21:02:05,829 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 259 → 862 chars
-2026-02-01 21:02:05,837 - INFO - 🌐 [BROWSER-MONITOR] Cycle complete: 14 URLs, 8 relevant items
-2026-02-01 21:07:05,998 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BBC Sport Football...
-2026-02-01 21:07:09,298 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.bbc.com/sport/football...
-2026-02-01 21:07:33,683 - WARNING - discarding data: None
-2026-02-01 21:07:36,008 - WARNING - discarding data: None
-2026-02-01 21:07:36,077 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.bbc.com/sport/football...
-2026-02-01 21:07:36,078 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Flashscore News...
-2026-02-01 21:07:39,513 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.flashscore.com/news/football...
-2026-02-01 21:07:56,404 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.flashscore.com/news/football...
-2026-02-01 21:07:56,407 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Gazeta Esportiva Brazil...
-2026-02-01 21:07:58,763 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.gazetaesportiva.com/...
-2026-02-01 21:08:18,544 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.gazetaesportiva.com/...
-2026-02-01 21:08:18,545 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: Globo Esporte SP...
+  File "/home/linux/Earlybird_Github/src/main.py", line 1203, in run_continuous
+    run_pipeline()
+  File "/home/linux/Earlybird_Github/src/main.py", line 858, in run_pipeline
+    if tier1_alerts_sent == 0 and should_activate_tier2_fallback():
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: should_activate_tier2_fallback() missing 2 required positional arguments: 'alerts_sent' and 'high_potential_count'
+2026-02-10 13:33:07,927 - WARNING - Error count: 1/5
+2026-02-10 13:33:08,395 - INFO - Status message sent to Telegram
+2026-02-10 13:33:08,398 - INFO - ⏳ Waiting 5 minutes before retry...
+2026-02-10 22:58:13,207 - INFO - ✅ All imports successful
+2026-02-10 22:58:13,207 - INFO -    - Twitter Intel Available: True
+2026-02-10 22:58:13,207 - INFO -    - DeepSeek Provider Available: True
+2026-02-10 22:58:13,207 - INFO - ======================================================================
+2026-02-10 22:58:13,207 - INFO - 
+======================================================================
+2026-02-10 22:58:13,207 - INFO - 🧪 Testing TwitterIntelCache instance...
+2026-02-10 22:58:13,207 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-10 22:58:13,207 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-10 22:58:13,207 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-10 22:58:13,207 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-10 22:58:13,208 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-10 22:58:13,208 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-02-10 22:58:13,208 - INFO - ✅ TwitterIntelCache instance created
+2026-02-10 22:58:13,208 - INFO -    - Cache fresh: False
+2026-02-10 22:58:13,208 - INFO -    - Cache age: -1 minutes
+2026-02-10 22:58:13,208 - INFO - ======================================================================
+2026-02-10 22:58:13,208 - INFO - 
+======================================================================
+2026-02-10 22:58:13,208 - INFO - 🧪 Testing DeepSeek provider...
+2026-02-10 22:58:13,208 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
+2026-02-10 22:58:13,208 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
+2026-02-10 22:58:13,208 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
+2026-02-10 22:58:13,208 - WARNING - ⚠️ MediaStackKeyRotator: No valid API keys found!
+2026-02-10 22:58:13,208 - INFO - 📊 MediaStackBudget initialized: 1 components (monitoring only - free unlimited tier)
+2026-02-10 22:58:13,209 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
+2026-02-10 22:58:13,209 - INFO - 🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)
+2026-02-10 22:58:13,209 - INFO -    Model A (Standard): deepseek/deepseek-chat
+2026-02-10 22:58:13,209 - INFO -    Model B (Reasoner): deepseek/deepseek-r1-0528:free
+2026-02-10 22:58:13,209 - INFO - ✅ DeepSeek provider instance created
+2026-02-10 22:58:13,209 - INFO -    - Has extract_twitter_intel: True
+2026-02-10 22:58:13,209 - INFO - ======================================================================
+2026-02-10 22:58:13,209 - INFO - 
+======================================================================
+2026-02-10 22:58:13,209 - INFO - 🧪 Testing refresh_twitter_intel() signature...
+2026-02-10 22:58:13,209 - INFO - ✅ refresh_twitter_intel() exists
+2026-02-10 22:58:13,209 - INFO -    - Is async: True
+2026-02-10 22:58:13,209 - INFO -    - Parameters: ['self', 'gemini_service', 'tier', 'max_posts_per_account']
+2026-02-10 22:58:13,209 - INFO -    - Has required params: True
+2026-02-10 22:58:13,209 - INFO - ======================================================================
+2026-02-10 22:58:13,209 - INFO - 
+======================================================================
+2026-02-10 22:58:13,209 - INFO - 🧪 Testing refresh_twitter_intel_sync()...
+2026-02-10 22:58:13,210 - INFO - 🐦 Refreshing Twitter Intel cache...
+2026-02-10 22:58:13,210 - INFO - 🐦 Starting Twitter Intel refresh (cycle: 20260210_215813)
+2026-02-10 22:58:13,210 - INFO - 🐦 Querying 50 Twitter accounts via Gemini
+2026-02-10 22:58:13,210 - INFO - 🐦 [DEEPSEEK] Extracting tweets from 50 accounts in 5 batches...
+2026-02-10 22:58:13,210 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40RudyGaletti OR %40UEFA...
+2026-02-10 22:58:14,217 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540RudyGaletti+OR+%252540UEFAcomCetinCY+OR+%252540_sabirhan+OR+%252540Onuranli+OR+%252540BocaEnLaCopa+OR+%252540CABJ_English+OR+%252540marc_cart+OR+%252540INDEPENDIENTEgc+OR+%252540AllFutbolMX+OR+%252540karentapia_a+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-10 22:58:14,219 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 22:58:16,261 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540RudyGaletti+OR+%2540UEFAcomCetinCY+OR+%2540_sabirhan+OR+%2540Onuranli+OR+%2540BocaEnLaCopa+OR+%2540CABJ_English+OR+%2540marc_cart+OR+%2540INDEPENDIENTEgc+OR+%2540AllFutbolMX+OR+%2540karentapia_a+football&source=web&tf=pw 200
+2026-02-10 22:58:16,455 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-10 22:58:16,464 - INFO - 🧠 [DEEPSEEK] Using Model A (Standard) for: twitter_batch_1
+2026-02-10 22:58:17,491 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-10 22:58:24,659 - INFO - ✅ [DEEPSEEK] twitter_batch_1 complete
+2026-02-10 22:58:24,661 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40soymemozavala OR %40He...
+2026-02-10 22:58:25,582 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540soymemozavala+OR+%252540HellasFooty+OR+%252540A_McQuarrie+OR+%252540LianosKostas+OR+%252540AnthonyRJoseph+OR+%252540anthonyabrown+OR+%252540alan_pattullo+OR+%252540ScottBurns75+OR+%252540AleagueHub+OR+%252540joeylynchy+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-10 22:58:25,584 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 22:58:28,243 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540soymemozavala+OR+%2540HellasFooty+OR+%2540A_McQuarrie+OR+%2540LianosKostas+OR+%2540AnthonyRJoseph+OR+%2540anthonyabrown+OR+%2540alan_pattullo+OR+%2540ScottBurns75+OR+%2540AleagueHub+OR+%2540joeylynchy+football&source=web&tf=pw 200
+2026-02-10 22:58:28,336 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-10 22:58:28,343 - INFO - 🧠 [DEEPSEEK] Using Model A (Standard) for: twitter_batch_2
+2026-02-10 22:58:29,369 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-10 22:58:44,015 - INFO - ✅ [DEEPSEEK] twitter_batch_2 complete
+2026-02-10 22:58:44,020 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40JamesDodd89 OR %40tary...
+2026-02-10 22:58:44,934 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540JamesDodd89+OR+%252540tarynheddo+OR+%252540polishscout+OR+%252540Ryan_Hubbard+OR+%252540golskapodcast+OR+%252540fitjar+OR+%252540StianWahl+OR+%252540ELundefugl52724+OR+%252540georgeboxall22+OR+%252540FrenchFtWeekly+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-10 22:58:44,936 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 22:58:46,982 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540JamesDodd89+OR+%2540tarynheddo+OR+%2540polishscout+OR+%2540Ryan_Hubbard+OR+%2540golskapodcast+OR+%2540fitjar+OR+%2540StianWahl+OR+%2540ELundefugl52724+OR+%2540georgeboxall22+OR+%2540FrenchFtWeekly+football&source=web&tf=pw 200
+2026-02-10 22:58:47,294 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-10 22:58:47,308 - INFO - 🧠 [DEEPSEEK] Using Model A (Standard) for: twitter_batch_3
+2026-02-10 22:58:48,313 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-10 22:58:54,561 - INFO - ✅ [DEEPSEEK] twitter_batch_3 complete
+2026-02-10 22:58:54,563 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40GFFN OR %40mattspiro O...
+2026-02-10 22:58:55,585 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540GFFN+OR+%252540mattspiro+OR+%252540MarcCorneel+OR+%252540Purple_RSCA_+OR+%252540GBeNeFN+OR+%252540ATscoutFootball+OR+%252540austrianfooty+OR+%252540Sky_Johannes+OR+%252540EredivisieMike+OR+%252540FootballOranje_+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-10 22:58:55,586 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 22:58:58,248 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-10 22:58:58,461 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540GFFN+OR+%2540mattspiro+OR+%2540MarcCorneel+OR+%2540Purple_RSCA_+OR+%2540GBeNeFN+OR+%2540ATscoutFootball+OR+%2540austrianfooty+OR+%2540Sky_Johannes+OR+%2540EredivisieMike+OR+%2540FootballOranje_+football&source=web&tf=pw 200
+2026-02-10 22:58:58,479 - INFO - 🧠 [DEEPSEEK] Using Model A (Standard) for: twitter_batch_4
+2026-02-10 22:59:00,089 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-10 22:59:08,077 - INFO - ✅ [DEEPSEEK] twitter_batch_4 complete
+2026-02-10 22:59:08,078 - INFO - 🔍 [BRAVE] Searching: site%3Atwitter.com OR site%3Ax.com %40joe_baker21 OR %40scot...
+2026-02-10 22:59:09,101 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=site%25253Atwitter.com+OR+site%25253Ax.com+%252540joe_baker21+OR+%252540scott_redfearn+OR+%252540titan_plus+OR+%252540shogunsoccer+OR+%252540visselkobe_en+OR+%252540JFN_en+OR+%252540BrasilEdition+OR+%252540raphaprates+OR+%252540CABRALNETO10+OR+%252540oluwashina+football&count=10&freshness=pw "HTTP/2 200 OK"
+2026-02-10 22:59:09,103 - INFO - 🔍 [BRAVE] Found 0 results
+2026-02-10 22:59:11,456 - INFO - response: https://search.brave.com/search?q=site%253Atwitter.com+OR+site%253Ax.com+%2540joe_baker21+OR+%2540scott_redfearn+OR+%2540titan_plus+OR+%2540shogunsoccer+OR+%2540visselkobe_en+OR+%2540JFN_en+OR+%2540BrasilEdition+OR+%2540raphaprates+OR+%2540CABRALNETO10+OR+%2540oluwashina+football&source=web&tf=pw 200
+2026-02-10 22:59:11,663 - INFO - HTTP Request: POST https://html.duckduckgo.com/html/ "HTTP/2 200 OK"
+2026-02-10 22:59:11,668 - INFO - 🧠 [DEEPSEEK] Using Model A (Standard) for: twitter_batch_5
+2026-02-10 22:59:12,685 - INFO - HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/2 200 OK"
+2026-02-10 22:59:19,648 - INFO - ✅ [DEEPSEEK] twitter_batch_5 complete
+2026-02-10 22:59:19,649 - INFO - ✅ [DEEPSEEK] Twitter: 6/50 accounts with posts, 7 total posts (5 batches OK, 0 failed)
+2026-02-10 22:59:19,650 - INFO - 🐦 [TAVILY] Attempting recovery for 44 failed accounts...
+2026-02-10 22:59:19,651 - INFO - 📊 BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-10 22:59:19,651 - INFO - 🐦 [TAVILY] Recovering tweets for @RudyGaletti...
+2026-02-10 22:59:19,651 - INFO - 🔍 [TAVILY] Searching: Twitter @RudyGaletti recent tweets...
+2026-02-10 22:59:23,130 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:23,132 - INFO - 🔍 [TAVILY] Found 5 results in 3.48s
+2026-02-10 22:59:23,133 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @RudyGaletti (total recoveries: 5)
+2026-02-10 22:59:23,133 - INFO - 🐦 [TAVILY] Recovering tweets for @UEFAcomCetinCY...
+2026-02-10 22:59:23,134 - INFO - 🔍 [TAVILY] Searching: Twitter @UEFAcomCetinCY recent tweets...
+2026-02-10 22:59:26,407 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:26,409 - INFO - 🔍 [TAVILY] Found 5 results in 3.27s
+2026-02-10 22:59:26,409 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @UEFAcomCetinCY (total recoveries: 10)
+2026-02-10 22:59:26,410 - INFO - 🐦 [TAVILY] Recovering tweets for @_sabirhan...
+2026-02-10 22:59:26,410 - INFO - 🔍 [TAVILY] Searching: Twitter @_sabirhan recent tweets...
+2026-02-10 22:59:33,984 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:33,986 - INFO - 🔍 [TAVILY] Found 0 results in 7.58s
+2026-02-10 22:59:33,987 - WARNING - 🐦 [TAVILY] No results for @_sabirhan, marking unavailable
+2026-02-10 22:59:33,987 - INFO - 🐦 [TAVILY] Recovering tweets for @Onuranli...
+2026-02-10 22:59:33,987 - INFO - 🔍 [TAVILY] Searching: Twitter @Onuranli recent tweets...
+2026-02-10 22:59:33,988 - INFO - 🔄 Fingerprint rotated (threshold): safari_mac_17 → chrome_linux_131 (next rotation in ~13 requests)
+2026-02-10 22:59:36,954 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:36,955 - INFO - 🔍 [TAVILY] Found 5 results in 2.97s
+2026-02-10 22:59:36,956 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @Onuranli (total recoveries: 15)
+2026-02-10 22:59:36,956 - INFO - 🐦 [TAVILY] Recovering tweets for @BocaEnLaCopa...
+2026-02-10 22:59:36,957 - INFO - 🔍 [TAVILY] Searching: Twitter @BocaEnLaCopa recent tweets...
+2026-02-10 22:59:39,719 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:39,720 - INFO - 🔍 [TAVILY] Found 5 results in 2.76s
+2026-02-10 22:59:39,721 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @BocaEnLaCopa (total recoveries: 20)
+2026-02-10 22:59:39,722 - INFO - 🐦 [TAVILY] Recovering tweets for @CABJ_English...
+2026-02-10 22:59:39,723 - INFO - 🔍 [TAVILY] Searching: Twitter @CABJ_English recent tweets...
+2026-02-10 22:59:43,302 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:43,303 - INFO - 🔍 [TAVILY] Found 5 results in 3.58s
+2026-02-10 22:59:43,304 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @CABJ_English (total recoveries: 25)
+2026-02-10 22:59:43,304 - INFO - 🐦 [TAVILY] Recovering tweets for @marc_cart...
+2026-02-10 22:59:43,304 - INFO - 🔍 [TAVILY] Searching: Twitter @marc_cart recent tweets...
+2026-02-10 22:59:47,295 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:47,296 - INFO - 🔍 [TAVILY] Found 5 results in 3.99s
+2026-02-10 22:59:47,297 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @marc_cart (total recoveries: 30)
+2026-02-10 22:59:47,297 - INFO - 🐦 [TAVILY] Recovering tweets for @INDEPENDIENTEgc...
+2026-02-10 22:59:47,297 - INFO - 🔍 [TAVILY] Searching: Twitter @INDEPENDIENTEgc recent tweets...
+2026-02-10 22:59:50,061 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:50,062 - INFO - 🔍 [TAVILY] Found 5 results in 2.76s
+2026-02-10 22:59:50,063 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @INDEPENDIENTEgc (total recoveries: 35)
+2026-02-10 22:59:50,063 - INFO - 🐦 [TAVILY] Recovering tweets for @AllFutbolMX...
+2026-02-10 22:59:50,063 - INFO - 🔍 [TAVILY] Searching: Twitter @AllFutbolMX recent tweets...
+2026-02-10 22:59:51,290 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:51,291 - INFO - 🔍 [TAVILY] Found 2 results in 1.23s
+2026-02-10 22:59:51,292 - INFO - 🐦 [TAVILY] Recovered 2 tweets for @AllFutbolMX (total recoveries: 37)
+2026-02-10 22:59:51,292 - INFO - 🐦 [TAVILY] Recovering tweets for @karentapia_a...
+2026-02-10 22:59:51,293 - INFO - 🔍 [TAVILY] Searching: Twitter @karentapia_a recent tweets...
+2026-02-10 22:59:54,259 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 22:59:54,260 - INFO - 🔍 [TAVILY] Found 5 results in 2.97s
+2026-02-10 22:59:54,261 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @karentapia_a (total recoveries: 42)
+2026-02-10 22:59:54,261 - INFO - 🐦 [TAVILY] Recovering tweets for @soymemozavala...
+2026-02-10 22:59:54,262 - INFO - 🔍 [TAVILY] Searching: Twitter @soymemozavala recent tweets...
+2026-02-10 23:00:01,119 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:01,120 - INFO - 🔍 [TAVILY] Found 0 results in 6.86s
+2026-02-10 23:00:01,120 - WARNING - 🐦 [TAVILY] No results for @soymemozavala, marking unavailable
+2026-02-10 23:00:01,120 - INFO - 🐦 [TAVILY] Recovering tweets for @A_McQuarrie...
+2026-02-10 23:00:01,120 - INFO - 🔍 [TAVILY] Searching: Twitter @A_McQuarrie recent tweets...
+2026-02-10 23:00:08,289 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:08,292 - INFO - 🔍 [TAVILY] Found 0 results in 7.17s
+2026-02-10 23:00:08,293 - WARNING - 🐦 [TAVILY] No results for @A_McQuarrie, marking unavailable
+2026-02-10 23:00:08,293 - INFO - 🐦 [TAVILY] Recovering tweets for @AnthonyRJoseph...
+2026-02-10 23:00:08,293 - INFO - 🔍 [TAVILY] Searching: Twitter @AnthonyRJoseph recent tweets...
+2026-02-10 23:00:09,721 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:09,722 - INFO - 🔍 [TAVILY] Found 1 results in 1.43s
+2026-02-10 23:00:09,723 - INFO - 🐦 [TAVILY] Recovered 1 tweets for @AnthonyRJoseph (total recoveries: 43)
+2026-02-10 23:00:09,723 - INFO - 🐦 [TAVILY] Recovering tweets for @anthonyabrown...
+2026-02-10 23:00:09,724 - INFO - 🔍 [TAVILY] Searching: Twitter @anthonyabrown recent tweets...
+2026-02-10 23:00:17,298 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:17,299 - INFO - 🔍 [TAVILY] Found 0 results in 7.58s
+2026-02-10 23:00:17,299 - WARNING - 🐦 [TAVILY] No results for @anthonyabrown, marking unavailable
+2026-02-10 23:00:17,299 - INFO - 🐦 [TAVILY] Recovering tweets for @joeylynchy...
+2026-02-10 23:00:17,300 - INFO - 🔍 [TAVILY] Searching: Twitter @joeylynchy recent tweets...
+2026-02-10 23:00:20,270 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:20,272 - INFO - 🔍 [TAVILY] Found 5 results in 2.97s
+2026-02-10 23:00:20,272 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @joeylynchy (total recoveries: 48)
+2026-02-10 23:00:20,273 - INFO - 🐦 [TAVILY] Recovering tweets for @JamesDodd89...
+2026-02-10 23:00:20,273 - INFO - 🔍 [TAVILY] Searching: Twitter @JamesDodd89 recent tweets...
+2026-02-10 23:00:22,010 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:22,013 - INFO - 🔍 [TAVILY] Found 1 results in 1.74s
+2026-02-10 23:00:22,013 - INFO - 🐦 [TAVILY] Recovered 1 tweets for @JamesDodd89 (total recoveries: 49)
+2026-02-10 23:00:22,013 - INFO - 🐦 [TAVILY] Recovering tweets for @tarynheddo...
+2026-02-10 23:00:22,014 - INFO - 🔍 [TAVILY] Searching: Twitter @tarynheddo recent tweets...
+2026-02-10 23:00:22,014 - INFO - 🔄 Fingerprint rotated (threshold): chrome_linux_131 → edge_win_131 (next rotation in ~10 requests)
+2026-02-10 23:00:27,334 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:27,336 - INFO - 🔍 [TAVILY] Found 5 results in 5.32s
+2026-02-10 23:00:27,337 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @tarynheddo (total recoveries: 54)
+2026-02-10 23:00:27,337 - INFO - 🐦 [TAVILY] Recovering tweets for @polishscout...
+2026-02-10 23:00:27,338 - INFO - 🔍 [TAVILY] Searching: Twitter @polishscout recent tweets...
+2026-02-10 23:00:34,604 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:34,606 - INFO - 🔍 [TAVILY] Found 0 results in 7.27s
+2026-02-10 23:00:34,606 - WARNING - 🐦 [TAVILY] No results for @polishscout, marking unavailable
+2026-02-10 23:00:34,607 - INFO - 🐦 [TAVILY] Recovering tweets for @Ryan_Hubbard...
+2026-02-10 23:00:34,608 - INFO - 🔍 [TAVILY] Searching: Twitter @Ryan_Hubbard recent tweets...
+2026-02-10 23:00:36,847 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:36,848 - INFO - 🔍 [TAVILY] Found 5 results in 2.24s
+2026-02-10 23:00:36,849 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @Ryan_Hubbard (total recoveries: 59)
+2026-02-10 23:00:36,849 - INFO - 🐦 [TAVILY] Recovering tweets for @golskapodcast...
+2026-02-10 23:00:36,850 - INFO - 🔍 [TAVILY] Searching: Twitter @golskapodcast recent tweets...
+2026-02-10 23:00:40,135 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:40,137 - INFO - 🔍 [TAVILY] Found 5 results in 3.29s
+2026-02-10 23:00:40,138 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @golskapodcast (total recoveries: 64)
+2026-02-10 23:00:40,138 - INFO - 🐦 [TAVILY] Recovering tweets for @fitjar...
+2026-02-10 23:00:40,139 - INFO - 🔍 [TAVILY] Searching: Twitter @fitjar recent tweets...
+2026-02-10 23:00:42,287 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:42,288 - INFO - 🔍 [TAVILY] Found 5 results in 2.15s
+2026-02-10 23:00:42,289 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @fitjar (total recoveries: 69)
+2026-02-10 23:00:42,289 - INFO - 🐦 [TAVILY] Recovering tweets for @StianWahl...
+2026-02-10 23:00:42,289 - INFO - 🔍 [TAVILY] Searching: Twitter @StianWahl recent tweets...
+2026-02-10 23:00:49,555 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:49,557 - INFO - 🔍 [TAVILY] Found 0 results in 7.27s
+2026-02-10 23:00:49,557 - WARNING - 🐦 [TAVILY] No results for @StianWahl, marking unavailable
+2026-02-10 23:00:49,557 - INFO - 🐦 [TAVILY] Recovering tweets for @ELundefugl52724...
+2026-02-10 23:00:49,558 - INFO - 🔍 [TAVILY] Searching: Twitter @ELundefugl52724 recent tweets...
+2026-02-10 23:00:53,548 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:53,548 - INFO - 🔍 [TAVILY] Found 5 results in 3.99s
+2026-02-10 23:00:53,549 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @ELundefugl52724 (total recoveries: 74)
+2026-02-10 23:00:53,549 - INFO - 🐦 [TAVILY] Recovering tweets for @georgeboxall22...
+2026-02-10 23:00:53,549 - INFO - 🔍 [TAVILY] Searching: Twitter @georgeboxall22 recent tweets...
+2026-02-10 23:00:55,392 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:55,394 - INFO - 🔍 [TAVILY] Found 2 results in 1.84s
+2026-02-10 23:00:55,394 - INFO - 🐦 [TAVILY] Recovered 2 tweets for @georgeboxall22 (total recoveries: 76)
+2026-02-10 23:00:55,395 - INFO - 🐦 [TAVILY] Recovering tweets for @FrenchFtWeekly...
+2026-02-10 23:00:55,396 - INFO - 🔍 [TAVILY] Searching: Twitter @FrenchFtWeekly recent tweets...
+2026-02-10 23:00:59,181 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:00:59,182 - INFO - 🔍 [TAVILY] Found 5 results in 3.78s
+2026-02-10 23:00:59,183 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @FrenchFtWeekly (total recoveries: 81)
+2026-02-10 23:00:59,183 - INFO - 🐦 [TAVILY] Recovering tweets for @GFFN...
+2026-02-10 23:00:59,184 - INFO - 🔍 [TAVILY] Searching: Twitter @GFFN recent tweets...
+2026-02-10 23:01:01,602 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:01,605 - INFO - 🔍 [TAVILY] Found 5 results in 2.42s
+2026-02-10 23:01:01,606 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @GFFN (total recoveries: 86)
+2026-02-10 23:01:01,606 - INFO - 🐦 [TAVILY] Recovering tweets for @mattspiro...
+2026-02-10 23:01:01,606 - INFO - 🔍 [TAVILY] Searching: Twitter @mattspiro recent tweets...
+2026-02-10 23:01:01,608 - INFO - 🔄 Fingerprint rotated (threshold): edge_win_131 → firefox_win_133 (next rotation in ~21 requests)
+2026-02-10 23:01:08,910 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:08,911 - INFO - 🔍 [TAVILY] Found 0 results in 7.30s
+2026-02-10 23:01:08,912 - WARNING - 🐦 [TAVILY] No results for @mattspiro, marking unavailable
+2026-02-10 23:01:08,912 - INFO - 🐦 [TAVILY] Recovering tweets for @MarcCorneel...
+2026-02-10 23:01:08,913 - INFO - 🔍 [TAVILY] Searching: Twitter @MarcCorneel recent tweets...
+2026-02-10 23:01:15,974 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:15,976 - INFO - 🔍 [TAVILY] Found 0 results in 7.06s
+2026-02-10 23:01:15,976 - WARNING - 🐦 [TAVILY] No results for @MarcCorneel, marking unavailable
+2026-02-10 23:01:15,976 - INFO - 🐦 [TAVILY] Recovering tweets for @Purple_RSCA_...
+2026-02-10 23:01:15,977 - INFO - 🔍 [TAVILY] Searching: Twitter @Purple_RSCA_ recent tweets...
+2026-02-10 23:01:23,552 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:23,553 - INFO - 🔍 [TAVILY] Found 0 results in 7.58s
+2026-02-10 23:01:23,554 - WARNING - 🐦 [TAVILY] No results for @Purple_RSCA_, marking unavailable
+2026-02-10 23:01:23,554 - INFO - 🐦 [TAVILY] Recovering tweets for @GBeNeFN...
+2026-02-10 23:01:23,555 - INFO - 🔍 [TAVILY] Searching: Twitter @GBeNeFN recent tweets...
+2026-02-10 23:01:26,828 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:26,829 - INFO - 🔍 [TAVILY] Found 5 results in 3.27s
+2026-02-10 23:01:26,830 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @GBeNeFN (total recoveries: 91)
+2026-02-10 23:01:26,830 - INFO - 🐦 [TAVILY] Recovering tweets for @ATscoutFootball...
+2026-02-10 23:01:26,830 - INFO - 🔍 [TAVILY] Searching: Twitter @ATscoutFootball recent tweets...
+2026-02-10 23:01:33,641 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:33,643 - INFO - 🔍 [TAVILY] Found 0 results in 6.81s
+2026-02-10 23:01:33,643 - WARNING - 🐦 [TAVILY] No results for @ATscoutFootball, marking unavailable
+2026-02-10 23:01:33,643 - INFO - 🐦 [TAVILY] Recovering tweets for @austrianfooty...
+2026-02-10 23:01:33,644 - INFO - 🔍 [TAVILY] Searching: Twitter @austrianfooty recent tweets...
+2026-02-10 23:01:37,376 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:37,378 - INFO - 🔍 [TAVILY] Found 5 results in 3.73s
+2026-02-10 23:01:37,379 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @austrianfooty (total recoveries: 96)
+2026-02-10 23:01:37,379 - INFO - 🐦 [TAVILY] Recovering tweets for @Sky_Johannes...
+2026-02-10 23:01:37,381 - INFO - 🔍 [TAVILY] Searching: Twitter @Sky_Johannes recent tweets...
+2026-02-10 23:01:40,039 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:40,041 - INFO - 🔍 [TAVILY] Found 5 results in 2.66s
+2026-02-10 23:01:40,042 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @Sky_Johannes (total recoveries: 101)
+2026-02-10 23:01:40,042 - INFO - 🐦 [TAVILY] Recovering tweets for @EredivisieMike...
+2026-02-10 23:01:40,043 - INFO - 🔍 [TAVILY] Searching: Twitter @EredivisieMike recent tweets...
+2026-02-10 23:01:42,803 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:42,805 - INFO - 🔍 [TAVILY] Found 5 results in 2.76s
+2026-02-10 23:01:42,806 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @EredivisieMike (total recoveries: 106)
+2026-02-10 23:01:42,806 - INFO - 🐦 [TAVILY] Recovering tweets for @joe_baker21...
+2026-02-10 23:01:42,808 - INFO - 🔍 [TAVILY] Searching: Twitter @joe_baker21 recent tweets...
+2026-02-10 23:01:47,104 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:47,106 - INFO - 🔍 [TAVILY] Found 5 results in 4.30s
+2026-02-10 23:01:47,107 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @joe_baker21 (total recoveries: 111)
+2026-02-10 23:01:47,108 - INFO - 🐦 [TAVILY] Recovering tweets for @scott_redfearn...
+2026-02-10 23:01:47,109 - INFO - 🔍 [TAVILY] Searching: Twitter @scott_redfearn recent tweets...
+2026-02-10 23:01:48,749 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:48,749 - INFO - 🔍 [TAVILY] Found 1 results in 1.64s
+2026-02-10 23:01:48,750 - INFO - 🐦 [TAVILY] Recovered 1 tweets for @scott_redfearn (total recoveries: 112)
+2026-02-10 23:01:48,750 - INFO - 🐦 [TAVILY] Recovering tweets for @titan_plus...
+2026-02-10 23:01:48,750 - INFO - 🔍 [TAVILY] Searching: Twitter @titan_plus recent tweets...
+2026-02-10 23:01:51,918 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:51,920 - INFO - 🔍 [TAVILY] Found 5 results in 3.17s
+2026-02-10 23:01:51,921 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @titan_plus (total recoveries: 117)
+2026-02-10 23:01:51,921 - INFO - 🐦 [TAVILY] Recovering tweets for @shogunsoccer...
+2026-02-10 23:01:51,922 - INFO - 🔍 [TAVILY] Searching: Twitter @shogunsoccer recent tweets...
+2026-02-10 23:01:56,014 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:56,016 - INFO - 🔍 [TAVILY] Found 5 results in 4.09s
+2026-02-10 23:01:56,016 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @shogunsoccer (total recoveries: 122)
+2026-02-10 23:01:56,017 - INFO - 🐦 [TAVILY] Recovering tweets for @visselkobe_en...
+2026-02-10 23:01:56,018 - INFO - 🔍 [TAVILY] Searching: Twitter @visselkobe_en recent tweets...
+2026-02-10 23:01:58,573 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:01:58,575 - INFO - 🔍 [TAVILY] Found 5 results in 2.56s
+2026-02-10 23:01:58,576 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @visselkobe_en (total recoveries: 127)
+2026-02-10 23:01:58,576 - INFO - 🐦 [TAVILY] Recovering tweets for @JFN_en...
+2026-02-10 23:01:58,577 - INFO - 🔍 [TAVILY] Searching: Twitter @JFN_en recent tweets...
+2026-02-10 23:02:09,606 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:02:09,608 - INFO - 🔍 [TAVILY] Found 5 results in 11.03s
+2026-02-10 23:02:09,609 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @JFN_en (total recoveries: 132)
+2026-02-10 23:02:09,610 - INFO - 🐦 [TAVILY] Recovering tweets for @BrasilEdition...
+2026-02-10 23:02:09,611 - INFO - 🔍 [TAVILY] Searching: Twitter @BrasilEdition recent tweets...
+2026-02-10 23:02:12,042 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:02:12,042 - INFO - 🔍 [TAVILY] Found 5 results in 2.43s
+2026-02-10 23:02:12,043 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @BrasilEdition (total recoveries: 137)
+2026-02-10 23:02:12,043 - INFO - 🐦 [TAVILY] Recovering tweets for @raphaprates...
+2026-02-10 23:02:12,044 - INFO - 🔍 [TAVILY] Searching: Twitter @raphaprates recent tweets...
+2026-02-10 23:02:15,367 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:02:15,369 - INFO - 🔍 [TAVILY] Found 5 results in 3.32s
+2026-02-10 23:02:15,369 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @raphaprates (total recoveries: 142)
+2026-02-10 23:02:15,370 - INFO - 🐦 [TAVILY] Recovering tweets for @CABRALNETO10...
+2026-02-10 23:02:15,372 - INFO - 🔍 [TAVILY] Searching: Twitter @CABRALNETO10 recent tweets...
+2026-02-10 23:02:18,778 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:02:18,780 - INFO - 🔍 [TAVILY] Found 5 results in 3.41s
+2026-02-10 23:02:18,781 - INFO - 🐦 [TAVILY] Recovered 5 tweets for @CABRALNETO10 (total recoveries: 147)
+2026-02-10 23:02:18,781 - INFO - 🐦 [TAVILY] Recovering tweets for @oluwashina...
+2026-02-10 23:02:18,782 - INFO - 🔍 [TAVILY] Searching: Twitter @oluwashina recent tweets...
+2026-02-10 23:02:26,119 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-10 23:02:26,121 - INFO - 🔍 [TAVILY] Found 0 results in 7.34s
+2026-02-10 23:02:26,121 - WARNING - 🐦 [TAVILY] No results for @oluwashina, marking unavailable
+2026-02-10 23:02:26,122 - INFO - 🐦 [TAVILY] Recovery complete: 33 accounts, 147 tweets recovered
+2026-02-10 23:02:26,122 - INFO - 🐦 Twitter Intel refresh complete: 39/50 accounts, 154 tweets cached (66.4s)
+2026-02-10 23:02:26,131 - INFO - ✅ Twitter Intel cache refreshed: 154 tweets cached
+2026-02-10 23:02:26,131 - INFO - ✅ refresh_twitter_intel_sync() executed without errors
+2026-02-10 23:02:26,132 - INFO - ======================================================================
+2026-02-10 23:02:26,132 - INFO - 
+======================================================================
+2026-02-10 23:02:26,132 - INFO - 📊 TEST SUMMARY
+2026-02-10 23:02:26,132 - INFO - ======================================================================
+2026-02-10 23:02:26,132 - INFO - ✅ PASS: Imports
+2026-02-10 23:02:26,132 - INFO - ✅ PASS: Cache Instance
+2026-02-10 23:02:26,132 - INFO - ✅ PASS: DeepSeek Provider
+2026-02-10 23:02:26,132 - INFO - ✅ PASS: Method Signature
+2026-02-10 23:02:26,132 - INFO - ✅ PASS: Refresh Function
+2026-02-10 23:02:26,132 - INFO - 
+Total: 5/5 tests passed
+2026-02-10 23:02:26,132 - INFO - ======================================================================
+2026-02-10 23:46:47,690 - INFO - ✅ PASS: src.main module imported successfully
+2026-02-10 23:46:47,690 - INFO - 
+======================================================================
+2026-02-10 23:46:47,690 - INFO - TEST 2: Verify analyze_single_match function exists
+2026-02-10 23:46:47,690 - INFO - ======================================================================
+2026-02-10 23:46:47,690 - INFO - ✅ PASS: analyze_single_match function exists and is callable
+2026-02-10 23:46:47,690 - INFO - 
+======================================================================
+2026-02-10 23:46:47,690 - INFO - TEST 3: Verify function signature
+2026-02-10 23:46:47,690 - INFO - ======================================================================
+2026-02-10 23:46:47,690 - INFO - Function parameters: ['match_id', 'forced_narrative']
+2026-02-10 23:46:47,690 - INFO - ✅ forced_narrative has default value: None
+2026-02-10 23:46:47,690 - INFO - ✅ PASS: Function signature is correct
+2026-02-10 23:46:47,690 - INFO - 
+======================================================================
+2026-02-10 23:46:47,691 - INFO - TEST 4: Verify database initialization
+2026-02-10 23:46:47,691 - INFO - ======================================================================
+2026-02-10 23:46:47,693 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-10 23:46:47,693 - INFO - ✅ PASS: Database initialized successfully
+2026-02-10 23:46:47,694 - INFO - ✅ PASS: Database session created successfully
+2026-02-10 23:46:47,694 - INFO - 
+======================================================================
+2026-02-10 23:46:47,694 - INFO - TEST 5: Create test match in database
+2026-02-10 23:46:47,694 - INFO - ======================================================================
+2026-02-10 23:46:47,713 - INFO - ✅ PASS: Test match created: Test Home Team vs Test Away Team
+2026-02-10 23:46:47,714 - INFO - 
+======================================================================
+2026-02-10 23:46:47,714 - INFO - TEST 6: Call analyze_single_match with valid match_id
+2026-02-10 23:46:47,714 - INFO - ======================================================================
+2026-02-10 23:46:47,714 - INFO - 🎯 RADAR ANALYSIS: Test Home Team vs Test Away Team (ID: test_radar_match_001)
+2026-02-10 23:46:47,717 - INFO - ✅ Radar narrative logged in NewsLog
+2026-02-10 23:46:47,717 - INFO - ✅ FotMob Provider initialized (UA rotation enabled)
+2026-02-10 23:46:47,718 - INFO - 
+🔍 Investigating Test Home Team vs Test Away Team (soccer_epl)...
+2026-02-10 23:46:47,718 - INFO - ⚡ [PARALLEL] Starting enrichment for Test Home Team vs Test Away Team
+2026-02-10 23:46:49,755 - INFO - ✅ Turnover risk for Test Home Team: HIGH (squad: 0)
+2026-02-10 23:46:50,754 - INFO - ✅ Turnover risk for Test Away Team: HIGH (squad: 0)
+2026-02-10 23:46:50,755 - INFO - ✅ Team stats for Test Home Team: goals=None, cards=None
+2026-02-10 23:46:50,755 - INFO - ✅ Team stats for Test Away Team: goals=None, cards=None
+2026-02-10 23:46:50,756 - INFO - ✅ Tactical insights for Test Home Team vs Test Away Team: Balanced
+2026-02-10 23:46:55,078 - WARNING - ⚠️ Team not found: Test Home Team
+2026-02-10 23:46:55,078 - INFO - ✅ Full team context for Test Home Team: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 23:46:55,757 - WARNING - ⚠️ Team not found: Test Away Team
+2026-02-10 23:46:55,757 - INFO - ✅ Full team context for Test Away Team: 0 injuries, motivation={'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'}
+2026-02-10 23:46:56,741 - WARNING - ⚠️ Team not found: Test Home Team
+2026-02-10 23:46:56,741 - INFO - ⚡ [PARALLEL] Completed in 9023ms: 9/10 successful
+2026-02-10 23:46:56,742 - INFO - ⚖️ Injury Differential: Test Home Team (LOW) vs Test Away Team (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-02-10 23:46:56,749 - INFO - 🌐 Browser Monitor (TIER 0) for soccer_epl...
+2026-02-10 23:46:56,749 - INFO - 📦 [QUEUE] Global discovery queue initialized
+2026-02-10 23:46:56,749 - INFO - ⭐ Beat Writer Priority search for soccer_epl...
+2026-02-10 23:46:56,749 - INFO - 🔄 [FALLBACK] Using local beat writers for soccer_epl
+2026-02-10 23:46:56,749 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-10 23:46:56,750 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-10 23:46:56,750 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-10 23:46:56,750 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-10 23:46:56,750 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-10 23:46:56,750 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-02-10 23:46:56,750 - INFO - 🔄 [FALLBACK] Using local beat writers for soccer_epl
+2026-02-10 23:46:56,750 - INFO - 🔍 Hunting news for Home: Test Home Team [soccer_epl]
+2026-02-10 23:46:56,750 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
+2026-02-10 23:46:56,750 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
+2026-02-10 23:46:56,750 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
+2026-02-10 23:46:56,751 - WARNING - ⚠️ MediaStackKeyRotator: No valid API keys found!
+2026-02-10 23:46:56,751 - INFO - 📊 MediaStackBudget initialized: 1 components (monitoring only - free unlimited tier)
+2026-02-10 23:46:56,751 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
+2026-02-10 23:46:56,751 - INFO - 🔍 [DDG] Local search for Test Home Team...
+2026-02-10 23:46:56,751 - INFO - 🔍 [BRAVE] Searching: "Test Home Team" (injury OR lineup) football -basket -basket...
+2026-02-10 23:46:58,042 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%22Test+Home+Team%22+%28injury+OR+lineup%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 23:46:58,046 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-10 23:46:58,046 - INFO -    📰 [DDG] Found 5 local news results
+2026-02-10 23:46:58,046 - INFO - 🔍 Hunting news for Away: Test Away Team [soccer_epl]
+2026-02-10 23:46:58,047 - INFO - 🔍 [DDG] Local search for Test Away Team...
+2026-02-10 23:46:58,047 - INFO - 🔍 [BRAVE] Searching: "Test Away Team" (injury OR lineup) football -basket -basket...
+2026-02-10 23:46:59,459 - INFO - HTTP Request: GET https://api.search.brave.com/res/v1/web/search?q=%22Test+Away+Team%22+%28injury+OR+lineup%29+football+-basket+-basketball+-euroleague+-nba+-pallacanestro+-baloncesto+-koszyk%C3%B3wka+-basketbol+-nfl+-american+football+-touchdown+-women+-woman+-ladies+-feminine+-femminile+-femenino+-kobiet+-kad%C4%B1n+-bayan+-wsl+-liga+f+-handball+-volleyball+-rugby+-futsal&count=5&freshness=pw "HTTP/2 200 OK"
+2026-02-10 23:46:59,462 - INFO - 🔍 [BRAVE] Found 5 results
+2026-02-10 23:46:59,462 - INFO -    📰 [DDG] Found 5 local news results
+2026-02-10 23:46:59,463 - INFO - 🔍 [DEEP-DIVE] Processing 10 search results...
+2026-02-10 23:46:59,463 - INFO - 🔍 [DEEP-DIVE] Fetching full article: Liverpool FC XI vs Sunderland: Confirmed team news...
+2026-02-10 23:47:01,718 - INFO - HTTP Request: GET https://www.standard.co.uk/sport/football/liverpool-fc-xi-vs-sunderland-confirmed-team-news-predicted-lineup-injury-latest-premier-league-b1270290.html "HTTP/2 200 OK"
+2026-02-10 23:47:01,830 - INFO - ✅ [ARTICLE-READER] Trafilatura extracted 2589 chars from https://www.standard.co.uk/sport/football/liverpool-fc-xi-vs...
+2026-02-10 23:47:01,830 - INFO - ✅ [DEEP-DIVE] Upgraded article (1/3): 2589 chars
+2026-02-10 23:47:01,830 - INFO - 🔍 [DEEP-DIVE] Fetching full article: Manchester United XI vs Tottenham: Confirmed team ...
+2026-02-10 23:47:01,870 - INFO - HTTP Request: GET https://www.standard.co.uk/sport/football/man-utd-xi-vs-tottenham-confirmed-team-news-predicted-lineup-injury-latest-premier-league-b1269800.html "HTTP/2 301 Moved Permanently"
+2026-02-10 23:47:01,906 - INFO - HTTP Request: GET https://www.standard.co.uk/sport/football/man-utd-xi-vs-tottenham-starting-lineup-confirmed-team-news-injury-latest-premier-league-today-b1269800.html "HTTP/2 301 Moved Permanently"
+2026-02-10 23:47:01,983 - INFO - HTTP Request: GET https://www.standard.co.uk/sport/football/man-utd-vs-tottenham-live-stream-latest-score-updates-result-premier-league-b1269748.html "HTTP/2 200 OK"
+2026-02-10 23:47:02,100 - INFO - ✅ [ARTICLE-READER] Trafilatura extracted 2209 chars from https://www.standard.co.uk/sport/football/man-utd-xi-vs-tott...
+2026-02-10 23:47:02,100 - INFO - ✅ [DEEP-DIVE] Upgraded article (2/3): 2209 chars
+2026-02-10 23:47:02,101 - INFO - 🔍 [DEEP-DIVE] Fetching full article: Chelsea XI vs. Wolves: Key Decision Over Captain—I...
+2026-02-10 23:47:04,514 - INFO - HTTP Request: GET https://www.si.com/soccer/chelsea-xi-vs-wolves-injury-news-lineup-prediction-2-7-26 "HTTP/2 200 OK"
+2026-02-10 23:47:04,598 - INFO - ✅ [ARTICLE-READER] Trafilatura extracted 3860 chars from https://www.si.com/soccer/chelsea-xi-vs-wolves-injury-news-l...
+2026-02-10 23:47:04,598 - INFO - ✅ [DEEP-DIVE] Upgraded article (3/3): 3860 chars
+2026-02-10 23:47:04,598 - INFO - 📊 [DEEP-DIVE] Summary: 3/10 articles upgraded
+2026-02-10 23:47:04,598 - INFO -    ✅ [DEEP-DIVE] Upgraded 3 articles to full content
+2026-02-10 23:47:04,598 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,598 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'sidelined'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 🚪 [INTEL-GATE-L1] PASSED - Keyword found: 'injury'
+2026-02-10 23:47:04,599 - INFO - 📰 News Hunter total: 0 BrowserMonitor + 0 A-League + 0 BeatWriters + 10 Tier1
+2026-02-10 23:47:04,599 - INFO -    ⏱️ News Decay: 10 fresh, 0 stale, kickoff in 1439min
+2026-02-10 23:47:04,600 - INFO -    📰 Found 10 relevant news articles
+2026-02-10 23:47:08,601 - ERROR - ❌ Analysis failed for Test Home Team vs Test Away Team: RetryError[<Future at 0x7f7edc5e5fd0 state=finished raised TypeError>]
+2026-02-10 23:47:08,602 - INFO - ℹ️ RADAR analysis completed for Test Home Team vs Test Away Team (Score: 0.0, No alert)
+2026-02-10 23:47:08,602 - INFO - Analysis result: {'alert_sent': False, 'score': 0.0, 'error': 'RetryError[<Future at 0x7f7edc5e5fd0 state=finished raised TypeError>]'}
+2026-02-10 23:47:08,602 - INFO - ✅ PASS: Function called successfully
+2026-02-10 23:47:08,603 - INFO -    Alert sent: False
+2026-02-10 23:47:08,603 - INFO -    Score: 0.0
+2026-02-10 23:47:08,603 - INFO -    Error: RetryError[<Future at 0x7f7edc5e5fd0 state=finished raised TypeError>]
+2026-02-10 23:47:08,603 - INFO - 
+======================================================================
+2026-02-10 23:47:08,603 - INFO - TEST 7: Call analyze_single_match with invalid match_id
+2026-02-10 23:47:08,603 - INFO - ======================================================================
+2026-02-10 23:47:08,604 - ERROR - Match with ID invalid_match_id_12345 not found in database
+2026-02-10 23:47:08,604 - INFO - Analysis result: {'alert_sent': False, 'score': 0.0, 'error': 'Match with ID invalid_match_id_12345 not found in database'}
+2026-02-10 23:47:08,604 - INFO - ✅ PASS: Invalid match_id handled correctly
+2026-02-10 23:47:08,604 - INFO -    Error: Match with ID invalid_match_id_12345 not found in database
+2026-02-10 23:47:08,604 - INFO - 
+======================================================================
+2026-02-10 23:47:08,604 - INFO - TEST 8: Verify NewsLog entry created
+2026-02-10 23:47:08,604 - INFO - ======================================================================
+2026-02-10 23:47:08,606 - INFO - ✅ PASS: Found 1 radar NewsLog entries
+2026-02-10 23:47:08,607 - INFO -    - ID: 1, Category: RADAR_INTEL, Score: 10
+2026-02-10 23:47:08,607 - INFO -      Summary length: 466 chars
+2026-02-10 23:47:08,607 - INFO - 
+======================================================================
+2026-02-10 23:47:08,607 - INFO - TEST 9: Opportunity Radar integration
+2026-02-10 23:47:08,607 - INFO - ======================================================================
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: Opportunity Radar can access analyze_single_match
+2026-02-10 23:47:08,607 - INFO - 
+======================================================================
+2026-02-10 23:47:08,607 - INFO - TEST SUMMARY
+2026-02-10 23:47:08,607 - INFO - ======================================================================
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_1_import_main_module
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_2_function_exists
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_3_function_signature
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_4_database_initialization
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_5_create_test_match
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_6_call_with_valid_match
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_7_call_with_invalid_match
+2026-02-10 23:47:08,607 - INFO - ✅ PASS: test_8_verify_newslog_created
+2026-02-10 23:47:08,608 - INFO - ✅ PASS: test_9_opportunity_radar_integration
+2026-02-10 23:47:08,608 - INFO - 
+Total: 9/9 tests passed
+2026-02-10 23:47:08,608 - INFO - 
+🎉 ALL TESTS PASSED! Bug #10 is FIXED.

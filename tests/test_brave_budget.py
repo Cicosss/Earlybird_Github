@@ -45,17 +45,22 @@ class TestBraveBudgetManager:
     
     def test_can_call_degraded_mode(self):
         """Test that non-critical calls are throttled in degraded mode."""
-        manager = BudgetManager(monthly_limit=6000)
+        allocations = {"component1": 1000}
+        manager = BudgetManager(monthly_limit=6000, allocations=allocations)
         
         # Use 90% of budget (5400 calls)
         manager._monthly_used = 5400
         
-        # Non-critical component should be throttled if at allocation limit
-        assert manager.can_call("component1") == True  # First call allowed
-        
-        # But if component is at 50% of allocation, should be throttled
-        manager._component_usage["component1"] = 500  # Assuming allocation is 1000
+        # V10.0: In degraded mode (>90%), non-critical calls are throttled (return False)
+        # First call should be throttled for non-critical components
         assert manager.can_call("component1") == False
+        
+        # Even if component has used less than 50% of allocation, still throttled in degraded mode
+        manager._component_usage["component1"] = 500  # 50% of 1000
+        assert manager.can_call("component1") == False
+        
+        # Critical components should still be allowed
+        assert manager.can_call("main_pipeline") == True
     
     def test_can_call_disabled_mode(self):
         """Test that only critical calls are allowed in disabled mode."""
@@ -86,12 +91,16 @@ class TestBraveBudgetManager:
     
     def test_can_call_at_allocation_limit(self):
         """Test that calls are blocked at component allocation limit."""
-        manager = BudgetManager(monthly_limit=6000)
+        allocations = {"component1": 1000}
+        manager = BudgetManager(monthly_limit=6000, allocations=allocations)
         
-        # Set component at allocation limit
-        manager._component_usage["component1"] = 1000  # Assuming allocation is 1000
+        # Should be allowed initially
+        assert manager.can_call("component1") == True
         
-        # Should be blocked
+        # Use up the allocation
+        manager._component_usage["component1"] = 1000
+        
+        # Now should be blocked at allocation limit
         assert manager.can_call("component1") == False
     
     def test_record_call(self):
@@ -188,12 +197,13 @@ class TestBraveBudgetManager:
     
     def test_get_component_remaining(self):
         """Test getting remaining budget for component."""
-        manager = BudgetManager(monthly_limit=6000)
+        allocations = {"component1": 1000}
+        manager = BudgetManager(monthly_limit=6000, allocations=allocations)
         
         # Record usage for component
         manager._component_usage["component1"] = 500
         
-        assert manager.get_component_remaining("component1") == 500  # Assuming allocation is 1000
+        assert manager.get_component_remaining("component1") == 500  # 1000 - 500 = 500
         
         # At limit
         manager._component_usage["component1"] = 1000

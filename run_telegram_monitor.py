@@ -113,7 +113,7 @@ def test_monitor_configuration():
 from src.processing.telegram_listener import fetch_squad_images
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.database.models import Match, init_db
-from config.settings import TELEGRAM_API_ID, TELEGRAM_API_HASH, LOGS_DIR, DATA_DIR
+from config.settings import TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_BOT_TOKEN, LOGS_DIR, DATA_DIR
 from telethon import TelegramClient
 
 # Logging
@@ -266,12 +266,69 @@ async def main():
         except EOFError:
             # Session file missing or corrupted - requires interactive authentication
             # which is not possible in background mode
-            logger.error("❌ ERRORE CRITICO: File di sessione Telegram mancante o corrotto")
-            logger.error("❌ Il monitor richiede autenticazione interattiva (impossibile in background)")
-            logger.error("💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione")
-            logger.error("💡 Oppure disabilitare il Telegram Monitor nel launcher")
-            # Exit gracefully instead of crashing
-            return
+            # Fallback to bot token if available
+            logger.warning("⚠️ File di sessione Telegram mancante o corrotto")
+            logger.warning("⚠️ Il monitor richiede autenticazione interattiva (impossibile in background)")
+            
+            if TELEGRAM_BOT_TOKEN:
+                logger.info("🔄 Tentativo fallback a Bot Token...")
+                # Create new client with bot token
+                client_bot = TelegramClient(session_path + '_bot', int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
+                try:
+                    await client_bot.start(bot_token=TELEGRAM_BOT_TOKEN)
+                    logger.info("✅ Client Telegram connesso (Bot Token - funzionalità limitata)")
+                    logger.info("⚠️ Il bot può solo monitorare canali pubblici o dove è membro")
+                    
+                    # Update global client reference
+                    client = client_bot
+                    
+                    await monitor_loop()
+                except Exception as bot_err:
+                    logger.error(f"❌ Fallback bot token fallito: {bot_err}")
+                    logger.info("� SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione")
+                    logger.info("🔄 Monitor in modalità IDLE - attendo sessione valida...")
+                    
+                    # Enter idle mode: check every 5 minutes if session becomes valid
+                    while True:
+                        try:
+                            await asyncio.sleep(300)  # Wait 5 minutes
+                            logger.info("🔄 Tentativo riconnessione sessione...")
+                            await client.start()
+                            logger.info("✅ Sessione valida trovata! Avvio monitor...")
+                            await monitor_loop()
+                            break
+                        except EOFError:
+                            logger.debug("Sessione ancora non valida, continuo attesa...")
+                            continue
+                        except Exception as e:
+                            logger.error(f"Errore riconnessione: {e}")
+                            await asyncio.sleep(300)
+                            continue
+                finally:
+                    if client_bot and client_bot.is_connected():
+                        logger.info("🔌 Disconnessione client bot...")
+                        await client_bot.disconnect()
+                        logger.info("✅ Client bot disconnesso")
+            else:
+                logger.info("💡 SOLUZIONE: Eseguire 'python setup_telegram_auth.py' per creare una nuova sessione")
+                logger.info("🔄 Monitor in modalità IDLE - attendo sessione valida...")
+                
+                # Enter idle mode: check every 5 minutes if session becomes valid
+                while True:
+                    try:
+                        await asyncio.sleep(300)  # Wait 5 minutes
+                        logger.info("🔄 Tentativo riconnessione sessione...")
+                        await client.start()
+                        logger.info("✅ Sessione valida trovata! Avvio monitor...")
+                        await monitor_loop()
+                        break
+                    except EOFError:
+                        logger.debug("Sessione ancora non valida, continuo attesa...")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Errore riconnessione: {e}")
+                        await asyncio.sleep(300)
+                        continue
         finally:
             if client and client.is_connected():
                 logger.info("🔌 Disconnessione client...")

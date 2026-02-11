@@ -244,14 +244,13 @@ class BraveKeyRotator:
     
     def get_cycle_count(self) -> int:
         """
-        Get the number of completed cycles.
+        Get number of completed cycles.
         
         Returns:
             Number of cycles completed (0 = first cycle, 1 = second cycle, etc.)
         """
         return self._cycle_count
-
-
+ 
 # ============================================
 # SINGLETON INSTANCE
 # ============================================
@@ -260,8 +259,18 @@ _key_rotator_instance: Optional[BraveKeyRotator] = None
 
 
 def get_brave_key_rotator() -> BraveKeyRotator:
-    """Get or create the singleton BraveKeyRotator instance."""
+    """Get or create singleton BraveKeyRotator instance."""
     global _key_rotator_instance
     if _key_rotator_instance is None:
         _key_rotator_instance = BraveKeyRotator()
     return _key_rotator_instance
+
+
+def reset_brave_key_rotator() -> None:
+    """
+    Reset the singleton BraveKeyRotator instance for test isolation.
+    
+    This function is used by tests to ensure clean state between test runs.
+    """
+    global _key_rotator_instance
+    _key_rotator_instance = None

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/tavily_provider.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.4, 0.5, 0.9, 0.95, 200, 250, 429, 432, 1000, 7000, '%Y-%m-%d', 'Accept', 'X-Subscription-Token', 'age', 'answer', 'api_key', 'application/json', 'available', 'basic', 'body', 'brave', 'budget', 'cache_size', 'circuit_breaker', 'closed', 'consecutive_failures', 'content', 'count', 'daily_limit', 'daily_reset_date', 'daily_used', 'days', 'description', 'enabled', 'fallback_active', 'fallback_calls', 'half_open', 'href', 'include_answer', 'include_raw_content', 'is_degraded', 'is_disabled', 'keys', 'last_failure_time', 'link', 'local cache only', 'max_results', 'monthly_limit', 'monthly_used', 'news', 'open', 'published_date', 'q', 'query', 'results', 'score', 'search_depth', 'snippet', 'source', 'state', 'summary', 'tavily', 'title', 'topic', 'total_usage', 'url', 'web', 'with shared cache']

@@ -103,6 +103,23 @@ def check_and_migrate():
             cursor.execute("ALTER TABLE news_logs ADD COLUMN source TEXT DEFAULT 'web'")
             migrations_applied += 1
         
+        # V3.5: Add source_confidence for intelligence tracking
+        if 'source_confidence' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.source_confidence")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN source_confidence REAL")
+            migrations_applied += 1
+        
+        # V6.0: Add verification_status and verification_reason
+        if 'verification_status' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.verification_status")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN verification_status TEXT")
+            migrations_applied += 1
+        
+        if 'verification_reason' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.verification_reason")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN verification_reason TEXT")
+            migrations_applied += 1
+        
         # V4.2: CLV Tracking - odds_taken (odds when alert was sent)
         if 'odds_taken' not in news_logs_columns:
             logger.info("   📝 Adding column: news_logs.odds_taken")
@@ -129,6 +146,76 @@ def check_and_migrate():
         if 'expansion_type' not in news_logs_columns:
             logger.info("   📝 Adding column: news_logs.expansion_type")
             cursor.execute("ALTER TABLE news_logs ADD COLUMN expansion_type TEXT")
+            migrations_applied += 1
+        
+        # V8.1: Confidence breakdown (JSON)
+        if 'confidence_breakdown' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.confidence_breakdown")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN confidence_breakdown TEXT")
+            migrations_applied += 1
+        
+        # V8.2: Final Verifier tracking (JSON)
+        if 'final_verifier_result' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.final_verifier_result")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN final_verifier_result TEXT")
+            migrations_applied += 1
+        
+        # V8.2: Feedback Loop tracking
+        if 'feedback_loop_used' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.feedback_loop_used")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN feedback_loop_used BOOLEAN DEFAULT FALSE")
+            migrations_applied += 1
+        
+        if 'feedback_loop_iterations' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.feedback_loop_iterations")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN feedback_loop_iterations INTEGER DEFAULT 0")
+            migrations_applied += 1
+        
+        if 'modification_plan' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.modification_plan")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN modification_plan TEXT")
+            migrations_applied += 1
+        
+        if 'modification_applied' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.modification_applied")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN modification_applied BOOLEAN DEFAULT FALSE")
+            migrations_applied += 1
+        
+        if 'original_score' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.original_score")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN original_score INTEGER")
+            migrations_applied += 1
+        
+        if 'original_market' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.original_market")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN original_market TEXT")
+            migrations_applied += 1
+        
+        # V8.3: Proper historical odds tracking for accurate ROI calculation
+        if 'odds_at_alert' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.odds_at_alert")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN odds_at_alert REAL")
+            migrations_applied += 1
+        
+        if 'odds_at_kickoff' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.odds_at_kickoff")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN odds_at_kickoff REAL")
+            migrations_applied += 1
+        
+        if 'alert_sent_at' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.alert_sent_at")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN alert_sent_at DATETIME")
+            migrations_applied += 1
+        
+        # V9.5: Cross-Source Convergence Detection
+        if 'is_convergent' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.is_convergent")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN is_convergent BOOLEAN DEFAULT FALSE")
+            migrations_applied += 1
+        
+        if 'convergence_sources' not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.convergence_sources")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN convergence_sources TEXT")
             migrations_applied += 1
         
         # ============================================

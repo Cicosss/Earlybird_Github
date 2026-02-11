@@ -5,13 +5,21 @@ Tests end-to-end integration of key rotation and budget management.
 """
 import pytest
 from unittest.mock import Mock, patch
-from src.ingestion.brave_provider import BraveSearchProvider, get_brave_provider
-from src.ingestion.brave_key_rotator import BraveKeyRotator, get_brave_key_rotator
-from src.ingestion.brave_budget import BudgetManager, get_brave_budget_manager
+from src.ingestion.brave_provider import BraveSearchProvider, get_brave_provider, reset_brave_provider
+from src.ingestion.brave_key_rotator import BraveKeyRotator, get_brave_key_rotator, reset_brave_key_rotator
+from src.ingestion.brave_budget import BudgetManager, get_brave_budget_manager, reset_brave_budget_manager
 
 
 class TestBraveIntegration:
     """Integration tests for Brave API Manager."""
+    
+    @pytest.fixture(autouse=True)
+    def reset_singletons(self):
+        """Reset singleton instances before each test for isolation."""
+        reset_brave_provider()
+        reset_brave_key_rotator()
+        reset_brave_budget_manager()
+        yield
     
     def test_provider_initialization(self):
         """Test that provider initializes with key rotation and budget."""
@@ -137,7 +145,12 @@ class TestBraveIntegration:
         
         mock_http_client.return_value.get_sync.return_value = mock_response
         
+        # Create provider AFTER mock is applied
         provider = BraveSearchProvider()
+        
+        # Reset budget manager to ensure clean state
+        provider._budget_manager._monthly_used = 0
+        provider._budget_manager._daily_used = 0
         
         # Search
         results = provider.search_news("test query", component="test", limit=2)
@@ -150,7 +163,7 @@ class TestBraveIntegration:
         
         # Budget should be updated
         assert provider._budget_manager._monthly_used == 1
-        assert provider._budget_manager._component_usage["test"] == 1
+        assert provider._budget_manager._component_usage.get("test", 0) == 1
         
         # Key rotator should record call
         assert provider._key_rotator._key_usage[provider._key_rotator._current_index] == 1
@@ -165,7 +178,12 @@ class TestBraveIntegration:
         
         mock_http_client.return_value.get_sync.return_value = mock_response
         
+        # Create provider AFTER mock is applied
         provider = BraveSearchProvider()
+        
+        # Reset budget manager to ensure clean state
+        provider._budget_manager._monthly_used = 0
+        provider._budget_manager._daily_used = 0
         
         # Search with special characters
         results = provider.search_news("test ş Ą α", component="test")
@@ -173,9 +191,8 @@ class TestBraveIntegration:
         # Should not crash
         assert isinstance(results, list)
         
-        # Verify that encoded query was used
-        call_args = mock_http_client.return_value.get_sync.call_args
-        assert call_args is not None
+        # Verify that HTTP call was made
+        assert mock_http_client.return_value.get_sync.called
     
     def test_backward_compatibility(self):
         """Test backward compatibility with existing code."""
@@ -201,26 +218,31 @@ class TestBraveIntegration:
         # Should use single API key
         assert provider._key_rotation_enabled == False
     
-    def test_component_parameter(self):
+    @patch('src.ingestion.brave_provider.get_http_client')
+    def test_component_parameter(self, mock_http_client):
         """Test that component parameter is used for budget tracking."""
+        # Mock HTTP client
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"web": {"results": []}}
+        mock_http_client.return_value.get_sync.return_value = mock_response
+        
+        # Create provider AFTER mock is applied
         provider = BraveSearchProvider()
         
-        # Mock HTTP client
-        with patch('src.ingestion.brave_provider.get_http_client') as mock_http_client:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"web": {"results": []}}
-            mock_http_client.return_value.get_sync.return_value = mock_response
-            
-            # Search with component parameter
-            provider.search_news("test query", component="test_component")
-            
-            # Budget should track the component
-            assert "test_component" in provider._budget_manager._component_usage
-            
-            # Search with different component
-            provider.search_news("test query", component="another_component")
-            
-            # Budget should track both components
-            assert "test_component" in provider._budget_manager._component_usage
-            assert "another_component" in provider._budget_manager._component_usage
+        # Reset budget manager to ensure clean state
+        provider._budget_manager._monthly_used = 0
+        provider._budget_manager._daily_used = 0
+        
+        # Search with component parameter
+        provider.search_news("test query", component="test_component")
+        
+        # Budget should track the component
+        assert "test_component" in provider._budget_manager._component_usage
+        
+        # Search with different component
+        provider.search_news("test query", component="another_component")
+        
+        # Budget should track both components
+        assert "test_component" in provider._budget_manager._component_usage
+        assert "another_component" in provider._budget_manager._component_usage

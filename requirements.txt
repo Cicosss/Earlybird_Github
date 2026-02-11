@@ -58,3 +58,7 @@ nest_asyncio>=1.5.0  # Allows nested asyncio.run() calls (used by Nitter fallbac
 # V8.2: Hybrid Verifier System Dependencies
 dataclasses>=0.6; python_version < '3.7'  # For dataclasses (Python 3.7+ has built-in)
 typing-extensions>=4.0.0  # Extended typing support
+
+# V9.0: Supabase Database Integration (New Intelligence Source)
+supabase>=2.0.0  # Official Supabase Python client
+postgrest>=0.10.0  # PostgREST client for Supabase

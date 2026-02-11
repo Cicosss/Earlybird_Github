@@ -533,14 +533,14 @@ class TestGeminiConflictResolution:
     
     def test_format_gemini_resolution_empty(self):
         """Empty resolution should return empty string."""
-        from src.main import _format_gemini_resolution
+        from src.core.analysis_engine import AnalysisEngine
         
-        assert _format_gemini_resolution(None) == ""
-        assert _format_gemini_resolution({}) == ""
+        assert AnalysisEngine._format_gemini_resolution(None) == ""
+        assert AnalysisEngine._format_gemini_resolution({}) == ""
     
     def test_format_gemini_resolution_confirmed(self):
         """CONFIRMED status should show verified message."""
-        from src.main import _format_gemini_resolution
+        from src.core.analysis_engine import AnalysisEngine
         
         resolution = {
             'verification_status': 'CONFIRMED',
@@ -548,7 +548,7 @@ class TestGeminiConflictResolution:
             'additional_context': 'Multiple sources confirm'
         }
         
-        result = _format_gemini_resolution(resolution)
+        result = AnalysisEngine._format_gemini_resolution(resolution)
         
         assert "CONFIRMED" in result
         assert "VERIFIED" in result
@@ -556,14 +556,14 @@ class TestGeminiConflictResolution:
     
     def test_format_gemini_resolution_denied(self):
         """DENIED status should show FotMob is correct."""
-        from src.main import _format_gemini_resolution
+        from src.core.analysis_engine import AnalysisEngine
         
         resolution = {
             'verification_status': 'DENIED',
             'confidence_level': 'MEDIUM'
         }
         
-        result = _format_gemini_resolution(resolution)
+        result = AnalysisEngine._format_gemini_resolution(resolution)
         
         assert "DENIED" in result
         assert "FotMob" in result

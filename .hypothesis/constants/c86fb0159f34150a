@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/main.py
+# hypothesis_version: 6.151.4
+
+[0.85, 100, 300, 600, 1800, 3600, 21600, 5000000, '%H:%M:%S', '--status', '--test', 'AWAY_DROP', 'Biscotto Engine', 'Browser Monitor', 'BrowserMonitorThread', 'EXTREME', 'Fatigue Engine', 'First investigation', 'HIGH', 'HOME_DROP', 'INJURY', 'Intelligence Router', 'LINEUP', 'MEDIUM', 'Market Intelligence', 'NONE', 'SUSPENSION', 'TIER1', 'TIER2', 'Twitter Intel', 'UNKNOWN', 'Verification Layer', '__main__', 'africa', 'alert_sent', 'continent_blocks', 'current', 'data', 'draw_odd', 'drop_pct', 'earlybird.log', 'earlybird_main.log', 'egypt', 'error', 'is_suspect', 'leagues', 'match', 'news_sources', 'opening', 'r', 'reason', 'reconfigure', 'score', 'settlement_mode', 'severity', 'social_sources', 'source', 'store_true', 'timestamp', 'type', 'utc_hour', 'utf-8', 'version', '⚠️', '✅', '✅ Database: OK', '✅ System operational', '❌']

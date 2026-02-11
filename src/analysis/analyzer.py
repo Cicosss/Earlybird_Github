@@ -17,7 +17,7 @@ import os
 import re
 import threading
 import unicodedata
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from tenacity import retry, stop_after_attempt, wait_exponential
 from openai import OpenAI
 from src.database.models import NewsLog
@@ -140,8 +140,17 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Model IDs (from env or defaults, with fallback)
-DEEPSEEK_V3_2 = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")  # V3.2 (latest)
-DEEPSEEK_V3_STABLE = "deepseek/deepseek-chat"  # V3 Stable (fallback)
+# V6.2: Dual-Model Configuration
+# Model A: Standard model for translation, metadata extraction, low-priority tasks
+MODEL_A_STANDARD = "deepseek/deepseek-chat"  # DeepSeek V3 Stable via OpenRouter (3.63s avg)
+
+# Model B: Reasoner model for triangulation, verification, final verdict
+# V6.3 UPDATE: Switched to paid version (no :free suffix) for 36% better performance (14.39s vs 22.53s)
+MODEL_B_REASONER = "deepseek/deepseek-r1-0528"  # DeepSeek R1 Reasoner via OpenRouter (14.39s avg)
+
+# Legacy model for backward compatibility (defaults to Model A)
+DEEPSEEK_V3_2 = os.getenv("OPENROUTER_MODEL", MODEL_A_STANDARD)  # V3.2 (latest)
+DEEPSEEK_V3_STABLE = MODEL_A_STANDARD  # V3 Stable (fallback)
 
 # Initialize OpenAI client for OpenRouter
 client = None
@@ -788,20 +797,28 @@ def reset_ai_response_stats() -> None:
         _ai_total_response_count = 0
 
 
-def call_deepseek(messages: List[Dict], include_reasoning: bool = True) -> tuple[str, str]:
+def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reasoner: bool = True, timeout: int = 60, max_retries: int = 2) -> tuple[str, str]:
     """
-    Call DeepSeek V3.2 via OpenRouter with fallback to V3 Stable.
-    Includes latency monitoring and specific error handling.
+    Call DeepSeek via OpenRouter with dual-model support.
+    
+    V6.2: Uses Model B (Reasoner) for triangulation by default,
+    falls back to Model A (Standard) if Model B fails.
+    
+    V6.3 FIX: Added timeout parameter, empty response validation, and retry logic with exponential backoff.
+    Prevents excessive wait times (172.2s) and handles empty responses gracefully.
     
     Args:
         messages: List of message dicts (role, content)
         include_reasoning: Whether to request reasoning trace
+        use_reasoner: Whether to use Model B (True) or Model A (False)
+        timeout: Maximum time to wait for API response in seconds (default: 60)
+        max_retries: Maximum number of retries for empty responses (default: 2)
         
     Returns:
         Tuple of (response_content, reasoning_trace)
         
     Raises:
-        Exception: If both models fail
+        Exception: If all models fail after retries
     """
     import time
     
@@ -819,81 +836,118 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True) -> tuple
         if not isinstance(msg.get('content'), str):
             msg['content'] = str(msg.get('content', ''))
     
-    # Models to try in order
-    models_to_try = [DEEPSEEK_V3_2, DEEPSEEK_V3_STABLE]
+    # V6.2: Select model based on use_reasoner parameter
+    if use_reasoner:
+        models_to_try = [MODEL_B_REASONER, MODEL_A_STANDARD]
+        model_type = "Reasoner"
+    else:
+        models_to_try = [MODEL_A_STANDARD]
+        model_type = "Standard"
     
     last_error = None
     AI_SLOW_THRESHOLD = 45  # seconds
     
     for model_id in models_to_try:
-        try:
-            logging.info(f"🤖 Chiamata a {model_id}...")
-            start_time = time.time()
-            
-            # Build extra_body for reasoning
-            extra_body = {}
-            if include_reasoning:
-                extra_body["include_reasoning"] = True
-            
-            response = client.chat.completions.create(
-                model=model_id,
-                messages=messages,
-                temperature=0.3,  # Lower for more consistent JSON
-                max_tokens=1000,
-                extra_body=extra_body if extra_body else None
-            )
-            
-            # Calculate and log latency
-            latency = time.time() - start_time
-            if latency > AI_SLOW_THRESHOLD:
-                logging.warning(f"⚠️ AI Risposta Lenta: {model_id} ha impiegato {latency:.1f}s (soglia: {AI_SLOW_THRESHOLD}s)")
-            else:
-                logging.info(f"⏱️ AI latenza: {latency:.1f}s")
-            
-            content = response.choices[0].message.content
-            
-            # Extract reasoning if present
-            clean_content, reasoning_trace = extract_reasoning_from_response(content)
-            
-            logging.info(f"✅ {model_id} risposta ricevuta con successo")
-            if reasoning_trace:
-                logging.debug(f"🧠 Reasoning trace: {reasoning_trace[:200]}...")
-            
-            return clean_content, reasoning_trace
-            
-        except json.JSONDecodeError as e:
-            logging.error(f"❌ {model_id} risposta JSON non valida: {e}")
-            last_error = e
-            continue
-            
-        except TimeoutError as e:
-            logging.error(f"❌ {model_id} timeout: {e}")
-            last_error = e
-            continue
-            
-        except Exception as e:
-            error_str = str(e)
-            logging.warning(f"⚠️ {model_id} fallito: {error_str[:100]}")
-            last_error = e
-            
-            # Check if it's a 404 (model not found) - try next model
-            if "404" in error_str or "not found" in error_str.lower():
-                logging.info(f"🔄 Modello {model_id} non disponibile, provo fallback...")
-                continue
-            
-            # Rate limit - wait and retry
-            if "429" in error_str or "rate" in error_str.lower():
-                logging.warning(f"⚠️ OpenRouter rate limit. Attesa 5s...")
-                time.sleep(5)
-                continue
-            
-            # Server errors - try fallback
-            if "502" in error_str or "503" in error_str or "504" in error_str:
-                logging.warning(f"⚠️ OpenRouter server error, provo fallback...")
-                continue
-            
-            # For other errors, also try fallback
-            continue
+        retry_count = 0
+        while retry_count <= max_retries:
+            try:
+                # V6.2: Log which model is being used
+                if model_id == MODEL_B_REASONER:
+                    logging.info(f"🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...")
+                else:
+                    logging.info(f"🧠 [DEEPSEEK] Using Model A (Standard)...")
+                start_time = time.time()
+                
+                # Build extra_body for reasoning
+                extra_body = {}
+                if include_reasoning:
+                    extra_body["include_reasoning"] = True
+                
+                # V6.3 FIX: Add timeout parameter to prevent excessive wait times
+                response = client.chat.completions.create(
+                    model=model_id,
+                    messages=messages,
+                    temperature=0.3,  # Lower for more consistent JSON
+                    max_tokens=1000,
+                    extra_body=extra_body if extra_body else None,
+                    timeout=timeout  # V6.3 FIX: Enforce timeout to prevent 172.2s waits
+                )
+                
+                # Calculate and log latency
+                latency = time.time() - start_time
+                if latency > AI_SLOW_THRESHOLD:
+                    logging.warning(f"⚠️ AI Risposta Lenta: {model_id} ha impiegato {latency:.1f}s (soglia: {AI_SLOW_THRESHOLD}s)")
+                else:
+                    logging.info(f"⏱️ AI latenza: {latency:.1f}s")
+                
+                content = response.choices[0].message.content
+                
+                # V6.3 FIX: Validate response is not empty before processing
+                if not content or not content.strip():
+                    logging.warning(f"⚠️ {model_id} returned empty response (attempt {retry_count + 1}/{max_retries + 1})")
+                    if retry_count < max_retries:
+                        # V6.3 FIX: Exponential backoff for retries
+                        backoff_time = 2 ** retry_count  # 1s, 2s, 4s, etc.
+                        logging.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                        time.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    else:
+                        last_error = ValueError("Empty response from AI after all retries")
+                        logging.error(f"❌ {model_id} failed: Empty response after {max_retries + 1} attempts")
+                        break
+                
+                # Extract reasoning if present
+                clean_content, reasoning_trace = extract_reasoning_from_response(content)
+                
+                logging.info(f"✅ {model_id} risposta ricevuta con successo")
+                if reasoning_trace:
+                    logging.debug(f"🧠 Reasoning trace: {reasoning_trace[:200]}...")
+                
+                return clean_content, reasoning_trace
+                
+            except json.JSONDecodeError as e:
+                logging.error(f"❌ {model_id} risposta JSON non valida: {e}")
+                last_error = e
+                break
+                
+            except TimeoutError as e:
+                logging.error(f"❌ {model_id} timeout after {timeout}s: {e}")
+                last_error = e
+                if retry_count < max_retries:
+                    backoff_time = 2 ** retry_count
+                    logging.warning(f"⏳ Retrying in {backoff_time}s after timeout...")
+                    time.sleep(backoff_time)
+                    retry_count += 1
+                    continue
+                break
+                
+            except Exception as e:
+                error_str = str(e)
+                logging.warning(f"⚠️ {model_id} fallito: {error_str[:100]}")
+                last_error = e
+                
+                # Check if it's a 404 (model not found) - try next model
+                if "404" in error_str or "not found" in error_str.lower():
+                    logging.info(f"🔄 Modello {model_id} non disponibile, provo fallback...")
+                    break
+                
+                # Rate limit - wait and retry
+                if "429" in error_str or "rate" in error_str.lower():
+                    logging.warning(f"⚠️ OpenRouter rate limit. Attesa 5s...")
+                    time.sleep(5)
+                    retry_count += 1
+                    if retry_count <= max_retries:
+                        continue
+                    break
+                
+                # Server errors - try fallback
+                if "502" in error_str or "503" in error_str or "504" in error_str:
+                    logging.warning(f"⚠️ OpenRouter server error, provo fallback...")
+                    break
+                
+                # For other errors, also try fallback
+                break
     
     # All models failed
     raise Exception(f"Tutti i modelli DeepSeek falliti. Ultimo errore: {last_error}")
@@ -902,6 +956,239 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True) -> tuple
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
+
+def detect_cross_source_convergence(
+    snippet_data: Dict,
+    twitter_intel: str = "No Twitter intel available"
+) -> tuple[bool, Optional[Dict[str, Any]]]:
+    """
+    V9.5: Cross-Source Convergence Detection
+    
+    Detects when the same signal is confirmed by both Brave (Web) and Nitter (Social) sources.
+    
+    Signal matching criteria:
+    - Signal type must match exactly (e.g., "Injury", "B-Team", "Lineup Change")
+    - Team/Player reference must match
+    - Time window: signals within 24 hours of each other
+    - Confidence threshold: Both sources must have confidence > 0.6
+    
+    Args:
+        snippet_data: Dictionary containing web source signal metadata
+        twitter_intel: Twitter intel string from Nitter/Social scraper
+        
+    Returns:
+        Tuple of (is_convergent, convergence_sources_dict)
+        - is_convergent: True if convergence criteria met
+        - convergence_sources_dict: Dict with web and social signal details if convergent
+    """
+    from datetime import datetime, timedelta, timezone
+    
+    is_convergent = False
+    convergence_sources = None
+    
+    try:
+        # Extract web source signal info from snippet_data
+        web_source = snippet_data.get('source', 'web')
+        web_snippet = snippet_data.get('snippet', '')
+        web_team = snippet_data.get('team', '')
+        web_confidence = snippet_data.get('source_confidence', 0.7)
+        web_timestamp = snippet_data.get('timestamp')
+        
+        # Normalize signal type from web snippet
+        web_signal_type = _normalize_signal_type(web_snippet)
+        
+        # Check if we have valid web signal with sufficient confidence
+        if not web_signal_type or web_confidence < 0.6:
+            return False, None
+        
+        # Parse twitter intel for social signals
+        social_signals = _parse_twitter_intel(twitter_intel)
+        
+        if not social_signals:
+            return False, None
+        
+        # Check for convergence with social signals
+        for social_signal in social_signals:
+            social_signal_type = social_signal.get('type', '')
+            social_team = social_signal.get('team', '')
+            social_confidence = social_signal.get('confidence', 0.0)
+            social_timestamp = social_signal.get('timestamp')
+            
+            # Signal type must match exactly
+            if web_signal_type != social_signal_type:
+                continue
+            
+            # Team must match (case-insensitive)
+            if not web_team or not social_team:
+                continue
+            if web_team.lower() != social_team.lower():
+                continue
+            
+            # Confidence threshold: Both sources must have confidence > 0.6
+            if web_confidence < 0.6 or social_confidence < 0.6:
+                continue
+            
+            # Time window: signals within 24 hours of each other
+            time_diff = None
+            if web_timestamp and social_timestamp:
+                try:
+                    # Parse timestamps
+                    if isinstance(web_timestamp, str):
+                        web_time = datetime.fromisoformat(web_timestamp.replace('Z', '+00:00'))
+                    else:
+                        web_time = web_timestamp
+                    
+                    if isinstance(social_timestamp, str):
+                        social_time = datetime.fromisoformat(social_timestamp.replace('Z', '+00:00'))
+                    else:
+                        social_time = social_timestamp
+                    
+                    # Calculate time difference in hours
+                    time_diff = abs((web_time - social_time).total_seconds() / 3600)
+                    
+                    if time_diff > 24:
+                        continue  # Outside 24-hour window
+                        
+                except (ValueError, TypeError) as e:
+                    logging.debug(f"Timestamp parsing failed for convergence check: {e}")
+                    continue
+            
+            # All criteria met - convergence detected!
+            is_convergent = True
+            convergence_sources = {
+                'web': {
+                    'type': web_signal_type,
+                    'confidence': web_confidence,
+                    'team': web_team,
+                    'source': web_source,
+                    'timestamp': web_timestamp.isoformat() if web_timestamp else None
+                },
+                'social': {
+                    'type': social_signal_type,
+                    'confidence': social_confidence,
+                    'team': social_team,
+                    'source': 'nitter',
+                    'timestamp': social_timestamp.isoformat() if social_timestamp else None,
+                    'handle': social_signal.get('handle', '')
+                },
+                'time_diff_hours': time_diff
+            }
+            
+            # Log convergence detection
+            logging.info(
+                f"🔴 CROSS-SOURCE CONVERGENCE DETECTED: {web_signal_type} | "
+                f"Team: {web_team} | "
+                f"Web Confidence: {web_confidence:.2f} | Social Confidence: {social_confidence:.2f} | "
+                f"Time Diff: {time_diff:.1f}h"
+            )
+            
+            break  # Only need one matching social signal for convergence
+            
+    except Exception as e:
+        logging.warning(f"⚠️ Convergence detection failed: {e}")
+    
+    return is_convergent, convergence_sources
+
+
+def _normalize_signal_type(text: str) -> str:
+    """
+    Normalize signal type from text for convergence matching.
+    
+    Maps various text patterns to standard signal types:
+    - Injury-related: "Injury", "Injured", "Out", "Missing"
+    - B-Team: "B-Team", "Rotation", "Turnover", "Reserves"
+    - Lineup Change: "Lineup", "Starting XI", "Formation"
+    - Return: "Returns", "Back", "Recovered", "Fit"
+    
+    Args:
+        text: Text to analyze for signal type
+        
+    Returns:
+        Normalized signal type string or empty string if no match
+    """
+    if not text:
+        return ""
+    
+    text_lower = text.lower()
+    
+    # Signal type patterns
+    signal_patterns = {
+        'Injury': [
+            'injury', 'injured', 'lesão', 'sakat', 'kontuzja', 'verletzung',
+            'out for', 'ruled out', 'sidelined', 'unavailable'
+        ],
+        'B-Team': [
+            'b-team', 'b team', 'rotation', 'turnover', 'reserves', 'yedek',
+            'squad rotation', 'rotazione', 'rotação', 'rotación', 'u19', 'u21'
+        ],
+        'Lineup Change': [
+            'lineup', 'starting xi', 'starting eleven', 'formation', 'titolare',
+            'titular', 'starting', 'formazione', 'alineación'
+        ],
+        'Return': [
+            'returns', 'back in squad', 'back from injury', 'recovered', 'fit again',
+            'rientra', 'torna disponibile', 'recuperado', 'habilitado'
+        ]
+    }
+    
+    for signal_type, patterns in signal_patterns.items():
+        for pattern in patterns:
+            if pattern in text_lower:
+                return signal_type
+    
+    return ""
+
+
+def _parse_twitter_intel(twitter_intel: str) -> List[Dict[str, Any]]:
+    """
+    Parse Twitter intel string to extract social signals.
+    
+    Args:
+        twitter_intel: Formatted Twitter intel string
+        
+    Returns:
+        List of signal dictionaries with type, team, confidence, timestamp, handle
+    """
+    signals = []
+    
+    if not twitter_intel or twitter_intel == "No Twitter intel available":
+        return signals
+    
+    try:
+        # Try to extract structured data from twitter_intel
+        # Format example: "🐦 @handle: Player X injured (confidence: 0.8)"
+        lines = twitter_intel.split('\n')
+        
+        for line in lines:
+            if '🐦' in line or '@' in line:
+                # Extract handle
+                handle_match = re.search(r'@(\w+)', line)
+                handle = handle_match.group(1) if handle_match else ''
+                
+                # Extract signal type
+                signal_type = _normalize_signal_type(line)
+                
+                # Extract team (from context or line)
+                team_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', line)
+                team = team_match.group(1) if team_match else ''
+                
+                # Extract confidence if present
+                conf_match = re.search(r'confidence[:\s]*([0-9.]+)', line, re.IGNORECASE)
+                confidence = float(conf_match.group(1)) if conf_match else 0.75
+                
+                if signal_type and team:
+                    signals.append({
+                        'type': signal_type,
+                        'team': team,
+                        'confidence': confidence,
+                        'handle': handle,
+                        'timestamp': datetime.now(timezone.utc)  # Use current time if not specified
+                    })
+    except Exception as e:
+        logging.debug(f"Twitter intel parsing failed: {e}")
+    
+    return signals
+
 
 def get_match_attr(match, attr: str, default=None):
     """
@@ -1394,8 +1681,8 @@ def analyze_with_triangulation(
             {"role": "user", "content": user_content}
         ]
         
-        # STEP 3: Call DeepSeek
-        response_content, reasoning_trace = call_deepseek(messages)
+        # STEP 3: Call DeepSeek (V6.2: Use Model B for triangulation)
+        response_content, reasoning_trace = call_deepseek(messages, use_reasoner=True)
         
         # STEP 4: Parse JSON response
         data = extract_json_from_response(response_content)
@@ -1679,6 +1966,31 @@ def analyze_with_triangulation(
             except (TypeError, ValueError):
                 confidence_breakdown_str = None
         
+        # V9.5: Cross-Source Convergence Detection
+        # Check if signal is confirmed by both Web (Brave) and Social (Nitter) sources
+        is_convergent = False
+        convergence_sources_str = None
+        
+        try:
+            # Only check convergence if market veto hasn't been triggered
+            # Market veto takes precedence over convergence
+            if odds_drop < 0.15:
+                is_convergent, convergence_sources = detect_cross_source_convergence(
+                    snippet_data=snippet_data,
+                    twitter_intel=twitter_intel
+                )
+                
+                # Serialize convergence_sources to JSON string
+                if convergence_sources:
+                    try:
+                        convergence_sources_str = json.dumps(convergence_sources)
+                    except (TypeError, ValueError):
+                        convergence_sources_str = None
+                        is_convergent = False  # Reset if serialization failed
+        except Exception as e:
+            logging.warning(f"⚠️ Convergence detection error: {e}")
+            is_convergent = False
+        
         return NewsLog(
             match_id=snippet_data.get('match_id'),
             url=snippet_data.get('link'),
@@ -1691,7 +2003,9 @@ def analyze_with_triangulation(
             recommended_market=primary_market or recommended_market,
             primary_driver=primary_driver,
             odds_taken=odds_taken,  # V4.2: CLV Tracking
-            confidence_breakdown=confidence_breakdown_str  # V8.1: Transparency
+            confidence_breakdown=confidence_breakdown_str,  # V8.1: Transparency
+            is_convergent=is_convergent,  # V9.5: Cross-Source Convergence
+            convergence_sources=convergence_sources_str  # V9.5: Convergence details
         )
 
     except Exception as e:
@@ -1835,7 +2149,8 @@ def analyze_biscotto(
             {"role": "user", "content": prompt}
         ]
         
-        response_content, reasoning_trace = call_deepseek(messages)
+        # V6.2: Use Model B for biscotto analysis (reasoning task)
+        response_content, reasoning_trace = call_deepseek(messages, use_reasoner=True)
         data = extract_json_from_response(response_content)
         
         logging.info(f"🍪 Biscotto Analysis: is_biscotto={data.get('is_biscotto')} | confidence={data.get('confidence')}%")

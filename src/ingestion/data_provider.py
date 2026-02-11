@@ -263,6 +263,8 @@ class FotMobProvider:
         "Saint-Étienne": "Saint-Etienne",
         "Sporting": "Sporting CP",
         "Sporting Lisbon": "Sporting CP",
+        "Sporting Clube de Portugal": "Sporting CP",
+        "Sporting CP": "Sporting CP",
         "Benfica": "SL Benfica",
         "Porto": "FC Porto",
         "Ajax": "Ajax Amsterdam",
@@ -690,6 +692,47 @@ class FotMobProvider:
                 "fixtures": {}
             }
 
+    def get_team_details_by_name(self, team_name: str, match_time: datetime = None) -> Optional[Dict]:
+        """
+        Get team details by team name (wrapper that converts name to ID).
+        
+        This is a convenience wrapper that converts a team name to a FotMob ID
+        and then calls get_team_details with the ID.
+        
+        Args:
+            team_name: Name of team
+            match_time: Optional match time for cache TTL calculation
+            
+        Returns:
+            Dict with team details or None if not found
+        """
+        try:
+            # Convert team name to team ID
+            team_id, fotmob_name = self.search_team_id(team_name)
+            
+            if team_id is None:
+                logger.warning(f"⚠️ Team ID not found for: {team_name}")
+                return {
+                    "_error": True,
+                    "_error_msg": f"Team not found: {team_name}",
+                    "team_id": None,
+                    "squad": {},
+                    "fixtures": {}
+                }
+            
+            # Get team details using the ID
+            return self.get_team_details(team_id, match_time)
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting team details by name for {team_name}: {e}")
+            return {
+                "_error": True,
+                "_error_msg": str(e),
+                "team_id": None,
+                "squad": {},
+                "fixtures": {}
+            }
+
     def _extract_squad_injuries(self, team_data: Dict, team_name: str) -> List[Dict]:
         """Extract injured/unavailable players from team squad data."""
         injuries = []
@@ -988,7 +1031,7 @@ class FotMobProvider:
                 return cached
         
         try:
-            url = f"{self.BASE_URL}/matches?matchId={match_id}"
+            url = f"{self.BASE_URL}/matchDetails?matchId={match_id}"
             resp = self._make_request(url)
             
             if resp is None:
@@ -1336,14 +1379,15 @@ class FotMobProvider:
         """
         try:
             # Get team details which includes injuries
-            team_details = self.get_team_details(team_name)
+            # Use the wrapper function that converts team_name to team_id
+            team_details = self.get_team_details_by_name(team_name)
             
-            if not team_details or team_details.get('error'):
+            if not team_details or team_details.get('_error'):
                 return {
                     'injuries': [],
                     'motivation': {'zone': 'Unknown', 'position': None, 'motivation': 'Unknown'},
                     'fatigue': {'fatigue_level': 'Unknown', 'hours_since_last': None},
-                    'error': team_details.get('error', 'Unknown error') if team_details else 'Team not found'
+                    'error': team_details.get('_error_msg', 'Unknown error') if team_details else 'Team not found'
                 }
             
             # Extract injuries
@@ -1402,9 +1446,10 @@ class FotMobProvider:
         """
         try:
             # Get team details to analyze squad
-            team_details = self.get_team_details(team_name)
+            # Use the wrapper function that converts team_name to team_id
+            team_details = self.get_team_details_by_name(team_name)
             
-            if not team_details or team_details.get('error'):
+            if not team_details or team_details.get('_error'):
                 return None
             
             # Extract squad information
@@ -1469,9 +1514,10 @@ class FotMobProvider:
         """
         try:
             # Get team details to find stadium info
-            team_details = self.get_team_details(team_name)
+            # Use the wrapper function that converts team_name to team_id
+            team_details = self.get_team_details_by_name(team_name)
             
-            if not team_details or team_details.get('error'):
+            if not team_details or team_details.get('_error'):
                 return None
             
             # Try to extract stadium information from team details
@@ -1520,22 +1566,34 @@ class FotMobProvider:
         Extracts performance metrics including goals, cards, corners,
         and other key statistics for match analysis.
         
+        Note: FotMob API does not provide comprehensive team statistics.
+        This function returns None values as FotMob doesn't expose this data.
+        For team statistics, use the search providers (Tavily/Perplexity) 
+        which query footystats.org, soccerstats.com, or flashscore.com.
+        
         Args:
             team_name: Name of team
             
         Returns:
-            Dict with team statistics
+            Dict with team statistics (all None values from FotMob)
         """
         try:
             # Get team details which may include stats
-            team_details = self.get_team_details(team_name)
+            # Use the wrapper function that converts team_name to team_id
+            team_details = self.get_team_details_by_name(team_name)
             
-            if not team_details or team_details.get('error'):
+            if not team_details or team_details.get('_error'):
+                logger.debug(f"FotMob team details not available for {team_name} - stats will be None")
                 return {
+                    'team_name': team_name,
                     'goals_avg': None,
                     'cards_avg': None,
                     'corners_avg': None,
-                    'error': team_details.get('error', 'Unknown error') if team_details else 'Team not found'
+                    'shots_avg': None,
+                    'possession_avg': None,
+                    'error': None,
+                    'source': 'fotmob',
+                    'note': 'FotMob does not provide team statistics. Use search providers (Tavily/Perplexity) for stats from footystats.org, soccerstats.com, or flashscore.com'
                 }
             
             # Extract statistics from team details
@@ -1558,7 +1616,11 @@ class FotMobProvider:
                 if isinstance(overview, dict):
                     stats = overview.get('stats')
             
-            # Extract key metrics
+            # Path 4: Nested in statistics
+            if not stats and 'statistics' in team_details:
+                stats = team_details['statistics']
+            
+            # Extract key metrics - FotMob doesn't provide these, so they'll be None
             result = {
                 'team_name': team_name,
                 'goals_avg': stats.get('goals_avg') if stats else None,
@@ -1566,7 +1628,9 @@ class FotMobProvider:
                 'corners_avg': stats.get('corners_avg') if stats else None,
                 'shots_avg': stats.get('shots_avg') if stats else None,
                 'possession_avg': stats.get('possession_avg') if stats else None,
-                'error': None
+                'error': None,
+                'source': 'fotmob',
+                'note': 'FotMob does not provide team statistics. Use search providers (Tavily/Perplexity) for stats from footystats.org, soccerstats.com, or flashscore.com'
             }
             
             logger.info(f"✅ Team stats for {team_name}: goals={result['goals_avg']}, cards={result['cards_avg']}")
@@ -1575,10 +1639,15 @@ class FotMobProvider:
         except Exception as e:
             logger.error(f"Error getting team stats for {team_name}: {e}")
             return {
+                'team_name': team_name,
                 'goals_avg': None,
                 'cards_avg': None,
                 'corners_avg': None,
-                'error': str(e)
+                'shots_avg': None,
+                'possession_avg': None,
+                'error': str(e),
+                'source': 'fotmob',
+                'note': 'FotMob does not provide team statistics. Use search providers (Tavily/Perplexity) for stats from footystats.org, soccerstats.com, or flashscore.com'
             }
 
     def get_tactical_insights(self, home_team: str, away_team: str) -> Dict[str, Any]:

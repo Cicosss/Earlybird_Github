@@ -91,6 +91,8 @@
     "consumer": "notifier",
     "fields": [
       "combo_suggestion",
+      "convergence_sources",
+      "is_convergent",
       "league",
       "match_obj",
       "news_summary",

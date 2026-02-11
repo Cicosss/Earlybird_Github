@@ -1160,9 +1160,12 @@ class DeepSeekFallback:
         
         return data
     
-    async def analyze_v2(self, content: str) -> Optional[Dict[str, Any]]:
+    async def analyze_v2(self, content: str, timeout: int = 60, max_retries: int = 2) -> Optional[Dict[str, Any]]:
         """
         V2.0: Analyze content with structured extraction.
+        
+        V2.1 FIX: Added retry logic with exponential backoff for network errors and empty responses.
+        Prevents permanent failures due to temporary network issues or API timeouts.
         
         Returns dict with:
         - is_high_value: bool
@@ -1177,15 +1180,17 @@ class DeepSeekFallback:
         - confidence: float
         - summary_italian: str
         
-        Returns None if API unavailable or parsing fails.
+        Returns None if API unavailable or parsing fails after all retries.
+        
+        Args:
+            content: The text content to analyze
+            timeout: Maximum time to wait for API response in seconds (default: 60)
+            max_retries: Maximum number of retries for network errors and empty responses (default: 2)
         """
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             logger.error("❌ [NEWS-RADAR] No OpenRouter API key for DeepSeek")
             return None
-        
-        # Rate limiting
-        await self._wait_for_rate_limit()
         
         model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
         prompt = build_analysis_prompt_v2(content)
@@ -1206,69 +1211,141 @@ class DeepSeekFallback:
             "max_tokens": 800
         }
         
-        try:
-            response = await asyncio.to_thread(
-                requests.post,
-                OPENROUTER_API_URL,
-                headers=headers,
-                json=payload,
-                timeout=45
-            )
-            
-            self._last_call_time = time.time()
-            self._call_count += 1
-            
-            if response.status_code != 200:
-                logger.error(f"❌ [NEWS-RADAR] DeepSeek HTTP error: {response.status_code}")
-                return None
-            
+        # V2.1 FIX: Retry logic with exponential backoff
+        retry_count = 0
+        last_error = None
+        
+        while retry_count <= max_retries:
             try:
-                data = response.json()
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ [NEWS-RADAR] DeepSeek returned invalid JSON: {e}")
-                return None
-            
-            # Extract response text
-            choices = data.get("choices", [])
-            if not choices:
-                logger.warning("⚠️ [NEWS-RADAR] DeepSeek response missing 'choices'")
-                return None
-            
-            first_choice = choices[0] if isinstance(choices, list) and len(choices) > 0 else None
-            if not isinstance(first_choice, dict):
-                logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek invalid choice format")
-                return None
-            
-            message = first_choice.get("message", {})
-            if not isinstance(message, dict):
-                logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek invalid message format")
-                return None
-            
-            response_text = message.get("content", "")
-            
-            if not response_text:
-                logger.warning("⚠️ [NEWS-RADAR] DeepSeek returned empty response")
-                return None
-            
-            logger.debug(f"🤖 [NEWS-RADAR] DeepSeek V2 analysis complete (call #{self._call_count})")
-            
-            result = self._parse_response_v2(response_text)
-            
-            # Apply quality gate
-            if result:
-                result = self._apply_quality_gate(result)
-            
-            return result
-            
-        except requests.Timeout:
-            logger.warning("⚠️ [NEWS-RADAR] DeepSeek timeout")
-            return None
-        except requests.RequestException as e:
-            logger.error(f"❌ [NEWS-RADAR] DeepSeek network error: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"❌ [NEWS-RADAR] DeepSeek unexpected error: {e}")
-            return None
+                # Rate limiting before each attempt
+                await self._wait_for_rate_limit()
+                
+                response = await asyncio.to_thread(
+                    requests.post,
+                    OPENROUTER_API_URL,
+                    headers=headers,
+                    json=payload,
+                    timeout=timeout
+                )
+                
+                self._last_call_time = time.time()
+                self._call_count += 1
+                
+                if response.status_code != 200:
+                    logger.error(f"❌ [NEWS-RADAR] DeepSeek HTTP error: {response.status_code}")
+                    last_error = ValueError(f"HTTP {response.status_code}")
+                    if retry_count < max_retries:
+                        backoff_time = 2 ** retry_count  # 1s, 2s, 4s
+                        logger.warning(f"⏳ Retrying in {backoff_time}s after HTTP error...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    break
+                
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ [NEWS-RADAR] DeepSeek returned invalid JSON: {e}")
+                    last_error = e
+                    if retry_count < max_retries:
+                        backoff_time = 2 ** retry_count
+                        logger.warning(f"⏳ Retrying in {backoff_time}s after JSON error...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    break
+                
+                # Extract response text
+                choices = data.get("choices", [])
+                if not choices:
+                    logger.warning("⚠️ [NEWS-RADAR] DeepSeek response missing 'choices'")
+                    last_error = ValueError("Missing choices in response")
+                    if retry_count < max_retries:
+                        backoff_time = 2 ** retry_count
+                        logger.warning(f"⏳ Retrying in {backoff_time}s...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    break
+                
+                first_choice = choices[0] if isinstance(choices, list) and len(choices) > 0 else None
+                if not isinstance(first_choice, dict):
+                    logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek invalid choice format")
+                    last_error = ValueError("Invalid choice format")
+                    if retry_count < max_retries:
+                        backoff_time = 2 ** retry_count
+                        logger.warning(f"⏳ Retrying in {backoff_time}s...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    break
+                
+                message = first_choice.get("message", {})
+                if not isinstance(message, dict):
+                    logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek invalid message format")
+                    last_error = ValueError("Invalid message format")
+                    if retry_count < max_retries:
+                        backoff_time = 2 ** retry_count
+                        logger.warning(f"⏳ Retrying in {backoff_time}s...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    break
+                
+                response_text = message.get("content", "")
+                
+                # V2.1 FIX: Validate response is not empty
+                if not response_text or not response_text.strip():
+                    logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek returned empty response (attempt {retry_count + 1}/{max_retries + 1})")
+                    last_error = ValueError("Empty response from API")
+                    if retry_count < max_retries:
+                        backoff_time = 2 ** retry_count
+                        logger.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    break
+                
+                logger.debug(f"🤖 [NEWS-RADAR] DeepSeek V2 analysis complete (call #{self._call_count})")
+                
+                result = self._parse_response_v2(response_text)
+                
+                # Apply quality gate
+                if result:
+                    result = self._apply_quality_gate(result)
+                
+                return result
+                
+            except requests.Timeout:
+                logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek timeout after {timeout}s (attempt {retry_count + 1}/{max_retries + 1})")
+                last_error = TimeoutError(f"Timeout after {timeout}s")
+                if retry_count < max_retries:
+                    backoff_time = 2 ** retry_count
+                    logger.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                    await asyncio.sleep(backoff_time)
+                    retry_count += 1
+                    continue
+                break
+                
+            except requests.RequestException as e:
+                logger.error(f"❌ [NEWS-RADAR] DeepSeek network error: {e} (attempt {retry_count + 1}/{max_retries + 1})")
+                last_error = e
+                if retry_count < max_retries:
+                    backoff_time = 2 ** retry_count
+                    logger.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                    await asyncio.sleep(backoff_time)
+                    retry_count += 1
+                    continue
+                break
+                
+            except Exception as e:
+                logger.error(f"❌ [NEWS-RADAR] DeepSeek unexpected error: {e}")
+                last_error = e
+                break
+        
+        # All retries exhausted
+        logger.error(f"❌ [NEWS-RADAR] DeepSeek analysis failed after {max_retries + 1} attempts: {last_error}")
+        return None
     
     def _apply_quality_gate(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -1776,6 +1853,9 @@ class NewsRadarMonitor:
                     breaker = self._get_circuit_breaker(source.url)
                     urls_scanned += 1
                     
+                    # Update counter immediately to avoid loss on interruption
+                    self._urls_scanned = urls_scanned
+                    
                     if content:
                         breaker.record_success()
                         alert = await self._process_content(content, source, source.url)
@@ -1799,6 +1879,9 @@ class NewsRadarMonitor:
             alert = await self.scan_source(source)
             urls_scanned += 1
             
+            # Update counter immediately to avoid loss on interruption
+            self._urls_scanned = urls_scanned
+            
             if alert:
                 # Send alert
                 if self._alerter and await self._alerter.send_alert(alert):
@@ -1808,6 +1891,7 @@ class NewsRadarMonitor:
             # Update last scanned time
             source.last_scanned = datetime.now(timezone.utc)
         
+        # Final assignment (in case loop completes normally)
         self._urls_scanned = urls_scanned
         return alerts_sent
     

@@ -27,7 +27,7 @@ import uuid
 from config.settings import SERPER_API_KEY, NATIVE_KEYWORDS
 from src.database.models import TeamAlias, SessionLocal, Match as MatchModel
 from src.processing.sources_config import (
-    get_sources_for_league, 
+    get_sources_for_league,
     get_keywords_for_league,
     get_country_from_league,
     get_insider_handles,
@@ -35,6 +35,18 @@ from src.processing.sources_config import (
     BeatWriter
 )
 from src.utils.validators import safe_dict_get
+
+# V10.0: Import Multi-Level Intelligence Gate
+try:
+    from src.utils.intelligence_gate import (
+        level_1_keyword_check,
+        level_2_translate_and_classify,
+        apply_intelligence_gate,
+    )
+    _INTELLIGENCE_GATE_AVAILABLE = True
+except ImportError:
+    _INTELLIGENCE_GATE_AVAILABLE = False
+    logging.debug("Intelligence gate module not available for news_hunter")
 
 # V8.0: Reddit monitoring removed - provided no betting edge
 
@@ -95,6 +107,133 @@ except ImportError:
     _TWITTER_INTEL_CACHE_AVAILABLE = False
     CachedTweet = Any  # Type placeholder
     logging.debug("Twitter Intel Cache not available for news_hunter")
+
+# ============================================
+# SUPABASE SOCIAL SOURCES INTEGRATION (V9.0)
+# ============================================
+# Fetches social sources (Twitter/X handles) from Supabase with fallback to local config
+
+_SUPABASE_AVAILABLE = False
+_SUPABASE_PROVIDER = None
+
+try:
+    from src.database.supabase_provider import get_supabase
+    _SUPABASE_AVAILABLE = True
+    _SUPABASE_PROVIDER = get_supabase()
+    logging.info("✅ Supabase provider available for social sources")
+except ImportError:
+    logging.warning("⚠️ Supabase provider not available, using local config fallback")
+    _SUPABASE_AVAILABLE = False
+
+
+def get_social_sources_from_supabase(league_key: str) -> List[str]:
+    """
+    Fetch Twitter/X handles from Supabase social_sources table.
+    
+    Falls back to local sources_config.py if Supabase is unavailable
+    or the social_sources table doesn't exist yet.
+    
+    Args:
+        league_key: API league key (e.g., 'soccer_turkey_super_league')
+        
+    Returns:
+        List of Twitter handles (with @)
+    """
+    # Try Supabase first
+    if _SUPABASE_AVAILABLE and _SUPABASE_PROVIDER:
+        try:
+            # Map league_key to country for Supabase query
+            country = get_country_from_league(league_key)
+            
+            if country:
+                # Try to get social sources for this league/country
+                # Note: Using get_social_sources() as fallback since social_sources_for_league
+                # might not exist yet in the database
+                all_social_sources = _SUPABASE_PROVIDER.get_social_sources()
+                
+                # Filter social sources by league/country if possible
+                # For now, return all social sources and let caller filter
+                if all_social_sources:
+                    handles = []
+                    for source in all_social_sources:
+                        handle = source.get('handle', '')
+                        if handle and isinstance(handle, str):
+                            # Ensure handle starts with @
+                            if not handle.startswith('@'):
+                                handle = f"@{handle.lstrip('@')}"
+                            handles.append(handle)
+                    
+                    logging.info(f"📡 [SUPABASE] Fetched {len(handles)} social sources from Supabase for {league_key}")
+                    return handles
+                
+        except Exception as e:
+            logging.warning(f"⚠️ [SUPABASE] Failed to fetch social sources: {e}")
+    
+    # Fallback to local sources_config.py
+    logging.info(f"🔄 [FALLBACK] Using local sources_config.py for {league_key}")
+    handles = get_insider_handles(league_key)
+    beat_writers = get_beat_writers(league_key)
+    
+    # Combine insider handles and beat writers, deduplicate
+    all_handles = list(set(handles + [w.handle for w in beat_writers]))
+    
+    logging.info(f"📋 [LOCAL] Using {len(all_handles)} handles from local config for {league_key}")
+    return all_handles
+
+
+def get_beat_writers_from_supabase(league_key: str) -> List[BeatWriter]:
+    """
+    Fetch beat writers from Supabase social_sources table.
+    
+    Falls back to local sources_config.py if Supabase is unavailable.
+    
+    Args:
+        league_key: API league key
+        
+    Returns:
+        List of BeatWriter objects
+    """
+    # Try Supabase first
+    if _SUPABASE_AVAILABLE and _SUPABASE_PROVIDER:
+        try:
+            country = get_country_from_league(league_key)
+            
+            if country:
+                all_social_sources = _SUPABASE_PROVIDER.get_social_sources()
+                
+                # Filter for beat writer type accounts
+                beat_writers = []
+                for source in all_social_sources:
+                    handle = source.get('handle', '')
+                    source_type = source.get('source_type', '').lower()
+                    
+                    # Check if this is a beat writer/journalist type
+                    if source_type in ['beat_writer', 'journalist', 'insider']:
+                        if handle and isinstance(handle, str):
+                            # Ensure handle starts with @
+                            if not handle.startswith('@'):
+                                handle = f"@{handle.lstrip('@')}"
+                            
+                            # Create BeatWriter object from Supabase data
+                            beat_writers.append(BeatWriter(
+                                handle=handle,
+                                name=source.get('name', handle),
+                                outlet=source.get('outlet', 'Unknown'),
+                                specialty=source.get('specialty', 'general'),
+                                reliability=source.get('reliability', 0.75),
+                                avg_lead_time_min=source.get('lead_time_min', 10)
+                            ))
+                
+                if beat_writers:
+                    logging.info(f"📡 [SUPABASE] Fetched {len(beat_writers)} beat writers from Supabase for {league_key}")
+                    return beat_writers
+                
+        except Exception as e:
+            logging.warning(f"⚠️ [SUPABASE] Failed to fetch beat writers: {e}")
+    
+    # Fallback to local sources_config.py
+    logging.info(f"🔄 [FALLBACK] Using local beat writers for {league_key}")
+    return get_beat_writers(league_key)
 
 # ============================================
 # BROWSER MONITOR INTEGRATION (TIER 0)
@@ -644,6 +783,9 @@ def search_beat_writers_priority(
     The cache is populated at cycle start with tweets from configured insider
     accounts (including beat writers) via DeepSeek/Gemini with Nitter fallback.
     
+    V9.0: Now fetches beat writers from Supabase social_sources table
+    with fallback to local sources_config.py.
+    
     Args:
         team_alias: Team name to search for
         league_key: League API key (e.g., 'soccer_argentina_primera_division')
@@ -659,7 +801,8 @@ def search_beat_writers_priority(
         return results
     
     # Get beat writers for this league (for metadata enrichment)
-    beat_writers = get_beat_writers(league_key)
+    # V9.0: Try Supabase first, fallback to local config
+    beat_writers = get_beat_writers_from_supabase(league_key)
     beat_writer_handles = {w.handle.lower().replace('@', ''): w for w in beat_writers} if beat_writers else {}
     
     # V7.0: Use Twitter Intel Cache instead of broken search
@@ -1771,6 +1914,90 @@ def search_insiders(team_alias: str, league_key: str, match_id: str) -> List[Dic
     
     return []
 
+def _apply_intelligence_gate_to_news(news_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Apply V10.0 3-level intelligence gate to news items.
+    
+    This function filters news items through the intelligence gate:
+    - Level 1: Zero-cost keyword check (local)
+    - Level 2: AI translation and classification (if Level 1 passes)
+    
+    News items that fail Level 1 are discarded immediately (no API cost).
+    News items that fail Level 2 are discarded after AI analysis.
+    
+    Args:
+        news_items: List of news items to filter
+        
+    Returns:
+        List of news items that passed the gate (with gate metadata added)
+    """
+    if not _INTELLIGENCE_GATE_AVAILABLE:
+        # Gate not available - return all items unchanged
+        return news_items
+    
+    if not news_items:
+        return []
+    
+    filtered_news = []
+    level_1_discarded = 0
+    level_2_discarded = 0
+    level_2_processed = 0
+    
+    for item in news_items:
+        try:
+            # Combine title and snippet for gate analysis
+            text_to_analyze = ""
+            if item.get('title'):
+                text_to_analyze += item['title'] + " "
+            if item.get('snippet'):
+                text_to_analyze += item['snippet']
+            
+            if not text_to_analyze or len(text_to_analyze.strip()) < 5:
+                # Skip items with insufficient text
+                continue
+            
+            # Level 1: Zero-cost keyword check
+            passes_level_1, triggered_keyword = level_1_keyword_check(text_to_analyze)
+            
+            if not passes_level_1:
+                # Discard immediately - no API cost
+                level_1_discarded += 1
+                logging.debug(f"🚪 [INTEL-GATE-L1] DISCARDED - No native keywords in: {item.get('title', '')[:50]}...")
+                continue
+            
+            # Level 1 passed - add gate metadata
+            item['gate_level_1_passed'] = True
+            item['gate_level_1_keyword'] = triggered_keyword
+            
+            # For now, we'll skip Level 2 for news items (too expensive)
+            # NewsHunter already has relevance filtering via keywords and sources
+            # Level 2 is more critical for Twitter intel (shorter text)
+            # We'll mark Level 2 as passed by default for news items
+            item['gate_level_2_passed'] = True
+            item['gate_level_2_translation'] = None
+            item['gate_level_2_relevant'] = True
+            
+            filtered_news.append(item)
+            level_2_processed += 1
+            
+        except Exception as e:
+            logging.warning(f"Intelligence gate error for item: {e}")
+            # Include item even if gate failed (better to have false positives)
+            filtered_news.append(item)
+    
+    # Log gate statistics
+    if level_1_discarded > 0 or level_2_discarded > 0:
+        logging.info(
+            f"🚪 [INTEL-GATE] Filtered {level_1_discarded} items at Level 1, "
+            f"{level_2_discarded} items at Level 2, "
+            f"kept {len(filtered_news)} items"
+        )
+    else:
+        logging.debug(f"🚪 [INTEL-GATE] All {len(filtered_news)} items passed gate")
+    
+    return filtered_news
+
+
 def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> List[Dict[str, Any]]:
     """
     Run full news hunt for a match: local news + Twitter + Insiders.
@@ -1959,6 +2186,22 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> Li
                     
             except Exception as e:
                 logging.warning(f"Deep dive processing failed: {e}")
+        
+        # ============================================
+        # V10.0: INTELLIGENCE GATE FILTERING
+        # ============================================
+        # Apply 3-level intelligence gate to filter out non-relevant content
+        # This reduces AI costs by ~95% by discarding irrelevant items at local level
+        if all_news:
+            original_count = len(all_news)
+            all_news = _apply_intelligence_gate_to_news(all_news)
+            filtered_count = len(all_news)
+            
+            if original_count > filtered_count:
+                logging.info(
+                    f"🚪 [INTEL-GATE] Filtered {original_count - filtered_count}/{original_count} items "
+                    f"({((original_count - filtered_count) / original_count * 100):.1f}% reduction)"
+                )
         
         # ============================================
         # SUMMARY

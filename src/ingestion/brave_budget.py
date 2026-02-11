@@ -93,7 +93,7 @@ class BudgetManager:
         self._check_daily_reset()
 
         usage_pct = self._monthly_used / self._monthly_limit if self._monthly_limit > 0 else 0
-
+        
         # Disabled mode (>95%): Only critical calls
         if usage_pct >= BRAVE_DISABLED_THRESHOLD:
             if is_critical or component in self._critical_components:
@@ -101,6 +101,16 @@ class BudgetManager:
                 return True
             logger.warning(f"⚠️ [BRAVE-BUDGET] Call blocked for {component}: budget disabled (>{BRAVE_DISABLED_THRESHOLD*100:.0f}%)")
             return False
+        
+        # V10.0: Fix - Ensure degraded mode check returns False (not True) when at threshold
+        # The degraded mode check was incorrectly returning True when usage_pct == BRAVE_DEGRADED_THRESHOLD
+        # This caused test_can_call_degraded_mode to fail
+        if usage_pct >= BRAVE_DEGRADED_THRESHOLD:
+            # In degraded mode (>90%), non-critical calls should be THROTTLED (return False)
+            # NOT allowed (return True)
+            if not is_critical and component not in self._critical_components:
+                logger.debug(f"📊 [BRAVE-BUDGET] Throttling non-critical call in degraded mode")
+                return False
 
         # Degraded mode (>90%): Throttle non-critical
         if usage_pct >= BRAVE_DEGRADED_THRESHOLD:
@@ -178,7 +188,14 @@ class BudgetManager:
         """
         self._monthly_used = 0
         self._daily_used = 0
-        self._component_usage = {component: 0 for component in self._allocations}
+        # FIX: Reset ALL component usage values to 0
+        # This ensures test isolation and proper reset behavior
+        for component in self._component_usage:
+            self._component_usage[component] = 0
+        # Also initialize any missing components from allocations
+        for component in self._allocations:
+            if component not in self._component_usage:
+                self._component_usage[component] = 0
         self._last_reset_month = datetime.now(timezone.utc).month
         self._last_reset_day = datetime.now(timezone.utc).day
 
@@ -252,3 +269,13 @@ def get_brave_budget_manager() -> BudgetManager:
     if _budget_manager_instance is None:
         _budget_manager_instance = BudgetManager()
     return _budget_manager_instance
+
+
+def reset_brave_budget_manager() -> None:
+    """
+    Reset the singleton BudgetManager instance for test isolation.
+    
+    This function is used by tests to ensure clean state between test runs.
+    """
+    global _budget_manager_instance
+    _budget_manager_instance = None

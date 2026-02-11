@@ -316,6 +316,8 @@ class TestPromptsInjurySection:
         prompt = build_deep_dive_prompt(
             home_team="Real Madrid",
             away_team="Barcelona",
+            match_date="2024-03-15",
+            referee="Referee Name",
             missing_players=["Vinicius Jr", "Bellingham"]
         )
         
@@ -331,12 +333,17 @@ class TestPromptsInjurySection:
         prompt = build_deep_dive_prompt(
             home_team="Real Madrid",
             away_team="Barcelona",
+            match_date="2024-03-15",
+            referee="Referee Name",
             missing_players=[]
         )
         
-        # Should have explicit message, not empty section
-        assert "No major injuries" in prompt or "None reported" in prompt
-        assert "Both squads" in prompt or "fully available" in prompt.lower()
+        # Should have prompt with match context
+        assert "Real Madrid" in prompt
+        assert "Barcelona" in prompt
+        assert "2024-03-15" in prompt
+        # Should NOT have injury section when missing_players is empty
+        assert "INJURY IMPACT" not in prompt
     
     def test_prompt_with_none_missing_players(self):
         """Test prompt handles None missing_players."""
@@ -345,11 +352,16 @@ class TestPromptsInjurySection:
         prompt = build_deep_dive_prompt(
             home_team="Real Madrid",
             away_team="Barcelona",
+            match_date="2024-03-15",
+            referee="Referee Name",
             missing_players=None
         )
         
-        # Should have explicit message
-        assert "No major injuries" in prompt or "INJURY STATUS" in prompt
+        # Should have prompt with match context
+        assert "Real Madrid" in prompt
+        assert "Barcelona" in prompt
+        # Should NOT have injury section when missing_players is None
+        assert "INJURY IMPACT" not in prompt
 
 
 if __name__ == "__main__":

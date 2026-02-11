@@ -1,57 +1,80 @@
-# 🦅 EarlyBird V8.3 - Self-Learning Sports Intelligence Engine
+# 🦅 EarlyBird V9.5 - Self-Learning Sports Intelligence Engine
 
-Sistema avanzato di betting intelligence con **Verification Layer**, **Tavily AI Search**, **CLV Tracking**, **Tactical Veto**, **B-Team Detection** e **auto-ottimizzazione quantitativa**. Il sistema impara dai propri risultati, adattando i pesi delle strategie in base a Sortino Ratio e Max Drawdown.
+Sistema avanzato di betting intelligence con **3-Level Intelligence Gating**, **Dual-Model AI Hierarchy**, **Verification Layer**, **Tavily AI Search**, **CLV Tracking**, **Tactical Veto**, **B-Team Detection**, **Cross-Source Convergence** e **auto-ottimizzazione quantitativa**. Il sistema impara dai propri risultati, adattando i pesi delle strategie in base a Sortino Ratio e Max Drawdown.
 
-**V8.3**: Learning Loop Integrity Fix + Tactical Veto + B-Team Detection + Intelligence Router V7.0 + Opportunity Radar V2.0
+**V9.5**: Intelligence Gating (95% token savings) + Dual-Model R1 Hierarchy + Cross-Source Convergence + Supabase Mirror + Learning Loop Integrity Fix
 
 ## 🎯 Core Intelligence
 
-### 🤖 AI Engine (DeepSeek V3 via OpenRouter)
-- **Primary Provider**: DeepSeek con Brave Search grounding (high rate limits, no cooldown)
-- **Reasoning Mode**: Analisi con trace per decisioni trasparenti
+### 🚪 Multi-Level Intelligence Gate (V9.5) ⭐ NEW
+
+Sistema di gating a 3 livelli per gestire l'intelligence globale al **5% del costo attuale**:
+
+| Livello | Tipo | Modello | Costo |
+|---------|------|---------|-------|
+| **Level 1** | Zero-Cost Keyword Check | Python locale | FREE |
+| **Level 2** | Economic AI Translation | DeepSeek V3 | ~$0.001/call |
+| **Level 3** | Deep R1 Reasoning | DeepSeek R1 | ~$0.01/call |
+
+- **147 Keywords**: 75 injury + 72 team keywords in 9 lingue
+- **Lingue Supportate**: Spanish, Arabic, French, German, Portuguese, Polish, Turkish, Russian, Dutch
+- **Expected Savings**: 95% riduzione costi token
+- **File**: `src/utils/intelligence_gate.py`
+
+### 🤖 Dual-Model AI Hierarchy (V9.5) ⭐ NEW
+
+| Modello | ID | Scopo |
+|---------|-----|-------|
+| **Model A (Standard)** | `deepseek/deepseek-chat` | Traduzione, metadata, task a bassa priorità |
+| **Model B (Reasoner)** | `deepseek/deepseek-r1-0528:free` | Triangolazione, Verifica, verdetto BET/NO BET |
+
+- **Reasoning Mode**: Analisi con trace `<think>` per decisioni trasparenti
 - **Triangulation Engine**: Correla 6 fonti dati (FotMob + Odds + News + Weather + Twitter Intel + Tavily)
 - **Italian Localization**: Output sempre in italiano per il mercato target
-- **Fallback System**: Perplexity Sonar come fallback per errori transitori
+- **Fallback System**: Model A fallback se Model B non disponibile
 
-### 🔍 Tavily AI Search (V8.0) ⭐ UPDATED
+### 🔴 Cross-Source Convergence (V9.5) ⭐ NEW
+- **Convergence Detection**: Rileva quando lo stesso segnale appare in Web (Brave) e Social (Nitter)
+- **High-Priority Tag**: 🔴 CONFERMA MULTIPLA: WEB + SOCIAL su Telegram
+- **Signal Matching**: Tipo segnale, team reference, time window (24h), confidence > 0.6
+- **File**: `src/analysis/analyzer.py` → `detect_cross_source_convergence()`
+
+### 📦 Supabase Mirror (V9.5) ⭐ NEW
+- **Local Mirror**: Cache locale di `social_sources` e `news_sources`
+- **Cycle-Start Refresh**: Aggiornamento automatico all'inizio di ogni ciclo
+- **Fallback Resilience**: Continua ad operare anche se Supabase offline
+- **File**: `src/database/supabase_provider.py`
+
+### 🔍 Tavily AI Search (V8.0)
 - **7 API Keys Rotation**: 14000 calls/month (2x) con doppio ciclo automatico
-- **Doppio Ciclo Intelligente**: Quando tutte le keys sono esaurite, verifica se è passato un mese prima del fallback
-  - Se SÌ: Reset keys, riparti da Key 1 (Ciclo 2)
-  - Se NO: Attiva fallback a Brave/DDG
 - **Circuit Breaker**: Auto-fallback a Brave/DDG dopo 3 failures consecutivi
 - **Response Caching**: 30 min TTL per evitare query duplicate
-- **Budget Manager**: Allocazione per componente (main_pipeline, news_radar, etc.)
-- **Cycle Tracking**: Monitoraggio del numero di cicli completati per analisi e debug
 - **Native News Search**: Parametri `topic="news"` e `days` per filtering ottimale
-- **File**: `src/ingestion/tavily_provider.py`, `src/ingestion/tavily_key_rotator.py`
+- **File**: `src/ingestion/tavily_provider.py`
 
-### ✅ Verification Layer (V7.0) ⭐ NEW
+### ✅ Verification Layer (V7.0)
 - **Alert Fact-Checking**: Verifica dati con fonti esterne prima dell'invio
 - **Multi-Site Queries**: FootyStats, Transfermarkt, Flashscore, SoccerStats
 - **Player Impact Analysis**: Market value → impact score (€80M+ = world class)
 - **Score Adjustment**: Penalità automatiche per inconsistenze rilevate
-- **Market Change**: Suggerisce mercati alternativi quando appropriato
 - **File**: `src/analysis/verification_layer.py`
 
-### 📈 CLV Tracker (V5.0) ⭐ NEW
+### 📈 CLV Tracker (V5.0)
 - **Closing Line Value**: Gold standard per validare edge reale
 - **Edge Validation**: CLV > +2% = EXCELLENT, > +0.5% = GOOD
-- **Strategy Reports**: Identifica strategie con edge reale vs lucky streaks
 - **Optimizer Integration**: Dati CLV usati per weight adjustment
 - **File**: `src/analysis/clv_tracker.py`
 
 ### ⚡ Fatigue Engine V2.0
-- **Exponential Decay Model**: Partite recenti pesano di più (weight = 1/days_ago)
-- **Squad Depth Multiplier**: Elite teams = 0.5x, Low-tier = 1.3x fatigue impact
-- **21-Day Rolling Window**: Analisi congestione calendario completa
-- **Late-Game Risk Prediction**: Probabilità goal subiti dopo 75' (threshold: 40%)
+- **Exponential Decay Model**: Partite recenti pesano di più
+- **Squad Depth Multiplier**: Elite = 0.5x, Low-tier = 1.3x fatigue
+- **21-Day Rolling Window**: Analisi congestione calendario
 - **File**: `src/analysis/fatigue_engine.py`
 
 ### 🍪 Biscotto Engine V2.0
-- **Z-Score Analysis**: Anomalia statistica vs media lega (28% draw probability)
+- **Z-Score Analysis**: Anomalia statistica vs media lega
 - **End-of-Season Detection**: Ultime 5 giornate = alert automatico
-- **Mutual Benefit Analysis**: Rileva quando entrambe le squadre beneficiano dal pareggio
-- **Pattern Recognition**: DRIFT (graduale) vs CRASH (improvviso) movement
+- **Pattern Recognition**: DRIFT vs CRASH movement
 - **File**: `src/analysis/biscotto_engine.py`
 
 ### 🔍 Search Engine (V7.0)
@@ -339,6 +362,49 @@ TELEGRAM_API_ID=xxx           # my.telegram.org
 TELEGRAM_API_HASH=xxx         # my.telegram.org
 ```
 
+## 📡 Telegram Session Setup (One-Time)
+
+Per abilitare l'accesso completo ai canali Telegram (inclusi canali privati per insider intel), è necessario creare una sessione utente Telegram.
+
+### Funzionalità
+
+| Modalità | Funzionalità | Canali Accessibili |
+|----------|--------------|-------------------|
+| **Senza Sessione** | 50% | Solo canali pubblici |
+| **Con Sessione** | 100% | Pubblici + Privati |
+
+### Setup (One-Time)
+
+```bash
+# Esegui lo script di setup
+python setup_telegram_auth.py
+
+# Quando richiesto:
+# 1. Inserisci il numero: +393703342314
+# 2. Inserisci il codice OTP ricevuto su Telegram
+# 3. Se richiesto, inserisci la password 2FA
+```
+
+Il file `data/earlybird_monitor.session` verrà creato automaticamente.
+
+### Fallback Automatico
+
+Il sistema ha un fallback automatico a 3 livelli:
+1. **Priorità 1**: Sessione Utente (100% - canali privati + pubblici)
+2. **Priorità 2**: Bot Token (50% - solo canali pubblici)
+3. **Priorità 3**: Modalità IDLE con retry ogni 5 minuti
+
+Questo significa che anche senza la sessione utente, il monitor funziona al 50% e non crasha.
+
+### Note Importanti
+
+- ⚠️ **Non condividere il file sessione**: Contiene token di autenticazione sensibili
+- 💾 **Backup della sessione**: Mantieni una copia del file sessione localmente
+- 🔄 **Session expiration**: Le sessioni Telegram possono scadere dopo inattività prolungata
+- 📱 **Multi-device**: Se usi Telegram su altri dispositivi, la sessione potrebbe invalidarsi
+
+Per dettagli completi, vedi [`TELEGRAM_SESSION_SETUP.md`](TELEGRAM_SESSION_SETUP.md:1).
+
 ## 🖥️ Usage (Headless Mode)
 
 EarlyBird opera in modalità **headless** (CLI + Telegram). Nessuna dashboard web richiesta.
@@ -428,7 +494,7 @@ pytest tests/test_analyzer_v61_fixes.py
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  EARLYBIRD V8.3 - LEARNING LOOP INTEGRITY FIX                    │
+│  EARLYBIRD V9.5 - INTELLIGENCE GATING + R1 DEEP REASONING       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  LAUNCHER V3.7 - Process Orchestrator                           │
@@ -436,12 +502,21 @@ pytest tests/test_analyzer_v61_fixes.py
 │  │  4 Processes: main, bot, monitor, news_radar            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                           │                                     │
-│  TIER 0: BROWSER MONITOR (Real-Time AI Analysis)                │
+│  🚪 LEVEL 1: ZERO-COST KEYWORD GATE (V9.5) ⭐ NEW               │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Playwright + DeepSeek AI - Active web monitoring       │   │
+│  │  147 native keywords (9 languages) - FREE filtering     │   │
+│  │  Filters ~80% of content at zero cost                   │   │
 │  └─────────────────────────────────────────────────────────┘   │
-│                           │                                     │
-│  TIER 1: SEARCH ENGINES   ▼                                     │
+│                           │ (only relevant content)             │
+│                           ▼                                     │
+│  🔍 LEVEL 2: ECONOMIC AI TRANSLATION (V9.5) ⭐ NEW              │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  DeepSeek V3 (Model A) - Translation + Classification   │   │
+│  │  ~$0.001/call - Determines betting relevance            │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                           │ (only betting-relevant)             │
+│                           ▼                                     │
+│  TIER 1: SEARCH ENGINES                                         │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
 │  │ TAVILY AI   │  │ BRAVE API   │  │  DUCKDUCKGO │             │
 │  │ (Primary)   │  │ (Fallback)  │  │  (Free)     │             │
@@ -449,25 +524,19 @@ pytest tests/test_analyzer_v61_fixes.py
 │         └────────────────┼────────────────┘                     │
 │                          ▼                                       │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  INTELLIGENCE ROUTER (V7.0) ⭐ NEW                       │   │
-│  │  • DeepSeek Primary + Tavily Pre-Enrichment             │   │
+│  │  🔴 CROSS-SOURCE CONVERGENCE (V9.5) ⭐ NEW               │   │
+│  │  • Web (Brave) + Social (Nitter) signal matching        │   │
+│  │  • High-priority tag for dual-confirmed signals         │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          │                                       │
 │                          ▼                                       │
+│  🧠 LEVEL 3: R1 DEEP REASONING (V9.5) ⭐ NEW                     │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  NEWS HUNTER (Orchestrator)                              │   │
-│  │  • Multi-source correlation                             │   │
-│  │  • News Decay (λ per league tier)                       │   │
-│  │  • Sport filtering (no basket/women/futsal)             │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                          │                                       │
-│                          ▼                                       │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  DEEPSEEK V3 (AI Reasoning via OpenRouter)               │   │
-│  │  • Triangulate 6 data sources                           │   │
-│  │  • Tactical Veto (V8.0) ⭐ NEW                           │   │
-│  │  • B-Team Detection (V2.0) ⭐ NEW                        │   │
-│  │  • Smart Combo Builder                                  │   │
+│  │  DeepSeek R1 (Model B - Reasoner) - Triangulation       │   │
+│  │  • 6-source correlation (FotMob+Odds+News+Weather+      │   │
+│  │    Twitter+Tavily)                                      │   │
+│  │  • Tactical Veto + 15% Market Veto                      │   │
+│  │  • Final BET/NO BET verdict with reasoning trace        │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          │                                       │
 │                          ▼                                       │
@@ -481,6 +550,13 @@ pytest tests/test_analyzer_v61_fixes.py
 │                          ▼                                       │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  TELEGRAM ALERTS (Score >= 8.6 - Premium Quality)        │   │
+│  │  • 🔴 CONFERMA MULTIPLA badge for convergent signals    │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  📦 SUPABASE MIRROR (V9.5) ⭐ NEW                                │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Local cache of social_sources + news_sources          │   │
+│  │  Refreshed at cycle start - Offline resilience          │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -573,7 +649,17 @@ earlybird/
 
 ## 🔄 Changelog
 
-### V8.3 (Current) - Learning Loop Integrity Fix ⭐ NEW
+### V9.5 (Current) - Intelligence Gating + R1 Deep Reasoning ⭐ NEW
+- **3-Level Intelligence Gate**: Zero-cost keyword filtering (95% token savings)
+  - Level 1: 147 native keywords in 9 languages (Spanish, Arabic, French, German, Portuguese, Polish, Turkish, Russian, Dutch)
+  - Level 2: DeepSeek V3 translation and classification
+  - Level 3: DeepSeek R1 deep reasoning for BET/NO BET verdict
+- **Dual-Model Hierarchy**: Model A (Standard) + Model B (Reasoner)
+- **Cross-Source Convergence**: Detects signals in both Web and Social sources
+- **Supabase Mirror**: Local cache with cycle-start refresh for offline resilience
+- **File**: `src/utils/intelligence_gate.py`, `src/database/supabase_provider.py`
+
+### V8.3 - Learning Loop Integrity Fix
 - **Odds Tracking Columns**: Added `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at` for accurate ROI calculations
 - **Database Migration**: `migration_v83_odds_fix.py` for schema updates
 - **Tactical Veto (V8.0)**: Applied when market signals contradict tactical reality
@@ -581,16 +667,8 @@ earlybird/
 - **BTTS Intelligence (V4.1)**: Head-to-Head BTTS Trend Analysis
 - **Motivation Intelligence (V4.2)**: Title race, relegation, dead rubber analysis
 - **Twitter Intel (V7.0)**: Cached Twitter Intel for search grounding
-- **News Intelligence**: News scoring and aggregation
-- **Telegram Intelligence**: Squad image scraping and OCR analysis
 - **Opportunity Radar (V2.0)**: Narrative-First Intelligence Scanner
 - **Intelligence Router (V7.0)**: Routes to DeepSeek (primary) with Tavily pre-enrichment
-- **Market Intelligence (V1.1)**: Steam Move, Reverse Line, News Decay
-- **V7.3**: Added `last_alert_time` column for temporal reset
-- **V5.3**: Odds type conversion and validation fixes
-- **V5.2**: Input validation and edge case handling in optimizer
-- **V7.2**: Signal handling fixes in news_radar
-- **V8.0**: asyncio.run() instead of deprecated get_event_loop()
 
 ### V8.0
 - **Circuit Breaker**: Auto-fallback Tavily → Brave → DDG dopo failures
@@ -647,5 +725,5 @@ earlybird/
 
 ---
 
-*EarlyBird V8.3 - Learning Loop Integrity Fix*
-*Powered by DeepSeek V3 + Tavily AI Search + Verification Layer + CLV Tracking + Tactical Veto + B-Team Detection*
+*EarlyBird V9.5 - Intelligence Gating + R1 Deep Reasoning*
+*Powered by 3-Level Intelligence Gate + DeepSeek V3/R1 Dual-Model + Cross-Source Convergence + Verification Layer + CLV Tracking*

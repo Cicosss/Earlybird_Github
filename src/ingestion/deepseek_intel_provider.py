@@ -47,8 +47,17 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-DEEPSEEK_MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")  # DeepSeek V3.2 via OpenRouter
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Dual-Model Configuration (V6.2)
+# Model A: Standard model for translation, metadata extraction, low-priority tasks
+MODEL_A_STANDARD = "deepseek/deepseek-chat"  # DeepSeek V3 Stable via OpenRouter
+
+# Model B: Reasoner model for triangulation, verification, final verdict
+MODEL_B_REASONER = "deepseek/deepseek-r1-0528:free"  # DeepSeek R1 Reasoner via OpenRouter
+
+# Legacy model for backward compatibility (defaults to Model A)
+DEEPSEEK_MODEL = os.getenv("OPENROUTER_MODEL", MODEL_A_STANDARD)
 
 # Rate limiting configuration
 DEEPSEEK_MIN_INTERVAL = 2.0  # Minimum seconds between requests (Requirements 4.2)
@@ -66,6 +75,10 @@ class DeepSeekIntelProvider:
         """
         Inizializza con OPENROUTER_API_KEY e BraveSearchProvider.
         
+        V6.2: Dual-Model Support
+        - Model A (Standard): For translation, metadata extraction, low-priority tasks
+        - Model B (Reasoner): For triangulation, verification, final verdict
+        
         Requirements: 1.1, 1.2
         """
         self._api_key = OPENROUTER_API_KEY
@@ -73,6 +86,14 @@ class DeepSeekIntelProvider:
         self._last_request_time = 0.0  # For rate limiting
         self._brave_provider = None
         self._http_client = None  # Centralized HTTP client
+        
+        # V6.2: Dual-Model Configuration
+        self._model_a = MODEL_A_STANDARD
+        self._model_b = MODEL_B_REASONER
+        
+        # V6.2: Cost tracking for both models
+        self._model_a_calls = 0
+        self._model_b_calls = 0
         
         if not self._api_key:
             logger.warning("⚠️ DeepSeek Intel Provider disabled: OPENROUTER_API_KEY not set")
@@ -84,6 +105,8 @@ class DeepSeekIntelProvider:
             self._http_client = get_http_client()  # Use centralized HTTP client
             self._enabled = True
             logger.info("🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)")
+            logger.info(f"   Model A (Standard): {self._model_a}")
+            logger.info(f"   Model B (Reasoner): {self._model_b}")
         except Exception as e:
             logger.warning(f"⚠️ DeepSeek Intel Provider init failed: {e}")
     
@@ -276,11 +299,101 @@ Be conservative in your assessments when lacking current data.
         V6.0: CooldownManager NON usato - OpenRouter ha rate limit alti.
         Su 429 ritorna None ma NON attiva cooldown globale.
         
+        V6.2: Uses Model A (Standard) by default for backward compatibility.
+        
         Requirements: 4.2, 7.2
         
         Args:
             prompt: The prompt to send to DeepSeek
             operation_name: Name for logging
+            
+        Returns:
+            Raw response text or None on failure
+        """
+        # V6.2: Use Model A for backward compatibility
+        # Convert prompt string to messages format for _call_model
+        messages = [{"role": "user", "content": prompt}]
+        return self._call_model(self._model_a, messages, operation_name=operation_name)
+    
+    # ============================================
+    # DUAL-MODEL METHODS (V6.2)
+    # ============================================
+    
+    def call_standard_model(self, messages: list, **kwargs) -> str:
+        """
+        Call Model A (Standard) for standard tasks.
+        
+        Use for:
+        - Translation tasks
+        - Metadata extraction
+        - Basic classification
+        - Low-priority analysis
+        - Initial filtering
+        
+        Args:
+            messages: List of message dicts (role, content)
+            **kwargs: Additional parameters (temperature, max_tokens, etc.)
+            
+        Returns:
+            Response content or None on failure
+        """
+        return self._call_model(self._model_a, messages, **kwargs)
+    
+    def call_reasoner_model(self, messages: list, **kwargs) -> str:
+        """
+        Call Model B (Reasoner) for reasoning tasks.
+        
+        Use for:
+        - Triangulation
+        - VerificationLayer
+        - Final BET/NO BET verdict
+        - Cross-source conflict resolution
+        - High-confidence decisions
+        
+        Args:
+            messages: List of message dicts (role, content)
+            **kwargs: Additional parameters (temperature, max_tokens, etc.)
+            
+        Returns:
+            Response content or None on failure
+            
+        Note:
+            Model B failures should fall back to Model A with a warning.
+        """
+        try:
+            result = self._call_model(self._model_b, messages, **kwargs)
+            if result:
+                self._model_b_calls += 1
+                return result
+            else:
+                # Model B failed - fall back to Model A with warning
+                logger.warning(f"⚠️ [DEEPSEEK] Model B failed, falling back to Model A")
+                result = self._call_model(self._model_a, messages, **kwargs)
+                if result:
+                    self._model_a_calls += 1
+                return result
+        except Exception as e:
+            logger.warning(f"⚠️ [DEEPSEEK] Model B exception, falling back to Model A: {e}")
+            result = self._call_model(self._model_a, messages, **kwargs)
+            if result:
+                self._model_a_calls += 1
+            return result
+    
+    def _call_model(
+        self,
+        model: str,
+        messages: list,
+        **kwargs
+    ) -> Optional[str]:
+        """
+        Internal method to call specified model via OpenRouter.
+        
+        V6.2: Parameterized by model to support dual-model operation.
+        
+        Args:
+            model: Model ID to call (Model A or Model B)
+            messages: List of message dicts (role, content)
+            **kwargs: Additional parameters (temperature, max_tokens, etc.)
             
         Returns:
             Raw response text or None on failure
@@ -291,6 +404,17 @@ Be conservative in your assessments when lacking current data.
         # Rate limiting (local, not shared)
         self._wait_for_rate_limit()
         
+        # Determine operation name for logging
+        operation_name = kwargs.get('operation_name', f'call_{model.split("/")[-1]}')
+        
+        # Log which model is being used
+        if model == self._model_a:
+            logger.info(f"🧠 [DEEPSEEK] Using Model A (Standard) for: {operation_name}")
+        elif model == self._model_b:
+            logger.info(f"🧠 [DEEPSEEK] Using Model B (Reasoner) for: {operation_name}")
+        else:
+            logger.info(f"🧠 [DEEPSEEK] Using model {model} for: {operation_name}")
+        
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
@@ -298,18 +422,19 @@ Be conservative in your assessments when lacking current data.
             "X-Title": "EarlyBird Betting Intelligence"
         }
         
+        # Build payload with model and messages
         payload = {
-            "model": DEEPSEEK_MODEL,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.3,  # Lower temperature for more consistent analysis
-            "max_tokens": 2000
+            "model": model,
+            "messages": messages,
+            "temperature": kwargs.get("temperature", 0.3),  # Lower temperature for more consistent analysis
+            "max_tokens": kwargs.get("max_tokens", 2000)
         }
         
+        # Add include_reasoning for Model B if requested
+        if model == self._model_b and kwargs.get("include_reasoning", False):
+            payload["include_reasoning"] = True
+        
         try:
-            logger.info(f"🤖 [DEEPSEEK] {operation_name}...")
-            
             # Use centralized HTTP client instead of creating new client
             if not self._http_client:
                 logger.error("❌ [DEEPSEEK] HTTP client not initialized")
@@ -320,8 +445,8 @@ Be conservative in your assessments when lacking current data.
                 rate_limit_key="openrouter",
                 headers=headers,
                 json=payload,
-                timeout=60,
-                max_retries=2
+                timeout=kwargs.get("timeout", 60),
+                max_retries=kwargs.get("max_retries", 2)
             )
             
             # Handle 429 rate limit
@@ -367,6 +492,19 @@ Be conservative in your assessments when lacking current data.
         except Exception as e:
             logger.error(f"❌ [DEEPSEEK] Error in {operation_name}: {e}")
             return None
+    
+    def get_model_usage_stats(self) -> dict:
+        """
+        Get usage statistics for both models.
+        
+        Returns:
+            Dict with model_a_calls and model_b_calls
+        """
+        return {
+            "model_a_calls": self._model_a_calls,
+            "model_b_calls": self._model_b_calls,
+            "total_calls": self._model_a_calls + self._model_b_calls
+        }
     
     # ============================================
     # NORMALIZATION HELPERS

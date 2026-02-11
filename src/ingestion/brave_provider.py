@@ -14,12 +14,12 @@ Priority in search chain: Brave -> DuckDuckGo -> Serper
 V4.4: Migrated to centralized HTTP client with fingerprint rotation.
 V4.0: Added API key rotation and budget management (duplicated from Tavily).
 
-Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
+V4.5: Fixed double URL encoding bug that caused HTTP 422 errors with non-ASCII characters.
+       HTTPX automatically encodes query parameters; manual encoding was causing double encoding.
 """
 import html
 import logging
 from typing import List, Dict, Optional
-from urllib.parse import quote
 
 from config.settings import BRAVE_API_KEY
 from src.ingestion.brave_key_rotator import BraveKeyRotator, get_brave_key_rotator
@@ -79,21 +79,19 @@ class BraveSearchProvider:
     def search_news(self, query: str, limit: int = 5, component: str = "unknown") -> List[Dict]:
         """
         Search using Brave Search API.
-        
+
         Uses centralized HTTP client with rate limiting (1.1s).
         V4.0: Added key rotation and budget management.
-        
-        Phase 1 Critical Fix: URL-encode query to handle non-ASCII characters
-        (e.g., Turkish "ş", Polish "ą", Greek "α").
-        
+        V4.5: Fixed double URL encoding bug - HTTPX automatically encodes query parameters.
+
         Args:
-            query: Search query string
+            query: Search query string (can contain non-ASCII characters like Turkish "ş", Polish "ą", Greek "α")
             limit: Maximum number of results (default 5)
             component: Component making the request (for budget tracking)
-            
+
         Returns:
             List of dicts with title, url, snippet
-            
+
         Raises:
             ValueError: If API key is not configured
         """
@@ -111,10 +109,6 @@ class BraveSearchProvider:
         
         logger.info(f"🔍 [BRAVE] Searching: {query[:60]}...")
         
-        # Phase 1 Critical Fix: URL-encode query to handle special characters
-        # This fixes search failures for non-English team names
-        encoded_query = quote(query, safe=' ')
-        
         # V4.0: Get current API key from rotator
         api_key = self._key_rotator.get_current_key() if self._key_rotation_enabled else self._api_key
         
@@ -123,6 +117,8 @@ class BraveSearchProvider:
             return []
         
         try:
+            # HTTPX automatically URL-encodes the query parameter
+            # Do NOT manually encode to avoid double encoding (causes HTTP 422)
             response = self._http_client.get_sync(
                 BRAVE_API_URL,
                 rate_limit_key="brave",
@@ -132,7 +128,7 @@ class BraveSearchProvider:
                     "Accept": "application/json"
                 },
                 params={
-                    "q": encoded_query,
+                    "q": query,
                     "count": limit,
                     "freshness": "pw"  # Past Week - filters out stale news
                 },
@@ -227,3 +223,13 @@ def get_brave_provider() -> BraveSearchProvider:
     if _brave_instance is None:
         _brave_instance = BraveSearchProvider()
     return _brave_instance
+
+
+def reset_brave_provider() -> None:
+    """
+    Reset the singleton BraveSearchProvider instance for test isolation.
+    
+    This function is used by tests to ensure clean state between test runs.
+    """
+    global _brave_instance
+    _brave_instance = None

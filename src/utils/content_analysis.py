@@ -317,7 +317,7 @@ class RelevanceAnalyzer:
         
         # ========== POLISH (Poland Ekstraklasa) - V1.7 ==========
         "kontuzja", "kontuzjowany", "kontuzjowani", "nieobecny", "nieobecni",
-        "uraz", "urazy", "wypadł", "pauzuje", "nie zagra",
+        "uraz", "urazy", "wypadł", "nie zagra",
         
         # ========== TURKISH (Turkey Super Lig) - V1.7 ==========
         "sakatlık", "sakatlandı", "sakatlar", "yok", "eksik", "eksikler",
@@ -559,7 +559,8 @@ class RelevanceAnalyzer:
             
         if not parts:
             # Fallback pattern that matches nothing
-            return re.compile(r'(?!x)x')
+            # Changed to a pattern that never matches instead of '(?!x)x' which is broken
+            return re.compile(r'(?!a)a')
             
         pattern = '|'.join(parts)
         return re.compile(pattern, re.IGNORECASE)
@@ -666,7 +667,11 @@ class RelevanceAnalyzer:
         V1.3: Fixed pattern order - check known clubs FIRST to avoid false positives.
         V1.6: Added Brazilian, Argentine, Honduran and other South American clubs
               for multi-language support (Portuguese/Spanish articles).
+        V1.10: Added validation to ensure extracted team is in known clubs list
         """
+        # DEBUG: Log content for debugging
+        logger.debug(f"[TEAM-EXTRACTION] Analyzing content: {content[:100]}...")
+        
         # Common words to exclude (articles, prepositions, etc.)
         excluded_words = {
             'the', 'at', 'for', 'from', 'with', 'and', 'but', 'or', 'in', 'on',
@@ -693,6 +698,8 @@ class RelevanceAnalyzer:
             'Ipswich', 'Luton', 'Sheffield United', 'Burnley',
             # National League
             'Chesterfield',
+            # Championship
+            'Wigan Athletic',
             
             # ========== ITALY - Serie A ==========
             'AC Milan', 'Inter Milan', 'Juventus', 'Roma', 'Napoli', 'Lazio', 
@@ -890,11 +897,17 @@ class RelevanceAnalyzer:
         ]
         
         # DEBUG: Check if we have CJK clubs in list and if content matches
-        # Check known clubs first (case-insensitive)
+        # Check known clubs first (case-insensitive) with word boundaries
         content_lower = content.lower()
         for club in known_clubs:
-            if club.lower() in content_lower:
+            # V1.10: Use word boundary matching to prevent partial matches
+            # e.g., prevent "OL" from matching "Olimpia"
+            pattern = r'\b' + re.escape(club.lower()) + r'\b'
+            if re.search(pattern, content_lower):
+                logger.debug(f"[TEAM-EXTRACTION] Known club matched: {club}")
                 return club
+        
+        logger.debug(f"[TEAM-EXTRACTION] No known club match, trying patterns...")
         
         # Pattern 2: "[Team] FC/United/City/etc." - for unknown clubs (European + Americas)
         # V1.6: Added South American suffixes: EC, SE, CR, CA, AC, AP
@@ -904,7 +917,9 @@ class RelevanceAnalyzer:
             team = match.group(0).strip()
             first_word = team.split()[0].lower()
             if first_word not in excluded_words:
-                return team
+                # V1.10: Validate team is in known clubs list
+                if team in known_clubs or any(team.lower() == kc.lower() for kc in known_clubs):
+                    return team
         
         # Pattern 3: "X's player/star/striker" - possessive form (English)
         possessive_pattern = r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)'s\s+(?:player|star|striker|midfielder|defender|goalkeeper|manager|coach|boss)"
@@ -912,7 +927,9 @@ class RelevanceAnalyzer:
         if match:
             team = match.group(1).strip()
             if team.lower() not in excluded_words and len(team) > 2:
-                return team
+                # V1.10: Validate team is in known clubs list
+                if team in known_clubs or any(team.lower() == kc.lower() for kc in known_clubs):
+                    return team
         
         # Pattern 4 (V1.8): Portuguese/Spanish possessive - "jogador do [Team]" / "jugador del [Team]"
         # V1.8: Added Brazilian variants: lateral, volante, puntero, centroavante
@@ -921,7 +938,9 @@ class RelevanceAnalyzer:
         if match:
             team = match.group(1).strip()
             if team.lower() not in excluded_words and len(team) > 2:
-                return team
+                # V1.10: Validate team is in known clubs list
+                if team in known_clubs or any(team.lower() == kc.lower() for kc in known_clubs):
+                    return team
         
         # Pattern 5 (V1.8): Common Brazilian news patterns - "[Team] vence/perde/enfrenta"
         # V1.8: Support multi-word team names (e.g., "São Paulo vence")
@@ -931,7 +950,9 @@ class RelevanceAnalyzer:
         if match:
             team = match.group(1).strip()
             if team.lower() not in excluded_words and len(team) > 3:
-                return team
+                # V1.10: Validate team is in known clubs list
+                if team in known_clubs or any(team.lower() == kc.lower() for kc in known_clubs):
+                    return team
         
         # Pattern 6 (V1.8): CJK team names (Chinese/Japanese)
         # Match CJK team names without word boundaries

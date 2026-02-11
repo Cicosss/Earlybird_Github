@@ -347,15 +347,14 @@ class TestMainIntegration:
     def test_refresh_twitter_intel_sync_no_crash(self):
         """refresh_twitter_intel_sync should not crash even if services unavailable.
         
-        V7.8 FIX: Mock external services to avoid network calls that block tests.
-        - Mock _INTELLIGENCE_ROUTER_AVAILABLE to False (skip DeepSeek API)
-        - Mock _try_nitter_fallback to return None (skip Nitter scraping)
+        V9.5 FIX: Updated to match current architecture where TwitterIntelCache
+        does not have a sync refresh() method - it has async refresh_twitter_intel().
+        The refresh_twitter_intel_sync() function in main.py now just checks if cache is fresh.
         """
         # This should not raise any exception
         try:
             # Mock external services to avoid network calls
-            with patch('src.main._INTELLIGENCE_ROUTER_AVAILABLE', False), \
-                 patch('src.main._try_nitter_fallback', return_value=None):
+            with patch('src.main._TWITTER_INTEL_AVAILABLE', False):
                 from src.main import refresh_twitter_intel_sync
                 refresh_twitter_intel_sync()
         except ImportError:
@@ -583,17 +582,23 @@ class TestTwitterIntelIntegration:
 
 
 class TestTwitterIntelHelper:
-    """Test the DRY helper function for Twitter Intel enrichment."""
+    """Test the Twitter Intel enrichment helper in AnalysisEngine.
+    
+    V9.5 FIX: Updated to test AnalysisEngine.get_twitter_intel_for_match()
+    method instead of standalone function in main.py (which was refactored).
+    """
     
     def test_get_twitter_intel_for_match_exists(self):
-        """Helper function should exist and be importable."""
-        from src.main import get_twitter_intel_for_match
+        """Helper method should exist in AnalysisEngine."""
+        from src.core.analysis_engine import get_analysis_engine
         
-        assert callable(get_twitter_intel_for_match)
+        engine = get_analysis_engine()
+        assert hasattr(engine, 'get_twitter_intel_for_match')
+        assert callable(engine.get_twitter_intel_for_match)
     
     def test_get_twitter_intel_for_match_returns_none_when_unavailable(self):
         """Should return None when Twitter Intel is not available."""
-        from src.main import get_twitter_intel_for_match
+        from src.core.analysis_engine import get_analysis_engine
         
         # Create a mock match object
         class MockMatch:
@@ -602,17 +607,19 @@ class TestTwitterIntelHelper:
             league = "test_league"
         
         # With empty cache, should return None
-        result = get_twitter_intel_for_match(MockMatch())
+        engine = get_analysis_engine()
+        result = engine.get_twitter_intel_for_match(MockMatch())
         
-        # Result is None because cache is not fresh
+        # Result is None because cache is not fresh or has no data
         assert result is None
     
     def test_get_twitter_intel_for_match_with_context_label(self):
         """Should accept context_label parameter."""
-        from src.main import get_twitter_intel_for_match
+        from src.core.analysis_engine import get_analysis_engine
         import inspect
         
-        sig = inspect.signature(get_twitter_intel_for_match)
+        engine = get_analysis_engine()
+        sig = inspect.signature(engine.get_twitter_intel_for_match)
         params = sig.parameters
         
         assert 'context_label' in params

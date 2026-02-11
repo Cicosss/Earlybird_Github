@@ -31,13 +31,8 @@ class TestE2EIntelligenceRouterFlow:
         """
         from src.services.intelligence_router import get_intelligence_router
         
-        # Mock the entire chain
-        mock_brave_results = [
-            {"title": "Inter vs Milan Preview", "url": "https://example.com", "snippet": "Derby della Madonnina"}
-        ]
-        
-        mock_deepseek_response = '''
-        {
+        # Mock the entire chain - need to mock at provider level
+        mock_deepseek_response = {
             "internal_crisis": "None detected",
             "turnover_risk": "Low - full squad available",
             "referee_intel": "Mariani - avg 4.2 cards/game",
@@ -47,51 +42,33 @@ class TestE2EIntelligenceRouterFlow:
             "motivation_home": "High - title race",
             "motivation_away": "Medium - Europa League spot"
         }
-        '''
 
-        with patch('src.ingestion.deepseek_intel_provider.get_brave_provider') as mock_brave:
-            mock_brave_instance = MagicMock()
-            mock_brave_instance.search_news.return_value = mock_brave_results
-            mock_brave.return_value = mock_brave_instance
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}):
+            # Mock DeepSeek provider's get_match_deep_dive method directly
+            import src.services.intelligence_router as ir
+            ir._intelligence_router_instance = None
             
-            with patch('httpx.Client') as mock_httpx:
-                mock_response = MagicMock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = {
-                    "choices": [{"message": {"content": mock_deepseek_response}}]
-                }
-                mock_httpx.return_value.__enter__.return_value.post.return_value = mock_response
+            router = ir.get_intelligence_router()
+            
+            # Mock the primary provider's get_match_deep_dive method
+            with patch.object(router._primary_provider, 'get_match_deep_dive', return_value=mock_deepseek_response):
+                result = router.get_match_deep_dive(
+                    home_team="Inter",
+                    away_team="Milan",
+                    match_date="2026-01-15"
+                )
                 
-                with patch.dict(os.environ, {"OPENROUTER_API_KEY": "test-key"}):
-                    # Reimport to pick up env
-                    import importlib
-                    import src.ingestion.deepseek_intel_provider as dsp
-                    dsp._deepseek_instance = None
-                    importlib.reload(dsp)
-                    
-                    # Reset router singleton
-                    import src.services.intelligence_router as ir
-                    ir._intelligence_router_instance = None
-                    
-                    router = ir.get_intelligence_router()
-                    
-                    result = router.get_match_deep_dive(
-                        home_team="Inter",
-                        away_team="Milan",
-                        match_date="2026-01-15"
-                    )
-                    
-                    # Verify result structure
-                    assert result is not None
-                    assert isinstance(result, dict)
-                    
-                    # Verify normalized fields exist
-                    expected_fields = [
-                        'internal_crisis', 'turnover_risk', 'referee_intel',
-                        'biscotto_potential', 'injury_impact'
-                    ]
-                    for field in expected_fields:
-                        assert field in result, f"Missing field: {field}"
+                # Verify result structure
+                assert result is not None
+                assert isinstance(result, dict)
+                
+                # Verify normalized fields exist
+                expected_fields = [
+                    'internal_crisis', 'turnover_risk', 'referee_intel',
+                    'biscotto_potential', 'injury_impact'
+                ]
+                for field in expected_fields:
+                    assert field in result, f"Missing field: {field}"
 
 
 class TestE2ERateLimiting:

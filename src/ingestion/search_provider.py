@@ -29,6 +29,18 @@ logger = logging.getLogger(__name__)
 from src.utils.http_client import get_http_client
 
 # ============================================
+# V9.2: DATABASE-DRIVEN HIERARCHICAL SOURCE FETCHING
+# ============================================
+try:
+    from src.database.supabase_provider import get_supabase
+    _SUPABASE_PROVIDER_AVAILABLE = True
+    logger.info("✅ Supabase Provider available for hierarchical source fetching")
+except ImportError as e:
+    _SUPABASE_PROVIDER_AVAILABLE = False
+    get_supabase = None
+    logger.warning(f"⚠️ Supabase Provider not available: {e}")
+
+# ============================================
 # CONFIGURATION
 # ============================================
 DDGS_TIMEOUT = 10

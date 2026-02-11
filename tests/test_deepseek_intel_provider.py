@@ -478,7 +478,7 @@ class TestProperty6PromptsWithoutGoogleReferences:
         
         # Test with real prompts
         prompts = [
-            build_deep_dive_prompt("Inter", "Milan", "2026-01-15"),
+            build_deep_dive_prompt("Inter", "Milan", "2026-01-15", "Referee Name"),
             build_betting_stats_prompt("Inter", "Milan", "2026-01-15", "Serie A"),
             build_news_verification_prompt("Injury news", "Player out", "Inter"),
         ]

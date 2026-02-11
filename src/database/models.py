@@ -212,6 +212,10 @@ class NewsLog(Base):
     original_score = Column(Integer, nullable=True, comment="Original score before modifications")
     original_market = Column(String, nullable=True, comment="Original market before modifications")
     
+    # V9.5: Cross-Source Convergence Detection
+    is_convergent = Column(Boolean, default=False, comment="True if signal confirmed by both Web (Brave) and Social (Nitter) sources")
+    convergence_sources = Column(Text, nullable=True, comment="JSON: {'web': {'type': 'Injury', 'confidence': 0.8}, 'social': {'type': 'Injury', 'confidence': 0.75}}")
+    
     # Timestamps
     timestamp = Column(DateTime, default=datetime.utcnow, comment="Analysis timestamp")
     created_at = Column(DateTime, default=datetime.utcnow, comment="Record creation time")
@@ -275,6 +279,22 @@ class NewsLog(Base):
             self.modification_plan = json.dumps(plan)
         except (TypeError, ValueError):
             self.modification_plan = None
+    
+    def get_convergence_sources(self) -> Optional[Dict[str, Any]]:
+        """Parse convergence_sources JSON field."""
+        if self.convergence_sources:
+            try:
+                return json.loads(self.convergence_sources)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        return None
+    
+    def set_convergence_sources(self, sources: Dict[str, Any]) -> None:
+        """Serialize convergence_sources to JSON."""
+        try:
+            self.convergence_sources = json.dumps(sources)
+        except (TypeError, ValueError):
+            self.convergence_sources = None
     
     def is_high_confidence(self) -> bool:
         """Check if this is a high confidence alert."""

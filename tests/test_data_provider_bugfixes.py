@@ -320,9 +320,9 @@ class TestTopLevelImportPerformance(unittest.TestCase):
         with open('src/ingestion/data_provider.py', 'r') as f:
             content = f.read()
         
-        # Deve usare il pattern: get_fotmob_team_id(...) if _TEAM_MAPPING_AVAILABLE else None
+        # Deve usare il pattern: if _TEAM_MAPPING_AVAILABLE and get_fotmob_team_id is not None
         self.assertIn(
-            'if _TEAM_MAPPING_AVAILABLE else None',
+            'if _TEAM_MAPPING_AVAILABLE and get_fotmob_team_id is not None',
             content,
             "Functions should use flag check pattern for team mapping"
         )

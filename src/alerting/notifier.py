@@ -535,6 +535,58 @@ def _build_verification_section(verification_info: Optional[Dict[str, Any]]) -> 
     return verification_section
 
 
+def _build_convergence_section(is_convergent: bool, convergence_sources: Optional[Dict[str, Any]]) -> str:
+    """
+    V9.5: Build the cross-source convergence section.
+    
+    Displays high-priority tag when signal is confirmed by both Web (Brave) and Social (Nitter) sources.
+    
+    Args:
+        is_convergent: True if convergence detected
+        convergence_sources: Dict with web and social signal details
+        
+    Returns:
+        Formatted convergence section string
+    """
+    convergence_section = ""
+    
+    if not is_convergent:
+        return convergence_section
+    
+    # High-priority convergence tag
+    convergence_section = "🔴 <b>CONFERMA MULTIPLA: WEB + SOCIAL</b>\n"
+    
+    # Add source details if available
+    if convergence_sources and isinstance(convergence_sources, dict):
+        web_info = convergence_sources.get('web', {})
+        social_info = convergence_sources.get('social', {})
+        
+        web_conf = web_info.get('confidence', 0)
+        social_conf = social_info.get('confidence', 0)
+        web_source = web_info.get('source', 'Brave')
+        social_handle = social_info.get('handle', 'Nitter')
+        signal_type = web_info.get('type', 'Unknown')
+        
+        # Signal type
+        convergence_section += f"📊 <b>Segnale:</b> {html.escape(signal_type)}\n"
+        
+        # Web source details
+        convergence_section += f"🌐 <b>Web Source:</b> {html.escape(web_source)} (Confidence: {web_conf*100:.0f}%)\n"
+        
+        # Social source details
+        if social_handle:
+            convergence_section += f"🐦 <b>Social Source:</b> @{html.escape(social_handle)} (Confidence: {social_conf*100:.0f}%)\n"
+        else:
+            convergence_section += f"🐦 <b>Social Source:</b> Nitter (Confidence: {social_conf*100:.0f}%)\n"
+        
+        # Time difference if available
+        time_diff = convergence_sources.get('time_diff_hours')
+        if time_diff is not None:
+            convergence_section += f"⏱️ <b>Time Diff:</b> {time_diff:.1f}h\n"
+    
+    return convergence_section
+
+
 def _build_confidence_breakdown_section(confidence_breakdown: Optional[Dict[str, Any]]) -> str:
     """Build the confidence breakdown section for transparency."""
     breakdown_section = ""
@@ -624,7 +676,8 @@ def _truncate_message_if_needed(
     twitter_section: str,
     verification_section: str,
     news_summary_clean: str,
-    news_link: str
+    news_link: str,
+    convergence_section: str = ""
 ) -> str:
     """Truncate message if it exceeds Telegram limits."""
     if len(message) <= TELEGRAM_MESSAGE_LIMIT:
@@ -641,6 +694,7 @@ def _truncate_message_if_needed(
             f"📊 <b>Punteggio: {score}/10</b>\n"
             f"{odds_line}"
             f"{movement['emoji']} <b>{movement['message']}</b>\n"
+            f"{convergence_section}"
             f"{source_indicator}"
             f"{bet_section}"
             f"{breakdown_section}"
@@ -654,6 +708,93 @@ def _truncate_message_if_needed(
         logging.debug(f"Message truncated from {len(message) + overflow} to {len(message)} chars")
 
     return message
+
+
+# ============================================
+# WRAPPER FUNCTION FOR MAIN.PY COMPATIBILITY
+# ============================================
+
+
+def send_alert_wrapper(**kwargs) -> None:
+    """
+    V9.5: Wrapper function to convert main.py keyword arguments to notifier.send_alert positional arguments.
+    
+    Main.py calls send_alert with keyword arguments that don't match the function signature.
+    This wrapper handles the conversion.
+    
+    Args:
+        **kwargs: Keyword arguments from main.py
+        
+    Keyword argument mapping:
+        - match -> match_obj
+        - score -> score
+        - market -> recommended_market
+        - home_context, away_context -> (not used directly, but kept for compatibility)
+        - home_stats, away_stats -> (not used directly)
+        - news_articles -> news_summary (first article)
+        - twitter_intel -> twitter_intel
+        - fatigue_differential -> (not used directly)
+        - injury_impact_home, injury_impact_away -> injury_intel
+        - biscotto_result -> (not used directly)
+        - market_intel -> (not used directly)
+        - verification_result -> verification_info
+        - is_convergent -> is_convergent (V9.5)
+        - convergence_sources -> convergence_sources (V9.5)
+    """
+    # Extract and convert keyword arguments
+    match_obj = kwargs.get('match')
+    score = kwargs.get('score')
+    league = kwargs.get('league', '') or getattr(match_obj, 'league', '')
+    
+    # Build news_summary from news_articles
+    news_articles = kwargs.get('news_articles', [])
+    news_summary = news_articles[0].get('snippet', '') if news_articles else ''
+    news_url = news_articles[0].get('link', '') if news_articles else ''
+    
+    # Extract optional parameters with defaults
+    combo_suggestion = kwargs.get('combo_suggestion')
+    combo_reasoning = kwargs.get('combo_reasoning')
+    recommended_market = kwargs.get('market') or kwargs.get('recommended_market')
+    math_edge = kwargs.get('math_edge')
+    is_update = kwargs.get('is_update', False)
+    financial_risk = kwargs.get('financial_risk')
+    intel_source = kwargs.get('intel_source', 'web')
+    referee_intel = kwargs.get('referee_intel')
+    twitter_intel = kwargs.get('twitter_intel')
+    validated_home_team = kwargs.get('validated_home_team')
+    validated_away_team = kwargs.get('validated_away_team')
+    verification_info = kwargs.get('verification_result')
+    injury_intel = kwargs.get('injury_impact_home') or kwargs.get('injury_impact_away')
+    confidence_breakdown = kwargs.get('confidence_breakdown')
+    
+    # V9.5: Extract convergence parameters
+    is_convergent = kwargs.get('is_convergent', False)
+    convergence_sources = kwargs.get('convergence_sources')
+    
+    # Call the actual send_alert function with positional arguments
+    send_alert(
+        match_obj=match_obj,
+        news_summary=news_summary,
+        news_url=news_url,
+        score=score,
+        league=league,
+        combo_suggestion=combo_suggestion,
+        combo_reasoning=combo_reasoning,
+        recommended_market=recommended_market,
+        math_edge=math_edge,
+        is_update=is_update,
+        financial_risk=financial_risk,
+        intel_source=intel_source,
+        referee_intel=referee_intel,
+        twitter_intel=twitter_intel,
+        validated_home_team=validated_home_team,
+        validated_away_team=validated_away_team,
+        verification_info=verification_info,
+        injury_intel=injury_intel,
+        confidence_breakdown=confidence_breakdown,
+        is_convergent=is_convergent,
+        convergence_sources=convergence_sources
+    )
 
 
 # ============================================
@@ -680,7 +821,9 @@ def send_alert(
     validated_away_team: Optional[str] = None,
     verification_info: Optional[Dict[str, Any]] = None,
     injury_intel: Optional[Dict[str, Any]] = None,
-    confidence_breakdown: Optional[Dict[str, Any]] = None
+    confidence_breakdown: Optional[Dict[str, Any]] = None,
+    is_convergent: bool = False,
+    convergence_sources: Optional[Dict[str, Any]] = None
 ) -> None:
     """
     Sends a formatted alert to Telegram with odds movement analysis.
@@ -705,6 +848,8 @@ def send_alert(
         verification_info: Verification Layer result (optional)
         injury_intel: Injury impact analysis (optional)
         confidence_breakdown: Confidence score breakdown (optional)
+        is_convergent: V9.5 - True if signal confirmed by both Web and Social sources (optional)
+        convergence_sources: V9.5 - Dict with web and social signal details (optional)
     """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping alert.")
@@ -751,12 +896,33 @@ def send_alert(
     verification_section = _build_verification_section(verification_info)
     breakdown_section = _build_confidence_breakdown_section(confidence_breakdown)
     date_line = _build_date_line(match_obj)
+    convergence_section = _build_convergence_section(is_convergent, convergence_sources)
 
-    # Intel source indicator
+    # Intel source indicator with enhanced attribution
     source_indicator = ""
     if intel_source and intel_source != "web":
-        source_emoji = {"telegram": "📡", "ocr": "🔍"}.get(intel_source, "📰")
-        source_indicator = f"{source_emoji} Fonte: {intel_source.upper()}\n"
+        source_emoji = {"telegram": "💬", "ocr": "🔍"}.get(intel_source, "📰")
+        source_indicator = f"{source_emoji} <b>Source:</b> {intel_source.upper()}\n"
+    
+    # V9.0: Enhanced source attribution with specific details
+    # Check for additional source details in twitter_intel or other sources
+    enhanced_source_section = ""
+    
+    if twitter_intel and isinstance(twitter_intel, dict):
+        tweets = twitter_intel.get('tweets', [])
+        if tweets and len(tweets) > 0:
+            # Extract handle from first tweet for attribution
+            first_tweet = tweets[0]
+            handle = first_tweet.get('handle', '')
+            if handle:
+                enhanced_source_section = f"🐦 <b>Insider:</b> {html.escape(handle)}\n"
+    
+    # If no enhanced source info, use the basic source_indicator
+    if not enhanced_source_section and source_indicator:
+        enhanced_source_section = source_indicator
+    elif not enhanced_source_section:
+        # Default to web source if no specific source provided
+        enhanced_source_section = "📡 <b>Source:</b> Web\n"
 
     # Header changes based on whether this is an update
     if is_update:
@@ -778,7 +944,8 @@ def send_alert(
         f"📊 <b>Punteggio: {score}/10</b>\n"
         f"{odds_line}"
         f"{movement['emoji']} <b>{movement['message']}</b>\n"
-        f"{source_indicator}"
+        f"{convergence_section}"  # V9.5: Cross-Source Convergence (prominent position)
+        f"{enhanced_source_section}"
         f"{bet_section}"
         f"{breakdown_section}"
         f"{injury_section}"
@@ -792,8 +959,9 @@ def send_alert(
     # Truncate if needed
     message = _truncate_message_if_needed(
         message, header, date_line, match_str, score, odds_line, movement,
-        source_indicator, bet_section, breakdown_section, injury_section,
-        referee_section, twitter_section, verification_section, news_summary_clean, news_link
+        enhanced_source_section, bet_section, breakdown_section, injury_section,
+        referee_section, twitter_section, verification_section, news_summary_clean, news_link,
+        convergence_section  # V9.5: Include convergence section in truncation
     )
 
     # Send to Telegram
