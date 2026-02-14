@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/base_budget_manager.py
+# hypothesis_version: 6.151.4
+
+[0.5, 100, 'Provider', 'main_pipeline', 'settlement_clv']

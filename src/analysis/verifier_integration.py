@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 from src.analysis.final_alert_verifier import get_final_verifier, is_final_verifier_available
 from src.database.models import Match, NewsLog
-from src.processing.sources_config import get_source_tier, get_source_weight
+from src.processing.sources_config import get_trust_score, get_source_weight
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +251,7 @@ def build_news_source_verification(
     domain = extract_domain_from_url(news_url)
     
     # Get source tier and weight from existing system
-    source_tier = get_source_tier(news_url)
+    source_tier = get_trust_score(news_url)
     source_weight = get_source_weight(news_url)
     
     # Determine reliability level based on weight

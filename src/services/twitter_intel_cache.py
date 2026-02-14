@@ -69,6 +69,61 @@ try:
 except ImportError as e:
     logging.debug(f"Tavily not available for Twitter recovery: {e}")
 
+# ============================================
+# SUPABASE SOCIAL SOURCES INTEGRATION (V10.0)
+# ============================================
+_SUPABASE_AVAILABLE = False
+_SUPABASE_PROVIDER = None
+
+try:
+    from src.database.supabase_provider import get_supabase
+    _SUPABASE_AVAILABLE = True
+    _SUPABASE_PROVIDER = get_supabase()
+    logging.info("✅ Supabase provider available for social sources")
+except ImportError:
+    logging.warning("⚠️ Supabase provider not available, using local config fallback")
+    _SUPABASE_AVAILABLE = False
+
+
+def get_social_sources_from_supabase(league_key: str = None) -> List[str]:
+    """
+    Fetch Twitter/X handles from Supabase social_sources table.
+    
+    Falls back to local twitter_intel_accounts.py if Supabase is unavailable.
+    
+    Args:
+        league_key: Optional league key for filtering
+        
+    Returns:
+        List of Twitter handles (with @)
+    """
+    # Try Supabase first
+    if _SUPABASE_AVAILABLE and _SUPABASE_PROVIDER:
+        try:
+            all_social_sources = _SUPABASE_PROVIDER.get_social_sources()
+            
+            if all_social_sources:
+                handles = []
+                for source in all_social_sources:
+                    # Note: Supabase field is 'identifier', not 'handle'
+                    identifier = source.get('identifier', '')
+                    if identifier and isinstance(identifier, str):
+                        # Ensure handle starts with @
+                        handle = identifier.strip()
+                        if not handle.startswith('@'):
+                            handle = f"@{handle.lstrip('@')}"
+                        handles.append(handle)
+                
+                logging.info(f"📡 [SUPABASE] Fetched {len(handles)} social sources")
+                return handles
+            
+        except Exception as e:
+            logging.warning(f"⚠️ [SUPABASE] Failed to fetch social sources: {e}")
+    
+    # Fallback to local config
+    logging.info(f"🔄 [FALLBACK] Using local twitter_intel_accounts.py")
+    return get_all_twitter_handles()
+
 
 class IntelRelevance(Enum):
     """Rilevanza dell'intel per un alert"""
@@ -270,7 +325,7 @@ class TwitterIntelCache:
             for handles in handles_by_country.values():
                 all_handles.extend(handles)
         else:
-            all_handles = get_all_twitter_handles()
+            all_handles = get_social_sources_from_supabase()
         
         logging.info(f"🐦 Querying {len(all_handles)} Twitter accounts via Gemini")
         
@@ -377,8 +432,8 @@ class TwitterIntelCache:
         try:
             # Usa il metodo dedicato extract_twitter_intel
             if hasattr(gemini_service, 'extract_twitter_intel'):
-                # Ottieni tutti gli handle
-                all_handles = get_all_twitter_handles()
+                # Ottieni tutti gli handle da Supabase
+                all_handles = get_social_sources_from_supabase()
                 return gemini_service.extract_twitter_intel(all_handles, max_posts_per_account=5)
             else:
                 logging.warning("🐦 Gemini service doesn't have extract_twitter_intel method")

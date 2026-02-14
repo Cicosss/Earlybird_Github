@@ -1,76 +1,21 @@
-2026-02-10 13:23:09,013 - config.settings - INFO - ✅ Loaded environment from .env file
-2026-02-10 13:23:09,964 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
-2026-02-10 13:23:09,972 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-02-10 13:23:10,315 - src.database.supabase_provider - INFO - Supabase connection established successfully
-2026-02-10 13:23:10,315 - root - INFO - ✅ Supabase provider available for social sources
-2026-02-10 13:23:10,709 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-02-10 13:23:10,717 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-02-10 13:23:10,760 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-02-10 13:23:10,790 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
-2026-02-10 13:23:10,867 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
-2026-02-10 13:23:10,867 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
-2026-02-10 13:23:10,867 - __main__ - INFO - ✅ Supabase Provider module loaded
-2026-02-10 13:23:10,867 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-02-10 13:23:10,869 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-02-10 13:23:10,869 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-02-10 13:23:10,869 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-02-10 13:23:10,869 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-02-10 13:23:10,869 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-02-10 13:23:10,869 - __main__ - INFO - ✅ Twitter Intel Cache loaded
-2026-02-10 21:17:10,826 - config.settings - INFO - ✅ Loaded environment from .env file
-2026-02-10 21:17:11,703 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
-2026-02-10 21:17:11,707 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-02-10 21:17:12,082 - src.database.supabase_provider - INFO - Supabase connection established successfully
-2026-02-10 21:17:12,083 - root - INFO - ✅ Supabase provider available for social sources
-2026-02-10 21:17:12,404 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-02-10 21:17:12,405 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-02-10 21:17:12,423 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-02-10 21:17:12,443 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
-2026-02-10 21:17:12,466 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
-2026-02-10 21:17:12,466 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
-2026-02-10 21:17:12,466 - __main__ - INFO - ✅ Supabase Provider module loaded
-2026-02-10 21:17:12,466 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-02-10 21:17:12,467 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-02-10 21:17:12,467 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-02-10 21:17:12,467 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-02-10 21:17:12,468 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-02-10 21:17:12,468 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-02-10 21:17:12,468 - __main__ - INFO - ✅ Twitter Intel Cache loaded
-2026-02-10 21:23:57,394 - config.settings - INFO - ✅ Loaded environment from .env file
-2026-02-10 21:23:58,067 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
-2026-02-10 21:23:58,070 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-02-10 21:23:58,325 - src.database.supabase_provider - INFO - Supabase connection established successfully
-2026-02-10 21:23:58,325 - root - INFO - ✅ Supabase provider available for social sources
-2026-02-10 21:23:58,547 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-02-10 21:23:58,548 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-02-10 21:23:58,562 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-02-10 21:23:58,581 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
-2026-02-10 21:23:58,598 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
-2026-02-10 21:23:58,599 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
-2026-02-10 21:23:58,599 - __main__ - INFO - ✅ Supabase Provider module loaded
-2026-02-10 21:23:58,599 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-02-10 21:23:58,599 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-02-10 21:23:58,599 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-02-10 21:23:58,599 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-02-10 21:23:58,599 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-02-10 21:23:58,600 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-02-10 21:23:58,600 - __main__ - INFO - ✅ Twitter Intel Cache loaded
-2026-02-10 22:57:22,053 - config.settings - INFO - ✅ Loaded environment from .env file
-2026-02-10 22:57:23,478 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
-2026-02-10 22:57:23,486 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-02-10 22:57:23,979 - src.database.supabase_provider - INFO - Supabase connection established successfully
-2026-02-10 22:57:23,979 - root - INFO - ✅ Supabase provider available for social sources
-2026-02-10 22:57:24,312 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-02-10 22:57:24,314 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-02-10 22:57:24,330 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-02-10 22:57:24,351 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
-2026-02-10 22:57:24,375 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
-2026-02-10 22:57:24,375 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
-2026-02-10 22:57:24,375 - src.main - INFO - ✅ Supabase Provider module loaded
-2026-02-10 22:57:24,375 - src.main - INFO - ✅ Intelligence Router module loaded
-2026-02-10 22:57:24,377 - src.main - INFO - ✅ Intelligent Deduplication module loaded
-2026-02-10 22:57:24,377 - src.main - INFO - ✅ Market Intelligence module loaded
-2026-02-10 22:57:24,377 - src.main - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-02-10 22:57:24,377 - src.main - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-02-10 22:57:24,377 - src.main - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-02-10 22:57:24,378 - src.main - INFO - ✅ Twitter Intel Cache loaded
+2026-02-14 09:56:21,590 - config.settings - INFO - ✅ Loaded environment from .env file
+2026-02-14 09:56:21,891 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-14 09:56:21,896 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-14 09:56:21,898 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-14 09:56:21,917 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-14 09:56:22,095 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-14 09:56:22,097 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-14 09:56:22,148 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-14 09:56:22,231 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-14 09:56:22,232 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-14 09:56:22,233 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-14 09:56:22,236 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-14 09:56:22,236 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-14 09:56:22,242 - __main__ - INFO - ✅ Supabase Provider module loaded
+2026-02-14 09:56:22,243 - __main__ - INFO - ✅ Intelligence Router module loaded
+2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
+2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Market Intelligence module loaded
+2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-02-14 09:56:22,250 - __main__ - INFO - ✅ Twitter Intel Cache loaded

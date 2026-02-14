@@ -518,10 +518,10 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
     
     if ODDS_API_KEY == "YOUR_ODDS_API_KEY" or not ODDS_API_KEY:
         if os.getenv("USE_MOCK_DATA") == "true":
-             logging.warning("Odds API Key not set (or MOCK flag). Using MOCK data.")
-             from src.mocks import MOCK_MATCHES
-             logging.warning("Mock mode enabled but odds tracking requires real API.")
-             return
+              logging.warning("Odds API Key not set (or MOCK flag). Using MOCK data.")
+              from src.testing.mocks import MOCK_MATCHES
+              logging.warning("Mock mode enabled but odds tracking requires real API.")
+              return
         logging.error("❌ ODDS_API_KEY not configured!")
         return
 

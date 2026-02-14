@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-02-10T22:55:45.983911",
+  "timestamp": "2026-02-14T13:35:30.687043",
   "version": "V9.5",
-  "checksum": "da77c3a847ede322db563dcf71acea0b982747f1bce011e055eb31af78573e8b",
+  "checksum": "a9de9e02eec0d494c0d72de30008c3c217ef2446db70c317e94bad3b1b3e380e",
   "data": {
     "continents": [
       {
@@ -853,7 +853,427 @@
         "updated_at": "2026-02-07T15:53:07.248368+00:00"
       }
     ],
-    "sources": [
+    "social_sources": [
+      {
+        "id": "7f92506a-11b3-48d2-8c3a-991039aae3be",
+        "league_id": "48acf624-4442-466d-9604-3bbf2c116d7a",
+        "platform": "twitter",
+        "identifier": "Victorg_Lessa",
+        "source_name": "Victor Lessa",
+        "description": "Radio and digital setorista for Fluminense since 2018; uses X for real-time probable lineups, medical bulletins, travel plans and internal board decisions around the club's day-to-day operations, complementing his \"Canal do Lessa\" coverage. youtube",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:12.00862+00:00",
+        "updated_at": "2026-02-07T23:30:12.00862+00:00"
+      },
+      {
+        "id": "9881f50c-ce0f-458d-a18b-511c86430d49",
+        "league_id": "48acf624-4442-466d-9604-3bbf2c116d7a",
+        "platform": "twitter",
+        "identifier": "cahemota",
+        "source_name": "Cahê Mota",
+        "description": "GloboEsporte reporter long associated with Flamengo coverage and now Seleção beat; frequently cited by fans as a top-tier source for Flamengo dressing-room issues, contract talks and closed-door meetings, including internal player-coach summits. reddit",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:12.226811+00:00",
+        "updated_at": "2026-02-07T23:30:12.226811+00:00"
+      },
+      {
+        "id": "f3402be9-eac6-4386-a0dc-20e8dccb9576",
+        "league_id": "e3224ce0-6536-4bc3-aaef-66045d64e42b",
+        "platform": "twitter",
+        "identifier": "marcosbonocore",
+        "source_name": "Marcos Bonocore",
+        "description": "Field reporter and day-to-day cronista de campo for Boca Juniors at TNT Sports; positioned at training and match venues, he provides constant pitch-side updates on Boca's medical reports, matchday squads and governance news around La Bombonera. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:12.424834+00:00",
+        "updated_at": "2026-02-07T23:30:12.424834+00:00"
+      },
+      {
+        "id": "903a64ab-b615-468a-969c-31e51ebb2467",
+        "league_id": "4b6f37db-d1f3-42b5-9495-987ef260fb2f",
+        "platform": "twitter",
+        "identifier": "DiegoArmaMedina",
+        "source_name": "Diego Armando Medina",
+        "description": "Narrator and reporter for TUDN/RG La Deportiva focusing on Rayados de Monterrey; reports from training sessions, mixed zones and travel camps with logistics details around Club World Cup preparations, injuries and internal decisions at Estadio BBVA. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:28:18.360388+00:00",
+        "updated_at": "2026-02-07T23:28:18.360388+00:00"
+      },
+      {
+        "id": "68a05f42-8080-4d83-bf50-fb3a9fc8d8c2",
+        "league_id": "a13b70f1-409d-4bca-9c96-7f4e310225d1",
+        "platform": "twitter",
+        "identifier": "hilalstuff",
+        "source_name": "أخبار الهلال (Akhbar Al Hilal)",
+        "description": "Large independent news platform dedicated to Al Hilal; posts high-frequency, minute-by-minute updates on official statements, matchday squads, medical reports and training schedules, acting as a de facto real-time wire for Roshn League information on the club. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:12.919278+00:00",
+        "updated_at": "2026-02-07T23:30:12.919278+00:00"
+      },
+      {
+        "id": "36082557-b289-46f1-9f20-36f018001c16",
+        "league_id": "b565bc28-085e-49e1-bf69-602bbf3e5a8e",
+        "platform": "twitter",
+        "identifier": "HotpotFootball",
+        "source_name": "HOTPOT FOOTBALL",
+        "description": "English-language hub for Chinese football news focusing on Team China, Chinese Super League and lower tiers; aggregates and translates local reports on club financial issues, coaching changes, ACL travel incidents and player registrations with timely, factual threads. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:13.121236+00:00",
+        "updated_at": "2026-02-07T23:30:13.121236+00:00"
+      },
+      {
+        "id": "b0f749a0-6c81-4e60-9668-8c6e0d28418c",
+        "league_id": "423fe13e-a0ca-4618-a2e2-6b8ed1912f76",
+        "platform": "twitter",
+        "identifier": "aishiterutokyo",
+        "source_name": "Dan Orlowitz",
+        "description": "Japan-based football journalist covering J1/J2 and the Samurai Blue; known for on-the-ground reporting from Japanese stadiums and training grounds, including lineup leaks, visa/travel complications and ACL logistics for J-League clubs. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:13.313103+00:00",
+        "updated_at": "2026-02-07T23:30:13.313103+00:00"
+      },
+      {
+        "id": "fbf28dcc-8487-44e6-937b-65d07f15438e",
+        "league_id": "889b4134-6f2c-4ef4-a016-2e983b07877f",
+        "platform": "twitter",
+        "identifier": "joeylynchy",
+        "source_name": "Joey Lynch",
+        "description": "Melbourne-based freelance journalist who writes on Australian domestic football for major outlets; uses X to relay breaking A-League squad news, stadium and travel disruptions and Australia Cup scheduling/rotation details, often directly from mixed zones and training. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:28:18.930411+00:00",
+        "updated_at": "2026-02-07T23:28:18.930411+00:00"
+      },
+      {
+        "id": "2c915475-a039-487a-b89d-56916f28b254",
+        "league_id": "423fe13e-a0ca-4618-a2e2-6b8ed1912f76",
+        "platform": "twitter",
+        "identifier": "JohnnyDuerden",
+        "source_name": "John Duerden",
+        "description": "Veteran Asian football correspondent for The Guardian, AP and others; travels across Roshn League, CSL, J-League and AFC competitions, providing context-rich reporting on coaching changes, club travel to continental fixtures and broader governance issues in Asian football. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:28:19.168775+00:00",
+        "updated_at": "2026-02-07T23:28:19.168775+00:00"
+      },
+      {
+        "id": "5719d91d-ace7-425c-9a51-0a09b0a2db51",
+        "league_id": "132e4982-686c-4b34-b826-b546adbcbb9a",
+        "platform": "twitter",
+        "identifier": "JohnnyDuerden",
+        "source_name": "John Duerden",
+        "description": "Veteran Asian football correspondent for The Guardian, AP and others; travels across Roshn League, CSL, J-League and AFC competitions, providing context-rich reporting on coaching changes, club travel to continental fixtures and broader governance issues in Asian football. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:13.835847+00:00",
+        "updated_at": "2026-02-07T23:30:13.835847+00:00"
+      },
+      {
+        "id": "35e462cb-c217-45bc-aef8-2046cecca628",
+        "league_id": "0f4e0d8f-0af2-453d-b7ca-0b0e3eacc6ec",
+        "platform": "twitter",
+        "identifier": "JohnnyDuerden",
+        "source_name": "John Duerden",
+        "description": "Veteran Asian football correspondent for The Guardian, AP and others; travels across Roshn League, CSL, J-League and AFC competitions, providing context-rich reporting on coaching changes, club travel to continental fixtures and broader governance issues in Asian football. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:13.936321+00:00",
+        "updated_at": "2026-02-07T23:30:13.936321+00:00"
+      },
+      {
+        "id": "cd3b2973-3f71-4bc3-932f-5a41ff7ddeb4",
+        "league_id": "0e0d79e0-0b8e-495d-b3c6-a6c9ff1734c4",
+        "platform": "twitter",
+        "identifier": "King_Fut",
+        "source_name": "KingFut.com",
+        "description": "Cairo-based English-language outlet founded by Egyptian journalists; recognised as a leading source on Egyptian football, publishing fast medical updates, transfer details and match coverage for Al Ahly, Zamalek and other Premier League clubs, plus Saudi-based Egyptians. en.wikipedia",
+        "is_active": true,
+        "created_at": "2026-02-07T23:28:19.364551+00:00",
+        "updated_at": "2026-02-07T23:28:19.364551+00:00"
+      },
+      {
+        "id": "8fc781c0-8659-4b1d-b214-d3d52c19f4f2",
+        "league_id": "885281ba-25e8-49aa-b183-d416c033aa3c",
+        "platform": "twitter",
+        "identifier": "Velile_Mnyandu",
+        "source_name": "Velile Mnyandu",
+        "description": "Senior SABC Sport journalist and chair of SAFJA who regularly reports from Johannesburg-area training grounds; provides verified information on PSL squad availability, CAF travel, stadium readiness and board decisions affecting clubs like Kaizer Chiefs, Orlando Pirates and Sundowns. sabcsport",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:14.354226+00:00",
+        "updated_at": "2026-02-07T23:30:14.354226+00:00"
+      },
+      {
+        "id": "9512a00e-f5f7-4d86-804a-c65809deb360",
+        "league_id": "885281ba-25e8-49aa-b183-d416c033aa3c",
+        "platform": "twitter",
+        "identifier": "PanAfricaFooty",
+        "source_name": "Pan-Africa Football",
+        "description": "X extension of panafricafootball.com covering CAF Champions League, Confederation Cup and major domestic leagues; shares timely information on travel delays, fixture moves, crowd sanctions and locker-room disputes across North, West and Southern African clubs. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:14.765749+00:00",
+        "updated_at": "2026-02-07T23:30:14.765749+00:00"
+      },
+      {
+        "id": "de96ec69-4406-4c9a-be11-97f323ea6f09",
+        "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
+        "platform": "twitter",
+        "identifier": "PanAfricaFooty",
+        "source_name": "Pan-Africa Football",
+        "description": "X extension of panafricafootball.com covering CAF Champions League, Confederation Cup and major domestic leagues; shares timely information on travel delays, fixture moves, crowd sanctions and locker-room disputes across North, West and Southern African clubs. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:14.863996+00:00",
+        "updated_at": "2026-02-07T23:30:14.863996+00:00"
+      },
+      {
+        "id": "c79af9c9-1c0c-4f37-88ca-405226f798d9",
+        "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
+        "platform": "twitter",
+        "identifier": "NPFL_News",
+        "source_name": "NPFL News",
+        "description": "Media & news company specializzata sulla Nigeria Premier Football League. L'account X è un hub per risultati, classifiche, notizie su stadi utilizzabili, problemi di illuminazione, incidenti di viaggio, proteste dei giocatori e aggiornamenti live che spesso evidenziano boicottaggi salariali, ritardi di pagamento e controversie organizzative.",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:14.559157+00:00",
+        "updated_at": "2026-02-07T23:30:14.559157+00:00"
+      },
+      {
+        "id": "3ef21dc3-3cc5-4e05-8589-74a6f3bab206",
+        "league_id": "b9361389-16f5-4695-9fb2-89a31723cdd9",
+        "platform": "twitter",
+        "identifier": "PanAfricaFooty",
+        "source_name": "Pan-Africa Football",
+        "description": "X extension of panafricafootball.com covering CAF Champions League, Confederation Cup and major domestic leagues; shares timely information on travel delays, fixture moves, crowd sanctions and locker-room disputes across North, West and Southern African clubs. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:14.961291+00:00",
+        "updated_at": "2026-02-07T23:30:14.961291+00:00"
+      },
+      {
+        "id": "81626436-ed03-41ca-aa74-7fc7b0ef548f",
+        "league_id": "53ca6d1a-95b8-4733-b6b5-f29cbea53a77",
+        "platform": "twitter",
+        "identifier": "PanAfricaFooty",
+        "source_name": "Pan-Africa Football",
+        "description": "X extension of panafricafootball.com covering CAF Champions League, Confederation Cup and major domestic leagues; shares timely information on travel delays, fixture moves, crowd sanctions and locker-room disputes across North, West and Southern African clubs. x",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:15.072685+00:00",
+        "updated_at": "2026-02-07T23:30:15.072685+00:00"
+      },
+      {
+        "id": "de68d774-9e22-43b3-b607-795a9f767599",
+        "league_id": "48acf624-4442-466d-9604-3bbf2c116d7a",
+        "platform": "twitter",
+        "identifier": "venecasagrande",
+        "source_name": "Venê Casagrande",
+        "description": "Setorista/beat writer embedded with Flamengo since 2017; regularly breaks team sheets, injury updates, transfer negotiations and internal Ninho do Urubu training-camp information ahead of official channels, with a track record of detailed backroom reporting. pt.wikipedia",
+        "is_active": true,
+        "created_at": "2026-02-07T23:30:11.798058+00:00",
+        "updated_at": "2026-02-07T23:30:11.798058+00:00"
+      },
+      {
+        "id": "58e48891-6825-4c54-aae0-3701820fc400",
+        "league_id": "0ca757e7-0aba-4530-8fef-d73437e3469f",
+        "platform": "twitter",
+        "identifier": "lions_talk_",
+        "source_name": "Lionstalk",
+        "description": "Independent analyst focused on Moroccan football with emphasis on Botola Pro and national-team corridors; tweets granular scouting notes, youth promotions, disciplinary issues and stadium/club governance details, and authors long-form Botola analyses for Football Talent Scout. footballtalentscout",
+        "is_active": true,
+        "created_at": "2026-02-07T23:51:14.244648+00:00",
+        "updated_at": "2026-02-07T23:51:14.244648+00:00"
+      },
+      {
+        "id": "58fef5e7-41ae-4468-b73d-1d86b1a16069",
+        "league_id": "819a1be4-2624-413d-9b1c-9c599e645864",
+        "platform": "twitter",
+        "identifier": "SoloAscenso",
+        "source_name": "Solo Ascenso",
+        "description": "Sitio web líder del fútbol de ascenso argentino con red di cronisti su tutte le categorie dalla Primera Nacional in giù. Pubblica ogni giorno notizie di spogliatoio, problemi di campo, posticipi/anticipi, scioperi e questioni contrattuali dei club dell'ascenso, con copertura live partita per partita.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:45.051492+00:00",
+        "updated_at": "2026-02-08T11:37:45.051492+00:00"
+      },
+      {
+        "id": "e5656dc0-8f20-4d7f-9acd-83e7a53ce801",
+        "league_id": "819a1be4-2624-413d-9b1c-9c599e645864",
+        "platform": "twitter",
+        "identifier": "mundoascenso",
+        "source_name": "Mundo Ascenso",
+        "description": "Media e programma streaming dedicato al fútbol de ascenso (Primera Nacional, B, C, D, Federal, Copa Argentina). L'account X aggiorna in tempo reale con cronache, interviste, voci di mercato e contenziosi nei club dell'ascenso, spesso con informazioni di campo prima dei media generalisti.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:45.586793+00:00",
+        "updated_at": "2026-02-08T11:37:45.586793+00:00"
+      },
+      {
+        "id": "8ca9cc83-f7a8-43e6-8987-1146df49796f",
+        "league_id": "b8c5a6b7-64ae-41a3-b041-a0b8def60c56",
+        "platform": "twitter",
+        "identifier": "DeChalaca",
+        "source_name": "DeChalaca",
+        "description": "Portale e radio web specializzati nel calcio peruviano (Liga 1, Liga 2, Liga 3 e Copa Perú), con telecronache e commenti tecnici in diretta. L'account X trasmette aggiornamenti su licenze, stadi inagibili, decisioni federali, spostamenti di sede e situazioni disciplinari che impattano squadre di provincia e top club.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:46.048621+00:00",
+        "updated_at": "2026-02-08T11:37:46.048621+00:00"
+      },
+      {
+        "id": "ae5499f3-e403-43a6-8b11-c737926a6a1f",
+        "league_id": "b54ad0f1-9bda-43d8-81f0-a7e7657e1ea7",
+        "platform": "twitter",
+        "identifier": "encanchacl",
+        "source_name": "En Cancha",
+        "description": "Sito sportivo indipendente cileno con desk dedicato al fútbol chileno. L'account X pubblica con alta frequenza notizie su allenatori in bilico, problemi di sicurezza, squalifiche, polemiche arbitrali e questioni societarie che coinvolgono club di media/bassa classifica, spesso con taglio più rapido rispetto ai grandi media generalisti.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:46.367142+00:00",
+        "updated_at": "2026-02-08T11:37:46.367142+00:00"
+      },
+      {
+        "id": "7051888e-9f60-4b5b-a29b-46aa44dfa78e",
+        "league_id": "48d022ab-8f81-4b06-a653-4a6deb097b03",
+        "platform": "twitter",
+        "identifier": "ovacionuy",
+        "source_name": "OVACIÓN",
+        "description": "Sezione sportiva del quotidiano El País e uno dei riferimenti assoluti per il calcio uruguaiano. L'account segue quotidianamente Peñarol, Nacional e il resto della Primera con focus su cambi tecnici, crisi societarie, decisioni disciplinari, trattative avanzate e problematiche logistiche (trasferte, stadi, orari).",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:46.854931+00:00",
+        "updated_at": "2026-02-08T11:37:46.854931+00:00"
+      },
+      {
+        "id": "51ce4468-72c4-4491-becd-d2a763ece82d",
+        "league_id": "0f4e0d8f-0af2-453d-b7ca-0b0e3eacc6ec",
+        "platform": "twitter",
+        "identifier": "FDL_KSA",
+        "source_name": "دوري يلو (First Division League)",
+        "description": "Account ufficiale della Saudi First Division (Yelo League/FDL): pubblica calendari, classifiche, comunicati disciplinari, promozioni/retrocessioni e note organizzative. Fonte primaria per rinvii dell'ultima ora, squalifiche del campo e variazioni di sede nel secondo livello saudita.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:47.225513+00:00",
+        "updated_at": "2026-02-08T11:37:47.225513+00:00"
+      },
+      {
+        "id": "83e5b2ba-9c2f-4ba8-b15c-c664c8dcd5ff",
+        "league_id": "53f29f19-043c-4092-a74f-c0afa5516837",
+        "platform": "twitter",
+        "identifier": "JSoccerMagazine",
+        "source_name": "JSoccerMagazine / JSoccer.com",
+        "description": "Media indipendente con base in Giappone che copre J1, J2 e J3, con oltre trent'anni di esperienza nel calcio giapponese. Fornisce analisi tattiche, notizie di infortunati, movimenti di mercato e cambi di allenatore, con attenzione particolare anche ai club dell'area di Osaka e ai giocatori nel giro della nazionale.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:47.680234+00:00",
+        "updated_at": "2026-02-08T11:37:47.680234+00:00"
+      },
+      {
+        "id": "5ccfba6a-8fbc-4d30-8500-396fee63dd3f",
+        "league_id": "53f29f19-043c-4092-a74f-c0afa5516837",
+        "platform": "twitter",
+        "identifier": "J_League_En",
+        "source_name": "J.LEAGUE International (English)",
+        "description": "Profilo internazionale in inglese della J.League: segue J1 ma comunica regolarmente anche su promozioni/retrocessioni e situazioni chiave in J2. Utile per monitorare giocatori emergenti, convocazioni nei vari livelli della nazionale e decisioni strutturali della lega che impattano la seconda divisione.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:48.126453+00:00",
+        "updated_at": "2026-02-08T11:37:48.126453+00:00"
+      },
+      {
+        "id": "a10a66fa-c3ed-413c-b4ed-d18e1a504417",
+        "league_id": "47b6bc8f-6634-4cf2-bc26-93043d19f788",
+        "platform": "twitter",
+        "identifier": "KLeagueUnited",
+        "source_name": "K League United",
+        "description": "Sito e redazione indipendente in inglese dedicata al calcio sudcoreano. L'account copre K League 1 e 2 con report dettagliati, infortuni, mercato, cambi di allenatore e focus sul collegamento con la nazionale coreana, con particolare profondità su club di Seoul e dell'area metropolitana.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:48.527296+00:00",
+        "updated_at": "2026-02-08T11:37:48.527296+00:00"
+      },
+      {
+        "id": "585fb5ad-0105-45c7-8788-5801b31508a9",
+        "league_id": "a13b70f1-409d-4bca-9c96-7f4e310225d1",
+        "platform": "twitter",
+        "identifier": "TheAsianGame",
+        "source_name": "The Asian Game",
+        "description": "Piattaforma editoriale e podcast che copre l'intero calcio asiatico, con forte focus su nazionali, CT, call-up, controversie federali e diritti TV. L'account X rilancia e spesso anticipa notizie su esoneri, dispute tra allenatori e dirigenti e cambi regolamentari che interessano Arabia Saudita, Giappone, Corea, Emirati e altre leghe emergenti.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:49.850141+00:00",
+        "updated_at": "2026-02-08T11:37:49.850141+00:00"
+      },
+      {
+        "id": "d166e8a1-f360-48f7-ba16-55c5b6e8bcc8",
+        "league_id": "423fe13e-a0ca-4618-a2e2-6b8ed1912f76",
+        "platform": "twitter",
+        "identifier": "TheAsianGame",
+        "source_name": "The Asian Game",
+        "description": "Piattaforma editoriale e podcast che copre l'intero calcio asiatico, con forte focus su nazionali, CT, call-up, controversie federali e diritti TV. L'account X rilancia e spesso anticipa notizie su esoneri, dispute tra allenatori e dirigenti e cambi regolamentari che interessano Arabia Saudita, Giappone, Corea, Emirati e altre leghe emergenti.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:49.989587+00:00",
+        "updated_at": "2026-02-08T11:37:49.989587+00:00"
+      },
+      {
+        "id": "cb68af43-02fb-4cfa-b4af-5dc8bfc994b0",
+        "league_id": "47b6bc8f-6634-4cf2-bc26-93043d19f788",
+        "platform": "twitter",
+        "identifier": "TheAsianGame",
+        "source_name": "The Asian Game",
+        "description": "Piattaforma editoriale e podcast che copre l'intero calcio asiatico, con forte focus su nazionali, CT, call-up, controversie federali e diritti TV. L'account X rilancia e spesso anticipa notizie su esoneri, dispute tra allenatori e dirigenti e cambi regolamentari che interessano Arabia Saudita, Giappone, Corea, Emirati e altre leghe emergenti.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:50.109363+00:00",
+        "updated_at": "2026-02-08T11:37:50.109363+00:00"
+      },
+      {
+        "id": "f47385a2-0ad8-4d6c-9523-0bd75f16400c",
+        "league_id": "69da76b2-c0ae-4617-8ea5-b2abb9616c77",
+        "platform": "twitter",
+        "identifier": "TheAsianGame",
+        "source_name": "The Asian Game",
+        "description": "Piattaforma editoriale e podcast che copre l'intero calcio asiatico, con forte focus su nazionali, CT, call-up, controversie federali e diritti TV. L'account X rilancia e spesso anticipa notizie su esoneri, dispute tra allenatori e dirigenti e cambi regolamentari che interessano Arabia Saudita, Giappone, Corea, Emirati e altre leghe emergenti.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:50.233985+00:00",
+        "updated_at": "2026-02-08T11:37:50.233985+00:00"
+      },
+      {
+        "id": "c2f42502-061e-45e9-b867-9f5cd1a88dea",
+        "league_id": "69da76b2-c0ae-4617-8ea5-b2abb9616c77",
+        "platform": "twitter",
+        "identifier": "UAEProleague_En",
+        "source_name": "UAE Pro League (English)",
+        "description": "Account ufficiale in inglese della UAE Pro League: comunica designazioni, variazioni di calendario, squalifiche, annunci di premi e informazioni formali sulle squadre della massima serie emiratina. Sorgente diretta per aggiornamenti su stadi non omologati, spostamenti orari e misure disciplinari.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:50.603666+00:00",
+        "updated_at": "2026-02-08T11:37:50.603666+00:00"
+      },
+      {
+        "id": "9f53a0df-056e-4c7b-8cd7-68a341871ec8",
+        "league_id": "0ca757e7-0aba-4530-8fef-d73437e3469f",
+        "platform": "twitter",
+        "identifier": "Elboutola",
+        "source_name": "البطولة - Elbotola",
+        "description": "Primo portale sportivo elettronico del Marocco, con rete di corrispondenti che coprono Botola Pro e competizioni CAF. L'account X è molto rapido nel riportare problemi di pagamenti, ricorsi disciplinari, sospensioni di stadi, incidenti logistici nelle trasferte e comunicati urgenti dei club, spesso prima dei media francofoni internazionali.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:50.937097+00:00",
+        "updated_at": "2026-02-08T11:37:50.937097+00:00"
+      },
+      {
+        "id": "a829c8e2-fb8d-42da-bc93-bd27559f0869",
+        "league_id": "34bf5f07-8ef0-46ff-9189-97d3f7578efd",
+        "platform": "twitter",
+        "identifier": "DZfoot",
+        "source_name": "DZfoot",
+        "description": "Storico pure-player sul calcio algerino, online dal 1999, oggi riferimento per Ligue 1, nazionale e giocatori algerini all'estero. L'account pubblica in modo serrato news su esoneri, crisi societarie, mercato, sanzioni CAF/LFP e problemi infrastrutturali negli stadi algerini.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:51.296501+00:00",
+        "updated_at": "2026-02-08T11:37:51.296501+00:00"
+      },
+      {
+        "id": "0dbc2546-155c-4b77-a0ce-a7ca968aa5dc",
+        "league_id": "f20267a6-003a-424a-9706-3f1f4238e027",
+        "platform": "twitter",
+        "identifier": "King_Fut",
+        "source_name": "KingFut.com",
+        "description": "Sito in inglese dedicato allo sport egiziano, con core sul calcio locale e sugli egiziani all'estero. L'account X copre Egyptian Premier League e Second Division A con aggiornamenti su convocazioni, infortuni, affari di mercato e situazioni disciplinari, oltre al collegamento continuo con la nazionale egiziana.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:51.684055+00:00",
+        "updated_at": "2026-02-08T11:37:51.684055+00:00"
+      },
+      {
+        "id": "597e3be0-8a8e-4b25-8b1f-3256a1e29fd5",
+        "league_id": "60c0d42f-09f1-4ace-9b86-638aaa28bdaa",
+        "platform": "twitter",
+        "identifier": "TNFOOT_",
+        "source_name": "TN FOOT",
+        "description": "Account di news focalizzato esclusivamente sul calcio tunisino: nazionale, Ligue 1 e giocatori tunisini all'estero. Pubblica in tempo reale aggiornamenti su pre-convocazioni, trasferimenti, squalifiche, problemi di gestione nei club e decisioni della FTF, risultando un ottimo insider per leggere in anticipo tensioni sportive e logistiche nella Ligue 1.",
+        "is_active": true,
+        "created_at": "2026-02-08T11:37:52.313438+00:00",
+        "updated_at": "2026-02-08T11:37:52.313438+00:00"
+      }
+    ],
+    "news_sources": [
       {
         "id": "8d18a2b2-1c59-4787-be87-dbc5961c39ee",
         "league_id": "4b6f37db-d1f3-42b5-9495-987ef260fb2f",

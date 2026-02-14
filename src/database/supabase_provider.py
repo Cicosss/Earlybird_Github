@@ -454,7 +454,7 @@ class SupabaseProvider:
             "continents": continents,
             "countries": self.fetch_countries(),
             "leagues": self.fetch_leagues(),
-            "sources": self.fetch_sources()
+            "news_sources": self.fetch_sources()
         }
         self._save_to_mirror(mirror_data)
         
@@ -745,7 +745,6 @@ class SupabaseProvider:
                 "continents": self.fetch_continents(),
                 "countries": self.fetch_countries(),
                 "leagues": self.fetch_leagues(),
-                "sources": self.fetch_sources(),
                 "social_sources": self.get_social_sources(),
                 "news_sources": self.fetch_all_news_sources()
             }
@@ -793,7 +792,6 @@ class SupabaseProvider:
                 "continents": self.fetch_continents(),
                 "countries": self.fetch_countries(),
                 "leagues": self.fetch_leagues(),
-                "sources": self.fetch_sources(),
                 "social_sources": self.get_social_sources(),
                 "news_sources": self.fetch_all_news_sources()
             }

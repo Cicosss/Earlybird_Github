@@ -38,7 +38,7 @@ PROCESS_CANDIDATES = [
     },
     {
         'key': 'bot',
-        'scripts': ['src/run_bot.py'],
+        'scripts': ['src/entrypoints/run_bot.py'],
         'name': 'Telegram Bot (Comandi)'
     },
     {

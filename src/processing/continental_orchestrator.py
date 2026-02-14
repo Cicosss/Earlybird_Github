@@ -164,7 +164,8 @@ class ContinentalOrchestrator:
                             logger.warning(f"   ❌ {invalid['league']}: {invalid['error']}")
                     
                     # Update local mirror at start of successful cycle
-                    mirror_updated = self.supabase_provider.update_mirror(force=False)
+                    # Force=True ensures fresh intelligence from Supabase (Source of Truth)
+                    mirror_updated = self.supabase_provider.update_mirror(force=True)
                     if mirror_updated:
                         logger.info("✅ Local mirror updated successfully")
                     else:

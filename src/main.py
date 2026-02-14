@@ -860,8 +860,8 @@ def run_pipeline():
         
         # 5. TIER 2 FALLBACK (V4.3)
         # If no Tier 1 alerts were sent, try Tier 2 leagues
-        
-        if tier1_alerts_sent == 0 and should_activate_tier2_fallback():
+
+        if tier1_alerts_sent == 0 and should_activate_tier2_fallback(tier1_alerts_sent, tier1_high_potential_count):
             logging.info("🔄 Activating Tier 2 Fallback...")
             
             tier2_batch = get_tier2_fallback_batch(max_leagues=3)

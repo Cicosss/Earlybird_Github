@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/__init__.py
+# hypothesis_version: 6.151.4
+
+['BraveSearchProvider', 'MediastackProvider', 'PerplexityProvider', 'SearchProvider', 'TavilyProvider', 'get_brave_provider', 'get_data_provider', 'get_search_provider', 'get_tavily_provider', 'ingest_fixtures', 'is_elite_league']

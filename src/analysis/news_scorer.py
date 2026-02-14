@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 
-from src.processing.sources_config import get_source_tier, SourceTier, DEFAULT_SOURCE_TIER
+from src.processing.sources_config import get_trust_score, SourceTier, DEFAULT_SOURCE_TIER
 
 logger = logging.getLogger(__name__)
 
@@ -111,16 +111,16 @@ def _score_source(url: str) -> tuple[float, SourceTier]:
     """
     Score the news source credibility (0-3 points).
     
-    TIER 1 sources: 3 points
-    TIER 2 sources: 2 points  
-    TIER 3 sources: 1 point
+    TIER 1 sources (in Supabase white-list): 3 points
+    TIER 3 sources (not in white-list): 1 point
+    
+    Note: TIER 2 has been eliminated - sources are either in white-list (Tier 1)
+    or not (Tier 3). This is the "Zero-Maintenance Credibility Strategy".
     """
-    tier_info = get_source_tier(url)
+    tier_info = get_trust_score(url)
     
     if tier_info.tier == 1:
         return 3.0, tier_info
-    elif tier_info.tier == 2:
-        return 2.0, tier_info
     else:
         return 1.0, tier_info
 

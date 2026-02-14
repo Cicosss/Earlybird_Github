@@ -1160,12 +1160,17 @@ class DeepSeekFallback:
         
         return data
     
-    async def analyze_v2(self, content: str, timeout: int = 60, max_retries: int = 2) -> Optional[Dict[str, Any]]:
+    async def analyze_v2(self, content: str, timeout: int = 60, max_retries: int = 3) -> Optional[Dict[str, Any]]:
         """
         V2.0: Analyze content with structured extraction.
         
         V2.1 FIX: Added retry logic with exponential backoff for network errors and empty responses.
         Prevents permanent failures due to temporary network issues or API timeouts.
+        
+        V2.2 FIX (2026-02-14): Enhanced empty response handling with:
+        - Increased default max_retries from 2 to 3 (4 total attempts)
+        - Added jitter to backoff to prevent thundering herd
+        - Enhanced logging with raw response details for debugging
         
         Returns dict with:
         - is_high_value: bool
@@ -1185,7 +1190,7 @@ class DeepSeekFallback:
         Args:
             content: The text content to analyze
             timeout: Maximum time to wait for API response in seconds (default: 60)
-            max_retries: Maximum number of retries for network errors and empty responses (default: 2)
+            max_retries: Maximum number of retries for network errors and empty responses (default: 3)
         """
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
@@ -1235,8 +1240,12 @@ class DeepSeekFallback:
                     logger.error(f"❌ [NEWS-RADAR] DeepSeek HTTP error: {response.status_code}")
                     last_error = ValueError(f"HTTP {response.status_code}")
                     if retry_count < max_retries:
-                        backoff_time = 2 ** retry_count  # 1s, 2s, 4s
-                        logger.warning(f"⏳ Retrying in {backoff_time}s after HTTP error...")
+                        # V2.2 FIX: Exponential backoff with jitter
+                        import random
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s after HTTP error...")
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
                         continue
@@ -1248,8 +1257,12 @@ class DeepSeekFallback:
                     logger.error(f"❌ [NEWS-RADAR] DeepSeek returned invalid JSON: {e}")
                     last_error = e
                     if retry_count < max_retries:
-                        backoff_time = 2 ** retry_count
-                        logger.warning(f"⏳ Retrying in {backoff_time}s after JSON error...")
+                        # V2.2 FIX: Exponential backoff with jitter
+                        import random
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s after JSON error...")
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
                         continue
@@ -1261,8 +1274,12 @@ class DeepSeekFallback:
                     logger.warning("⚠️ [NEWS-RADAR] DeepSeek response missing 'choices'")
                     last_error = ValueError("Missing choices in response")
                     if retry_count < max_retries:
-                        backoff_time = 2 ** retry_count
-                        logger.warning(f"⏳ Retrying in {backoff_time}s...")
+                        # V2.2 FIX: Exponential backoff with jitter
+                        import random
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s...")
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
                         continue
@@ -1273,8 +1290,12 @@ class DeepSeekFallback:
                     logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek invalid choice format")
                     last_error = ValueError("Invalid choice format")
                     if retry_count < max_retries:
-                        backoff_time = 2 ** retry_count
-                        logger.warning(f"⏳ Retrying in {backoff_time}s...")
+                        # V2.2 FIX: Exponential backoff with jitter
+                        import random
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s...")
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
                         continue
@@ -1285,8 +1306,12 @@ class DeepSeekFallback:
                     logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek invalid message format")
                     last_error = ValueError("Invalid message format")
                     if retry_count < max_retries:
-                        backoff_time = 2 ** retry_count
-                        logger.warning(f"⏳ Retrying in {backoff_time}s...")
+                        # V2.2 FIX: Exponential backoff with jitter
+                        import random
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s...")
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
                         continue
@@ -1294,13 +1319,25 @@ class DeepSeekFallback:
                 
                 response_text = message.get("content", "")
                 
-                # V2.1 FIX: Validate response is not empty
+                # V2.2 FIX: Enhanced empty response validation with detailed logging
                 if not response_text or not response_text.strip():
                     logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek returned empty response (attempt {retry_count + 1}/{max_retries + 1})")
+                    
+                    # V2.2 FIX: Log raw response details for debugging
+                    try:
+                        logger.debug(f"🔍 [DEBUG] Raw response data: {data}")
+                        logger.debug(f"🔍 [DEBUG] Response text: '{response_text}' (len={len(response_text)})")
+                    except Exception as debug_e:
+                        logger.debug(f"🔍 [DEBUG] Could not log raw response: {debug_e}")
+                    
                     last_error = ValueError("Empty response from API")
                     if retry_count < max_retries:
-                        backoff_time = 2 ** retry_count
-                        logger.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                        # V2.2 FIX: Exponential backoff with jitter to prevent thundering herd
+                        import random
+                        base_backoff = 2 ** retry_count  # 1s, 2s, 4s, etc.
+                        jitter = random.uniform(0, 0.5)  # Add 0-0.5s random jitter
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
                         continue
@@ -1320,8 +1357,12 @@ class DeepSeekFallback:
                 logger.warning(f"⚠️ [NEWS-RADAR] DeepSeek timeout after {timeout}s (attempt {retry_count + 1}/{max_retries + 1})")
                 last_error = TimeoutError(f"Timeout after {timeout}s")
                 if retry_count < max_retries:
-                    backoff_time = 2 ** retry_count
-                    logger.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                    # V2.2 FIX: Exponential backoff with jitter
+                    import random
+                    base_backoff = 2 ** retry_count
+                    jitter = random.uniform(0, 0.5)
+                    backoff_time = base_backoff + jitter
+                    logger.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
                     await asyncio.sleep(backoff_time)
                     retry_count += 1
                     continue
@@ -1331,8 +1372,12 @@ class DeepSeekFallback:
                 logger.error(f"❌ [NEWS-RADAR] DeepSeek network error: {e} (attempt {retry_count + 1}/{max_retries + 1})")
                 last_error = e
                 if retry_count < max_retries:
-                    backoff_time = 2 ** retry_count
-                    logger.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                    # V2.2 FIX: Exponential backoff with jitter
+                    import random
+                    base_backoff = 2 ** retry_count
+                    jitter = random.uniform(0, 0.5)
+                    backoff_time = base_backoff + jitter
+                    logger.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
                     await asyncio.sleep(backoff_time)
                     retry_count += 1
                     continue

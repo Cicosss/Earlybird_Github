@@ -8,5 +8,25 @@
     "team": "Kaizer Chiefs",
     "type": "KEY_RETURN",
     "timestamp": "2026-02-10T12:27:10.158499+00:00"
+  },
+  "https://onefootball.com/en/news/on-a-night-of-stunning-goals-boca-reserves-thrash-riestra-42390995": {
+    "team": "Boca Juniors",
+    "type": "B_TEAM",
+    "timestamp": "2026-02-14T08:59:08.112481+00:00"
+  },
+  "https://onefootball.com/en/news/ubeda-backs-aranda-to-give-xeneize-a-new-look-42404101": {
+    "team": "Boca Juniors",
+    "type": "B_TEAM",
+    "timestamp": "2026-02-14T08:59:45.571352+00:00"
+  },
+  "https://www.record.pt/futebol/futebol-nacional/coluna-distrital/detalhe/af-aveiro-afetada-pelo-mau-tempo-crac-e-beira-vouga-com-danos-nas-instalacoes-e-treinos-suspensos": {
+    "team": "CRAC",
+    "type": "CRISIS",
+    "timestamp": "2026-02-14T09:01:35.635007+00:00"
+  },
+  "https://www.kickoff.com/world-news/africa-news/benni-mccarthy-set-to-join-rulani-in-algeria": {
+    "team": "Manchester United",
+    "type": "B_TEAM",
+    "timestamp": "2026-02-14T09:03:06.852959+00:00"
   }
 }

@@ -34,4 +34,4 @@ export PYTHONPATH="${PYTHONPATH}:."
 
 # Avvia l'orchestratore Python
 # Gestisce internamente il riavvio dei sotto-processi
-python3 src/launcher.py
+python3 src/entrypoints/launcher.py

@@ -378,7 +378,7 @@ class MediastackProvider:
         cache_key = hashlib.sha256(content.encode('utf-8')).hexdigest()
         
         # Check if content is already seen
-        return self._shared_cache.is_seen(content=cache_key, source="mediastack")
+        return self._shared_cache.is_duplicate(content=cache_key, source="mediastack")
     
     def _mark_seen(self, content: str) -> None:
         """

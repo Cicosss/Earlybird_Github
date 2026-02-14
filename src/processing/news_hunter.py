@@ -181,6 +181,61 @@ def get_social_sources_from_supabase(league_key: str) -> List[str]:
     return all_handles
 
 
+def get_news_sources_from_supabase(league_key: str) -> List[str]:
+    """
+    Fetch news sources (domains) from Supabase news_sources table.
+    
+    Falls back to local sources_config.py if Supabase is unavailable
+    or the news_sources table doesn't exist yet.
+    
+    Args:
+        league_key: API league key (e.g., 'soccer_turkey_super_league')
+        
+    Returns:
+        List of domain names for site-dorking
+    """
+    # Try Supabase first
+    if _SUPABASE_AVAILABLE and _SUPABASE_PROVIDER:
+        try:
+            # Fetch all leagues to find the matching league_id
+            all_leagues = _SUPABASE_PROVIDER.fetch_leagues()
+            
+            # Find league by api_key
+            league_id = None
+            for league in all_leagues:
+                if league.get('api_key') == league_key:
+                    league_id = league.get('id')
+                    break
+            
+            if league_id:
+                # Fetch news sources for this league
+                news_sources = _SUPABASE_PROVIDER.get_news_sources(league_id)
+                
+                # Extract domains from news sources
+                domains = []
+                for source in news_sources:
+                    domain = source.get('domain', '')
+                    is_active = source.get('is_active', True)
+                    
+                    if domain and isinstance(domain, str) and is_active:
+                        domains.append(domain)
+                
+                if domains:
+                    logging.info(f"📡 [SUPABASE] Fetched {len(domains)} news sources from Supabase for {league_key}")
+                    return domains
+                else:
+                    logging.info(f"📡 [SUPABASE] No active news sources found for {league_key}")
+            else:
+                logging.warning(f"⚠️ [SUPABASE] No league found with api_key={league_key}")
+                
+        except Exception as e:
+            logging.warning(f"⚠️ [SUPABASE] Failed to fetch news sources: {e}")
+    
+    # Fallback to local sources_config.py
+    logging.info(f"🔄 [FALLBACK] Using local sources_config.py for {league_key}")
+    return get_sources_for_league(league_key)
+
+
 def get_beat_writers_from_supabase(league_key: str) -> List[BeatWriter]:
     """
     Fetch beat writers from Supabase social_sources table.
@@ -1489,7 +1544,7 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> List[D
         List of merged news results
     """
     if os.getenv("USE_MOCK_DATA") == "true":
-        from src.mocks import MOCK_SEARCH_RESULTS
+        from src.testing.mocks import MOCK_SEARCH_RESULTS
         return MOCK_SEARCH_RESULTS.get(match_id, [])
 
     # Determine search backend
@@ -1498,8 +1553,8 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> List[D
         logging.warning("No search backend available (DDG down, Serper exhausted)")
         return []
     
-    # Get local sources and keywords for this league
-    sources = get_sources_for_league(league_key)
+    # Get sources and keywords for this league (Supabase with fallback to local)
+    sources = get_news_sources_from_supabase(league_key)
     keywords = get_keywords_for_league(league_key)
     country = get_country_from_league(league_key)
     

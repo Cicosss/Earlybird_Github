@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/services/__init__.py
+# hypothesis_version: 6.151.4
+
+['BrowserMonitor', 'NewsRadarMonitor', 'capture_kickoff_odds', 'get_browser_monitor']

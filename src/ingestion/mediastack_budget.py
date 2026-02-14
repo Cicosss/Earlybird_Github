@@ -1,14 +1,12 @@
 """
-MediaStack Budget Manager - V1.0
+MediaStack Budget Manager - V1.1
 
 Tracks MediaStack API usage across components (monitoring only).
 MediaStack is FREE unlimited tier - no throttling implemented.
 
-Requirements: Standard library only (no new dependencies)
+Requirements: Refactored to inherit from BaseBudgetManager (V1.1)
 """
 import logging
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from config.settings import (
@@ -16,31 +14,19 @@ from config.settings import (
     MEDIASTACK_BUDGET_ALLOCATION,
 )
 
+from .base_budget_manager import BaseBudgetManager, BudgetStatus
+
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class BudgetStatus:
-    """Budget status for monitoring."""
-
-    monthly_used: int
-    monthly_limit: int
-    daily_used: int
-    daily_limit: int
-    is_degraded: bool
-    is_disabled: bool
-    usage_percentage: float
-    component_usage: Dict[str, int]
-
-
-class MediaStackBudget:
+class MediaStackBudget(BaseBudgetManager):
     """
     Tracks MediaStack API usage across components.
 
     MediaStack is FREE unlimited tier - this is for monitoring only.
     No throttling is implemented.
 
-    Requirements: Standard library only
+    Requirements: Refactored to inherit from BaseBudgetManager (V1.1)
     """
 
     def __init__(
@@ -53,25 +39,21 @@ class MediaStackBudget:
         Args:
             allocations: Per-component budget allocations (for monitoring)
         """
-        # MediaStack is free unlimited - set limit to 0 for monitoring
-        self._monthly_limit = 0  # 0 = unlimited
-        self._monthly_used = 0
-        self._daily_used = 0
-        self._last_reset_day: Optional[int] = None
-        self._last_reset_month: Optional[int] = None
-
-        # Per-component tracking
-        self._allocations = allocations or MEDIASTACK_BUDGET_ALLOCATION
-        self._component_usage: Dict[str, int] = {
-            component: 0 for component in self._allocations
-        }
-
-        logger.info(
-            f"📊 MediaStackBudget initialized: {len(self._allocations)} components "
-            f"(monitoring only - free unlimited tier)"
+        super().__init__(
+            monthly_limit=0,  # 0 = unlimited
+            allocations=allocations or MEDIASTACK_BUDGET_ALLOCATION,
+            provider_name="MediaStack",
         )
 
-    def can_call(self, component: str) -> bool:
+    def get_degraded_threshold(self) -> float:
+        """MediaStack is unlimited - no degraded threshold."""
+        return 0.0
+
+    def get_disabled_threshold(self) -> float:
+        """MediaStack is unlimited - no disabled threshold."""
+        return 0.0
+
+    def can_call(self, component: str, is_critical: bool = False) -> bool:
         """
         Check if component can make a MediaStack call.
 
@@ -80,6 +62,7 @@ class MediaStackBudget:
 
         Args:
             component: Component name (e.g., 'search_provider')
+            is_critical: Ignored for MediaStack
 
         Returns:
             Always True (MediaStack is free unlimited)
@@ -87,86 +70,14 @@ class MediaStackBudget:
         self._check_daily_reset()
         return True  # MediaStack is free unlimited
 
-    def record_call(self, component: str) -> None:
-        """
-        Record a MediaStack API call.
-
-        Args:
-            component: Component that made the call
-        """
-        self._check_daily_reset()
-
-        self._monthly_used += 1
-        self._daily_used += 1
-
-        if component in self._component_usage:
-            self._component_usage[component] += 1
-        else:
-            self._component_usage[component] = 1
-
-        # Log milestone usage
-        if self._monthly_used % 100 == 0:
-            logger.info(f"📊 [MEDIASTACK] Usage: {self._monthly_used} calls (monitoring)")
-
-    def get_status(self) -> BudgetStatus:
-        """
-        Get budget status for monitoring.
-
-        Returns:
-            BudgetStatus with current usage information
-        """
-        usage_pct = 0.0  # MediaStack is unlimited
-
-        return BudgetStatus(
-            monthly_used=self._monthly_used,
-            monthly_limit=self._monthly_limit,
-            daily_used=self._daily_used,
-            daily_limit=0,  # No limit
-            is_degraded=False,
-            is_disabled=False,
-            usage_percentage=usage_pct,
-            component_usage=dict(self._component_usage),
-        )
-
     def reset_daily(self) -> None:
         """
         Reset daily counters.
         """
         self._daily_used = 0
+        from datetime import datetime, timezone
         self._last_reset_day = datetime.now(timezone.utc).day
         logger.info("📅 MediaStack budget: Daily reset")
-
-    def reset_monthly(self) -> None:
-        """
-        Reset monthly counters.
-        """
-        self._monthly_used = 0
-        self._daily_used = 0  # Also reset daily counter
-        self._component_usage = {component: 0 for component in self._allocations}
-        self._last_reset_month = datetime.now(timezone.utc).month
-        logger.info("📅 MediaStack budget: Monthly reset")
-
-    def _check_daily_reset(self) -> None:
-        """
-        Check if we've crossed a day boundary and reset if needed.
-        """
-        current_day = datetime.now(timezone.utc).day
-
-        if self._last_reset_day is None:
-            self._last_reset_day = current_day
-        elif current_day != self._last_reset_day:
-            self.reset_daily()
-
-    def _check_monthly_reset(self) -> None:
-        """
-        Check if we've crossed a month boundary and reset if needed.
-        """
-        current_month = datetime.now(timezone.utc).month
-
-        if self._last_reset_month is None:
-            self._last_reset_month = current_month
-        elif current_month != self._last_reset_month:
-            self.reset_monthly()
 
 
 # ============================================
@@ -178,7 +89,7 @@ _budget_instance: Optional[MediaStackBudget] = None
 
 def get_mediastack_budget() -> MediaStackBudget:
     """
-    Get or create the singleton MediaStackBudget instance.
+    Get or create singleton MediaStackBudget instance.
 
     Returns:
         Singleton instance of MediaStackBudget

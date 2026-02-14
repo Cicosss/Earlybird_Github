@@ -14,8 +14,11 @@ Usage:
     from src.processing.sources_config import get_sources_for_league
     sources = get_sources_for_league("soccer_argentina_primera_division")
 """
-from typing import List, Optional
+from typing import List, Optional, Set, Dict, Any
 from dataclasses import dataclass
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -62,6 +65,10 @@ class BeatWriter:
 # This database now contains OFFICIAL/VERIFIED accounts that post quickly,
 # NOT insider sources. Reliability scores are estimates based on account activity.
 
+# DEPRECATED: Intelligence now managed via Supabase
+# This dictionary serves as FALLBACK ONLY when Supabase is unavailable
+# Last updated: 2026-02-13
+# Migration status: Graceful degradation active
 BEAT_WRITERS_DB = {
     "turkey": [
         # Official accounts - fast but not "insider"
@@ -111,6 +118,10 @@ BEAT_WRITERS_DB = {
 # ============================================
 # Elite 6 leagues + seasonal/hybrid for Radar support
 
+# DEPRECATED: Intelligence now managed via Supabase
+# This dictionary serves as FALLBACK ONLY when Supabase is unavailable
+# Last updated: 2026-02-13
+# Migration status: Graceful degradation active
 LOCAL_SOURCES_MAPPING = {
     # ============================================
     # ELITE 6 LEAGUES
@@ -200,6 +211,10 @@ NATIVE_KEYWORDS = {
 # Real leaks come from anonymous club insiders, not journalists.
 # These handles are for OFFICIAL accounts that post quickly, not insiders.
 
+# DEPRECATED: Intelligence now managed via Supabase
+# This dictionary serves as FALLBACK ONLY when Supabase is unavailable
+# Last updated: 2026-02-13
+# Migration status: Graceful degradation active
 INSIDER_HANDLES = {
     "argentina": [
         "@TyCSports",           # TyC Sports - Official (fast on breaking news)
@@ -578,103 +593,245 @@ class SourceTier:
     tier: int           # 1, 2, or 3
     weight: float       # 0.0-1.0 credibility multiplier
     source_type: str    # "official", "newspaper", "broadcaster", "aggregator", "blog"
-    
-SOURCE_TIERS_DB = {
-    # ============================================
-    # TIER 1 - Official & Major Broadcasters (weight 1.0)
-    # ============================================
-    # These sources have direct access or official status
-    "aleagues.com.au": SourceTier(1, 1.0, "official"),
-    "bbc.com": SourceTier(1, 1.0, "broadcaster"),
-    "bbc.co.uk": SourceTier(1, 1.0, "broadcaster"),
-    "sky.it": SourceTier(1, 1.0, "broadcaster"),
-    "skysports.com": SourceTier(1, 1.0, "broadcaster"),
-    "espn.com": SourceTier(1, 0.95, "broadcaster"),
-    "espn.com.mx": SourceTier(1, 0.95, "broadcaster"),
-    "nikkansports.com": SourceTier(1, 0.95, "official"),
-    
-    # ============================================
-    # TIER 2 - Major Sports Newspapers (weight 0.8)
-    # ============================================
-    # Reputable newspapers with sports sections
-    "gazzetta.it": SourceTier(2, 0.85, "newspaper"),
-    "gazzetta.gr": SourceTier(2, 0.85, "newspaper"),
-    "ole.com.ar": SourceTier(2, 0.85, "newspaper"),
-    "tycsports.com": SourceTier(2, 0.85, "broadcaster"),
-    "mediotiempo.com": SourceTier(2, 0.85, "newspaper"),
-    "record.com.mx": SourceTier(2, 0.80, "newspaper"),
-    "fanatik.com.tr": SourceTier(2, 0.80, "newspaper"),
-    "sporx.com": SourceTier(2, 0.80, "newspaper"),
-    "sdna.gr": SourceTier(2, 0.80, "newspaper"),
-    "contra.gr": SourceTier(2, 0.75, "newspaper"),
-    "dailyrecord.co.uk": SourceTier(2, 0.80, "newspaper"),
-    "thescottishsun.co.uk": SourceTier(2, 0.75, "newspaper"),
-    "foxsports.com.au": SourceTier(2, 0.85, "broadcaster"),
-    "keepup.com.au": SourceTier(2, 0.80, "newspaper"),
-    "lance.com.br": SourceTier(2, 0.80, "newspaper"),
-    "globoesporte.globo.com": SourceTier(2, 0.85, "broadcaster"),
-    "football-italia.net": SourceTier(2, 0.80, "aggregator"),
-    "yallakora.com": SourceTier(2, 0.80, "newspaper"),
-    "filgoal.com": SourceTier(2, 0.80, "newspaper"),
-    "kingfut.com": SourceTier(2, 0.75, "newspaper"),
-    "infobae.com": SourceTier(2, 0.75, "newspaper"),
-    "sabah.com.tr": SourceTier(2, 0.75, "newspaper"),
-    "soccerdigestweb.com": SourceTier(2, 0.80, "newspaper"),
-    "football-zone.net": SourceTier(2, 0.75, "newspaper"),
-    
-    # ============================================
-    # TIER 3 - Aggregators & Blogs (weight 0.5)
-    # ============================================
-    # Less reliable, often repost from other sources
-    "twitter.com": SourceTier(3, 0.6, "social"),  # Variable - depends on account
-    "x.com": SourceTier(3, 0.6, "social"),
-    "reddit.com": SourceTier(3, 0.4, "social"),
-    "dongqiudi.com": SourceTier(3, 0.6, "aggregator"),
-    "calciomercato.com": SourceTier(3, 0.5, "aggregator"),
-    "transfermarkt.com": SourceTier(3, 0.7, "database"),  # Good for data, not breaking news
-}
-
-# Default tier for unknown sources
-DEFAULT_SOURCE_TIER = SourceTier(3, 0.5, "unknown")
 
 
-def get_source_tier(url: str) -> SourceTier:
+# ============================================
+# V9.5: WHITE-LIST CACHING (Zero-Maintenance Strategy)
+# ============================================
+# All sources in Supabase are Tier 1 (Maximum Trust)
+# This eliminates the need for manual SOURCE_TIERS_DB maintenance
+
+_TRUSTED_DOMAINS_CACHE: Set[str] = set()
+_TRUSTED_HANDLES_CACHE: Set[str] = set()
+_WHITE_LIST_INITIALIZED = False
+
+
+def _initialize_white_list() -> None:
     """
-    Get the credibility tier for a news source URL.
+    Initialize white-list cache from Supabase.
+    
+    Fetches all news_sources (domains) and social_sources (handles)
+    and caches them in memory for fast lookups.
+    """
+    global _TRUSTED_DOMAINS_CACHE, _TRUSTED_HANDLES_CACHE, _WHITE_LIST_INITIALIZED
+    
+    if _WHITE_LIST_INITIALIZED:
+        return
+    
+    try:
+        from src.database.supabase_provider import get_supabase
+        supabase = get_supabase()
+        
+        # Fetch all news sources (domains)
+        all_news_sources = supabase.fetch_all_news_sources()
+        for source in all_news_sources:
+            domain = source.get('domain', '').strip().lower()
+            if domain:
+                # Remove www. prefix for normalization
+                if domain.startswith('www.'):
+                    domain = domain[4:]
+                _TRUSTED_DOMAINS_CACHE.add(domain)
+        
+        # Fetch all social sources (Twitter handles)
+        all_social_sources = supabase.get_social_sources()
+        for source in all_social_sources:
+            handle = source.get('identifier', '').strip().lower()
+            if handle:
+                # Ensure handle starts with @
+                if not handle.startswith('@'):
+                    handle = f"@{handle.lstrip('@')}"
+                _TRUSTED_HANDLES_CACHE.add(handle)
+        
+        _WHITE_LIST_INITIALIZED = True
+        logger.info(f"✅ [WHITE-LIST] Initialized with {len(_TRUSTED_DOMAINS_CACHE)} domains and {len(_TRUSTED_HANDLES_CACHE)} handles")
+        
+    except Exception as e:
+        logger.warning(f"⚠️ [WHITE-LIST] Failed to initialize from Supabase: {e}")
+        # Fall back to empty cache - will use DEFAULT_SOURCE_TIER
+
+
+def get_trust_score(url_or_handle: str) -> SourceTier:
+    """
+    Get trust score for a source using white-list logic.
+    
+    RULE: If source is in Supabase (news_sources or social_sources),
+    it's Tier 1 (Maximum Trust). Otherwise, it's Tier 3 (Low Trust).
     
     Args:
-        url: Full URL or domain of the news source
+        url_or_handle: Full URL, domain, or Twitter handle of the source
         
     Returns:
         SourceTier with tier, weight, and source_type
     """
-    if not url:
+    # Initialize white-list on first call
+    if not _WHITE_LIST_INITIALIZED:
+        _initialize_white_list()
+    
+    if not url_or_handle:
         return DEFAULT_SOURCE_TIER
     
-    # Extract domain from URL
-    url_lower = url.lower()
+    # Normalize input
+    normalized = url_or_handle.strip().lower()
     
+    # Check if it's a Twitter handle
+    if normalized.startswith('@') or normalized.startswith('twitter.com/') or normalized.startswith('x.com/'):
+        # Extract handle
+        if normalized.startswith('@'):
+            handle = normalized
+        elif 'twitter.com/' in normalized:
+            handle = f"@{normalized.split('twitter.com/')[1].split('/')[0]}"
+        elif 'x.com/' in normalized:
+            handle = f"@{normalized.split('x.com/')[1].split('/')[0]}"
+        else:
+            handle = normalized
+        
+        # Check white-list
+        if handle in _TRUSTED_HANDLES_CACHE:
+            return SourceTier(1, 1.0, "social")
+        else:
+            return SourceTier(3, 0.5, "social")
+    
+    # It's a URL/domain
     # Remove protocol
-    if "://" in url_lower:
-        url_lower = url_lower.split("://")[1]
+    if "://" in normalized:
+        normalized = normalized.split("://")[1]
     
     # Remove path
-    domain = url_lower.split("/")[0]
+    domain = normalized.split("/")[0]
     
     # Remove www.
     if domain.startswith("www."):
         domain = domain[4:]
     
-    # Check exact match first
-    if domain in SOURCE_TIERS_DB:
-        return SOURCE_TIERS_DB[domain]
+    # Check white-list
+    if domain in _TRUSTED_DOMAINS_CACHE:
+        return SourceTier(1, 1.0, "official")
     
-    # Check if domain ends with any known domain (for subdomains)
-    for known_domain, tier in SOURCE_TIERS_DB.items():
-        if domain.endswith(known_domain) or known_domain in domain:
-            return tier
-    
-    return DEFAULT_SOURCE_TIER
+    # Not in white-list - return Tier 3 (Low Trust)
+    return SourceTier(3, 0.5, "unknown")
+
+# ============================================
+# V8.1: SOURCE TIERS DATABASE (DEPRECATED - REPLACED BY WHITE-LIST)
+# ============================================
+# Assigns credibility tier and weight to news sources.
+# Used by news_scorer.py to calculate news importance.
+#
+# TIER 1 (weight 1.0): Official club/league sources, major broadcasters
+# TIER 2 (weight 0.8): Reputable sports newspapers, beat writers
+# TIER 3 (weight 0.5): Aggregators, blogs, unverified sources
+#
+# Format: domain -> (tier, weight, source_type)
+#
+# DEPRECATED: Now using Supabase white-list strategy (get_trust_score)
+# All sources in Supabase are Tier 1 (Maximum Trust)
+# This dictionary is kept for reference but no longer used
+# Last updated: 2026-02-13
+# Migration status: Replaced by white-list logic
+
+# SOURCE_TIERS_DB = {
+#     # ============================================
+#     # TIER 1 - Official & Major Broadcasters (weight 1.0)
+#     # ============================================
+#     # These sources have direct access or official status
+#     "aleagues.com.au": SourceTier(1, 1.0, "official"),
+#     "bbc.com": SourceTier(1, 1.0, "broadcaster"),
+#     "bbc.co.uk": SourceTier(1, 1.0, "broadcaster"),
+#     "sky.it": SourceTier(1, 1.0, "broadcaster"),
+#     "skysports.com": SourceTier(1, 1.0, "broadcaster"),
+#     "espn.com": SourceTier(1, 0.95, "broadcaster"),
+#     "espn.com.mx": SourceTier(1, 0.95, "broadcaster"),
+#     "nikkansports.com": SourceTier(1, 0.95, "official"),
+#
+#     # ============================================
+#     # TIER 2 - Major Sports Newspapers (weight 0.8)
+#     # ============================================
+#     # Reputable newspapers with sports sections
+#     "gazzetta.it": SourceTier(2, 0.85, "newspaper"),
+#     "gazzetta.gr": SourceTier(2, 0.85, "newspaper"),
+#     "ole.com.ar": SourceTier(2, 0.85, "newspaper"),
+#     "tycsports.com": SourceTier(2, 0.85, "broadcaster"),
+#     "mediotiempo.com": SourceTier(2, 0.85, "newspaper"),
+#     "record.com.mx": SourceTier(2, 0.80, "newspaper"),
+#     "fanatik.com.tr": SourceTier(2, 0.80, "newspaper"),
+#     "sporx.com": SourceTier(2, 0.80, "newspaper"),
+#     "sdna.gr": SourceTier(2, 0.80, "newspaper"),
+#     "contra.gr": SourceTier(2, 0.75, "newspaper"),
+#     "dailyrecord.co.uk": SourceTier(2, 0.80, "newspaper"),
+#     "thescottishsun.co.uk": SourceTier(2, 0.75, "newspaper"),
+#     "foxsports.com.au": SourceTier(2, 0.85, "broadcaster"),
+#     "keepup.com.au": SourceTier(2, 0.80, "newspaper"),
+#     "lance.com.br": SourceTier(2, 0.80, "newspaper"),
+#     "globoesporte.globo.com": SourceTier(2, 0.85, "broadcaster"),
+#     "football-italia.net": SourceTier(2, 0.80, "aggregator"),
+#     "yallakora.com": SourceTier(2, 0.80, "newspaper"),
+#     "filgoal.com": SourceTier(2, 0.80, "newspaper"),
+#     "kingfut.com": SourceTier(2, 0.75, "newspaper"),
+#     "infobae.com": SourceTier(2, 0.75, "newspaper"),
+#     "sabah.com.tr": SourceTier(2, 0.75, "newspaper"),
+#     "soccerdigestweb.com": SourceTier(2, 0.80, "newspaper"),
+#     "football-zone.net": SourceTier(2, 0.75, "newspaper"),
+#
+#     # ============================================
+#     # TIER 3 - Aggregators & Blogs (weight 0.5)
+#     # ============================================
+#     # Less reliable, often repost from other sources
+#     "twitter.com": SourceTier(3, 0.6, "social"),  # Variable - depends on account
+#     "x.com": SourceTier(3, 0.6, "social"),
+#     "reddit.com": SourceTier(3, 0.4, "social"),
+#     "dongqiudi.com": SourceTier(3, 0.6, "aggregator"),
+#     "calciomercato.com": SourceTier(3, 0.5, "aggregator"),
+#     "transfermarkt.com": SourceTier(3, 0.7, "database"),  # Good for data, not breaking news
+# }
+
+# Default tier for unknown sources
+DEFAULT_SOURCE_TIER = SourceTier(3, 0.5, "unknown")
+
+
+# ============================================
+# DEPRECATED: get_source_tier() - REPLACED BY get_trust_score()
+# ============================================
+# This function has been replaced by get_trust_score() which uses
+# Supabase white-list logic instead of local SOURCE_TIERS_DB
+# Last updated: 2026-02-13
+# Migration status: Replaced by white-list logic
+
+# def get_source_tier(url: str) -> SourceTier:
+#     """
+#     Get the credibility tier for a news source URL.
+#
+#     Args:
+#         url: Full URL or domain of the news source
+#
+#     Returns:
+#         SourceTier with tier, weight, and source_type
+#     """
+#     if not url:
+#         return DEFAULT_SOURCE_TIER
+#
+#     # Extract domain from URL
+#     url_lower = url.lower()
+#
+#     # Remove protocol
+#     if "://" in url_lower:
+#         url_lower = url_lower.split("://")[1]
+#
+#     # Remove path
+#     domain = url_lower.split("/")[0]
+#
+#     # Remove www.
+#     if domain.startswith("www."):
+#         domain = domain[4:]
+#
+#     # Check exact match first
+#     if domain in SOURCE_TIERS_DB:
+#         return SOURCE_TIERS_DB[domain]
+#
+#     # Check if domain ends with any known domain (for subdomains)
+#     for known_domain, tier in SOURCE_TIERS_DB.items():
+#         if domain.endswith(known_domain) or known_domain in domain:
+#             return tier
+#
+#     return DEFAULT_SOURCE_TIER
 
 
 def get_source_weight(url: str) -> float:
@@ -687,7 +844,7 @@ def get_source_weight(url: str) -> float:
     Returns:
         Credibility weight between 0.0 and 1.0
     """
-    return get_source_tier(url).weight
+    return get_trust_score(url).weight
 
 
 # ============================================

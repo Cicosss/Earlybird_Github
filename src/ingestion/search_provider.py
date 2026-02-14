@@ -19,6 +19,7 @@ import html
 import logging
 import os
 import random
+import re
 from typing import List, Dict, Optional
 import time
 from urllib.parse import quote
@@ -39,6 +40,111 @@ except ImportError as e:
     _SUPABASE_PROVIDER_AVAILABLE = False
     get_supabase = None
     logger.warning(f"⚠️ Supabase Provider not available: {e}")
+
+# ============================================
+# V10.0: SUPABASE NEWS SOURCES FETCHING WITH FALLBACK
+# ============================================
+
+def _get_league_id_from_key(league_key: str) -> Optional[str]:
+    """
+    Map league_key (e.g., 'soccer_brazil_campeonato') to league_id (UUID).
+    
+    Args:
+        league_key: API league key
+        
+    Returns:
+        League UUID or None if not found
+    """
+    if not _SUPABASE_PROVIDER_AVAILABLE:
+        return None
+    
+    try:
+        sb = get_supabase()
+        if not sb:
+            return None
+        
+        leagues = sb.get_active_leagues()
+        
+        # Find league with matching api_key
+        for league in leagues:
+            if league.get('api_key') == league_key:
+                return league.get('id')
+        
+        return None
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to map league_key to league_id: {e}")
+        return None
+
+
+def _fetch_news_sources_from_supabase(league_key: str) -> Optional[List[str]]:
+    """
+    Fetch news source domains for a specific league from Supabase.
+    
+    Args:
+        league_key: API league key (e.g., 'soccer_brazil_campeonato')
+        
+    Returns:
+        List of domain names or None if Supabase unavailable
+    """
+    if not _SUPABASE_PROVIDER_AVAILABLE:
+        return None
+    
+    try:
+        sb = get_supabase()
+        if not sb:
+            return None
+        
+        # Map league_key to league_id
+        league_id = _get_league_id_from_key(league_key)
+        if not league_id:
+            return None
+        
+        # Fetch news sources for this league
+        news_sources = sb.get_news_sources(league_id)
+        
+        # Extract domain names
+        domains = []
+        for source in news_sources:
+            domain = source.get('domain')
+            if domain and source.get('is_active'):
+                domains.append(domain)
+        
+        if domains:
+            logger.info(f"✅ [SUPABASE] Fetched {len(domains)} news sources for {league_key}")
+            return domains
+        else:
+            return None
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to fetch news sources from Supabase: {e}")
+        return None
+
+
+def get_news_domains_for_league(league_key: str) -> List[str]:
+    """
+    Get news source domains for a specific league with Supabase-first strategy.
+    
+    Priority:
+    1. Try Supabase (news_sources table)
+    2. Fallback to hardcoded LEAGUE_DOMAINS
+    
+    Args:
+        league_key: API league key (e.g., 'soccer_brazil_campeonato')
+        
+    Returns:
+        List of domain names
+    """
+    # Try Supabase first
+    domains_from_supabase = _fetch_news_sources_from_supabase(league_key)
+    
+    if domains_from_supabase:
+        return domains_from_supabase
+    
+    # Fallback to hardcoded list
+    if league_key in LEAGUE_DOMAINS:
+        logger.info(f"🔄 [FALLBACK] Using hardcoded LEAGUE_DOMAINS for {league_key}")
+        return LEAGUE_DOMAINS[league_key]
+    
+    return []
 
 # ============================================
 # CONFIGURATION
@@ -302,9 +408,67 @@ class SearchProvider:
     # ============================================
     # LAYER 1: DUCKDUCKGO (Secondary - Free Fallback)
     # ============================================
+    def _optimize_query_for_ddg(self, query: str) -> str:
+        """Optimize query for DuckDuckGo to avoid length limit errors.
+
+        DuckDuckGo rejects queries longer than ~300 characters.
+        This function progressively simplifies the query to fit within limits.
+
+        Args:
+            query: Original query string
+
+        Returns:
+            Optimized query string that fits within DDG limits
+        """
+        DDG_MAX_LENGTH = 280  # Safe limit below DDG's ~300 char threshold
+        original_length = len(query)
+
+        if original_length <= DDG_MAX_LENGTH:
+            return query
+
+        logger.info(f"[DDG-OPT] Query too long ({original_length} chars), optimizing...")
+
+        # Step 1: Remove SPORT_EXCLUSION_TERMS (~250 chars)
+        if SPORT_EXCLUSION_TERMS in query:
+            optimized = query.replace(SPORT_EXCLUSION_TERMS, "")
+            if len(optimized) <= DDG_MAX_LENGTH:
+                logger.info(f"[DDG-OPT] Removed sport exclusions: {original_length} → {len(optimized)} chars")
+                return optimized
+
+        # Step 2: Limit site dork domains to top 3
+        # Pattern: (site:domain1 OR site:domain2 OR ...)
+        site_pattern = r'\(site:[^)]+\)'
+        site_match = re.search(site_pattern, query)
+
+        if site_match:
+            site_dork = site_match.group(0)
+            # Extract domains
+            domains = re.findall(r'site:([^\s)]+)', site_dork)
+
+            if len(domains) > 3:
+                # Keep only first 3 domains
+                limited_dork = " OR ".join([f"site:{d}" for d in domains[:3]])
+                optimized = query.replace(site_dork, f"({limited_dork})")
+
+                if len(optimized) <= DDG_MAX_LENGTH:
+                    logger.info(f"[DDG-OPT] Limited domains from {len(domains)} to 3: {original_length} → {len(optimized)} chars")
+                    return optimized
+
+        # Step 3: Remove site dork entirely and keep only query + sport keyword
+        if site_match:
+            optimized = re.sub(site_pattern, '', query).strip()
+            if len(optimized) <= DDG_MAX_LENGTH:
+                logger.info(f"[DDG-OPT] Removed site dork: {original_length} → {len(optimized)} chars")
+                return optimized
+
+        # Step 4: Last resort - truncate to safe limit
+        truncated = query[:DDG_MAX_LENGTH]
+        logger.warning(f"[DDG-OPT] Truncated query: {original_length} → {len(truncated)} chars")
+        return truncated
+
     def _search_duckduckgo(self, query: str, num_results: int = 10) -> List[Dict]:
         """Search using DuckDuckGo Python library (secondary engine).
-        
+
         Includes specific error handling for common failure modes.
         Uses timelimit="w" to filter results to past week only.
         Rate limiting applied via centralized HTTP client.
@@ -312,20 +476,23 @@ class SearchProvider:
         if not self._ddgs_available:
             logger.warning("Libreria DuckDuckGo non disponibile")
             return []
-        
+
         # Apply rate limiting before DDG call (DDG uses requests internally)
         rate_limiter = self._http_client._get_rate_limiter("duckduckgo")
         rate_limiter.wait_sync()
-        
+
+        # Optimize query for DDG length limits
+        optimized_query = self._optimize_query_for_ddg(query)
+        query_length = len(optimized_query)
+
         # DIAGNOSTIC: Log query complexity before making request
-        query_length = len(query)
         # SOLUTION B: Using reliable engines only (duckduckgo, brave, google)
         # Grokipedia disabled due to timeout issues with complex queries
         # NOTE: "bing" engine not available in DDGS library
         logger.debug(f"[DDGS-DIAG] Starting DuckDuckGo search - Query length: {query_length} chars, Max results: {num_results}, Timeout: {DDGS_TIMEOUT}s, Engines: duckduckgo,brave,google")
         if query_length > 200:
-            logger.debug(f"[DDGS-DIAG] Long query detected (first 100 chars): {query[:100]}...")
-        
+            logger.debug(f"[DDGS-DIAG] Long query detected (first 100 chars): {optimized_query[:100]}...")
+
         try:
             # DIAGNOSTIC: Pass timeout parameter to DDGS constructor
             ddgs = DDGS(timeout=DDGS_TIMEOUT)
@@ -334,8 +501,8 @@ class SearchProvider:
             # Use only reliable engines: duckduckgo, brave, google
             # NOTE: "bing" engine is not available in DDGS library
             raw_results = ddgs.text(
-                query, 
-                max_results=num_results, 
+                optimized_query,
+                max_results=num_results,
                 timelimit="w",
                 backend="duckduckgo,brave,google"  # Skip grokipedia (bing not available)
             )
@@ -462,12 +629,14 @@ class SearchProvider:
         base_query = f'"{encoded_team}" {encoded_keywords}'
         
         # Add insider domain dorking if league has configured domains
-        if league_key and league_key in LEAGUE_DOMAINS:
-            domains = LEAGUE_DOMAINS[league_key]
-            # Phase 1 Critical Fix: URL-encode domain names as well
-            site_dork = " OR ".join([f"site:{quote(d, safe='')}" for d in domains])
-            base_query = f'{base_query} ({site_dork})'
-            logger.debug(f"🎯 Insider dorking for {league_key}: {domains}")
+        # V10.0: Use Supabase-first strategy with fallback to LEAGUE_DOMAINS
+        if league_key:
+            domains = get_news_domains_for_league(league_key)
+            if domains:
+                # Phase 1 Critical Fix: URL-encode domain names as well
+                site_dork = " OR ".join([f"site:{quote(d, safe='')}" for d in domains])
+                base_query = f'{base_query} ({site_dork})'
+                logger.debug(f"🎯 Insider dorking for {league_key}: {domains}")
         
         # Add sport exclusions (these are ASCII, no encoding needed)
         base_query = f'{base_query}{SPORT_EXCLUSION_TERMS}'
@@ -498,8 +667,10 @@ class SearchProvider:
         """
         query = self._build_insider_query(team, keywords, league_key)
         
-        if league_key in LEAGUE_DOMAINS:
-            logger.info(f"🔍 [INSIDER] Searching {team} on {LEAGUE_DOMAINS[league_key]}")
+        # V10.0: Log domains from Supabase or fallback
+        domains = get_news_domains_for_league(league_key)
+        if domains:
+            logger.info(f"🔍 [INSIDER] Searching {team} on {domains}")
         
         return self.search(query, num_results)
     
@@ -572,8 +743,9 @@ class SearchProvider:
             sport_keyword = LEAGUE_SPORT_KEYWORDS[league_key]
         
         # Build query with insider domain dorking if available
-        if league_key and league_key in LEAGUE_DOMAINS:
-            domains = LEAGUE_DOMAINS[league_key]
+        # V10.0: Use Supabase-first strategy with fallback to LEAGUE_DOMAINS
+        domains = get_news_domains_for_league(league_key)
+        if domains:
             site_dork = " OR ".join([f"site:{d}" for d in domains])
             news_query = f"{query} {sport_keyword} ({site_dork}){SPORT_EXCLUSION_TERMS}"
             logger.debug(f"🎯 News search with insider domains: {domains}")

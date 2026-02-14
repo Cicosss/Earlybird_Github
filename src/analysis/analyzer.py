@@ -797,7 +797,7 @@ def reset_ai_response_stats() -> None:
         _ai_total_response_count = 0
 
 
-def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reasoner: bool = True, timeout: int = 60, max_retries: int = 2) -> tuple[str, str]:
+def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reasoner: bool = True, timeout: int = 60, max_retries: int = 3) -> tuple[str, str]:
     """
     Call DeepSeek via OpenRouter with dual-model support.
     
@@ -807,12 +807,18 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
     V6.3 FIX: Added timeout parameter, empty response validation, and retry logic with exponential backoff.
     Prevents excessive wait times (172.2s) and handles empty responses gracefully.
     
+    V6.4 FIX (2026-02-14): Enhanced empty response handling with:
+    - Increased default max_retries from 2 to 3 (4 total attempts)
+    - Added jitter to backoff to prevent thundering herd
+    - Enhanced logging with raw response details for debugging
+    - Faster fallback to Model A on repeated empty responses
+    
     Args:
         messages: List of message dicts (role, content)
         include_reasoning: Whether to request reasoning trace
         use_reasoner: Whether to use Model B (True) or Model A (False)
         timeout: Maximum time to wait for API response in seconds (default: 60)
-        max_retries: Maximum number of retries for empty responses (default: 2)
+        max_retries: Maximum number of retries for empty responses (default: 3)
         
     Returns:
         Tuple of (response_content, reasoning_trace)
@@ -821,6 +827,7 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
         Exception: If all models fail after retries
     """
     import time
+    import random
     
     if not client:
         raise ValueError("OpenRouter client not initialized. Set OPENROUTER_API_KEY.")
@@ -846,9 +853,11 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
     
     last_error = None
     AI_SLOW_THRESHOLD = 45  # seconds
+    empty_response_count = 0  # Track consecutive empty responses for faster fallback
     
     for model_id in models_to_try:
         retry_count = 0
+        empty_response_count = 0  # Reset for each model
         while retry_count <= max_retries:
             try:
                 # V6.2: Log which model is being used
@@ -882,18 +891,35 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
                 
                 content = response.choices[0].message.content
                 
-                # V6.3 FIX: Validate response is not empty before processing
+                # V6.4 FIX: Enhanced empty response validation with detailed logging
                 if not content or not content.strip():
-                    logging.warning(f"⚠️ {model_id} returned empty response (attempt {retry_count + 1}/{max_retries + 1})")
+                    empty_response_count += 1
+                    logging.warning(f"⚠️ {model_id} returned empty response (attempt {retry_count + 1}/{max_retries + 1}, consecutive empties: {empty_response_count})")
+                    
+                    # V6.4 FIX: Log raw response details for debugging
+                    if hasattr(response, 'choices') and response.choices:
+                        try:
+                            raw_content = response.choices[0].message.content
+                            logging.debug(f"🔍 [DEBUG] Raw response content: '{raw_content}' (len={len(raw_content) if raw_content else 0})")
+                        except Exception as debug_e:
+                            logging.debug(f"🔍 [DEBUG] Could not extract raw response: {debug_e}")
+                    
+                    # V6.4 FIX: Faster fallback to Model A if Model B has 2+ consecutive empty responses
+                    if model_id == MODEL_B_REASONER and empty_response_count >= 2:
+                        logging.warning(f"⚠️ Model B has {empty_response_count} consecutive empty responses, switching to Model A...")
+                        break
+                    
                     if retry_count < max_retries:
-                        # V6.3 FIX: Exponential backoff for retries
-                        backoff_time = 2 ** retry_count  # 1s, 2s, 4s, etc.
-                        logging.warning(f"⏳ Retrying in {backoff_time}s with exponential backoff...")
+                        # V6.4 FIX: Exponential backoff with jitter to prevent thundering herd
+                        base_backoff = 2 ** retry_count  # 1s, 2s, 4s, etc.
+                        jitter = random.uniform(0, 0.5)  # Add 0-0.5s random jitter
+                        backoff_time = base_backoff + jitter
+                        logging.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
                         time.sleep(backoff_time)
                         retry_count += 1
                         continue
                     else:
-                        last_error = ValueError("Empty response from AI after all retries")
+                        last_error = ValueError(f"Empty response from AI after {max_retries + 1} attempts")
                         logging.error(f"❌ {model_id} failed: Empty response after {max_retries + 1} attempts")
                         break
                 
@@ -1364,7 +1390,7 @@ def analyze_with_triangulation(
     
     # Priority: Mock Data
     if os.getenv("USE_MOCK_DATA") == "true":
-        from src.mocks import MOCK_LLM_RESPONSES
+        from src.testing.mocks import MOCK_LLM_RESPONSES
         team = snippet_data.get('team')
         mock_resp = MOCK_LLM_RESPONSES.get(team)
         if mock_resp:

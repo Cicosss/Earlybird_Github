@@ -2118,12 +2118,27 @@ class BrowserMonitor:
         """
         return await self._analyze_with_deepseek(content, league_key)
     
-    async def _analyze_with_deepseek(self, content: str, league_key: str) -> Optional[Dict[str, Any]]:
+    async def _analyze_with_deepseek(self, content: str, league_key: str, timeout: int = 30, max_retries: int = 3) -> Optional[Dict[str, Any]]:
         """
         Analyze content using DeepSeek via OpenRouter.
         
         V7.3: Improved error handling for JSON parsing and API responses.
+        
+        V7.4 FIX (2026-02-14): Added retry mechanism with exponential backoff and jitter:
+        - Retry on empty responses, timeouts, and network errors
+        - Exponential backoff with jitter to prevent thundering herd
+        - Enhanced logging with raw response details for debugging
+        - Default max_retries: 3 (4 total attempts)
+        
+        Args:
+            content: Text content to analyze
+            league_key: League key for context
+            timeout: Maximum time to wait for API response in seconds (default: 30)
+            max_retries: Maximum number of retries (default: 3)
         """
+        import random
+        import time
+        
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             logger.error("❌ [BROWSER-MONITOR] No OpenRouter API key for DeepSeek")
@@ -2148,63 +2163,154 @@ class BrowserMonitor:
             "max_tokens": 512
         }
         
-        try:
-            # Use asyncio.to_thread for sync requests call
-            response = await asyncio.to_thread(
-                requests.post,
-                OPENROUTER_API_URL,
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"❌ [BROWSER-MONITOR] DeepSeek HTTP error: {response.status_code} - {response.text[:200]}")
-                return None
-            
-            # V7.3: Safe JSON parsing with specific error handling
+        # V7.4 FIX: Retry mechanism with exponential backoff and jitter
+        retry_count = 0
+        last_error = None
+        
+        while retry_count <= max_retries:
             try:
-                data = response.json()
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ [BROWSER-MONITOR] DeepSeek returned invalid JSON: {e} - Response: {response.text[:200]}")
+                # Use asyncio.to_thread for sync requests call
+                response = await asyncio.to_thread(
+                    requests.post,
+                    OPENROUTER_API_URL,
+                    headers=headers,
+                    json=payload,
+                    timeout=timeout
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"❌ [BROWSER-MONITOR] DeepSeek HTTP error: {response.status_code} - {response.text[:200]}")
+                    last_error = ValueError(f"HTTP {response.status_code}")
+                    if retry_count < max_retries:
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s after HTTP error...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    return None
+                
+                # V7.3: Safe JSON parsing with specific error handling
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ [BROWSER-MONITOR] DeepSeek returned invalid JSON: {e} - Response: {response.text[:200]}")
+                    last_error = e
+                    if retry_count < max_retries:
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s after JSON error...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    return None
+                
+                # V7.3: Safe nested dict access with validation
+                choices = data.get("choices")
+                if not choices or not isinstance(choices, list) or len(choices) == 0:
+                    logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek response missing 'choices': {data}")
+                    last_error = ValueError("Missing choices in response")
+                    if retry_count < max_retries:
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    return None
+                
+                first_choice = choices[0]
+                if not isinstance(first_choice, dict):
+                    logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek invalid choice format: {first_choice}")
+                    last_error = ValueError("Invalid choice format")
+                    if retry_count < max_retries:
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    return None
+                
+                message = first_choice.get("message")
+                if not isinstance(message, dict):
+                    logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek invalid message format: {first_choice}")
+                    last_error = ValueError("Invalid message format")
+                    if retry_count < max_retries:
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    return None
+                
+                response_text = message.get("content", "")
+                
+                # V7.4 FIX: Enhanced empty response handling with detailed logging
+                if not response_text or not response_text.strip():
+                    logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek returned empty response (attempt {retry_count + 1}/{max_retries + 1})")
+                    
+                    # Log raw response details for debugging
+                    try:
+                        logger.debug(f"🔍 [DEBUG] Raw response data: {data}")
+                        logger.debug(f"🔍 [DEBUG] Response text: '{response_text}' (len={len(response_text)})")
+                    except Exception as debug_e:
+                        logger.debug(f"🔍 [DEBUG] Could not log raw response: {debug_e}")
+                    
+                    last_error = ValueError("Empty response from API")
+                    if retry_count < max_retries:
+                        base_backoff = 2 ** retry_count
+                        jitter = random.uniform(0, 0.5)
+                        backoff_time = base_backoff + jitter
+                        logger.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
+                        await asyncio.sleep(backoff_time)
+                        retry_count += 1
+                        continue
+                    return None
+                
+                self._deepseek_calls += 1
+                logger.debug(f"🤖 [BROWSER-MONITOR] DeepSeek analysis complete (call #{self._deepseek_calls})")
+                
+                return self._parse_relevance_response(response_text)
+                
+            except requests.Timeout:
+                logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek timeout after {timeout}s (attempt {retry_count + 1}/{max_retries + 1})")
+                last_error = TimeoutError(f"Timeout after {timeout}s")
+                if retry_count < max_retries:
+                    base_backoff = 2 ** retry_count
+                    jitter = random.uniform(0, 0.5)
+                    backoff_time = base_backoff + jitter
+                    logger.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
+                    await asyncio.sleep(backoff_time)
+                    retry_count += 1
+                    continue
                 return None
-            
-            # V7.3: Safe nested dict access with validation
-            choices = data.get("choices")
-            if not choices or not isinstance(choices, list) or len(choices) == 0:
-                logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek response missing 'choices': {data}")
+            except requests.RequestException as e:
+                logger.error(f"❌ [BROWSER-MONITOR] DeepSeek network error: {e} (attempt {retry_count + 1}/{max_retries + 1})")
+                last_error = e
+                if retry_count < max_retries:
+                    base_backoff = 2 ** retry_count
+                    jitter = random.uniform(0, 0.5)
+                    backoff_time = base_backoff + jitter
+                    logger.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
+                    await asyncio.sleep(backoff_time)
+                    retry_count += 1
+                    continue
                 return None
-            
-            first_choice = choices[0]
-            if not isinstance(first_choice, dict):
-                logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek invalid choice format: {first_choice}")
-                return None
-            
-            message = first_choice.get("message")
-            if not isinstance(message, dict):
-                logger.warning(f"⚠️ [BROWSER-MONITOR] DeepSeek invalid message format: {first_choice}")
-                return None
-            
-            response_text = message.get("content", "")
-            
-            if not response_text:
-                logger.warning("⚠️ [BROWSER-MONITOR] DeepSeek returned empty response content")
-                return None
-            
-            self._deepseek_calls += 1
-            logger.debug(f"🤖 [BROWSER-MONITOR] DeepSeek analysis complete (call #{self._deepseek_calls})")
-            
-            return self._parse_relevance_response(response_text)
-            
-        except requests.Timeout:
-            logger.warning("⚠️ [BROWSER-MONITOR] DeepSeek timeout")
-            return None
-        except requests.RequestException as e:
-            logger.error(f"❌ [BROWSER-MONITOR] DeepSeek network error: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"❌ [BROWSER-MONITOR] DeepSeek unexpected error: {type(e).__name__}: {e}")
-            return None
+            except Exception as e:
+                logger.error(f"❌ [BROWSER-MONITOR] DeepSeek unexpected error: {type(e).__name__}: {e}")
+                last_error = e
+                break
+        
+        # All retries exhausted
+        logger.error(f"❌ [BROWSER-MONITOR] DeepSeek analysis failed after {max_retries + 1} attempts: {last_error}")
+        return None
     
     # ============================================
     # RELEVANCE PROMPT AND PARSING

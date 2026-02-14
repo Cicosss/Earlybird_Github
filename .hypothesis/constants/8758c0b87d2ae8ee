@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/league_manager.py
+# hypothesis_version: 6.151.4
+
+[100, 200, '\n💰 API Quota:', '%(message)s', '%Y-%m-%d', '=', 'EarlyBird/7.0', 'OTHER', 'TIER1', 'TIER2', 'User-Agent', 'YOUR_ODDS_API_KEY', '__main__', 'activations_today', 'active', 'apiKey', 'api_key', 'au,uk,eu', 'cooldown_remaining', 'current_cycle', 'daily_limit', 'error', 'eu,uk', 'eu,uk,au', 'key', 'next_batch_preview', 'no high_potential', 'priority', 'requests_remaining', 'requests_used', 'soccer_mexico_ligamx', 'soccer_spl', 'timeout', 'unknown', 'us,eu', 'x-requests-remaining', 'x-requests-used']

@@ -72,6 +72,10 @@ class TwitterIntelAccount:
 # ELITE 7 LEAGUES - TWITTER INTEL ACCOUNTS
 # ============================================
 
+# DEPRECATED: Intelligence now managed via Supabase
+# This dictionary serves as FALLBACK ONLY when Supabase is unavailable
+# Last updated: 2026-02-13
+# Migration status: Graceful degradation active
 TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
     
     # ============================================
@@ -347,6 +351,10 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
 # TIER 2 LEAGUES - TWITTER INTEL ACCOUNTS
 # ============================================
 
+# DEPRECATED: Intelligence now managed via Supabase
+# This dictionary serves as FALLBACK ONLY when Supabase is unavailable
+# Last updated: 2026-02-13
+# Migration status: Graceful degradation active
 TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
     
     # ============================================

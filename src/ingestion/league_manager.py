@@ -7,6 +7,10 @@ TIER 2 (Rotation): Round-robin, 2-3 leagues per cycle
 News Hunt Gating:
 - Tier 1: Search if odds drop > 5% OR FotMob warning
 - Tier 2: Search ONLY if odds drop > 15% OR FotMob HIGH RISK
+
+V10.0: Hybrid Supabase Integration
+- Primary: Fetch leagues from Supabase database
+- Fallback: Use hardcoded TIER_1/TIER_2 lists if Supabase unavailable
 """
 import logging
 import threading
@@ -18,6 +22,17 @@ import requests
 from config.settings import ODDS_API_KEY
 
 logger = logging.getLogger(__name__)
+
+# ============================================
+# V10.0: SUPABASE INTEGRATION
+# ============================================
+try:
+    from src.database.supabase_provider import get_supabase
+    _SUPABASE_AVAILABLE = True
+    logger.info("✅ Supabase Provider available for league management")
+except ImportError as e:
+    _SUPABASE_AVAILABLE = False
+    logger.warning(f"⚠️ Supabase Provider not available: {e}")
 
 BASE_URL = "https://api.the-odds-api.com/v4"
 
@@ -109,6 +124,279 @@ ALL_LEAGUES_SET: Set[str] = set(ALL_LEAGUES)
 
 # Backward compatibility alias
 ELITE_LEAGUES: List[str] = TIER_1_LEAGUES
+
+# ============================================
+# V10.0: SUPABASE LEAGUE FETCHING WITH FALLBACK
+# ============================================
+
+def _fetch_tier1_from_supabase() -> Optional[List[str]]:
+    """
+    Fetch Tier 1 leagues from Supabase (priority=1).
+    
+    Returns:
+        List of league api_keys with priority=1, or None if Supabase unavailable
+    """
+    if not _SUPABASE_AVAILABLE:
+        return None
+    
+    try:
+        sb = get_supabase()
+        if not sb:
+            return None
+        
+        leagues = sb.get_active_leagues()
+        
+        # Filter for priority=1 (Tier 1)
+        tier1_leagues = [
+            league.get('api_key') 
+            for league in leagues 
+            if league.get('priority') == 1 and league.get('api_key')
+        ]
+        
+        if tier1_leagues:
+            logger.info(f"✅ [SUPABASE] Fetched {len(tier1_leagues)} Tier 1 leagues from database")
+            return tier1_leagues
+        else:
+            logger.warning("⚠️ [SUPABASE] No Tier 1 leagues found (priority=1)")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"⚠️ [SUPABASE] Failed to fetch Tier 1 leagues: {e}")
+        return None
+
+
+def _fetch_tier2_from_supabase() -> Optional[List[str]]:
+    """
+    Fetch Tier 2 leagues from Supabase (priority=2).
+    
+    Returns:
+        List of league api_keys with priority=2, or None if Supabase unavailable
+    """
+    if not _SUPABASE_AVAILABLE:
+        return None
+    
+    try:
+        sb = get_supabase()
+        if not sb:
+            return None
+        
+        leagues = sb.get_active_leagues()
+        
+        # Filter for priority=2 (Tier 2)
+        tier2_leagues = [
+            league.get('api_key') 
+            for league in leagues 
+            if league.get('priority') == 2 and league.get('api_key')
+        ]
+        
+        if tier2_leagues:
+            logger.info(f"✅ [SUPABASE] Fetched {len(tier2_leagues)} Tier 2 leagues from database")
+            return tier2_leagues
+        else:
+            logger.info("ℹ️ [SUPABASE] No Tier 2 leagues found (priority=2)")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"⚠️ [SUPABASE] Failed to fetch Tier 2 leagues: {e}")
+        return None
+
+
+def get_tier1_leagues() -> List[str]:
+    """
+    Get Tier 1 leagues with Supabase-first strategy.
+    
+    Priority:
+    1. Try Supabase (priority=1 leagues)
+    2. Fallback to hardcoded TIER_1_LEAGUES
+    
+    Returns:
+        List of Tier 1 league keys
+    """
+    # Try Supabase first
+    tier1_from_supabase = _fetch_tier1_from_supabase()
+    
+    if tier1_from_supabase:
+        return tier1_from_supabase
+    
+    # Fallback to hardcoded list
+    logger.info("🔄 [FALLBACK] Using hardcoded TIER_1_LEAGUES")
+    return TIER_1_LEAGUES.copy()
+
+
+def get_tier2_leagues() -> List[str]:
+    """
+    Get Tier 2 leagues with Supabase-first strategy.
+    
+    Priority:
+    1. Try Supabase (priority=2 leagues)
+    2. Fallback to hardcoded TIER_2_LEAGUES
+    
+    Returns:
+        List of Tier 2 league keys
+    """
+    # Try Supabase first
+    tier2_from_supabase = _fetch_tier2_from_supabase()
+    
+    if tier2_from_supabase:
+        return tier2_from_supabase
+    
+    # Fallback to hardcoded list
+    logger.info("🔄 [FALLBACK] Using hardcoded TIER_2_LEAGUES")
+    return TIER_2_LEAGUES.copy()
+
+
+# ============================================
+# V10.0: CONTINENTAL BRAIN - "Follow the Sun" LOGIC
+# ============================================
+
+def get_active_leagues_for_continental_blocks() -> List[str]:
+    """
+    Get active leagues for current continental blocks based on UTC time.
+    
+    V10.0: Implements "Follow the Sun" logic:
+    1. Query Supabase to find which Continental Blocks (LATAM, ASIA, AFRICA) are active
+       based on active_hours_utc array
+    2. Filter leagues to ONLY those belonging to active continents
+    3. Fail-safe: Fallback to data/supabase_mirror.json if Supabase unreachable
+    
+    Returns:
+        List of active league api_keys for current continental blocks
+    """
+    if not _SUPABASE_AVAILABLE:
+        logger.warning("⚠️ [CONTINENTAL] Supabase not available, using fallback")
+        return _get_continental_fallback()
+    
+    try:
+        sb = get_supabase()
+        if not sb:
+            logger.warning("⚠️ [CONTINENTAL] Supabase provider not initialized, using fallback")
+            return _get_continental_fallback()
+        
+        # Get current UTC hour
+        current_utc_hour = datetime.now(timezone.utc).hour
+        
+        # Get active continental blocks for current hour
+        active_blocks = sb.get_active_continent_blocks(current_utc_hour)
+        
+        if not active_blocks:
+            logger.warning(f"⚠️ [CONTINENTAL] No active continental blocks at {current_utc_hour}:00 UTC")
+            return []
+        
+        logger.info(f"✅ [CONTINENTAL] Active blocks at {current_utc_hour}:00 UTC: {active_blocks}")
+        
+        # Get all active leagues from Supabase
+        all_active_leagues = sb.get_active_leagues()
+        
+        if not all_active_leagues:
+            logger.warning("⚠️ [CONTINENTAL] No active leagues found in Supabase")
+            return _get_continental_fallback()
+        
+        # Filter leagues by active continental blocks
+        active_leagues = []
+        for league in all_active_leagues:
+            continent_name = league.get("continent", {}).get("name")
+            if continent_name in active_blocks:
+                api_key = league.get("api_key")
+                if api_key:
+                    active_leagues.append(api_key)
+        
+        if active_leagues:
+            logger.info(f"✅ [CONTINENTAL] Identified {len(active_leagues)} active leagues for blocks: {active_blocks}")
+            return active_leagues
+        else:
+            logger.warning(f"⚠️ [CONTINENTAL] No leagues found for active blocks: {active_blocks}")
+            return []
+            
+    except Exception as e:
+        logger.error(f"❌ [CONTINENTAL] Error fetching continental leagues: {e}")
+        return _get_continental_fallback()
+
+
+def _get_continental_fallback() -> List[str]:
+    """
+    Fallback to mirror file when Supabase is unreachable.
+    
+    Returns:
+        List of league api_keys from mirror or empty list
+    """
+    try:
+        import json
+        from pathlib import Path
+        
+        mirror_path = Path("data/supabase_mirror.json")
+        
+        if not mirror_path.exists():
+            logger.warning("⚠️ [CONTINENTAL] Mirror file not found: data/supabase_mirror.json")
+            return []
+        
+        with open(mirror_path, 'r', encoding='utf-8') as f:
+            mirror_data = json.load(f)
+        
+        # Mirror data is nested under "data" key
+        data = mirror_data.get("data", {})
+        
+        # Get current UTC hour
+        current_utc_hour = datetime.now(timezone.utc).hour
+        
+        # Get active continents from mirror
+        continents = data.get("continents", [])
+        active_blocks = []
+        for continent in continents:
+            active_hours = continent.get("active_hours_utc", [])
+            if current_utc_hour in active_hours:
+                active_blocks.append(continent.get("name"))
+        
+        if not active_blocks:
+            logger.warning(f"⚠️ [CONTINENTAL] No active continental blocks at {current_utc_hour}:00 UTC (mirror)")
+            return []
+        
+        logger.info(f"✅ [CONTINENTAL] Active blocks from mirror at {current_utc_hour}:00 UTC: {active_blocks}")
+        
+        # Get leagues and countries from mirror
+        leagues = data.get("leagues", [])
+        countries = data.get("countries", [])
+        
+        # Build country_id -> continent_id mapping
+        country_to_continent = {
+            c["id"]: c.get("continent_id") 
+            for c in countries 
+            if "id" in c and "continent_id" in c
+        }
+        
+        # Build continent_id -> continent_name mapping
+        continent_map = {
+            c["id"]: c.get("name") 
+            for c in continents 
+            if "id" in c and "name" in c
+        }
+        
+        # Filter leagues by active continental blocks
+        active_leagues = []
+        for league in leagues:
+            country_id = league.get("country_id")
+            if not country_id:
+                continue
+            
+            continent_id = country_to_continent.get(country_id)
+            if not continent_id:
+                continue
+            
+            continent_name = continent_map.get(continent_id)
+            if continent_name in active_blocks:
+                api_key = league.get("api_key")
+                if api_key:
+                    active_leagues.append(api_key)
+        
+        if active_leagues:
+            logger.info(f"✅ [CONTINENTAL] Identified {len(active_leagues)} active leagues from mirror for blocks: {active_blocks}")
+            return active_leagues
+        else:
+            logger.warning(f"⚠️ [CONTINENTAL] No leagues found for active blocks in mirror: {active_blocks}")
+            return []
+            
+    except Exception as e:
+        logger.error(f"❌ [CONTINENTAL] Error loading mirror fallback: {e}")
+        return []
 
 # Priority (higher = processed first)
 LEAGUE_PRIORITY: Dict[str, int] = {
@@ -287,6 +575,8 @@ def get_tier2_for_cycle() -> List[str]:
     """
     Get next batch of Tier 2 leagues (round-robin).
     
+    V10.0: Uses Supabase-first strategy with fallback to hardcoded lists.
+    
     Thread-safe implementation.
     
     Returns:
@@ -294,21 +584,24 @@ def get_tier2_for_cycle() -> List[str]:
     """
     global _tier2_index
     
-    if not TIER_2_LEAGUES:
+    # Get Tier 2 leagues from Supabase or fallback
+    tier2_leagues = get_tier2_leagues()
+    
+    if not tier2_leagues:
         return []
     
     with _tier2_index_lock:
         # Wrap around
-        start = _tier2_index % len(TIER_2_LEAGUES)
+        start = _tier2_index % len(tier2_leagues)
         
         # Get next batch
         batch = []
         for i in range(TIER_2_PER_CYCLE):
-            idx = (start + i) % len(TIER_2_LEAGUES)
-            batch.append(TIER_2_LEAGUES[idx])
+            idx = (start + i) % len(tier2_leagues)
+            batch.append(tier2_leagues[idx])
         
         # Advance index for next cycle
-        _tier2_index = (start + TIER_2_PER_CYCLE) % len(TIER_2_LEAGUES)
+        _tier2_index = (start + TIER_2_PER_CYCLE) % len(tier2_leagues)
     
     return batch
 
@@ -317,8 +610,10 @@ def get_leagues_for_cycle(emergency_mode: bool = False) -> List[str]:
     """
     Get leagues to fetch for this cycle.
     
-    Normal: Tier 1 + rotating Tier 2 batch
-    Emergency: Tier 1 only
+    V10.0: Uses Continental Brain logic with Supabase-first strategy.
+    
+    Normal: Active leagues for current continental blocks (based on UTC time)
+    Emergency: Tier 1 only (fallback)
     
     Args:
         emergency_mode: If True, only return Tier 1 leagues
@@ -328,13 +623,21 @@ def get_leagues_for_cycle(emergency_mode: bool = False) -> List[str]:
     """
     if emergency_mode:
         logger.info("🚨 Emergency mode: Tier 1 only")
-        return TIER_1_LEAGUES.copy()
+        return get_tier1_leagues()
     
-    tier2_batch = get_tier2_for_cycle()
-    leagues = TIER_1_LEAGUES + tier2_batch
+    # V10.0: Use Continental Brain logic
+    leagues = get_active_leagues_for_continental_blocks()
     
-    logger.info(f"🎯 Cycle: {len(TIER_1_LEAGUES)} Tier1 + {len(tier2_batch)} Tier2 = {len(leagues)} leagues")
-    logger.info(f"   Tier2 batch: {tier2_batch}")
+    if not leagues:
+        logger.warning("⚠️ No active leagues for current continental blocks, using Tier 1 fallback")
+        leagues = get_tier1_leagues()
+    
+    # Limit to MAX_LEAGUES_PER_RUN for API quota management
+    if len(leagues) > MAX_LEAGUES_PER_RUN:
+        logger.info(f"⚠️ Limiting leagues from {len(leagues)} to {MAX_LEAGUES_PER_RUN} (API quota)")
+        leagues = leagues[:MAX_LEAGUES_PER_RUN]
+    
+    logger.info(f"🎯 Cycle: {len(leagues)} active leagues for current continental blocks")
     
     return leagues
 
@@ -343,6 +646,8 @@ def get_active_niche_leagues(max_leagues: int = 12) -> List[str]:
     """
     Get active leagues from our verified list.
     Checks API for currently active leagues.
+    
+    V10.0: Uses Supabase-first strategy with fallback to hardcoded lists.
     
     Args:
         max_leagues: Maximum number of leagues to return
@@ -361,8 +666,11 @@ def get_active_niche_leagues(max_leagues: int = 12) -> List[str]:
     active_keys = {s['key'] for s in all_sports if s.get('active', False)}
     
     # Filter our leagues that are active
-    active_tier1 = [l for l in TIER_1_LEAGUES if l in active_keys]
-    active_tier2 = [l for l in TIER_2_LEAGUES if l in active_keys]
+    tier1_leagues = get_tier1_leagues()
+    tier2_leagues = get_tier2_leagues()
+    
+    active_tier1 = [l for l in tier1_leagues if l in active_keys]
+    active_tier2 = [l for l in tier2_leagues if l in active_keys]
     
     logger.info(f"✅ Active: {len(active_tier1)} Tier1, {len(active_tier2)} Tier2")
     
@@ -380,20 +688,24 @@ def get_elite_leagues() -> List[str]:
     """
     Get Tier 1 leagues. Alias for backward compatibility.
     
+    V10.0: Uses Supabase-first strategy with fallback to hardcoded lists.
+    
     Returns:
         List of Tier 1 league keys
     """
-    return TIER_1_LEAGUES.copy()
+    return get_tier1_leagues()
 
 
 def get_fallback_leagues() -> List[str]:
     """
     Fallback to Tier 1 if discovery fails.
     
+    V10.0: Uses Supabase-first strategy with fallback to hardcoded lists.
+    
     Returns:
         List of Tier 1 league keys
     """
-    return TIER_1_LEAGUES.copy()
+    return get_tier1_leagues()
 
 
 # ============================================
@@ -487,6 +799,8 @@ def get_tier2_fallback_batch() -> List[str]:
     """
     Ottiene il prossimo batch di 3 leghe Tier 2 per il fallback (round-robin).
     
+    V10.0: Uses Supabase-first strategy with fallback to hardcoded lists.
+    
     Thread-safe implementation.
     
     Returns:
@@ -494,21 +808,24 @@ def get_tier2_fallback_batch() -> List[str]:
     """
     global _tier2_fallback_index
     
-    if not TIER_2_LEAGUES:
+    # Get Tier 2 leagues from Supabase or fallback
+    tier2_leagues = get_tier2_leagues()
+    
+    if not tier2_leagues:
         logger.warning("⚠️ Tier 2 Fallback: Nessuna lega Tier 2 configurata")
         return []
     
     with _state_lock:
         batch = []
         for i in range(TIER2_FALLBACK_BATCH_SIZE):
-            idx = (_tier2_fallback_index + i) % len(TIER_2_LEAGUES)
-            batch.append(TIER_2_LEAGUES[idx])
+            idx = (_tier2_fallback_index + i) % len(tier2_leagues)
+            batch.append(tier2_leagues[idx])
         
         # Avanza l'indice per la prossima chiamata
-        _tier2_fallback_index = (_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE) % len(TIER_2_LEAGUES)
+        _tier2_fallback_index = (_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE) % len(tier2_leagues)
         
-        batch_num = (_tier2_fallback_index // TIER2_FALLBACK_BATCH_SIZE) % (len(TIER_2_LEAGUES) // TIER2_FALLBACK_BATCH_SIZE + 1)
-        total_batches = (len(TIER_2_LEAGUES) + TIER2_FALLBACK_BATCH_SIZE - 1) // TIER2_FALLBACK_BATCH_SIZE
+        batch_num = (_tier2_fallback_index // TIER2_FALLBACK_BATCH_SIZE) % (len(tier2_leagues) // TIER2_FALLBACK_BATCH_SIZE + 1)
+        total_batches = (len(tier2_leagues) + TIER2_FALLBACK_BATCH_SIZE - 1) // TIER2_FALLBACK_BATCH_SIZE
         
         logger.info(f"🔄 Tier 2 Fallback batch: {batch} (rotazione {batch_num}/{total_batches})")
     
@@ -549,12 +866,17 @@ def get_tier2_fallback_status() -> Dict[str, Any]:
     """
     Ritorna lo stato corrente del sistema Tier 2 Fallback.
     
+    V10.0: Uses Supabase-first strategy with fallback to hardcoded lists.
+    
     Thread-safe implementation.
     
     Returns:
         Dict with current fallback status
     """
     _check_daily_reset()
+    
+    # Get Tier 2 leagues from Supabase or fallback
+    tier2_leagues = get_tier2_leagues()
     
     with _state_lock:
         cycles_since_activation = _current_cycle - _last_tier2_activation_cycle if _last_tier2_activation_cycle > 0 else -1
@@ -567,7 +889,7 @@ def get_tier2_fallback_status() -> Dict[str, Any]:
             "daily_limit": TIER2_FALLBACK_DAILY_LIMIT,
             "cooldown_remaining": cooldown_remaining,
             "last_activation_cycle": _last_tier2_activation_cycle,
-            "next_batch_preview": TIER_2_LEAGUES[_tier2_fallback_index:_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE] if TIER_2_LEAGUES else [],
+            "next_batch_preview": tier2_leagues[_tier2_fallback_index:_tier2_fallback_index + TIER2_FALLBACK_BATCH_SIZE] if tier2_leagues else [],
         }
 
 
