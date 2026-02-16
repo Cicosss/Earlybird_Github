@@ -36,7 +36,7 @@ The EarlyBird bot has 4 main entry points that trigger the modified code:
 | **Main Pipeline** | `src/main.py` | `news_hunter.py`, `verification_layer.py` | ✅ PASS |
 | **Telegram Monitor** | `run_telegram_monitor.py` | `telegram_listener.py` | ✅ PASS |
 | **News Radar** | `run_news_radar.py` | `news_hunter.py` | ✅ PASS |
-| **Launcher** | `src/launcher.py` | All components (orchestrator) | ✅ PASS |
+| **Launcher** | `src/entrypoints/launcher.py` | All components (orchestrator) | ✅ PASS |
 
 ### 1.2 Data Flow Diagram
 

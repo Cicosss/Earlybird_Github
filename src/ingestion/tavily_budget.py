@@ -6,17 +6,17 @@ Implements tiered throttling based on usage thresholds.
 
 Requirements: Refactored to inherit from BaseBudgetManager (V7.1)
 """
+
 import logging
-from typing import Dict, Optional
 
 from config.settings import (
     TAVILY_BUDGET_ALLOCATION,
-    TAVILY_MONTHLY_BUDGET,
     TAVILY_DEGRADED_THRESHOLD,
     TAVILY_DISABLED_THRESHOLD,
+    TAVILY_MONTHLY_BUDGET,
 )
 
-from .base_budget_manager import BaseBudgetManager, BudgetStatus
+from .base_budget_manager import BaseBudgetManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class BudgetManager(BaseBudgetManager):
     def __init__(
         self,
         monthly_limit: int = TAVILY_MONTHLY_BUDGET,
-        allocations: Optional[Dict[str, int]] = None,
+        allocations: dict[str, int] | None = None,
     ):
         """
         Initialize BudgetManager.
@@ -64,7 +64,7 @@ class BudgetManager(BaseBudgetManager):
 # SINGLETON INSTANCE
 # ============================================
 
-_budget_manager_instance: Optional[BudgetManager] = None
+_budget_manager_instance: BudgetManager | None = None
 
 
 def get_budget_manager() -> BudgetManager:

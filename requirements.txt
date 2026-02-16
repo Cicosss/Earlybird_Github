@@ -32,6 +32,9 @@ hypothesis>=6.0.0  # PBT for correctness properties
 pytest>=8.0.0  # Test framework (required for test monitor)
 pytest-asyncio>=1.3.0  # For running async tests
 
+# Code Quality (Ruff - Rust-powered linter/formatter)
+ruff>=0.1.0  # Fast Python linter and formatter (10-100x faster than alternatives)
+
 # System Monitoring
 psutil
 

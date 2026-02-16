@@ -48,7 +48,7 @@ FIELD REQUIREMENTS:
 - table_context: Brief context (e.g., "1st vs 18th, 6 points from safety")"""
 
 # ============================================
-# BETTING STATS SYSTEM PROMPT  
+# BETTING STATS SYSTEM PROMPT
 # ============================================
 # Used for corner/cards statistics enrichment
 # Replaces generic system prompt + OUTPUT FORMAT block in prompts.py

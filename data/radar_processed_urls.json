@@ -28,5 +28,15 @@
     "team": "Manchester United",
     "type": "B_TEAM",
     "timestamp": "2026-02-14T09:03:06.852959+00:00"
+  },
+  "https://uk.sports.yahoo.com/news/football-southern-hellenic-county-northern-132802555.html": {
+    "team": "Gloucester City Reserves",
+    "type": "B_TEAM",
+    "timestamp": "2026-02-16T12:14:12.866064+00:00"
+  },
+  "https://www.uol.com.br/esporte/futebol/colunas/mauro-cezar-pereira/2026/02/14/apos-tres-derrotas-em-classicos-botafogo-encara-o-flamengo-e-o-caos-da-saf.htm": {
+    "team": "Botafogo",
+    "type": "B_TEAM",
+    "timestamp": "2026-02-16T12:16:25.458468+00:00"
   }
 }

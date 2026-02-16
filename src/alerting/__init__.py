@@ -4,7 +4,7 @@ Health monitoring and notification components.
 """
 
 from .health_monitor import HealthMonitor, get_health_monitor
-from .notifier import send_alert, send_status_message, send_biscotto_alert, send_document
+from .notifier import send_alert, send_biscotto_alert, send_document, send_status_message
 
 __all__ = [
     "HealthMonitor",

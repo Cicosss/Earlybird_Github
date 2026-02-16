@@ -5,8 +5,9 @@ Attivare il Telegram Monitor al 100% con funzionalità completa (accesso a canal
 
 ## 📋 Stato Attuale
 - ✅ **Bot Token**: Funzionante al 50% (canali pubblici)
-- ⚠️ **Sessione Utente**: Mancante (serve per accesso a canali privati)
+- ✅ **Sessione Utente**: Configurata (accesso a canali privati)
 - ✅ **Fix Crash Loop**: Applicato (il monitor non crasha più)
+- ✅ **Fix Percorso Sessione**: Applicato (lo script crea il file nel percorso corretto)
 
 ## 🔑 Credenziali Disponibili
 - **TELEGRAM_API_ID**: 36109304
@@ -17,95 +18,129 @@ Attivare il Telegram Monitor al 100% con funzionalità completa (accesso a canal
 
 ## 📝 Istruzioni per Creare la Sessione (100%)
 
-### Step 1: Esegui Localmente sul Tuo Computer
+### Step 1: Esegui lo Script di Setup
 
 ```bash
-# Clona il repository (se non già fatto)
-git clone <repository-url>
-cd Earlybird_Github
+# Nella directory del progetto
+cd /home/linux/Earlybird_Github
 
-# Attiva l'ambiente virtuale
-source venv/bin/activate  # oppure python3 -m venv venv && source venv/bin/activate
-
-# Installa le dipendenze (se necessario)
-pip install -r requirements.txt
+# Esegui lo script di setup
+python3 setup_telegram_auth.py
 ```
 
-### Step 2: Esegui lo Script di Setup
-
-```bash
-python setup_telegram_auth.py
-```
-
-### Step 3: Inserisci le Credenziali Quando Richiesto
+### Step 2: Inserisci le Credenziali Quando Richiesto
 
 Lo script ti chiederà:
-1. **Phone number**: Inserisci `+393703342314`
+1. **Phone number**: Premi Enter per usare il default `+393703342314`
 2. **Verification code**: Controlla il tuo telefono Telegram e inserisci il codice ricevuto
 3. **Two-FA password** (se abilitato): Inserisci la password di verifica
 
-### Step 4: Verifica Creazione Sessione
+### Step 3: Verifica Creazione Sessione
 
 Se tutto va bene, vedrai:
 ```
-✅ SUCCESS! Session file created: earlybird_monitor.session
+✅ SUCCESS! Session file created: data/earlybird_monitor.session
 👤 Logged in as: [Nome Cognome] (@username)
 ```
 
-Il file `earlybird_monitor.session` verrà creato nella directory corrente.
+Il file `data/earlybird_monitor.session` verrà creato automaticamente nella directory `data/`.
 
-### Step 5: Carica la Sessione sulla VPS
+### Step 4: Verifica Sessione
+
+Per verificare che la sessione sia valida:
 
 ```bash
-# Copia il file sulla VPS usando SCP
-scp earlybird_monitor.session user@vps-ip:/path/to/Earlybird_Github/data/
+python3 -c "
+import asyncio
+import os
+from dotenv import load_dotenv
+from telethon import TelegramClient
 
-# Oppure, se hai accesso SSH alla VPS:
-# 1. Copia il contenuto del file sessione
-cat earlybird_monitor.session
+load_dotenv()
 
-# 2. Crea il file sulla VPS
-ssh user@vps-ip
-cd /path/to/Earlybird_Github/data/
-nano earlybird_monitor.session
-# Incolla il contenuto e salva (Ctrl+O, Enter, Ctrl+X)
+API_ID = int(os.getenv('TELEGRAM_API_ID'))
+API_HASH = os.getenv('TELEGRAM_API_HASH')
+session_path = 'data/earlybird_monitor'
+
+async def test_session():
+    client = TelegramClient(session_path, API_ID, API_HASH)
+    try:
+        await client.connect()
+        if await client.is_user_authorized():
+            me = await client.get_me()
+            print(f'✅ Sessione valida: {me.first_name} (@{me.username})')
+            return True
+        else:
+            print('❌ Sessione non autorizzata')
+            return False
+    except Exception as e:
+        print(f'❌ Errore sessione: {e}')
+        return False
+    finally:
+        await client.disconnect()
+
+asyncio.run(test_session())
+"
 ```
 
-### Step 6: Riavvia il Telegram Monitor sulla VPS
+### Step 5: Riavvia il Telegram Monitor
+
+Se il Telegram Monitor è già in esecuzione, riavvialo:
 
 ```bash
-# Connettiti alla VPS
-ssh user@vps-ip
-cd /path/to/Earlybird_Github
-
-# Riavvia il sistema (oppure riavvia solo il monitor)
+# Se usi tmux
 tmux attach -t earlybird
-# Ctrl+C sul pannello del monitor per riavviarlo
+# Ctrl+C sul pannello del monitor per fermarlo
+# Poi riavvialo con: python3 run_telegram_monitor.py
+
+# Oppure, se vuoi testare senza avviare il monitor
+python3 run_telegram_monitor.py --test
 ```
 
 ## ✅ Verifica Funzionamento
 
-Una volta caricata la sessione, il log dovrebbe mostrare:
+Una volta creata la sessione, il log dovrebbe mostrare:
 ```
 ✅ Client Telegram connesso (User Session)
+🦅 EARLYBIRD TELEGRAM SQUAD MONITOR - STARTING
+📡 Monitoraggio canali Telegram per immagini formazioni...
 ```
 
 Invece di:
 ```
-⚠️ File di sessione Telegram mancante o corrotto
-🔄 Tentativo fallback a Bot Token...
-✅ Client Telegram connesso (Bot Token - funzionalità limitata)
+❌ File di sessione Telegram mancante o corrotto
+❌ Il monitoraggio dei canali Telegram richiede una sessione utente valida
+❌ I bot Telegram NON possono accedere alla cronologia dei canali (GetHistoryRequest)
 ```
 
 ## 🔄 Fallback Automatico (Già Implementato)
 
-Il codice [`run_telegram_monitor.py`](run_telegram_monitor.py:266) ha già un sistema di fallback:
+Il codice [`run_telegram_monitor.py`](run_telegram_monitor.py:266) ha un sistema di fallback:
 
-1. **Priorità 1**: Sessione Utente (100% - canali privati + pubblici)
-2. **Priorità 2**: Bot Token (50% - solo canali pubblici)
-3. **Priorità 3**: Modalità IDLE con retry ogni 5 minuti
+1. **Priorità 1**: Sessione Utente (100% - canali privati + pubblici) ✅
+2. **Priorità 2**: Modalità IDLE con retry ogni 10 secondi (se sessione non valida)
 
-Questo significa che anche senza la sessione utente, il monitor funziona al 50% e non crasha.
+Questo significa che se la sessione non è valida, il monitor entra in modalità IDLE e attende che la sessione venga creata o aggiornata.
+
+## 🔧 Correzioni Applicate (V10.0 - 2026-02-16)
+
+### Correzione 1: Mismatch Percorso Sessione
+**Problema:** Lo script `setup_telegram_auth.py` creava il file di sessione nella directory corrente, ma `run_telegram_monitor.py` lo cercava nella directory `data/`.
+
+**Soluzione:** Modificato `setup_telegram_auth.py` per creare il file di sessione direttamente in `data/earlybird_monitor.session`.
+
+**File modificati:**
+- [`setup_telegram_auth.py`](setup_telegram_auth.py:37-40) - Aggiunto percorso `data/` per la sessione
+
+### Correzione 2: Sessione Non Autorizzata
+**Problema:** Il file di sessione esisteva ma non era autorizzato (l'utente non aveva completato l'autenticazione).
+
+**Soluzione:** Eseguito `setup_telegram_auth.py` con autenticazione completa (inserimento codice OTP).
+
+**Risultato:**
+- ✅ Sessione valida: Mariottide (@mariottide74)
+- ✅ ID: 890390162
+- ✅ Phone: 393703342314
 
 ## 📊 Differenze Funzionalità
 
@@ -134,4 +169,5 @@ Se riscontri problemi:
 ---
 
 **Documento creato il**: 2026-02-10
-**Versione**: V9.5
+**Ultimo aggiornamento**: 2026-02-16
+**Versione**: V10.0 (Correzione mismatch percorso sessione)

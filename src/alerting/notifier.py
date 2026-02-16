@@ -11,66 +11,67 @@ V8.2: Production-ready with comprehensive error handling
 
 Phase 1 Critical Fix: Added Unicode normalization and safe UTF-8 truncation
 """
- 
+
+import html
+import logging
 import os
 import re
-import html
 import time
-import logging
 import unicodedata
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from datetime import timezone
 from pathlib import Path
- 
+from typing import Any
+
+import pytz
 import requests
 import requests.exceptions
-import pytz
 from dotenv import load_dotenv
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 
 def normalize_unicode(text: str) -> str:
     """
     Normalize Unicode to NFC form for consistent text handling.
-    
+
     Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
     Greek, Arabic, Chinese, Japanese, Korean, and other languages
     are handled consistently across all components.
-    
+
     Args:
         text: Input text to normalize
-        
+
     Returns:
         Normalized text in NFC form
     """
     if not text:
         return ""
-    return unicodedata.normalize('NFC', text)
+    return unicodedata.normalize("NFC", text)
 
 
 def truncate_utf8(text: str, max_bytes: int) -> str:
     """
     Truncate text to fit within max_bytes UTF-8 encoded.
-    
+
     Phase 1 Critical Fix: Safe truncation that preserves UTF-8 characters
     instead of cutting at arbitrary byte positions which can corrupt
     multi-byte characters.
-    
+
     Args:
         text: Input text to truncate
         max_bytes: Maximum bytes in UTF-8 encoding
-        
+
     Returns:
         Truncated text with valid UTF-8 characters
     """
     if not text:
         return ""
-    encoded = text.encode('utf-8')
+    encoded = text.encode("utf-8")
     if len(encoded) <= max_bytes:
         return text
     # Truncate and decode, removing incomplete characters
-    truncated = encoded[:max_bytes].decode('utf-8', errors='ignore')
+    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
     return truncated
+
 
 # Load environment variables
 load_dotenv()
@@ -78,7 +79,9 @@ load_dotenv()
 # ============================================
 # CONFIGURATION
 # ============================================
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
+# Standardized fallback order: TELEGRAM_BOT_TOKEN (preferred) → TELEGRAM_TOKEN (legacy)
+# This matches the pattern in config/settings.py for consistency across all components
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "") or os.getenv("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Verify credentials are loaded securely
@@ -110,10 +113,10 @@ def strip_html_links(text: str) -> str:
     Returns:
         Text with <a href='...'>text</a> replaced by just 'text'
     """
-    return re.sub(r"<a href='[^']*'>([^<]*)</a>", r'\1', text)
+    return re.sub(r"<a href='[^']*'>([^<]*)</a>", r"\1", text)
 
 
-def _clean_ai_text(text: Optional[str]) -> str:
+def _clean_ai_text(text: str | None) -> str:
     """
     Clean AI-generated text to remove redundant link references.
 
@@ -134,24 +137,24 @@ def _clean_ai_text(text: Optional[str]) -> str:
 
     # Remove common AI-generated link phrases (Italian + English)
     patterns_to_remove = [
-        r'Leggi la fonte originale\.?',
-        r'Leggi la fonte\.?',
-        r'Leggi news\.?',
-        r'Read more\.?',
-        r'Read the source\.?',
-        r'Source:.*?(?=\s|$)',
-        r'Link:.*?(?=\s|$)',
-        r'Fonte:.*?(?=\s|$)',
-        r'📎\s*Leggi\s*News\.?',
-        r'🔗\s*Leggi\s*(la\s*)?(fonte|news)\.?',
-        r'https?://\S+',  # Remove any URLs
+        r"Leggi la fonte originale\.?",
+        r"Leggi la fonte\.?",
+        r"Leggi news\.?",
+        r"Read more\.?",
+        r"Read the source\.?",
+        r"Source:.*?(?=\s|$)",
+        r"Link:.*?(?=\s|$)",
+        r"Fonte:.*?(?=\s|$)",
+        r"📎\s*Leggi\s*News\.?",
+        r"🔗\s*Leggi\s*(la\s*)?(fonte|news)\.?",
+        r"https?://\S+",  # Remove any URLs
     ]
 
     for pattern in patterns_to_remove:
-        cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
 
     # Strip trailing/leading whitespace and normalize multiple spaces
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
     return cleaned
 
@@ -164,9 +167,13 @@ def _clean_ai_text(text: Optional[str]) -> str:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type((requests.exceptions.Timeout, requests.exceptions.ConnectionError))
+    retry=retry_if_exception_type(
+        (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
+    ),
 )
-def _send_telegram_request(url: str, payload: Dict[str, Any], timeout: int = TELEGRAM_TIMEOUT_SECONDS) -> requests.Response:
+def _send_telegram_request(
+    url: str, payload: dict[str, Any], timeout: int = TELEGRAM_TIMEOUT_SECONDS
+) -> requests.Response:
     """
     Internal function to send Telegram API request with tenacity retry.
 
@@ -189,7 +196,7 @@ def _send_telegram_request(url: str, payload: Dict[str, Any], timeout: int = TEL
 
     # Handle rate limiting with custom backoff
     if response.status_code == 429:
-        retry_after = int(response.headers.get('Retry-After', 5))
+        retry_after = int(response.headers.get("Retry-After", 5))
         logging.warning(f"Telegram rate limit (429), attesa {retry_after}s...")
         time.sleep(retry_after)
         raise requests.exceptions.ConnectionError("Rate limited - triggering retry")
@@ -207,7 +214,7 @@ def _send_telegram_request(url: str, payload: Dict[str, Any], timeout: int = TEL
 # ============================================
 
 
-def calculate_odds_movement(opening_odd: Optional[float], current_odd: Optional[float]) -> Dict[str, Any]:
+def calculate_odds_movement(opening_odd: float | None, current_odd: float | None) -> dict[str, Any]:
     """
     Calculate odds drop percentage and determine market reaction.
 
@@ -219,37 +226,33 @@ def calculate_odds_movement(opening_odd: Optional[float], current_odd: Optional[
         Dict with: drop_percent, emoji, message (in Italian)
     """
     if not opening_odd or not current_odd or opening_odd == 0:
-        return {
-            'drop_percent': 0,
-            'emoji': '❓',
-            'message': 'Quote non disponibili'
-        }
+        return {"drop_percent": 0, "emoji": "❓", "message": "Quote non disponibili"}
 
     drop = ((opening_odd - current_odd) / opening_odd) * 100
 
     if drop > 15:
         return {
-            'drop_percent': round(drop, 1),
-            'emoji': '📉',
-            'message': f'CROLLO QUOTE (-{round(drop, 1)}%) - Notizia probabilmente già prezzata. ⚠️ CAUTELA'
+            "drop_percent": round(drop, 1),
+            "emoji": "📉",
+            "message": f"CROLLO QUOTE (-{round(drop, 1)}%) - Notizia probabilmente già prezzata. ⚠️ CAUTELA",
         }
     elif drop >= 5:
         return {
-            'drop_percent': round(drop, 1),
-            'emoji': '↘️',
-            'message': f'IN CALO (-{round(drop, 1)}%) - Il mercato sta reagendo'
+            "drop_percent": round(drop, 1),
+            "emoji": "↘️",
+            "message": f"IN CALO (-{round(drop, 1)}%) - Il mercato sta reagendo",
         }
     elif drop >= -5:  # Small change either direction
         return {
-            'drop_percent': round(drop, 1),
-            'emoji': '💎',
-            'message': f'VALORE INTATTO ({round(drop, 1):+}%) - Il mercato non ha ancora reagito! 🎯'
+            "drop_percent": round(drop, 1),
+            "emoji": "💎",
+            "message": f"VALORE INTATTO ({round(drop, 1):+}%) - Il mercato non ha ancora reagito! 🎯",
         }
     else:  # Odds rising (negative drop)
         return {
-            'drop_percent': round(drop, 1),
-            'emoji': '📈',
-            'message': f'QUOTE IN SALITA ({round(drop, 1):+}%) - Movimento contrario rilevato'
+            "drop_percent": round(drop, 1),
+            "emoji": "📈",
+            "message": f"QUOTE IN SALITA ({round(drop, 1):+}%) - Movimento contrario rilevato",
         }
 
 
@@ -258,7 +261,7 @@ def calculate_odds_movement(opening_odd: Optional[float], current_odd: Optional[
 # ============================================
 
 
-def extract_combo_from_summary(news_summary: Optional[str]) -> tuple:
+def extract_combo_from_summary(news_summary: str | None) -> tuple:
     """
     Extract combo suggestion and reasoning from news summary.
 
@@ -276,22 +279,22 @@ def extract_combo_from_summary(news_summary: Optional[str]) -> tuple:
         return primary_market, combo_suggestion, combo_reasoning
 
     # Extract primary market
-    market_match = re.search(r'📊 MERCATO: ([^\n]+)', news_summary)
+    market_match = re.search(r"📊 MERCATO: ([^\n]+)", news_summary)
     if market_match:
         primary_market = market_match.group(1).strip()
 
     # Extract combo suggestion (if present)
-    combo_match = re.search(r'🧩 SMART COMBO: ([^\n]+)', news_summary)
+    combo_match = re.search(r"🧩 SMART COMBO: ([^\n]+)", news_summary)
     if combo_match:
         combo_suggestion = combo_match.group(1).strip()
 
     # Extract combo reasoning (from └─ line or ℹ️ Combo: line)
-    reasoning_match = re.search(r'└─ ([^\n]+)', news_summary)
+    reasoning_match = re.search(r"└─ ([^\n]+)", news_summary)
     if reasoning_match:
         combo_reasoning = reasoning_match.group(1).strip()
     else:
         # Try the "Combo skipped" format
-        skipped_match = re.search(r'ℹ️ Combo: ([^\n]+)', news_summary)
+        skipped_match = re.search(r"ℹ️ Combo: ([^\n]+)", news_summary)
         if skipped_match:
             combo_reasoning = skipped_match.group(1).strip()
 
@@ -302,34 +305,35 @@ def extract_combo_from_summary(news_summary: Optional[str]) -> tuple:
 # MESSAGE SECTION BUILDERS
 # ============================================
 
+
 def _build_bet_section(
-    recommended_market: Optional[str],
-    combo_suggestion: Optional[str],
-    combo_reasoning_clean: Optional[str],
-    math_edge: Optional[Dict[str, Any]],
-    financial_risk: Optional[str]
+    recommended_market: str | None,
+    combo_suggestion: str | None,
+    combo_reasoning_clean: str | None,
+    math_edge: dict[str, Any] | None,
+    financial_risk: str | None,
 ) -> str:
     """Build the betting suggestion section of the message."""
     bet_section = ""
 
     # Primary market recommendation
-    if recommended_market and recommended_market != 'NONE':
+    if recommended_market and recommended_market != "NONE":
         bet_section = f"🎯 <b>Mercato Consigliato:</b> {html.escape(recommended_market)}\n"
 
     # Combo suggestion
-    if combo_suggestion and combo_suggestion != 'None':
+    if combo_suggestion and combo_suggestion != "None":
         bet_section += f"🧩 <b>COMBO SMART:</b> {html.escape(combo_suggestion)}\n"
-        if combo_reasoning_clean and 'insufficien' not in combo_reasoning_clean.lower():
+        if combo_reasoning_clean and "insufficien" not in combo_reasoning_clean.lower():
             bet_section += f"   <i>({combo_reasoning_clean})</i>\n"
     elif combo_reasoning_clean:
         # Discrete footer for negative result - show why combo was skipped
         bet_section += f"<i>ℹ️ Combo: {combo_reasoning_clean}</i>\n"
 
     # Math Edge section (Poisson model value detection)
-    if math_edge and math_edge.get('edge', 0) > 5:
-        edge_pct = math_edge.get('edge', 0)
-        kelly = math_edge.get('kelly_stake', 0)
-        market = math_edge.get('market', 'Unknown')
+    if math_edge and math_edge.get("edge", 0) > 5:
+        edge_pct = math_edge.get("edge", 0)
+        kelly = math_edge.get("kelly_stake", 0)
+        market = math_edge.get("market", "Unknown")
 
         # Edge label dinamica con spiegazione
         if edge_pct >= 10:
@@ -351,20 +355,26 @@ def _build_bet_section(
         else:
             kelly_label = "🟣 MOLTO ALTO (punta massimo)"
 
-        bet_section += f"🧮 <b>VALORE MATEMATICO:</b>\n"
+        bet_section += "🧮 <b>VALORE MATEMATICO:</b>\n"
         bet_section += f"   📊 Edge: {edge_pct:+.1f}% su {html.escape(market)} - {edge_label}\n"
         bet_section += f"   💰 Kelly: {kelly:.2f}% del capitale - {kelly_label}\n"
 
     # Financial Risk section (B-Team Detection)
-    if financial_risk and financial_risk.upper() in ['CRITICAL', 'WARNING']:
+    if financial_risk and financial_risk.upper() in ["CRITICAL", "WARNING"]:
         risk_emoji = "🚨" if financial_risk.upper() == "CRITICAL" else "⚠️"
-        risk_label = "B-TEAM CONFERMATO" if financial_risk.upper() == "CRITICAL" else "ROTAZIONE PROBABILE"
+        risk_label = (
+            "B-TEAM CONFERMATO" if financial_risk.upper() == "CRITICAL" else "ROTAZIONE PROBABILE"
+        )
         bet_section += f"{risk_emoji} <b>ALLARME ROSA:</b> {risk_label}\n"
 
     return bet_section
 
 
-def _build_referee_section(referee_intel: Optional[Dict[str, Any]], combo_suggestion: Optional[str], recommended_market: Optional[str]) -> str:
+def _build_referee_section(
+    referee_intel: dict[str, Any] | None,
+    combo_suggestion: str | None,
+    recommended_market: str | None,
+) -> str:
     """Build the referee intelligence section for cards market transparency."""
     referee_section = ""
 
@@ -372,26 +382,26 @@ def _build_referee_section(referee_intel: Optional[Dict[str, Any]], combo_sugges
         return referee_section
 
     # Check if this is a cards-related suggestion
-    combo_lower = (combo_suggestion or '').lower()
-    market_lower = (recommended_market or '').lower()
-    is_cards_bet = 'card' in combo_lower or 'card' in market_lower
+    combo_lower = (combo_suggestion or "").lower()
+    market_lower = (recommended_market or "").lower()
+    is_cards_bet = "card" in combo_lower or "card" in market_lower
 
     if not is_cards_bet:
         return referee_section
 
-    ref_name = referee_intel.get('referee_name', 'Unknown')
-    ref_cards_avg = referee_intel.get('referee_cards_avg')
-    ref_strictness = referee_intel.get('referee_strictness', 'Unknown')
-    home_cards = referee_intel.get('home_cards_avg')
-    away_cards = referee_intel.get('away_cards_avg')
-    cards_reasoning = referee_intel.get('cards_reasoning', '')
+    ref_name = referee_intel.get("referee_name", "Unknown")
+    ref_cards_avg = referee_intel.get("referee_cards_avg")
+    ref_strictness = referee_intel.get("referee_strictness", "Unknown")
+    home_cards = referee_intel.get("home_cards_avg")
+    away_cards = referee_intel.get("away_cards_avg")
+    cards_reasoning = referee_intel.get("cards_reasoning", "")
 
     # Build referee intel string
-    if ref_name and ref_name != 'Unknown':
+    if ref_name and ref_name != "Unknown":
         referee_section = f"⚖️ <b>ARBITRO:</b> {html.escape(ref_name)}"
         if ref_cards_avg:
             referee_section += f" ({ref_cards_avg:.1f} cart/partita"
-            if ref_strictness and ref_strictness != 'Unknown':
+            if ref_strictness and ref_strictness != "Unknown":
                 referee_section += f", {ref_strictness}"
             referee_section += ")"
         referee_section += "\n"
@@ -413,32 +423,32 @@ def _build_referee_section(referee_intel: Optional[Dict[str, Any]], combo_sugges
     return referee_section
 
 
-def _build_twitter_section(twitter_intel: Optional[Dict[str, Any]]) -> str:
+def _build_twitter_section(twitter_intel: dict[str, Any] | None) -> str:
     """Build the Twitter insider intel section."""
     twitter_section = ""
 
     if not twitter_intel or not isinstance(twitter_intel, dict):
         return twitter_section
 
-    tweets = twitter_intel.get('tweets', [])
+    tweets = twitter_intel.get("tweets", [])
     if not tweets:
         return twitter_section
 
     twitter_section = "🐦 <b>INSIDER INTEL:</b>\n"
     for tweet in tweets[:2]:  # Max 2 tweets to keep message compact
-        handle = tweet.get('handle', '')
-        content = tweet.get('content', '')[:100]  # Truncate
-        topics = tweet.get('topics', [])
+        handle = tweet.get("handle", "")
+        content = tweet.get("content", "")[:100]  # Truncate
+        topics = tweet.get("topics", [])
         topic_str = f" [{', '.join(topics)}]" if topics else ""
-        twitter_section += f"   • {html.escape(handle)}: <i>{html.escape(content)}...</i>{topic_str}\n"
+        twitter_section += (
+            f"   • {html.escape(handle)}: <i>{html.escape(content)}...</i>{topic_str}\n"
+        )
 
     return twitter_section
 
 
 def _build_injury_section(
-    injury_intel: Optional[Dict[str, Any]],
-    home_team: str,
-    away_team: str
+    injury_intel: dict[str, Any] | None, home_team: str, away_team: str
 ) -> str:
     """Build the injury impact section."""
     injury_section = ""
@@ -446,17 +456,17 @@ def _build_injury_section(
     if not injury_intel or not isinstance(injury_intel, dict):
         return injury_section
 
-    home_severity = injury_intel.get('home_severity', 'LOW')
-    away_severity = injury_intel.get('away_severity', 'LOW')
-    home_starters = injury_intel.get('home_missing_starters', 0)
-    away_starters = injury_intel.get('away_missing_starters', 0)
-    home_key = injury_intel.get('home_key_players', [])
-    away_key = injury_intel.get('away_key_players', [])
-    favors = injury_intel.get('favors', 'neutral')
+    home_severity = injury_intel.get("home_severity", "LOW")
+    away_severity = injury_intel.get("away_severity", "LOW")
+    home_starters = injury_intel.get("home_missing_starters", 0)
+    away_starters = injury_intel.get("away_missing_starters", 0)
+    home_key = injury_intel.get("home_key_players", [])
+    away_key = injury_intel.get("away_key_players", [])
+    favors = injury_intel.get("favors", "neutral")
 
     # Only show if there's meaningful injury data
-    has_significant_home = home_starters > 0 or home_key or home_severity in ('HIGH', 'CRITICAL')
-    has_significant_away = away_starters > 0 or away_key or away_severity in ('HIGH', 'CRITICAL')
+    has_significant_home = home_starters > 0 or home_key or home_severity in ("HIGH", "CRITICAL")
+    has_significant_away = away_starters > 0 or away_key or away_severity in ("HIGH", "CRITICAL")
 
     if not has_significant_home and not has_significant_away:
         return injury_section
@@ -471,7 +481,7 @@ def _build_injury_section(
         if home_starters > 0:
             injury_section += f" ({home_starters} titolari)"
         if home_key:
-            key_names = ', '.join(home_key[:2])  # Max 2 names
+            key_names = ", ".join(home_key[:2])  # Max 2 names
             injury_section += f" - ⭐{html.escape(key_names)}"
         injury_section += "\n"
 
@@ -482,36 +492,36 @@ def _build_injury_section(
         if away_starters > 0:
             injury_section += f" ({away_starters} titolari)"
         if away_key:
-            key_names = ', '.join(away_key[:2])
+            key_names = ", ".join(away_key[:2])
             injury_section += f" - ⭐{html.escape(key_names)}"
         injury_section += "\n"
 
     # Summary of who it favors
-    if favors == 'home':
+    if favors == "home":
         injury_section += f"   📊 <i>Vantaggio {home_team}</i>\n"
-    elif favors == 'away':
+    elif favors == "away":
         injury_section += f"   📊 <i>Vantaggio {away_team}</i>\n"
 
     return injury_section
 
 
-def _build_verification_section(verification_info: Optional[Dict[str, Any]]) -> str:
+def _build_verification_section(verification_info: dict[str, Any] | None) -> str:
     """Build the verification layer section."""
     verification_section = ""
 
     if not verification_info or not isinstance(verification_info, dict):
         return verification_section
 
-    status = verification_info.get('status', '')
-    confidence = verification_info.get('confidence', '')
-    reasoning = verification_info.get('reasoning', '')
-    inconsistencies = verification_info.get('inconsistencies_count', 0)
+    status = verification_info.get("status", "")
+    confidence = verification_info.get("confidence", "")
+    reasoning = verification_info.get("reasoning", "")
+    inconsistencies = verification_info.get("inconsistencies_count", 0)
 
     # Status emoji and label
-    if status == 'confirm':
+    if status == "confirm":
         status_emoji = "✅"
         status_label = "VERIFICATO"
-    elif status == 'change_market':
+    elif status == "change_market":
         status_emoji = "🔄"
         status_label = "MERCATO MODIFICATO"
     else:
@@ -521,7 +531,9 @@ def _build_verification_section(verification_info: Optional[Dict[str, Any]]) -> 
     # Confidence emoji
     conf_emoji = {"HIGH": "🟢", "MEDIUM": "🟡", "LOW": "🔴"}.get(confidence, "⚪")
 
-    verification_section = f"🔍 <b>VERIFICA:</b> {status_emoji} {status_label} {conf_emoji} ({confidence})\n"
+    verification_section = (
+        f"🔍 <b>VERIFICA:</b> {status_emoji} {status_label} {conf_emoji} ({confidence})\n"
+    )
 
     # Show inconsistencies count if any
     if inconsistencies > 0:
@@ -535,69 +547,75 @@ def _build_verification_section(verification_info: Optional[Dict[str, Any]]) -> 
     return verification_section
 
 
-def _build_convergence_section(is_convergent: bool, convergence_sources: Optional[Dict[str, Any]]) -> str:
+def _build_convergence_section(
+    is_convergent: bool, convergence_sources: dict[str, Any] | None
+) -> str:
     """
     V9.5: Build the cross-source convergence section.
-    
+
     Displays high-priority tag when signal is confirmed by both Web (Brave) and Social (Nitter) sources.
-    
+
     Args:
         is_convergent: True if convergence detected
         convergence_sources: Dict with web and social signal details
-        
+
     Returns:
         Formatted convergence section string
     """
     convergence_section = ""
-    
+
     if not is_convergent:
         return convergence_section
-    
+
     # High-priority convergence tag
     convergence_section = "🔴 <b>CONFERMA MULTIPLA: WEB + SOCIAL</b>\n"
-    
+
     # Add source details if available
     if convergence_sources and isinstance(convergence_sources, dict):
-        web_info = convergence_sources.get('web', {})
-        social_info = convergence_sources.get('social', {})
-        
-        web_conf = web_info.get('confidence', 0)
-        social_conf = social_info.get('confidence', 0)
-        web_source = web_info.get('source', 'Brave')
-        social_handle = social_info.get('handle', 'Nitter')
-        signal_type = web_info.get('type', 'Unknown')
-        
+        web_info = convergence_sources.get("web", {})
+        social_info = convergence_sources.get("social", {})
+
+        web_conf = web_info.get("confidence", 0)
+        social_conf = social_info.get("confidence", 0)
+        web_source = web_info.get("source", "Brave")
+        social_handle = social_info.get("handle", "Nitter")
+        signal_type = web_info.get("type", "Unknown")
+
         # Signal type
         convergence_section += f"📊 <b>Segnale:</b> {html.escape(signal_type)}\n"
-        
+
         # Web source details
-        convergence_section += f"🌐 <b>Web Source:</b> {html.escape(web_source)} (Confidence: {web_conf*100:.0f}%)\n"
-        
+        convergence_section += (
+            f"🌐 <b>Web Source:</b> {html.escape(web_source)} (Confidence: {web_conf * 100:.0f}%)\n"
+        )
+
         # Social source details
         if social_handle:
-            convergence_section += f"🐦 <b>Social Source:</b> @{html.escape(social_handle)} (Confidence: {social_conf*100:.0f}%)\n"
+            convergence_section += f"🐦 <b>Social Source:</b> @{html.escape(social_handle)} (Confidence: {social_conf * 100:.0f}%)\n"
         else:
-            convergence_section += f"🐦 <b>Social Source:</b> Nitter (Confidence: {social_conf*100:.0f}%)\n"
-        
+            convergence_section += (
+                f"🐦 <b>Social Source:</b> Nitter (Confidence: {social_conf * 100:.0f}%)\n"
+            )
+
         # Time difference if available
-        time_diff = convergence_sources.get('time_diff_hours')
+        time_diff = convergence_sources.get("time_diff_hours")
         if time_diff is not None:
             convergence_section += f"⏱️ <b>Time Diff:</b> {time_diff:.1f}h\n"
-    
+
     return convergence_section
 
 
-def _build_confidence_breakdown_section(confidence_breakdown: Optional[Dict[str, Any]]) -> str:
+def _build_confidence_breakdown_section(confidence_breakdown: dict[str, Any] | None) -> str:
     """Build the confidence breakdown section for transparency."""
     breakdown_section = ""
 
     if not confidence_breakdown or not isinstance(confidence_breakdown, dict):
         return breakdown_section
 
-    news_w = confidence_breakdown.get('news_weight', 0)
-    odds_w = confidence_breakdown.get('odds_weight', 0)
-    form_w = confidence_breakdown.get('form_weight', 0)
-    injuries_w = confidence_breakdown.get('injuries_weight', 0)
+    news_w = confidence_breakdown.get("news_weight", 0)
+    odds_w = confidence_breakdown.get("odds_weight", 0)
+    form_w = confidence_breakdown.get("form_weight", 0)
+    injuries_w = confidence_breakdown.get("injuries_weight", 0)
 
     # Only show if we have meaningful breakdown
     if not any([news_w, odds_w, form_w, injuries_w]):
@@ -616,12 +634,15 @@ def _build_confidence_breakdown_section(confidence_breakdown: Optional[Dict[str,
 
     if drivers:
         # Find the main driver (highest percentage)
-        main_driver = max([
-            (news_w, "📰 Notizia"),
-            (odds_w, "📈 Quota"),
-            (form_w, "📊 Stats"),
-            (injuries_w, "🏥 Infortuni")
-        ], key=lambda x: x[0])
+        main_driver = max(
+            [
+                (news_w, "📰 Notizia"),
+                (odds_w, "📈 Quota"),
+                (form_w, "📊 Stats"),
+                (injuries_w, "🏥 Infortuni"),
+            ],
+            key=lambda x: x[0],
+        )
 
         main_name, main_pct = main_driver[1], main_driver[0]
         other_drivers = [d for d in drivers if not d.startswith(main_name.split()[0])]
@@ -639,7 +660,7 @@ def _build_date_line(match_obj: Any) -> str:
     """Build the date/time line for the match."""
     date_line = ""
 
-    if not hasattr(match_obj, 'start_time') or not match_obj.start_time:
+    if not hasattr(match_obj, "start_time") or not match_obj.start_time:
         return date_line
 
     try:
@@ -650,9 +671,9 @@ def _build_date_line(match_obj: Any) -> str:
             utc_time = match_obj.start_time
 
         # Convert to Rome timezone
-        rome_tz = pytz.timezone('Europe/Rome')
+        rome_tz = pytz.timezone("Europe/Rome")
         local_time = utc_time.astimezone(rome_tz)
-        date_str = local_time.strftime('%d/%m %H:%M')
+        date_str = local_time.strftime("%d/%m %H:%M")
         date_line = f"📅 {date_str}\n"
     except Exception as e:
         logging.debug(f"Formattazione data fallita: {e}")
@@ -667,7 +688,7 @@ def _truncate_message_if_needed(
     match_str: str,
     score: int,
     odds_line: str,
-    movement: Dict[str, Any],
+    movement: dict[str, Any],
     source_indicator: str,
     bet_section: str,
     breakdown_section: str,
@@ -677,7 +698,7 @@ def _truncate_message_if_needed(
     verification_section: str,
     news_summary_clean: str,
     news_link: str,
-    convergence_section: str = ""
+    convergence_section: str = "",
 ) -> str:
     """Truncate message if it exceeds Telegram limits."""
     if len(message) <= TELEGRAM_MESSAGE_LIMIT:
@@ -686,7 +707,7 @@ def _truncate_message_if_needed(
     # Truncate news_summary to fit, keeping structure intact
     overflow = len(message) - TELEGRAM_TRUNCATED_LIMIT  # Leave margin for truncation notice
     if len(news_summary_clean) > overflow + 100:
-        news_summary_truncated = news_summary_clean[:-(overflow + 50)] + "... [TRONCATO]"
+        news_summary_truncated = news_summary_clean[: -(overflow + 50)] + "... [TRONCATO]"
         message = (
             f"{header}\n"
             f"{date_line}"
@@ -718,13 +739,13 @@ def _truncate_message_if_needed(
 def send_alert_wrapper(**kwargs) -> None:
     """
     V9.5: Wrapper function to convert main.py keyword arguments to notifier.send_alert positional arguments.
-    
+
     Main.py calls send_alert with keyword arguments that don't match the function signature.
     This wrapper handles the conversion.
-    
+
     Args:
         **kwargs: Keyword arguments from main.py
-        
+
     Keyword argument mapping:
         - match -> match_obj
         - score -> score
@@ -742,35 +763,35 @@ def send_alert_wrapper(**kwargs) -> None:
         - convergence_sources -> convergence_sources (V9.5)
     """
     # Extract and convert keyword arguments
-    match_obj = kwargs.get('match')
-    score = kwargs.get('score')
-    league = kwargs.get('league', '') or getattr(match_obj, 'league', '')
-    
+    match_obj = kwargs.get("match")
+    score = kwargs.get("score")
+    league = kwargs.get("league", "") or getattr(match_obj, "league", "")
+
     # Build news_summary from news_articles
-    news_articles = kwargs.get('news_articles', [])
-    news_summary = news_articles[0].get('snippet', '') if news_articles else ''
-    news_url = news_articles[0].get('link', '') if news_articles else ''
-    
+    news_articles = kwargs.get("news_articles", [])
+    news_summary = news_articles[0].get("snippet", "") if news_articles else ""
+    news_url = news_articles[0].get("link", "") if news_articles else ""
+
     # Extract optional parameters with defaults
-    combo_suggestion = kwargs.get('combo_suggestion')
-    combo_reasoning = kwargs.get('combo_reasoning')
-    recommended_market = kwargs.get('market') or kwargs.get('recommended_market')
-    math_edge = kwargs.get('math_edge')
-    is_update = kwargs.get('is_update', False)
-    financial_risk = kwargs.get('financial_risk')
-    intel_source = kwargs.get('intel_source', 'web')
-    referee_intel = kwargs.get('referee_intel')
-    twitter_intel = kwargs.get('twitter_intel')
-    validated_home_team = kwargs.get('validated_home_team')
-    validated_away_team = kwargs.get('validated_away_team')
-    verification_info = kwargs.get('verification_result')
-    injury_intel = kwargs.get('injury_impact_home') or kwargs.get('injury_impact_away')
-    confidence_breakdown = kwargs.get('confidence_breakdown')
-    
+    combo_suggestion = kwargs.get("combo_suggestion")
+    combo_reasoning = kwargs.get("combo_reasoning")
+    recommended_market = kwargs.get("market") or kwargs.get("recommended_market")
+    math_edge = kwargs.get("math_edge")
+    is_update = kwargs.get("is_update", False)
+    financial_risk = kwargs.get("financial_risk")
+    intel_source = kwargs.get("intel_source", "web")
+    referee_intel = kwargs.get("referee_intel")
+    twitter_intel = kwargs.get("twitter_intel")
+    validated_home_team = kwargs.get("validated_home_team")
+    validated_away_team = kwargs.get("validated_away_team")
+    verification_info = kwargs.get("verification_result")
+    injury_intel = kwargs.get("injury_impact_home") or kwargs.get("injury_impact_away")
+    confidence_breakdown = kwargs.get("confidence_breakdown")
+
     # V9.5: Extract convergence parameters
-    is_convergent = kwargs.get('is_convergent', False)
-    convergence_sources = kwargs.get('convergence_sources')
-    
+    is_convergent = kwargs.get("is_convergent", False)
+    convergence_sources = kwargs.get("convergence_sources")
+
     # Call the actual send_alert function with positional arguments
     send_alert(
         match_obj=match_obj,
@@ -793,7 +814,7 @@ def send_alert_wrapper(**kwargs) -> None:
         injury_intel=injury_intel,
         confidence_breakdown=confidence_breakdown,
         is_convergent=is_convergent,
-        convergence_sources=convergence_sources
+        convergence_sources=convergence_sources,
     )
 
 
@@ -808,22 +829,22 @@ def send_alert(
     news_url: str,
     score: int,
     league: str,
-    combo_suggestion: Optional[str] = None,
-    combo_reasoning: Optional[str] = None,
-    recommended_market: Optional[str] = None,
-    math_edge: Optional[Dict[str, Any]] = None,
+    combo_suggestion: str | None = None,
+    combo_reasoning: str | None = None,
+    recommended_market: str | None = None,
+    math_edge: dict[str, Any] | None = None,
     is_update: bool = False,
-    financial_risk: Optional[str] = None,
+    financial_risk: str | None = None,
     intel_source: str = "web",
-    referee_intel: Optional[Dict[str, Any]] = None,
-    twitter_intel: Optional[Dict[str, Any]] = None,
-    validated_home_team: Optional[str] = None,
-    validated_away_team: Optional[str] = None,
-    verification_info: Optional[Dict[str, Any]] = None,
-    injury_intel: Optional[Dict[str, Any]] = None,
-    confidence_breakdown: Optional[Dict[str, Any]] = None,
+    referee_intel: dict[str, Any] | None = None,
+    twitter_intel: dict[str, Any] | None = None,
+    validated_home_team: str | None = None,
+    validated_away_team: str | None = None,
+    verification_info: dict[str, Any] | None = None,
+    injury_intel: dict[str, Any] | None = None,
+    confidence_breakdown: dict[str, Any] | None = None,
     is_convergent: bool = False,
-    convergence_sources: Optional[Dict[str, Any]] = None
+    convergence_sources: dict[str, Any] | None = None,
 ) -> None:
     """
     Sends a formatted alert to Telegram with odds movement analysis.
@@ -856,27 +877,32 @@ def send_alert(
         return
 
     # Use validated team names if provided, otherwise fall back to match_obj
-    home_team = validated_home_team if validated_home_team else getattr(match_obj, 'home_team', 'Unknown')
-    away_team = validated_away_team if validated_away_team else getattr(match_obj, 'away_team', 'Unknown')
+    home_team = (
+        validated_home_team if validated_home_team else getattr(match_obj, "home_team", "Unknown")
+    )
+    away_team = (
+        validated_away_team if validated_away_team else getattr(match_obj, "away_team", "Unknown")
+    )
 
     match_str = f"{home_team} vs {away_team}"
 
     # Calculate odds movement for home team (affected side)
     movement = calculate_odds_movement(
-        getattr(match_obj, 'opening_home_odd', None),
-        getattr(match_obj, 'current_home_odd', None)
+        getattr(match_obj, "opening_home_odd", None), getattr(match_obj, "current_home_odd", None)
     )
 
     # Build odds display (ITALIAN)
     odds_line = ""
-    current_home_odd = getattr(match_obj, 'current_home_odd', None)
-    opening_home_odd = getattr(match_obj, 'opening_home_odd', None)
+    current_home_odd = getattr(match_obj, "current_home_odd", None)
+    opening_home_odd = getattr(match_obj, "opening_home_odd", None)
     if opening_home_odd and current_home_odd:
         odds_line = f"📈 Quote: {opening_home_odd:.2f} → {current_home_odd:.2f}\n"
 
     # Use direct combo fields if provided, otherwise extract from summary
     if not combo_suggestion or not recommended_market:
-        extracted_market, extracted_combo, extracted_reasoning = extract_combo_from_summary(news_summary)
+        extracted_market, extracted_combo, extracted_reasoning = extract_combo_from_summary(
+            news_summary
+        )
         if not combo_suggestion:
             combo_suggestion = extracted_combo
         if not combo_reasoning:
@@ -889,7 +915,9 @@ def send_alert(
     news_summary_clean = _clean_ai_text(news_summary)
 
     # Build message sections
-    bet_section = _build_bet_section(recommended_market, combo_suggestion, combo_reasoning_clean, math_edge, financial_risk)
+    bet_section = _build_bet_section(
+        recommended_market, combo_suggestion, combo_reasoning_clean, math_edge, financial_risk
+    )
     referee_section = _build_referee_section(referee_intel, combo_suggestion, recommended_market)
     twitter_section = _build_twitter_section(twitter_intel)
     injury_section = _build_injury_section(injury_intel, home_team, away_team)
@@ -903,20 +931,20 @@ def send_alert(
     if intel_source and intel_source != "web":
         source_emoji = {"telegram": "💬", "ocr": "🔍"}.get(intel_source, "📰")
         source_indicator = f"{source_emoji} <b>Source:</b> {intel_source.upper()}\n"
-    
+
     # V9.0: Enhanced source attribution with specific details
     # Check for additional source details in twitter_intel or other sources
     enhanced_source_section = ""
-    
+
     if twitter_intel and isinstance(twitter_intel, dict):
-        tweets = twitter_intel.get('tweets', [])
+        tweets = twitter_intel.get("tweets", [])
         if tweets and len(tweets) > 0:
             # Extract handle from first tweet for attribution
             first_tweet = tweets[0]
-            handle = first_tweet.get('handle', '')
+            handle = first_tweet.get("handle", "")
             if handle:
                 enhanced_source_section = f"🐦 <b>Insider:</b> {html.escape(handle)}\n"
-    
+
     # If no enhanced source info, use the basic source_indicator
     if not enhanced_source_section and source_indicator:
         enhanced_source_section = source_indicator
@@ -932,7 +960,7 @@ def send_alert(
 
     # Build news link safely - only if URL is valid, with HTML escape
     news_link = ""
-    if news_url and isinstance(news_url, str) and news_url.startswith('http'):
+    if news_url and isinstance(news_url, str) and news_url.startswith("http"):
         safe_url = html.escape(news_url)
         news_link = f"\n\n🔗 <a href='{safe_url}'>Leggi la fonte originale</a>"
 
@@ -958,10 +986,23 @@ def send_alert(
 
     # Truncate if needed
     message = _truncate_message_if_needed(
-        message, header, date_line, match_str, score, odds_line, movement,
-        enhanced_source_section, bet_section, breakdown_section, injury_section,
-        referee_section, twitter_section, verification_section, news_summary_clean, news_link,
-        convergence_section  # V9.5: Include convergence section in truncation
+        message,
+        header,
+        date_line,
+        match_str,
+        score,
+        odds_line,
+        movement,
+        enhanced_source_section,
+        bet_section,
+        breakdown_section,
+        injury_section,
+        referee_section,
+        twitter_section,
+        verification_section,
+        news_summary_clean,
+        news_link,
+        convergence_section,  # V9.5: Include convergence section in truncation
     )
 
     # Send to Telegram
@@ -970,19 +1011,21 @@ def send_alert(
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
         "parse_mode": "HTML",
-        "disable_web_page_preview": True
+        "disable_web_page_preview": True,
     }
 
     try:
         response = _send_telegram_request(url, payload, timeout=TELEGRAM_TIMEOUT_SECONDS)
         if response.status_code == 200:
             link_status = "con link" if news_link else "senza link"
-            logging.info(f"Telegram Alert sent for {match_str} | Movement: {movement['message']} | {link_status}")
+            logging.info(
+                f"Telegram Alert sent for {match_str} | Movement: {movement['message']} | {link_status}"
+            )
         else:
             # HTML parsing failed - fallback to plain text
             _send_plain_text_fallback(url, message, news_url, match_str)
     except requests.exceptions.Timeout:
-        logging.error(f"Telegram timeout dopo 3 tentativi")
+        logging.error("Telegram timeout dopo 3 tentativi")
     except requests.exceptions.ConnectionError as e:
         logging.error(f"Telegram errore connessione: {e}")
     except Exception as e:
@@ -990,25 +1033,31 @@ def send_alert(
         _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
 
 
-def _send_plain_text_fallback(url: str, message: str, news_url: str, match_str: str, exception: Optional[Exception] = None) -> None:
+def _send_plain_text_fallback(
+    url: str, message: str, news_url: str, match_str: str, exception: Exception | None = None
+) -> None:
     """Send a plain text fallback message when HTML fails."""
     if exception:
         logging.warning(f"HTML send exception ({exception}), falling back to plain text")
     else:
-        logging.warning(f"HTML send failed, falling back to plain text")
+        logging.warning("HTML send failed, falling back to plain text")
 
     try:
-        plain_msg = message.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '')
+        plain_msg = (
+            message.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
+        )
         plain_msg = strip_html_links(plain_msg)
         # Append raw URL so it's clickable in plain text
-        if news_url and news_url.startswith('http'):
+        if news_url and news_url.startswith("http"):
             plain_msg += f"\n\nLink: {news_url}"
         payload_plain = {
             "chat_id": TELEGRAM_CHAT_ID,
             "text": plain_msg,
-            "disable_web_page_preview": True
+            "disable_web_page_preview": True,
         }
-        response_plain = _send_telegram_request(url, payload_plain, timeout=TELEGRAM_TIMEOUT_SECONDS)
+        response_plain = _send_telegram_request(
+            url, payload_plain, timeout=TELEGRAM_TIMEOUT_SECONDS
+        )
         if response_plain.status_code == 200:
             logging.info(f"Telegram Alert sent (plain text fallback) for {match_str}")
         else:
@@ -1042,7 +1091,7 @@ def send_status_message(text: str) -> bool:
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
         "parse_mode": "HTML",
-        "disable_web_page_preview": True
+        "disable_web_page_preview": True,
     }
 
     try:
@@ -1071,13 +1120,13 @@ def send_status_message(text: str) -> bool:
 
 def send_biscotto_alert(
     match_obj: Any,
-    draw_odd: Optional[float] = None,
-    drop_pct: Optional[float] = None,
-    severity: Optional[str] = None,
-    reasoning: Optional[str] = None,
-    news_url: Optional[str] = None,
-    league: Optional[str] = None,
-    financial_risk: Optional[str] = None
+    draw_odd: float | None = None,
+    drop_pct: float | None = None,
+    severity: str | None = None,
+    reasoning: str | None = None,
+    news_url: str | None = None,
+    league: str | None = None,
+    financial_risk: str | None = None,
 ) -> None:
     """
     Send a specialized alert for Biscotto (mutual draw benefit) detection.
@@ -1096,26 +1145,23 @@ def send_biscotto_alert(
         logging.warning("Telegram configuration missing. Skipping biscotto alert.")
         return
 
-    home_team = getattr(match_obj, 'home_team', 'Unknown')
-    away_team = getattr(match_obj, 'away_team', 'Unknown')
+    home_team = getattr(match_obj, "home_team", "Unknown")
+    away_team = getattr(match_obj, "away_team", "Unknown")
     match_str = f"{home_team} vs {away_team}"
 
     # Use league from match_obj if not provided
     if not league:
-        league = getattr(match_obj, 'league', 'Unknown')
+        league = getattr(match_obj, "league", "Unknown")
 
     # Normalize severity (handle EXTREME from is_biscotto_suspect)
-    severity_normalized = (severity or 'LOW').upper()
-    if severity_normalized == 'EXTREME':
-        severity_normalized = 'CRITICAL'
+    severity_normalized = (severity or "LOW").upper()
+    if severity_normalized == "EXTREME":
+        severity_normalized = "CRITICAL"
 
     # Build severity section with reasoning
-    severity_emoji = {
-        'LOW': '🟢',
-        'MEDIUM': '🟡',
-        'HIGH': '🟠',
-        'CRITICAL': '🔴'
-    }.get(severity_normalized, '⚪')
+    severity_emoji = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠", "CRITICAL": "🔴"}.get(
+        severity_normalized, "⚪"
+    )
 
     # Build odds section
     odds_section = ""
@@ -1131,9 +1177,11 @@ def send_biscotto_alert(
 
     # Build financial risk section (B-Team Detection)
     risk_section = ""
-    if financial_risk and financial_risk.upper() in ['CRITICAL', 'WARNING']:
+    if financial_risk and financial_risk.upper() in ["CRITICAL", "WARNING"]:
         risk_emoji = "🚨" if financial_risk.upper() == "CRITICAL" else "⚠️"
-        risk_label = "B-TEAM CONFERMATO" if financial_risk.upper() == "CRITICAL" else "ROTAZIONE PROBABILE"
+        risk_label = (
+            "B-TEAM CONFERMATO" if financial_risk.upper() == "CRITICAL" else "ROTAZIONE PROBABILE"
+        )
         risk_section = f"{risk_emoji} <b>ALLARME ROSA:</b> {risk_label}\n"
 
     # Build date/time line
@@ -1141,7 +1189,7 @@ def send_biscotto_alert(
 
     # Build news link safely - only if URL is valid, with HTML escape
     news_link = ""
-    if news_url and isinstance(news_url, str) and news_url.startswith('http'):
+    if news_url and isinstance(news_url, str) and news_url.startswith("http"):
         safe_url = html.escape(news_url)
         news_link = f"\n\n🔗 <a href='{safe_url}'>Leggi la fonte originale</a>"
 
@@ -1164,19 +1212,21 @@ def send_biscotto_alert(
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
         "parse_mode": "HTML",
-        "disable_web_page_preview": True
+        "disable_web_page_preview": True,
     }
 
     try:
         response = _send_telegram_request(url, payload, timeout=TELEGRAM_TIMEOUT_SECONDS)
         if response.status_code == 200:
             link_status = "con link" if news_link else "senza link"
-            logging.info(f"Biscotto Alert sent for {match_str} | Severity: {severity} | {link_status}")
+            logging.info(
+                f"Biscotto Alert sent for {match_str} | Severity: {severity} | {link_status}"
+            )
         else:
             # HTML parsing failed - fallback to plain text
             _send_plain_text_fallback(url, message, news_url, match_str)
     except requests.exceptions.Timeout:
-        logging.error(f"Telegram timeout per biscotto alert dopo 3 tentativi")
+        logging.error("Telegram timeout per biscotto alert dopo 3 tentativi")
     except requests.exceptions.ConnectionError as e:
         logging.error(f"Telegram errore connessione (biscotto): {e}")
     except Exception as e:
@@ -1212,13 +1262,9 @@ def send_document(file_path: str, caption: str = "") -> bool:
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendDocument"
 
     try:
-        with open(path, 'rb') as doc:
-            files = {'document': doc}
-            data = {
-                'chat_id': TELEGRAM_CHAT_ID,
-                'caption': caption,
-                'parse_mode': 'HTML'
-            }
+        with open(path, "rb") as doc:
+            files = {"document": doc}
+            data = {"chat_id": TELEGRAM_CHAT_ID, "caption": caption, "parse_mode": "HTML"}
 
             response = requests.post(url, files=files, data=data, timeout=TELEGRAM_DOCUMENT_TIMEOUT)
 

@@ -17,16 +17,16 @@ V2.0: Complete rewrite based on real betting value analysis.
 def build_analysis_prompt_v2(content: str) -> str:
     """
     Build the V2 analysis prompt for DeepSeek.
-    
+
     This prompt is designed to:
     1. Work with ANY language (DeepSeek handles multilingual)
     2. Extract STRUCTURED data (team, count, match, etc.)
     3. Apply strict quality gates
     4. Focus on HIGH-VALUE betting signals only
-    
+
     Args:
         content: Raw content text (any language)
-        
+
     Returns:
         Formatted prompt string
     """
@@ -34,7 +34,7 @@ def build_analysis_prompt_v2(content: str) -> str:
     max_content = 12000
     if len(content) > max_content:
         content = content[:max_content]
-    
+
     return f"""You are a sports betting analyst. Analyze this football news article (in ANY language) and extract betting-relevant information.
 
 ⚠️ CRITICAL: Only mark as relevant if there is REAL BETTING VALUE:
@@ -88,13 +88,13 @@ RULES:
 def build_quick_check_prompt(content: str) -> str:
     """
     Build a quick check prompt for initial filtering.
-    
+
     Faster and cheaper than full analysis.
     Used to decide if content is worth full analysis.
-    
+
     Args:
         content: Raw content text (any language)
-        
+
     Returns:
         Formatted prompt string
     """
@@ -102,7 +102,7 @@ def build_quick_check_prompt(content: str) -> str:
     max_content = 3000
     if len(content) > max_content:
         content = content[:max_content]
-    
+
     return f"""Quick check: Does this football news have betting value?
 
 BETTING VALUE = lineup disruption (3+ players out, youth team, turnover, crisis)

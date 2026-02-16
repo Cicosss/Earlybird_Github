@@ -10,29 +10,31 @@ VPS Compatibility Notes:
 - Environment variables have sensible defaults
 """
 
-import os
 import logging
-from typing import Dict, List, Optional
+import os
+
 from dotenv import load_dotenv
 
 # Configure logging for settings module
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file with graceful handling
-env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 if os.path.exists(env_file):
     load_dotenv(env_file)
-    logger.info(f"✅ Loaded environment from .env file")
+    logger.info("✅ Loaded environment from .env file")
 else:
     logger.warning(f"⚠️ .env file not found at {env_file}")
-    logger.warning(f"⚠️ Using hardcoded default API keys - system will operate with limited functionality")
-    logger.warning(f"⚠️ Create .env file with your API keys for full functionality")
+    logger.warning(
+        "⚠️ Using hardcoded default API keys - system will operate with limited functionality"
+    )
+    logger.warning("⚠️ Create .env file with your API keys for full functionality")
 
 
 def _inject_default_env_vars():
     """
     Inject hardcoded default API keys into os.environ.
-    
+
     This ensures that external libraries which read environment variables
     directly (instead of using this settings module) will have access
     to the default values when .env is missing or incomplete.
@@ -44,35 +46,35 @@ def _inject_default_env_vars():
         os.environ["BRAVE_API_KEY_2"] = "BSAr_BZ95Sa2w1mqPnHtGZ2YeEGLo0x"
     if not os.getenv("BRAVE_API_KEY_3"):
         os.environ["BRAVE_API_KEY_3"] = "BSADXYY9dy2id0ftdIERVlFRJHSpmO-"
-    
+
     # Also set BRAVE_API_KEY to first key if not set
     if not os.getenv("BRAVE_API_KEY"):
         os.environ["BRAVE_API_KEY"] = os.environ.get("BRAVE_API_KEY_1", "")
-    
+
     # TAVILY API Keys (placeholder defaults - user should provide real keys)
     for i in range(1, 8):  # TAVILY_API_KEY_1 through TAVILY_API_KEY_7
         key_name = f"TAVILY_API_KEY_{i}"
         if not os.getenv(key_name):
             os.environ[key_name] = ""
-    
+
     # MEDIASTACK API Keys (placeholder defaults)
     for i in range(1, 5):  # MEDIASTACK_API_KEY_1 through MEDIASTACK_API_KEY_4
         key_name = f"MEDIASTACK_API_KEY_{i}"
         if not os.getenv(key_name):
             os.environ[key_name] = ""
-    
+
     # PERPLEXITY API Key (placeholder default)
     if not os.getenv("PERPLEXITY_API_KEY"):
         os.environ["PERPLEXITY_API_KEY"] = ""
-    
+
     # OPENROUTER API Key (placeholder default)
     if not os.getenv("OPENROUTER_API_KEY"):
         os.environ["OPENROUTER_API_KEY"] = ""
-    
+
     # ODDS API Key (placeholder default - critical for operation)
     if not os.getenv("ODDS_API_KEY"):
         os.environ["ODDS_API_KEY"] = ""
-    
+
     # TELEGRAM credentials (placeholder defaults - critical for bot)
     if not os.getenv("TELEGRAM_BOT_TOKEN"):
         os.environ["TELEGRAM_BOT_TOKEN"] = ""
@@ -101,7 +103,7 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 # ========================================
 # NATIVE KEYWORDS FOR OSINT (Multi-language)
 # ========================================
-NATIVE_KEYWORDS: Dict[str, List[str]] = {
+NATIVE_KEYWORDS: dict[str, list[str]] = {
     "pt": ["escalação", "poupados", "reservas", "sub-20", "desfalques", "time misto"],
     "tr": ["kadro", "yedek", "sakat", "rotasyon", "gençler", "eksik"],
     "pl": ["skład", "kontuzja", "rezerwowy", "absencja", "młodzież"],
@@ -137,20 +139,20 @@ BRAVE_API_KEYS = [
 
 # NEW: Budget allocation per component (calls/month)
 BRAVE_BUDGET_ALLOCATION = {
-    "main_pipeline": 1800,      # 30% - Match enrichment
-    "news_radar": 1200,         # 20% - Pre-enrichment for ambiguous content
-    "browser_monitor": 600,     # 10% - Short content expansion
-    "telegram_monitor": 300,    # 5% - Intel verification
-    "settlement_clv": 150,      # 2.5% - Post-match analysis
-    "twitter_recovery": 1950,   # 32.5% - Buffer/recovery
+    "main_pipeline": 1800,  # 30% - Match enrichment
+    "news_radar": 1200,  # 20% - Pre-enrichment for ambiguous content
+    "browser_monitor": 600,  # 10% - Short content expansion
+    "telegram_monitor": 300,  # 5% - Intel verification
+    "settlement_clv": 150,  # 2.5% - Post-match analysis
+    "twitter_recovery": 1950,  # 32.5% - Buffer/recovery
 }
 
 # NEW: Total monthly budget (3 keys × 2000 calls)
 BRAVE_MONTHLY_BUDGET = 6000
 
 # NEW: Threshold percentages for degraded/disabled modes
-BRAVE_DEGRADED_THRESHOLD = 0.90   # 90% - Non-critical calls throttled
-BRAVE_DISABLED_THRESHOLD = 0.95   # 95% - Only critical calls allowed
+BRAVE_DEGRADED_THRESHOLD = 0.90  # 90% - Non-critical calls throttled
+BRAVE_DISABLED_THRESHOLD = 0.95  # 95% - Only critical calls allowed
 
 # ========================================
 # MEDIASTACK API CONFIGURATION (Enhanced V1.0)
@@ -199,15 +201,16 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "") or os.getenv("TELEGRAM_
 # ========================================
 # FOTMOB TEAM MAPPING (Lazy Import)
 # ========================================
-_TEAM_FOTMOB_IDS: Optional[Dict] = None
+_TEAM_FOTMOB_IDS: dict | None = None
 
 
-def get_team_fotmob_ids() -> Dict:
+def get_team_fotmob_ids() -> dict:
     """Lazy load FotMob team mapping to avoid circular imports."""
     global _TEAM_FOTMOB_IDS
     if _TEAM_FOTMOB_IDS is None:
         try:
             from src.ingestion.fotmob_team_mapping import TEAM_FOTMOB_IDS
+
             _TEAM_FOTMOB_IDS = TEAM_FOTMOB_IDS
         except ImportError:
             _TEAM_FOTMOB_IDS = {}
@@ -221,9 +224,13 @@ MATCH_LOOKAHEAD_HOURS = 96  # Extended to 4 days for early odds tracking
 ANALYSIS_WINDOW_HOURS = 72  # 72h = 3 days (captures weekend fixtures early)
 
 # Alert thresholds
-ALERT_THRESHOLD_HIGH = 9.0      # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY
-ALERT_THRESHOLD_RADAR = 7.5     # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY
-SETTLEMENT_MIN_SCORE = 7.0      # Minimum highest_score_sent to include in settlement
+ALERT_THRESHOLD_HIGH = (
+    9.0  # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY
+)
+ALERT_THRESHOLD_RADAR = (
+    7.5  # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY
+)
+SETTLEMENT_MIN_SCORE = 7.0  # Minimum highest_score_sent to include in settlement
 
 # ========================================
 # HOME ADVANTAGE BY LEAGUE (V4.3 - Deep Research)
@@ -236,7 +243,7 @@ SETTLEMENT_MIN_SCORE = 7.0      # Minimum highest_score_sent to include in settl
 # Medium HA (0.25-0.35): Most European leagues
 # Low HA (0.20-0.25): Bundesliga, Premier League (modern stadia, short travel)
 
-HOME_ADVANTAGE_BY_LEAGUE: Dict[str, float] = {
+HOME_ADVANTAGE_BY_LEAGUE: dict[str, float] = {
     # HIGH HA - Intense atmospheres, long travel, passionate fans
     "soccer_turkey_super_league": 0.38,
     "soccer_greece_super_league": 0.40,
@@ -246,14 +253,12 @@ HOME_ADVANTAGE_BY_LEAGUE: Dict[str, float] = {
     "soccer_mexico_ligamx": 0.35,
     "soccer_colombia_primera_a": 0.36,
     "soccer_usa_mls": 0.35,  # Long travel distances
-    
     # MEDIUM-HIGH HA - Strong home cultures
     "soccer_scotland_premiership": 0.32,
     "soccer_portugal_primeira_liga": 0.32,
     "soccer_australia_aleague": 0.30,  # Travel factor
     "soccer_poland_ekstraklasa": 0.32,
     "soccer_romania_liga_i": 0.33,
-    
     # MEDIUM HA - Standard European leagues
     "soccer_france_ligue_one": 0.28,
     "soccer_italy_serie_a": 0.28,
@@ -263,12 +268,10 @@ HOME_ADVANTAGE_BY_LEAGUE: Dict[str, float] = {
     "soccer_austria_bundesliga": 0.28,
     "soccer_switzerland_super_league": 0.28,
     "soccer_norway_eliteserien": 0.28,
-    
     # LOW HA - Modern stadia, standardized refereeing, short travel
     "soccer_england_premier_league": 0.25,
     "soccer_germany_bundesliga": 0.22,
     "soccer_germany_bundesliga2": 0.24,
-    
     # ASIA - Variable
     "soccer_japan_j_league": 0.28,
     "soccer_china_superleague": 0.30,
@@ -282,10 +285,10 @@ DEFAULT_HOME_ADVANTAGE = 0.30  # Default for leagues not in map
 def get_home_advantage(league_key: str) -> float:
     """
     Get league-specific home advantage value.
-    
+
     Args:
         league_key: League identifier string
-        
+
     Returns:
         Home advantage factor (float)
     """
@@ -298,7 +301,7 @@ def get_home_advantage(league_key: str) -> float:
 # LEAGUE TIERS FOR NEWS DECAY (V4.3)
 # ========================================
 # V4.3 Enhancement: League-adaptive decay rates
-# 
+#
 # TIER 1 LEAGUES (fast markets): λ = 0.14 (half-life ~5 min)
 # - Premier League, La Liga, Serie A, Bundesliga, Ligue 1
 # - These markets react very quickly to news
@@ -320,61 +323,61 @@ TIER1_LEAGUES = {
 }
 
 # Decay rates
-NEWS_DECAY_LAMBDA_TIER1 = 0.14    # Fast decay: half-life ~5 min
-NEWS_DECAY_LAMBDA_ELITE = 0.023   # Slow decay: half-life ~30 min
+NEWS_DECAY_LAMBDA_TIER1 = 0.14  # Fast decay: half-life ~5 min
+NEWS_DECAY_LAMBDA_ELITE = 0.023  # Slow decay: half-life ~30 min
 
 # Source-based decay modifiers (V4.3)
 # Insider sources decay slower (news persists longer)
 SOURCE_DECAY_MODIFIERS = {
-    "insider_verified": 0.5,    # Decay 50% slower
-    "beat_writer": 0.7,         # Decay 30% slower
+    "insider_verified": 0.5,  # Decay 50% slower
+    "beat_writer": 0.7,  # Decay 30% slower
     "beat_writer_priority": 0.7,
-    "mainstream": 1.0,          # Normal decay
-    "unknown": 1.5,             # Decay 50% faster
+    "mainstream": 1.0,  # Normal decay
+    "unknown": 1.5,  # Decay 50% faster
 }
 
 
 def get_news_decay_lambda(league_key: str) -> float:
     """
     V4.3: Get news decay lambda for a league.
-    
+
     Tier 1 leagues (PL, La Liga, etc.) have fast-reacting markets,
     so news decays quickly (λ = 0.14, half-life ~5 min).
-    
+
     Elite leagues (Turkey, Argentina, etc.) have slower markets,
     so news persists longer (λ = 0.023, half-life ~30 min).
-    
+
     Args:
         league_key: League identifier
-        
+
     Returns:
         Decay lambda value
     """
     if not league_key or not isinstance(league_key, str):
         return NEWS_DECAY_LAMBDA_ELITE
-    
+
     if league_key in TIER1_LEAGUES:
         return NEWS_DECAY_LAMBDA_TIER1
-    
+
     return NEWS_DECAY_LAMBDA_ELITE
 
 
 def get_source_decay_modifier(source_type: str) -> float:
     """
     V4.3: Get decay modifier based on news source type.
-    
+
     Insider sources decay slower because their information
     is often not yet priced into the market.
-    
+
     Args:
         source_type: Type of source (e.g., 'beat_writer', 'reddit')
-        
+
     Returns:
         Decay modifier (< 1.0 = slower decay, > 1.0 = faster decay)
     """
     if not source_type or not isinstance(source_type, str):
         return 1.0
-    
+
     return SOURCE_DECAY_MODIFIERS.get(source_type.lower(), 1.0)
 
 
@@ -384,16 +387,31 @@ def get_source_decay_modifier(source_type: str) -> float:
 # A "Biscotto" is a mutually beneficial draw where both teams need 1 point.
 # Bookmakers slash Draw odds when they suspect collusion.
 
-BISCOTTO_SUSPICIOUS_LOW = 2.50    # Draw odd below this is suspicious
-BISCOTTO_EXTREME_LOW = 2.00      # Draw odd below this is VERY suspicious
+BISCOTTO_SUSPICIOUS_LOW = 2.50  # Draw odd below this is suspicious
+BISCOTTO_EXTREME_LOW = 2.00  # Draw odd below this is VERY suspicious
 BISCOTTO_SIGNIFICANT_DROP = 15.0  # % drop from opening that triggers alert
 
 # Biscotto keywords for news validation (multi-language)
-BISCOTTO_KEYWORDS: Dict[str, List[str]] = {
-    "en": ["convenient draw", "mutually beneficial", "both teams need", "point for both", 
-           "boring match", "no motivation", "tacit agreement", "fixed match"],
-    "pt": ["empate conveniente", "ambos precisam", "ponto para ambos", "jogo morno",
-           "sem motivação", "acordo tácito", "combinado"],
+BISCOTTO_KEYWORDS: dict[str, list[str]] = {
+    "en": [
+        "convenient draw",
+        "mutually beneficial",
+        "both teams need",
+        "point for both",
+        "boring match",
+        "no motivation",
+        "tacit agreement",
+        "fixed match",
+    ],
+    "pt": [
+        "empate conveniente",
+        "ambos precisam",
+        "ponto para ambos",
+        "jogo morno",
+        "sem motivação",
+        "acordo tácito",
+        "combinado",
+    ],
     "tr": ["beraberlik yeterli", "her iki takım", "motivasyon yok", "anlaşmalı maç"],
     "pl": ["remis wystarczy", "obu drużynom", "brak motywacji", "ustawiony mecz"],
     "ro": ["egal convenabil", "ambele echipe", "fără motivație", "meci aranjat"],
@@ -406,9 +424,9 @@ BISCOTTO_KEYWORDS: Dict[str, List[str]] = {
 # ========================================
 # Advanced fatigue analysis with exponential decay model
 
-FATIGUE_CRITICAL_HOURS = 72       # Less than 3 days = CRITICAL fatigue
-FATIGUE_OPTIMAL_HOURS = 96        # 4 days = full recovery
-FATIGUE_WINDOW_DAYS = 21          # Analyze matches in last 21 days
+FATIGUE_CRITICAL_HOURS = 72  # Less than 3 days = CRITICAL fatigue
+FATIGUE_OPTIMAL_HOURS = 96  # 4 days = full recovery
+FATIGUE_WINDOW_DAYS = 21  # Analyze matches in last 21 days
 FATIGUE_LATE_GAME_THRESHOLD = 0.40  # Probability threshold for late-game alert
 
 
@@ -417,9 +435,9 @@ FATIGUE_LATE_GAME_THRESHOLD = 0.40  # Probability threshold for late-game alert
 # ========================================
 # Enhanced biscotto detection with Z-Score and end-of-season analysis
 
-BISCOTTO_ZSCORE_THRESHOLD = 1.5   # Z-Score above this triggers analysis
-BISCOTTO_END_SEASON_ROUNDS = 5    # Last N rounds considered "end of season"
-BISCOTTO_LEAGUE_AVG_DRAW = 0.28   # League average draw probability (~28%)
+BISCOTTO_ZSCORE_THRESHOLD = 1.5  # Z-Score above this triggers analysis
+BISCOTTO_END_SEASON_ROUNDS = 5  # Last N rounds considered "end of season"
+BISCOTTO_LEAGUE_AVG_DRAW = 0.28  # League average draw probability (~28%)
 
 
 # ========================================
@@ -488,20 +506,20 @@ TAVILY_CACHE_TTL_SECONDS = 1800
 
 # Budget allocation per component (calls/month)
 TAVILY_BUDGET_ALLOCATION = {
-    "main_pipeline": 2100,      # 30% - Match enrichment
-    "news_radar": 1500,         # 21% - Pre-enrichment for ambiguous content
-    "browser_monitor": 750,     # 11% - Short content expansion
-    "telegram_monitor": 450,    # 6% - Intel verification
-    "settlement_clv": 225,      # 3% - Post-match analysis
-    "twitter_recovery": 1975,   # 29% - Buffer/recovery
+    "main_pipeline": 2100,  # 30% - Match enrichment
+    "news_radar": 1500,  # 21% - Pre-enrichment for ambiguous content
+    "browser_monitor": 750,  # 11% - Short content expansion
+    "telegram_monitor": 450,  # 6% - Intel verification
+    "settlement_clv": 225,  # 3% - Post-match analysis
+    "twitter_recovery": 1975,  # 29% - Buffer/recovery
 }
 
 # Total monthly budget (7 keys × 1000 calls)
 TAVILY_MONTHLY_BUDGET = 7000
 
 # Threshold percentages for degraded/disabled modes
-TAVILY_DEGRADED_THRESHOLD = 0.90   # 90% - Non-critical calls throttled
-TAVILY_DISABLED_THRESHOLD = 0.95   # 95% - Only critical calls allowed
+TAVILY_DEGRADED_THRESHOLD = 0.90  # 90% - Non-critical calls throttled
+TAVILY_DISABLED_THRESHOLD = 0.95  # 95% - Only critical calls allowed
 
 # ========================================
 # VERIFICATION LAYER V7.0 (Alert Fact-Checking)
@@ -515,30 +533,30 @@ TAVILY_DISABLED_THRESHOLD = 0.95   # 95% - Only critical calls allowed
 # produces fewer goals.
 
 VERIFICATION_ENABLED = os.getenv("VERIFICATION_ENABLED", "true").lower() == "true"
-VERIFICATION_SCORE_THRESHOLD = 7.5   # Minimum score to trigger verification
-VERIFICATION_TIMEOUT = 30            # Seconds timeout for API calls
+VERIFICATION_SCORE_THRESHOLD = 7.5  # Minimum score to trigger verification
+VERIFICATION_TIMEOUT = 30  # Seconds timeout for API calls
 
 # Player Impact Thresholds
-PLAYER_KEY_IMPACT_THRESHOLD = 7      # Score >= 7 = key player
-CRITICAL_IMPACT_THRESHOLD = 20       # Total impact >= 20 = critical situation
+PLAYER_KEY_IMPACT_THRESHOLD = 7  # Score >= 7 = key player
+CRITICAL_IMPACT_THRESHOLD = 20  # Total impact >= 20 = critical situation
 
 # Form Analysis Thresholds
-FORM_DEVIATION_THRESHOLD = 0.30      # 30% deviation from season avg = warning
-LOW_SCORING_THRESHOLD = 1.0          # Goals/game < 1.0 = low scoring team
+FORM_DEVIATION_THRESHOLD = 0.30  # 30% deviation from season avg = warning
+LOW_SCORING_THRESHOLD = 1.0  # Goals/game < 1.0 = low scoring team
 
 # H2H Thresholds
-H2H_CARDS_THRESHOLD = 4.5            # Avg cards >= 4.5 = suggest Over Cards
-H2H_CORNERS_THRESHOLD = 10           # Avg corners >= 10 = suggest Over Corners
-COMBINED_CORNERS_THRESHOLD = 10.5    # Combined avg >= 10.5 = Over 9.5 Corners
+H2H_CARDS_THRESHOLD = 4.5  # Avg cards >= 4.5 = suggest Over Cards
+H2H_CORNERS_THRESHOLD = 10  # Avg corners >= 10 = suggest Over Corners
+COMBINED_CORNERS_THRESHOLD = 10.5  # Combined avg >= 10.5 = Over 9.5 Corners
 
 # Referee Thresholds
-REFEREE_STRICT_THRESHOLD = 5.0       # Cards/game >= 5 = strict referee
-REFEREE_LENIENT_THRESHOLD = 3.0      # Cards/game <= 3 = lenient referee
+REFEREE_STRICT_THRESHOLD = 5.0  # Cards/game >= 5 = strict referee
+REFEREE_LENIENT_THRESHOLD = 3.0  # Cards/game <= 3 = lenient referee
 
 # Score Adjustment Penalties
-CRITICAL_INJURY_OVER_PENALTY = 1.5   # Points to subtract for critical injury + Over
-FORM_WARNING_PENALTY = 0.5           # Points to subtract for form warning
-INCONSISTENCY_PENALTY = 0.3          # Points to subtract per inconsistency
+CRITICAL_INJURY_OVER_PENALTY = 1.5  # Points to subtract for critical injury + Over
+FORM_WARNING_PENALTY = 0.5  # Points to subtract for form warning
+INCONSISTENCY_PENALTY = 0.3  # Points to subtract per inconsistency
 
 
 # ========================================
@@ -547,18 +565,15 @@ INCONSISTENCY_PENALTY = 0.3          # Points to subtract per inconsistency
 # Default odds values used when actual odds are not available
 # These are fallback values for complex markets that don't have direct odds
 
-DEFAULT_ODDS_GOALS = 1.90      # Default for goals markets (Over/Under, BTTS)
-DEFAULT_ODDS_CORNERS = 1.85    # Default for corners markets
-DEFAULT_ODDS_CARDS = 1.80     # Default for cards markets
+DEFAULT_ODDS_GOALS = 1.90  # Default for goals markets (Over/Under, BTTS)
+DEFAULT_ODDS_CORNERS = 1.85  # Default for corners markets
+DEFAULT_ODDS_CARDS = 1.80  # Default for cards markets
 
 
 # ========================================
 # DATABASE CONFIGURATION
 # ========================================
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    f"sqlite:///{os.path.join(DATA_DIR, 'earlybird.db')}"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(DATA_DIR, 'earlybird.db')}")
 
 # ========================================
 # LOGGING CONFIGURATION
@@ -572,30 +587,31 @@ LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 # MONITORING & HEALTH CHECKS
 # ========================================
 HEALTH_CHECK_INTERVAL = 300  # 5 minutes
-MAX_ALERTS_PER_HOUR = 10     # Rate limiting for alerts
+MAX_ALERTS_PER_HOUR = 10  # Rate limiting for alerts
+
 
 # ========================================
 # VALIDATION FUNCTIONS
 # ========================================
-def validate_config() -> List[str]:
+def validate_config() -> list[str]:
     """
     Validate configuration and return list of missing critical settings.
-    
+
     Returns:
         List of error messages for missing/invalid configurations
     """
     errors = []
-    
+
     # Critical API keys
     if not ODDS_API_KEY:
         errors.append("Missing ODDS_API_KEY - required for match data")
-    
+
     if not TELEGRAM_BOT_TOKEN:
         errors.append("Missing TELEGRAM_BOT_TOKEN - required for notifications")
-    
+
     if not TELEGRAM_CHAT_ID:
         errors.append("Missing TELEGRAM_CHAT_ID - required for notifications")
-    
+
     # Check data directory is writable
     try:
         test_file = os.path.join(DATA_DIR, ".write_test")
@@ -604,7 +620,7 @@ def validate_config() -> List[str]:
         os.remove(test_file)
     except Exception as e:
         errors.append(f"Data directory not writable: {e}")
-    
+
     return errors
 
 
@@ -618,48 +634,95 @@ def is_config_valid() -> bool:
 # ========================================
 __all__ = [
     # Paths
-    "BASE_DIR", "DATA_DIR", "LOGS_DIR",
+    "BASE_DIR",
+    "DATA_DIR",
+    "LOGS_DIR",
     # API Keys
-    "ODDS_API_KEY", "SERPER_API_KEY", "GEMINI_API_KEY", "BRAVE_API_KEY",
-    "MEDIASTACK_API_KEY", "OPENROUTER_API_KEY", "PERPLEXITY_API_KEY",
+    "ODDS_API_KEY",
+    "SERPER_API_KEY",
+    "GEMINI_API_KEY",
+    "BRAVE_API_KEY",
+    "MEDIASTACK_API_KEY",
+    "OPENROUTER_API_KEY",
+    "PERPLEXITY_API_KEY",
     # Telegram
-    "TELEGRAM_CHAT_ID", "TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID",
+    "TELEGRAM_API_ID",
+    "TELEGRAM_API_HASH",
+    "TELEGRAM_BOT_TOKEN",
     # Thresholds
-    "ALERT_THRESHOLD_HIGH", "ALERT_THRESHOLD_RADAR", "SETTLEMENT_MIN_SCORE",
-    "MATCH_LOOKAHEAD_HOURS", "ANALYSIS_WINDOW_HOURS",
+    "ALERT_THRESHOLD_HIGH",
+    "ALERT_THRESHOLD_RADAR",
+    "SETTLEMENT_MIN_SCORE",
+    "MATCH_LOOKAHEAD_HOURS",
+    "ANALYSIS_WINDOW_HOURS",
     # Home Advantage
-    "HOME_ADVANTAGE_BY_LEAGUE", "DEFAULT_HOME_ADVANTAGE", "get_home_advantage",
+    "HOME_ADVANTAGE_BY_LEAGUE",
+    "DEFAULT_HOME_ADVANTAGE",
+    "get_home_advantage",
     # News Decay
-    "TIER1_LEAGUES", "NEWS_DECAY_LAMBDA_TIER1", "NEWS_DECAY_LAMBDA_ELITE",
-    "SOURCE_DECAY_MODIFIERS", "get_news_decay_lambda", "get_source_decay_modifier",
+    "TIER1_LEAGUES",
+    "NEWS_DECAY_LAMBDA_TIER1",
+    "NEWS_DECAY_LAMBDA_ELITE",
+    "SOURCE_DECAY_MODIFIERS",
+    "get_news_decay_lambda",
+    "get_source_decay_modifier",
     # Biscotto
-    "BISCOTTO_SUSPICIOUS_LOW", "BISCOTTO_EXTREME_LOW", "BISCOTTO_SIGNIFICANT_DROP",
-    "BISCOTTO_KEYWORDS", "BISCOTTO_ZSCORE_THRESHOLD", "BISCOTTO_END_SEASON_ROUNDS",
+    "BISCOTTO_SUSPICIOUS_LOW",
+    "BISCOTTO_EXTREME_LOW",
+    "BISCOTTO_SIGNIFICANT_DROP",
+    "BISCOTTO_KEYWORDS",
+    "BISCOTTO_ZSCORE_THRESHOLD",
+    "BISCOTTO_END_SEASON_ROUNDS",
     "BISCOTTO_LEAGUE_AVG_DRAW",
     # Fatigue
-    "FATIGUE_CRITICAL_HOURS", "FATIGUE_OPTIMAL_HOURS", "FATIGUE_WINDOW_DAYS",
+    "FATIGUE_CRITICAL_HOURS",
+    "FATIGUE_OPTIMAL_HOURS",
+    "FATIGUE_WINDOW_DAYS",
     "FATIGUE_LATE_GAME_THRESHOLD",
     # Providers
-    "DEEPSEEK_INTEL_ENABLED", "PERPLEXITY_ENABLED", "TAVILY_ENABLED",
+    "DEEPSEEK_INTEL_ENABLED",
+    "PERPLEXITY_ENABLED",
+    "TAVILY_ENABLED",
     # Tavily Config
-    "TAVILY_API_KEYS", "TAVILY_RATE_LIMIT_SECONDS", "TAVILY_CACHE_TTL_SECONDS",
-    "TAVILY_BUDGET_ALLOCATION", "TAVILY_MONTHLY_BUDGET",
-    "TAVILY_DEGRADED_THRESHOLD", "TAVILY_DISABLED_THRESHOLD",
+    "TAVILY_API_KEYS",
+    "TAVILY_RATE_LIMIT_SECONDS",
+    "TAVILY_CACHE_TTL_SECONDS",
+    "TAVILY_BUDGET_ALLOCATION",
+    "TAVILY_MONTHLY_BUDGET",
+    "TAVILY_DEGRADED_THRESHOLD",
+    "TAVILY_DISABLED_THRESHOLD",
     # Verification
-    "VERIFICATION_ENABLED", "VERIFICATION_SCORE_THRESHOLD", "VERIFICATION_TIMEOUT",
-    "PLAYER_KEY_IMPACT_THRESHOLD", "CRITICAL_IMPACT_THRESHOLD",
-    "FORM_DEVIATION_THRESHOLD", "LOW_SCORING_THRESHOLD",
+    "VERIFICATION_ENABLED",
+    "VERIFICATION_SCORE_THRESHOLD",
+    "VERIFICATION_TIMEOUT",
+    "PLAYER_KEY_IMPACT_THRESHOLD",
+    "CRITICAL_IMPACT_THRESHOLD",
+    "FORM_DEVIATION_THRESHOLD",
+    "LOW_SCORING_THRESHOLD",
     # Default Odds
-    "DEFAULT_ODDS_GOALS", "DEFAULT_ODDS_CORNERS", "DEFAULT_ODDS_CARDS",
-    "H2H_CARDS_THRESHOLD", "H2H_CORNERS_THRESHOLD", "COMBINED_CORNERS_THRESHOLD",
-    "REFEREE_STRICT_THRESHOLD", "REFEREE_LENIENT_THRESHOLD",
-    "CRITICAL_INJURY_OVER_PENALTY", "FORM_WARNING_PENALTY", "INCONSISTENCY_PENALTY",
+    "DEFAULT_ODDS_GOALS",
+    "DEFAULT_ODDS_CORNERS",
+    "DEFAULT_ODDS_CARDS",
+    "H2H_CARDS_THRESHOLD",
+    "H2H_CORNERS_THRESHOLD",
+    "COMBINED_CORNERS_THRESHOLD",
+    "REFEREE_STRICT_THRESHOLD",
+    "REFEREE_LENIENT_THRESHOLD",
+    "CRITICAL_INJURY_OVER_PENALTY",
+    "FORM_WARNING_PENALTY",
+    "INCONSISTENCY_PENALTY",
     # Database
     "DATABASE_URL",
     # Logging
-    "LOG_LEVEL", "LOG_FILE", "LOG_FORMAT", "LOG_DATE_FORMAT",
+    "LOG_LEVEL",
+    "LOG_FILE",
+    "LOG_FORMAT",
+    "LOG_DATE_FORMAT",
     # Monitoring
-    "HEALTH_CHECK_INTERVAL", "MAX_ALERTS_PER_HOUR",
+    "HEALTH_CHECK_INTERVAL",
+    "MAX_ALERTS_PER_HOUR",
     # Validation
-    "validate_config", "is_config_valid",
+    "validate_config",
+    "is_config_valid",
 ]

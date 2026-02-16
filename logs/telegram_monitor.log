@@ -1,0 +1,195 @@
+2026-02-16 13:10:41,374 - INFO - ==================================================
+2026-02-16 13:10:41,375 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-16 13:10:41,375 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-16 13:10:41,375 - INFO - ==================================================
+2026-02-16 13:10:41,377 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-16 13:10:41,378 - INFO - ✅ Database initialized
+2026-02-16 13:10:41,379 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-16 13:10:41,459 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-16 13:10:42,537 - ERROR - ❌ File di sessione Telegram mancante o corrotto
+2026-02-16 13:10:42,537 - ERROR - ❌ Il monitoraggio dei canali Telegram richiede una sessione utente valida
+2026-02-16 13:10:42,537 - ERROR - ❌ I bot Telegram NON possono accedere alla cronologia dei canali (GetHistoryRequest)
+2026-02-16 13:10:42,537 - INFO - 
+2026-02-16 13:10:42,537 - INFO - 💡 SOLUZIONE: Eseguire 'python3 setup_telegram_auth.py' per creare una nuova sessione
+2026-02-16 13:10:42,538 - INFO - 💡 Questo script richiede autenticazione interattiva (inserimento numero telefono e codice)
+2026-02-16 13:10:42,538 - INFO - 💡 Eseguire lo script manualmente in un terminale
+2026-02-16 13:10:42,538 - INFO - 💡 Il monitor si avvierà AUTOMATICAMENTE quando la sessione viene creata
+2026-02-16 13:10:42,538 - INFO - 
+2026-02-16 13:10:42,538 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:10:42,763 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:11:42,812 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:11:43,008 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:12:43,064 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:12:43,145 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:13:43,200 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:13:43,294 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:14:43,348 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:14:43,516 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:15:43,561 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:15:43,867 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:16:43,908 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:16:44,045 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:17:44,089 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:17:44,198 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:18:44,241 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:18:44,489 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:19:44,536 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:19:44,845 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:20:44,887 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:20:44,968 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:21:45,010 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:21:45,190 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 13:22:45,234 - INFO - 🔄 Rilevata modifica del file di sessione! Tentativo riconnessione...
+2026-02-16 13:22:45,706 - WARNING - ⚠️ Sessione ancora non valida, continuo attesa...
+2026-02-16 19:53:06,040 - INFO - 📡 Verifica configurazione Telegram Monitor...
+2026-02-16 19:53:06,041 - INFO - ✅ TELEGRAM_API_ID: Configurato
+2026-02-16 19:53:06,041 - INFO - ✅ TELEGRAM_API_HASH: Configurato
+2026-02-16 19:53:06,041 - INFO - ✅ Import dipendenze: OK
+2026-02-16 19:53:06,044 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-16 19:53:06,044 - INFO - ✅ Database connection: OK
+2026-02-16 19:53:06,044 - INFO - ✅ Telegram credentials: Formato valido
+2026-02-16 19:53:06,044 - INFO - ✅ Monitor pronto per l'avvio
+2026-02-16 19:53:43,458 - INFO - ==================================================
+2026-02-16 19:53:43,458 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-16 19:53:43,458 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-16 19:53:43,459 - INFO - ==================================================
+2026-02-16 19:53:43,465 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-16 19:53:43,465 - INFO - ✅ Database initialized
+2026-02-16 19:53:43,468 - INFO - Connecting to 149.154.167.92:443/TcpFull...
+2026-02-16 19:53:43,518 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
+2026-02-16 19:53:43,957 - INFO - ✅ Client Telegram connesso (User Session)
+2026-02-16 19:53:43,957 - INFO - 🦅 EARLYBIRD TELEGRAM SQUAD MONITOR - STARTING
+2026-02-16 19:53:43,957 - INFO - 📡 Monitoraggio canali Telegram per immagini formazioni...
+2026-02-16 19:53:43,957 - INFO - 
+⏰ Ciclo Monitor Telegram...
+2026-02-16 19:53:43,958 - INFO - ✅ Telegram tracking DB initialized
+2026-02-16 19:53:43,978 - INFO - 📡 Monitoring 31 Telegram channels...
+2026-02-16 19:53:44,157 - INFO - 📡 Checking channel: @sporhaberleriguncel
+2026-02-16 19:53:44,350 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:53:44,610 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267873.jpg
+2026-02-16 19:53:45,677 - INFO - 📝 OCR Raw: 51 characters
+2026-02-16 19:53:45,678 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:53:45,684 - ERROR - Error processing channel @sporhaberleriguncel: name 'logger' is not defined
+2026-02-16 19:53:59,229 - INFO - ==================================================
+2026-02-16 19:53:59,229 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-16 19:53:59,229 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-16 19:53:59,229 - INFO - ==================================================
+2026-02-16 19:53:59,235 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-16 19:53:59,238 - INFO - ✅ Database initialized
+2026-02-16 19:53:59,239 - INFO - Connecting to 149.154.167.92:443/TcpFull...
+2026-02-16 19:53:59,281 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
+2026-02-16 19:53:59,620 - INFO - ✅ Client Telegram connesso (User Session)
+2026-02-16 19:53:59,621 - INFO - 🦅 EARLYBIRD TELEGRAM SQUAD MONITOR - STARTING
+2026-02-16 19:53:59,621 - INFO - 📡 Monitoraggio canali Telegram per immagini formazioni...
+2026-02-16 19:53:59,621 - INFO - 
+⏰ Ciclo Monitor Telegram...
+2026-02-16 19:53:59,623 - INFO - ✅ Telegram tracking DB initialized
+2026-02-16 19:53:59,653 - INFO - 📡 Monitoring 31 Telegram channels...
+2026-02-16 19:53:59,941 - INFO - 📡 Checking channel: @sporhaberleriguncel
+2026-02-16 19:54:00,253 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:54:00,534 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267873.jpg
+2026-02-16 19:54:01,391 - INFO - 📝 OCR Raw: 51 characters
+2026-02-16 19:54:01,391 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:54:01,396 - ERROR - Error processing channel @sporhaberleriguncel: name 'logger' is not defined
+2026-02-16 19:54:01,526 - INFO - 📡 Checking channel: @bgysportshaber
+2026-02-16 19:54:01,790 - ERROR - Error processing channel @bgysportshaber: name 'logger' is not defined
+2026-02-16 19:54:01,856 - INFO - 📡 Checking channel: @ErsinnSezer
+2026-02-16 19:54:02,106 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:54:02,665 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771250514.jpg
+2026-02-16 19:54:03,470 - INFO - 📝 OCR Raw: 139 characters
+2026-02-16 19:54:03,470 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:54:03,471 - ERROR - Error processing channel @ErsinnSezer: name 'logger' is not defined
+2026-02-16 19:54:03,731 - INFO - 📡 Checking channel: @besiktashaberleri
+2026-02-16 19:54:04,039 - ERROR - Error processing channel @besiktashaberleri: name 'logger' is not defined
+2026-02-16 19:54:04,343 - INFO - 📡 Checking channel: @spor_tr
+2026-02-16 19:54:04,656 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:54:04,885 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771263561.jpg
+2026-02-16 19:54:06,078 - INFO - 📝 OCR Raw: 205 characters
+2026-02-16 19:54:06,079 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:54:06,080 - ERROR - Error processing channel @spor_tr: name 'logger' is not defined
+2026-02-16 19:54:06,392 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-16 19:54:06,599 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:54:07,286 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771080504.jpg
+2026-02-16 19:59:17,178 - INFO - ==================================================
+2026-02-16 19:59:17,179 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-16 19:59:17,179 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-16 19:59:17,179 - INFO - ==================================================
+2026-02-16 19:59:17,184 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-16 19:59:17,184 - INFO - ✅ Database initialized
+2026-02-16 19:59:17,186 - INFO - Connecting to 149.154.167.92:443/TcpFull...
+2026-02-16 19:59:17,248 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
+2026-02-16 19:59:17,699 - INFO - ✅ Client Telegram connesso (User Session)
+2026-02-16 19:59:17,699 - INFO - 🦅 EARLYBIRD TELEGRAM SQUAD MONITOR - STARTING
+2026-02-16 19:59:17,700 - INFO - 📡 Monitoraggio canali Telegram per immagini formazioni...
+2026-02-16 19:59:17,700 - INFO - 
+⏰ Ciclo Monitor Telegram...
+2026-02-16 19:59:17,702 - INFO - ✅ Telegram tracking DB initialized
+2026-02-16 19:59:17,721 - INFO - 📡 Monitoring 31 Telegram channels...
+2026-02-16 19:59:17,868 - INFO - 📡 Checking channel: @sporhaberleriguncel
+2026-02-16 19:59:18,201 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:18,390 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771268199.jpg
+2026-02-16 19:59:19,911 - INFO - 📝 OCR Raw: 214 characters
+2026-02-16 19:59:19,912 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:19,919 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:20,079 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267873.jpg
+2026-02-16 19:59:20,965 - INFO - 📝 OCR Raw: 51 characters
+2026-02-16 19:59:20,965 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:20,969 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:21,167 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267068.jpg
+2026-02-16 19:59:36,430 - INFO - ==================================================
+2026-02-16 19:59:36,430 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-16 19:59:36,430 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-16 19:59:36,431 - INFO - ==================================================
+2026-02-16 19:59:36,435 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-16 19:59:36,435 - INFO - ✅ Database initialized
+2026-02-16 19:59:36,437 - INFO - Connecting to 149.154.167.92:443/TcpFull...
+2026-02-16 19:59:36,500 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
+2026-02-16 19:59:37,011 - INFO - ✅ Client Telegram connesso (User Session)
+2026-02-16 19:59:37,012 - INFO - 🦅 EARLYBIRD TELEGRAM SQUAD MONITOR - STARTING
+2026-02-16 19:59:37,012 - INFO - 📡 Monitoraggio canali Telegram per immagini formazioni...
+2026-02-16 19:59:37,012 - INFO - 
+⏰ Ciclo Monitor Telegram...
+2026-02-16 19:59:37,014 - INFO - ✅ Telegram tracking DB initialized
+2026-02-16 19:59:37,034 - INFO - 📡 Monitoring 31 Telegram channels...
+2026-02-16 19:59:37,132 - INFO - 📡 Checking channel: @sporhaberleriguncel
+2026-02-16 19:59:37,350 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:37,516 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771268199.jpg
+2026-02-16 19:59:38,851 - INFO - 📝 OCR Raw: 214 characters
+2026-02-16 19:59:38,851 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:38,861 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:39,099 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267873.jpg
+2026-02-16 19:59:39,919 - INFO - 📝 OCR Raw: 51 characters
+2026-02-16 19:59:39,919 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:39,922 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:40,222 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267068.jpg
+2026-02-16 19:59:41,663 - INFO - 📝 OCR Raw: 243 characters
+2026-02-16 19:59:41,663 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:41,663 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:41,803 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771267068.jpg
+2026-02-16 19:59:42,551 - INFO - 📝 OCR Raw: 111 characters
+2026-02-16 19:59:42,551 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:42,554 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:42,694 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771265072.jpg
+2026-02-16 19:59:43,345 - INFO - 📝 OCR Raw: 71 characters
+2026-02-16 19:59:43,346 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:43,346 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:43,604 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771265072.jpg
+2026-02-16 19:59:44,374 - INFO - 📝 OCR Raw: 47 characters
+2026-02-16 19:59:44,374 - WARNING - 🗑️ OCR DISCARDED: Too short (47 chars < 50)
+2026-02-16 19:59:44,377 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:44,673 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771264902.jpg
+2026-02-16 19:59:46,040 - INFO - 📝 OCR Raw: 138 characters
+2026-02-16 19:59:46,040 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:46,043 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:46,202 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771264740.jpg
+2026-02-16 19:59:47,257 - INFO - 📝 OCR Raw: 52 characters
+2026-02-16 19:59:47,257 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:47,257 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:47,343 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771264739.jpg
+2026-02-16 19:59:47,820 - INFO - 📝 OCR Raw: 14 characters
+2026-02-16 19:59:47,820 - WARNING - 🗑️ OCR DISCARDED: Too short (14 chars < 50)
+2026-02-16 19:59:47,823 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-16 19:59:47,938 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771263094.jpg
+2026-02-16 19:59:48,763 - INFO - 📝 OCR Raw: 122 characters
+2026-02-16 19:59:48,763 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-16 19:59:48,862 - INFO - 📡 Checking channel: @bgysportshaber

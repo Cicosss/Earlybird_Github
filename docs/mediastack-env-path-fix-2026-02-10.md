@@ -107,7 +107,7 @@ python3 -c "from src.ingestion.mediastack_key_rotator import get_mediastack_key_
 ## Future Improvements
 
 Consider adding a similar fix to other entry points:
-- [`src/launcher.py`](src/launcher.py) - Should also load `.env` explicitly
+- [`src/entrypoints/launcher.py`](src/entrypoints/launcher.py) - Should also load `.env` explicitly
 - [`run_news_radar.py`](run_news_radar.py) - Should also load `.env` explicitly
 - [`run_telegram_monitor.py`](run_telegram_monitor.py) - Should also load `.env` explicitly
 

@@ -1,0 +1,52 @@
+2026-02-16 13:10:43,174 - __main__ - INFO - ============================================================
+2026-02-16 13:10:43,174 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
+2026-02-16 13:10:43,174 - __main__ - INFO - ============================================================
+2026-02-16 13:10:43,174 - __main__ - INFO - Config file: config/news_radar_sources.json
+2026-02-16 13:10:43,175 - __main__ - INFO - 
+2026-02-16 13:10:43,175 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
+2026-02-16 13:10:43,176 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Loaded 39 sources from config/news_radar_sources.json
+2026-02-16 13:10:43,176 - src.services.news_radar - INFO - 🌐 [NEWS-RADAR] Launching Playwright...
+2026-02-16 13:10:45,122 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Playwright initialized
+2026-02-16 13:10:45,123 - src.ingestion.tavily_key_rotator - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-16 13:10:45,126 - src.utils.browser_fingerprint - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-16 13:10:45,126 - src.utils.http_client - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-16 13:10:45,127 - src.utils.shared_cache - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-16 13:10:45,127 - src.ingestion.tavily_provider - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-16 13:10:45,127 - src.ingestion.base_budget_manager - INFO - 📊 Tavily BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-16 13:10:45,127 - src.services.news_radar - INFO - 🔍 [NEWS-RADAR] Tavily pre-enrichment enabled
+2026-02-16 13:10:45,127 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] V2.0 Started with 39 sources
+2026-02-16 13:10:45,127 - src.services.news_radar - INFO -    High-value signal detection: ENABLED
+2026-02-16 13:10:45,127 - src.services.news_radar - INFO -    Quality gate: ENABLED (team required, impact >= MEDIUM)
+2026-02-16 13:10:45,128 - __main__ - INFO - ✅ News Radar Monitor started successfully
+2026-02-16 13:10:45,128 - __main__ - INFO - Press Ctrl+C to stop
+2026-02-16 13:10:45,128 - __main__ - INFO - 
+2026-02-16 13:10:45,128 - src.services.news_radar - INFO - 🔄 [NEWS-RADAR] Scan loop started
+2026-02-16 13:10:52,361 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.bbc.com/sport/football...
+2026-02-16 13:11:36,061 - src.services.news_radar - INFO - 🎯 [NEWS-RADAR] High-value signal: FINANCIAL_CRISIS (strike)
+2026-02-16 13:11:57,328 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.flashscore.com/news/football...
+2026-02-16 13:12:56,689 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://betzona.ru/en/bets-sport/prognoz...
+2026-02-16 13:13:02,851 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.gazetaesportiva.com/...
+2026-02-16 13:14:37,434 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://ge.globo.com/sp/tem-esporte/...
+2026-02-16 13:15:46,733 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://www.besoccer.com/news...
+2026-02-16 13:15:58,991 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.ysscores.com/en/news...
+2026-02-16 13:17:08,509 - src.utils.radar_enrichment - INFO - ✅ [RADAR-ENRICH] Enricher initialized
+2026-02-16 13:17:08,541 - src.services.news_radar - INFO - ⏭️ [NEWS-RADAR] Skipping alert - no match within 72h for Barcelona
+2026-02-16 13:17:19,207 - src.services.news_radar - INFO - ⏭️ [NEWS-RADAR] Skipping alert - no match within 72h for Real Madrid
+2026-02-16 13:19:19,405 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://www.tuttomercatoweb.com/calcio-e...
+2026-02-16 13:19:34,705 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://supersport.com/football/news...
+2026-02-16 13:20:52,596 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 0 links on https://www.sportytrader.it/pronostici/c...
+2026-02-16 13:21:03,008 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://www.europacalcio.it/pronostici-c...
+2026-02-16 13:22:43,936 - src.services.news_radar - INFO - 🔗 [NEWS-RADAR] Found 10 links on https://allnigeriasoccer.com/...
+2026-02-16 13:22:52,523 - __main__ - INFO - 🛑 [NEWS-RADAR] Received SIGTERM, initiating graceful shutdown...
+2026-02-16 13:22:52,525 - src.services.news_radar - INFO - 🛑 [NEWS-RADAR] Stopping...
+2026-02-16 13:22:52,527 - src.services.news_radar - INFO - 🛑 [NEWS-RADAR] Scan loop stopped
+2026-02-16 13:22:52,569 - src.services.news_radar - INFO - ✅ [NEWS-RADAR] Stopped
+2026-02-16 13:22:52,569 - __main__ - INFO - 
+2026-02-16 13:22:52,569 - __main__ - INFO - ============================================================
+2026-02-16 13:22:52,569 - __main__ - INFO - 📊 Final Statistics
+2026-02-16 13:22:52,569 - __main__ - INFO - ============================================================
+2026-02-16 13:22:52,569 - __main__ - INFO - URLs scanned: 11
+2026-02-16 13:22:52,569 - __main__ - INFO - Alerts sent: 0
+2026-02-16 13:22:52,569 - __main__ - INFO - Cache size: 56
+2026-02-16 13:22:52,569 - __main__ - INFO - 
+2026-02-16 13:22:52,569 - __main__ - INFO - ✅ News Radar Monitor stopped gracefully

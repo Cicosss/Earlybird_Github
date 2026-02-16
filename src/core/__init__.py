@@ -7,4 +7,4 @@ the overall system behavior.
 
 from .analysis_engine import AnalysisEngine
 
-__all__ = ['AnalysisEngine']
+__all__ = ["AnalysisEngine"]

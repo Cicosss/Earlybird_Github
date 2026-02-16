@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-02-14T13:35:30.687043",
+  "timestamp": "2026-02-16T12:18:47.728608",
   "version": "V9.5",
-  "checksum": "a9de9e02eec0d494c0d72de30008c3c217ef2446db70c317e94bad3b1b3e380e",
+  "checksum": "21b734d3f74d22cc631ee95990480b34a4e7ed6f44e8f12132a1018359caad94",
   "data": {
     "continents": [
       {
@@ -289,9 +289,59 @@
         "iso_code": "TN",
         "created_at": "2026-02-08T11:37:42.870857+00:00",
         "updated_at": "2026-02-08T11:37:42.870857+00:00"
+      },
+      {
+        "id": "8bf0e27e-7099-4a78-93a9-07a53b230ff8",
+        "continent_id": "5cc54068-f97b-4b96-a64d-d295d83593c0",
+        "name": "Ecuador",
+        "iso_code": "EC",
+        "created_at": "2026-02-15T22:09:57.303327+00:00",
+        "updated_at": "2026-02-15T22:09:57.303327+00:00"
+      },
+      {
+        "id": "863203c0-d8e4-404f-930e-ea9b7ac8b8cf",
+        "continent_id": "5cc54068-f97b-4b96-a64d-d295d83593c0",
+        "name": "Panama",
+        "iso_code": "PA",
+        "created_at": "2026-02-15T22:09:57.918377+00:00",
+        "updated_at": "2026-02-15T22:09:57.918377+00:00"
+      },
+      {
+        "id": "5223c3fe-14f0-4d59-9e62-d0d6289a548c",
+        "continent_id": "74e1c651-bfaa-4d27-aa96-74b68969b8a2",
+        "name": "Thailand",
+        "iso_code": "TH",
+        "created_at": "2026-02-15T22:09:59.462545+00:00",
+        "updated_at": "2026-02-15T22:09:59.462545+00:00"
+      },
+      {
+        "id": "6cd79a54-fecf-40d7-aebc-034e637c29cd",
+        "continent_id": "74e1c651-bfaa-4d27-aa96-74b68969b8a2",
+        "name": "Malaysia",
+        "iso_code": "MY",
+        "created_at": "2026-02-15T22:10:00.402588+00:00",
+        "updated_at": "2026-02-15T22:10:00.402588+00:00"
+      },
+      {
+        "id": "caf64423-c8c2-4292-a9b9-cb04fba54150",
+        "continent_id": "74e1c651-bfaa-4d27-aa96-74b68969b8a2",
+        "name": "India",
+        "iso_code": "IN",
+        "created_at": "2026-02-15T22:10:01.003365+00:00",
+        "updated_at": "2026-02-15T22:10:01.003365+00:00"
       }
     ],
     "leagues": [
+      {
+        "id": "c3bac0dc-97fd-49de-9d5a-1f694a363f64",
+        "country_id": "8bf0e27e-7099-4a78-93a9-07a53b230ff8",
+        "api_key": "soccer_ecuador_serie_b",
+        "tier_name": "Serie B de Ecuador",
+        "priority": 2,
+        "is_active": false,
+        "created_at": "2026-02-15T22:09:57.606446+00:00",
+        "updated_at": "2026-02-15T22:09:57.606446+00:00"
+      },
       {
         "id": "ef0e2be8-0e72-4368-9c77-bd5d30f49d08",
         "country_id": "93147a89-84fc-424a-a573-cf15e5d98fe8",
@@ -303,6 +353,16 @@
         "updated_at": "2026-02-07T16:02:15.895483+00:00"
       },
       {
+        "id": "7e2e5804-d167-4b86-be1d-ea27029769f0",
+        "country_id": "863203c0-d8e4-404f-930e-ea9b7ac8b8cf",
+        "api_key": "soccer_panama_lpf",
+        "tier_name": "Liga Panameña de Fútbol (LPF)",
+        "priority": 1,
+        "is_active": false,
+        "created_at": "2026-02-15T22:09:58.232196+00:00",
+        "updated_at": "2026-02-15T22:09:58.232196+00:00"
+      },
+      {
         "id": "819a1be4-2624-413d-9b1c-9c599e645864",
         "country_id": "e78a929f-9be6-44ff-8de4-199eb30d0c45",
         "api_key": "soccer_argentina_primera_nacional",
@@ -311,6 +371,16 @@
         "is_active": false,
         "created_at": "2026-02-05T21:53:06.399322+00:00",
         "updated_at": "2026-02-07T16:02:16.174969+00:00"
+      },
+      {
+        "id": "2da591c0-2912-4d09-96f0-08e532cbd523",
+        "country_id": "5223c3fe-14f0-4d59-9e62-d0d6289a548c",
+        "api_key": "soccer_thailand_thai_league_2",
+        "tier_name": "Thai League 2",
+        "priority": 2,
+        "is_active": false,
+        "created_at": "2026-02-15T22:09:59.764587+00:00",
+        "updated_at": "2026-02-15T22:09:59.764587+00:00"
       },
       {
         "id": "71ca2ab5-59a5-4a8a-9932-bbecff7f0ac8",
@@ -851,6 +921,46 @@
         "is_active": false,
         "created_at": "2026-02-07T14:03:24.063064+00:00",
         "updated_at": "2026-02-07T15:53:07.248368+00:00"
+      },
+      {
+        "id": "4065404f-8b16-443f-87fd-50f620edbfab",
+        "country_id": "6cd79a54-fecf-40d7-aebc-034e637c29cd",
+        "api_key": "soccer_malaysia_premier_league",
+        "tier_name": "Malaysia Premier League (storica seconda serie) & leghe nazionali",
+        "priority": 2,
+        "is_active": false,
+        "created_at": "2026-02-15T22:10:00.6928+00:00",
+        "updated_at": "2026-02-15T22:10:00.6928+00:00"
+      },
+      {
+        "id": "5f060028-d4d0-427b-a97a-7afde46b0ac2",
+        "country_id": "caf64423-c8c2-4292-a9b9-cb04fba54150",
+        "api_key": "soccer_india_i_league",
+        "tier_name": "I-League (secondo livello India)",
+        "priority": 2,
+        "is_active": false,
+        "created_at": "2026-02-15T22:10:01.307389+00:00",
+        "updated_at": "2026-02-15T22:10:01.307389+00:00"
+      },
+      {
+        "id": "7a92fd74-0dee-4fee-a691-e19fd54d007a",
+        "country_id": "4f327130-8e16-4f7b-808d-4df5c144afbf",
+        "api_key": "soccer_uruguay_segunda_division",
+        "tier_name": "Segunda División Profesional (Uruguay)",
+        "priority": 2,
+        "is_active": false,
+        "created_at": "2026-02-15T22:09:01.179499+00:00",
+        "updated_at": "2026-02-15T22:09:01.179499+00:00"
+      },
+      {
+        "id": "10892117-50f0-4ca8-a549-dbafbfda18c6",
+        "country_id": "d4153246-a7c6-467e-bbbc-62803f70c1de",
+        "api_key": "soccer_turkey_first_lig",
+        "tier_name": "TFF 1. Lig",
+        "priority": 2,
+        "is_active": false,
+        "created_at": "2026-02-15T22:09:02.786554+00:00",
+        "updated_at": "2026-02-15T22:09:02.786554+00:00"
       }
     ],
     "social_sources": [
@@ -1833,6 +1943,33 @@
         "updated_at": "2026-02-06T23:34:18.504269+00:00"
       },
       {
+        "id": "ecad1b4c-c201-414a-9bda-912d0357bcf4",
+        "league_id": "7a92fd74-0dee-4fee-a691-e19fd54d007a",
+        "domain": "lawebdeportivauruguaya.com.uy/category/futbol-uruguayo/2da-division",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:01.489206+00:00",
+        "updated_at": "2026-02-15T22:09:01.489206+00:00"
+      },
+      {
+        "id": "ad107895-249c-4ed7-8f1f-5632810a7b22",
+        "league_id": "f34d08f4-2731-4ab4-809f-03422e0cdaaa",
+        "domain": "dailysports.net/tournaments/japan-j-league-2",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:02.595459+00:00",
+        "updated_at": "2026-02-15T22:09:02.595459+00:00"
+      },
+      {
+        "id": "3f44619d-a956-449b-941c-3eb96a43b12d",
+        "league_id": "10892117-50f0-4ca8-a549-dbafbfda18c6",
+        "domain": "dailysports.net/news/football",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:02.986446+00:00",
+        "updated_at": "2026-02-15T22:09:02.986446+00:00"
+      },
+      {
         "id": "7aa2c95b-9759-4b4c-991a-ca2e5c79c63e",
         "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
         "domain": "soccernet.ng",
@@ -1867,6 +2004,15 @@
         "is_active": true,
         "created_at": "2026-02-06T22:19:13.670754+00:00",
         "updated_at": "2026-02-06T22:19:13.670754+00:00"
+      },
+      {
+        "id": "45532bfc-be28-49a3-88de-7724df48f13b",
+        "league_id": "427df701-8baa-4223-91f9-0e9849a2d8eb",
+        "domain": "ghanaleaguelive.com",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:04.063498+00:00",
+        "updated_at": "2026-02-15T22:09:04.063498+00:00"
       },
       {
         "id": "b0b1de9e-2b95-4646-b24e-af671cfc094a",
@@ -2220,6 +2366,15 @@
         "updated_at": "2026-02-06T22:43:19.003213+00:00"
       },
       {
+        "id": "0962c139-5db8-4158-b6f0-17f9e04f9908",
+        "league_id": "ef1d3bca-3094-4fd1-a104-667dd455de8f",
+        "domain": "futbolperuano.com/liga-2/noticias",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:55.69365+00:00",
+        "updated_at": "2026-02-15T22:09:55.69365+00:00"
+      },
+      {
         "id": "d88a94d5-1fc5-4c6d-b534-61b5bfa0e9e7",
         "league_id": "680ee3f5-6a26-4ab7-9d89-552eb3383a97",
         "domain": "elperiodicodeportivo.com.co/por-donde-ver-el-manchester-united-en-la-premier-league",
@@ -2247,6 +2402,15 @@
         "updated_at": "2026-02-06T22:47:07.252651+00:00"
       },
       {
+        "id": "83ac27d0-d747-451c-aabb-52a259ff74f9",
+        "league_id": "ef1d3bca-3094-4fd1-a104-667dd455de8f",
+        "domain": "liga2.pe",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:55.919556+00:00",
+        "updated_at": "2026-02-15T22:09:55.919556+00:00"
+      },
+      {
         "id": "02d11e47-ee7a-4131-8f2b-8c03c2cbd7be",
         "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
         "domain": "thisdaylive.com/sports",
@@ -2254,6 +2418,15 @@
         "is_active": true,
         "created_at": "2026-02-06T07:02:16.575719+00:00",
         "updated_at": "2026-02-06T22:54:27.985552+00:00"
+      },
+      {
+        "id": "2bf2895f-efea-469b-aaa7-46d28d8f201c",
+        "league_id": "1c0e8a08-1f85-4cfb-ac1e-d372e23070f0",
+        "domain": "primerabchile.cl/primera-b-chile",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:56.271641+00:00",
+        "updated_at": "2026-02-15T22:09:56.271641+00:00"
       },
       {
         "id": "c39c210d-1e9e-499a-bed2-f9ec54c20e56",
@@ -2283,6 +2456,24 @@
         "updated_at": "2026-02-06T07:02:20.112907+00:00"
       },
       {
+        "id": "a792591c-e880-4863-a708-89fef50a226b",
+        "league_id": "1c0e8a08-1f85-4cfb-ac1e-d372e23070f0",
+        "domain": "enascenso.cl",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:56.481213+00:00",
+        "updated_at": "2026-02-15T22:09:56.481213+00:00"
+      },
+      {
+        "id": "f941da9a-ffc0-42a5-b511-2116198aebdb",
+        "league_id": "7a92fd74-0dee-4fee-a691-e19fd54d007a",
+        "domain": "montevideo.com.uy/categoria/Deportes-94",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:56.892358+00:00",
+        "updated_at": "2026-02-15T22:09:56.892358+00:00"
+      },
+      {
         "id": "78ac991a-1b9b-4c84-aff2-b667b918b8c9",
         "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
         "domain": "allnigeriasoccer.com",
@@ -2308,6 +2499,33 @@
         "is_active": true,
         "created_at": "2026-02-06T07:02:21.766807+00:00",
         "updated_at": "2026-02-06T07:02:21.766807+00:00"
+      },
+      {
+        "id": "ccc64701-1631-4813-94c5-bc22e2cc57af",
+        "league_id": "398af847-6ac9-4adb-957a-0eba1755a785",
+        "domain": "colombia.com/futbol",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:57.199638+00:00",
+        "updated_at": "2026-02-15T22:09:57.199638+00:00"
+      },
+      {
+        "id": "33d77768-5056-494a-b756-a73dd3d64d91",
+        "league_id": "c3bac0dc-97fd-49de-9d5a-1f694a363f64",
+        "domain": "futbolecuador.com/etiqueta/serie-b",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:57.808548+00:00",
+        "updated_at": "2026-02-15T22:09:57.808548+00:00"
+      },
+      {
+        "id": "7fbfceb5-dc35-420b-83ab-1d439499d937",
+        "league_id": "7e2e5804-d167-4b86-be1d-ea27029769f0",
+        "domain": "lpf.com.pa",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:58.42973+00:00",
+        "updated_at": "2026-02-15T22:09:58.42973+00:00"
       },
       {
         "id": "b7c63f2c-c3dc-4b7b-8faf-c8e8dd8fda08",
@@ -2337,6 +2555,15 @@
         "updated_at": "2026-02-06T22:51:31.851405+00:00"
       },
       {
+        "id": "4503e7e2-f272-44ca-bef0-42e347a0232a",
+        "league_id": "ef0e2be8-0e72-4368-9c77-bd5d30f49d08",
+        "domain": "futebolinterior.com.br/ultimas-noticias",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:58.748215+00:00",
+        "updated_at": "2026-02-15T22:09:58.748215+00:00"
+      },
+      {
         "id": "8709630a-4078-4eb9-bbdd-fbfa7c21d168",
         "league_id": "42187c35-8d1c-4fb1-b9b6-f4e2509b99dc",
         "domain": "athletico.com.br",
@@ -2355,6 +2582,15 @@
         "updated_at": "2026-02-06T22:52:06.087635+00:00"
       },
       {
+        "id": "4f2d6cb0-6f14-4280-95c2-a7079fa8fbae",
+        "league_id": "132e4982-686c-4b34-b826-b546adbcbb9a",
+        "domain": "wildeastfootball.org/topics/competitions/china-league-one",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:59.150803+00:00",
+        "updated_at": "2026-02-15T22:09:59.150803+00:00"
+      },
+      {
         "id": "e746cf16-7234-490a-8c29-6ba6f8d6b456",
         "league_id": "42187c35-8d1c-4fb1-b9b6-f4e2509b99dc",
         "domain": "espn.com.br/futebol",
@@ -2362,6 +2598,15 @@
         "is_active": true,
         "created_at": "2026-02-06T07:02:21.494345+00:00",
         "updated_at": "2026-02-06T22:52:13.895057+00:00"
+      },
+      {
+        "id": "3ee18348-926c-4631-bf82-2a5f32fd576d",
+        "league_id": "2da591c0-2912-4d09-96f0-08e532cbd523",
+        "domain": "thaileague.co.th",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:09:59.964061+00:00",
+        "updated_at": "2026-02-15T22:09:59.964061+00:00"
       },
       {
         "id": "cb5ec791-856d-4801-b92c-765b8c5ff4c9",
@@ -2380,6 +2625,24 @@
         "is_active": true,
         "created_at": "2026-02-06T21:21:45.035967+00:00",
         "updated_at": "2026-02-06T23:34:19.659556+00:00"
+      },
+      {
+        "id": "e65628b5-f563-437f-a3fb-def70b79c535",
+        "league_id": "4065404f-8b16-443f-87fd-50f620edbfab",
+        "domain": "soccerdesk.com/football/malaysia/premier-league",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:00.89486+00:00",
+        "updated_at": "2026-02-15T22:10:00.89486+00:00"
+      },
+      {
+        "id": "71f92a31-40d8-4558-a071-91b69ab0cce8",
+        "league_id": "5f060028-d4d0-427b-a97a-7afde46b0ac2",
+        "domain": "timesofindia.indiatimes.com/sports/football/i-league",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:01.648855+00:00",
+        "updated_at": "2026-02-15T22:10:01.648855+00:00"
       },
       {
         "id": "b4a1e7e3-5496-48bc-9d89-61b4f713e353",
@@ -2445,6 +2708,24 @@
         "updated_at": "2026-02-06T22:52:59.003122+00:00"
       },
       {
+        "id": "d468373e-47d3-41bd-a8ea-8d1e28289143",
+        "league_id": "60c0d42f-09f1-4ace-9b86-638aaa28bdaa",
+        "domain": "kawarji.com/actualites",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:02.255733+00:00",
+        "updated_at": "2026-02-15T22:10:02.255733+00:00"
+      },
+      {
+        "id": "37c57986-f3d7-4c35-af2b-dd144fda7b84",
+        "league_id": "34bf5f07-8ef0-46ff-9189-97d3f7578efd",
+        "domain": "lebuteur.com/article/index?cat=26",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:02.568174+00:00",
+        "updated_at": "2026-02-15T22:10:02.568174+00:00"
+      },
+      {
         "id": "0bc57930-a2ab-4bad-81b7-f9a7764534a5",
         "league_id": "0bc57930-a2ab-4bad-81b7-f9a7764534a5",
         "domain": "sporx.com/futbol/",
@@ -2452,6 +2733,15 @@
         "is_active": true,
         "created_at": "2026-02-07T13:29:55.767941+00:00",
         "updated_at": "2026-02-07T13:29:55.767941+00:00"
+      },
+      {
+        "id": "5d7acb20-9a46-4015-a467-fdcbe7038b96",
+        "league_id": "0ca757e7-0aba-4530-8fef-d73437e3469f",
+        "domain": "hesport.com",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:02.863242+00:00",
+        "updated_at": "2026-02-15T22:10:02.863242+00:00"
       },
       {
         "id": "23cb4797-45b5-47b4-a814-9a67f5390347",
@@ -2481,6 +2771,33 @@
         "updated_at": "2026-02-06T22:53:19.371305+00:00"
       },
       {
+        "id": "27cf5c39-0f12-4033-9a6c-7fb743878aff",
+        "league_id": "427df701-8baa-4223-91f9-0e9849a2d8eb",
+        "domain": "ghanafa.org",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:03.51756+00:00",
+        "updated_at": "2026-02-15T22:10:03.51756+00:00"
+      },
+      {
+        "id": "12fee732-87d1-48dc-abfc-29220b3de70c",
+        "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
+        "domain": "npfl.com.ng",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:03.829184+00:00",
+        "updated_at": "2026-02-15T22:10:03.829184+00:00"
+      },
+      {
+        "id": "f29b5574-058d-4717-acb4-92b03332f8f2",
+        "league_id": "6b4745de-2325-4415-a6ff-8d530c56f6eb",
+        "domain": "soccernet.ng/category/npfl",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:04.018419+00:00",
+        "updated_at": "2026-02-15T22:10:04.018419+00:00"
+      },
+      {
         "id": "c6864bfc-5a17-4555-8fc9-aec1cb0460dc",
         "league_id": "e3224ce0-6536-4bc3-aaef-66045d64e42b",
         "domain": "infobae.com/en/2022/03/18/sports-list",
@@ -2490,6 +2807,15 @@
         "updated_at": "2026-02-06T22:53:33.931727+00:00"
       },
       {
+        "id": "16ae6b9a-d173-4f83-b30a-b5d7411075a6",
+        "league_id": "0e0d79e0-0b8e-495d-b3c6-a6c9ff1734c4",
+        "domain": "filgoal.com/articles",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:04.329728+00:00",
+        "updated_at": "2026-02-15T22:10:04.329728+00:00"
+      },
+      {
         "id": "aa01ddf0-bf35-4f99-a658-c61c0aa95e4b",
         "league_id": "0bc57930-a2ab-4bad-81b7-f9a7764534a5",
         "domain": "sabah.com.tr/spor/futbol/2022/11/25/ronaldo-portekiz-tarihine-gecti",
@@ -2497,6 +2823,15 @@
         "is_active": true,
         "created_at": "2026-02-06T21:17:04.283329+00:00",
         "updated_at": "2026-02-06T22:53:48.602523+00:00"
+      },
+      {
+        "id": "8f77a4b6-6020-4cb0-a36d-d3b2654b4b5c",
+        "league_id": "885281ba-25e8-49aa-b183-d416c033aa3c",
+        "domain": "idiskitimes.co.za/category/local",
+        "language_iso": "en",
+        "is_active": true,
+        "created_at": "2026-02-15T22:10:04.618257+00:00",
+        "updated_at": "2026-02-15T22:10:04.618257+00:00"
       },
       {
         "id": "629a76f4-b137-4a33-9f48-52e0e8b53483",

@@ -9,11 +9,11 @@ Providers:
 - TavilyBudgetManager (7 API keys)
 - MediaStackBudgetManager (free unlimited)
 """
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class BudgetStatus:
     is_degraded: bool
     is_disabled: bool
     usage_percentage: float
-    component_usage: Dict[str, int]
+    component_usage: dict[str, int]
 
 
 class BaseBudgetManager(ABC):
@@ -48,7 +48,7 @@ class BaseBudgetManager(ABC):
     def __init__(
         self,
         monthly_limit: int,
-        allocations: Optional[Dict[str, int]] = None,
+        allocations: dict[str, int] | None = None,
         provider_name: str = "Provider",
     ):
         """
@@ -62,15 +62,13 @@ class BaseBudgetManager(ABC):
         self._monthly_limit = monthly_limit
         self._monthly_used = 0
         self._daily_used = 0
-        self._last_reset_day: Optional[int] = None
-        self._last_reset_month: Optional[int] = None
+        self._last_reset_day: int | None = None
+        self._last_reset_month: int | None = None
         self._provider_name = provider_name
 
         # Per-component tracking
         self._allocations = allocations or {}
-        self._component_usage: Dict[str, int] = {
-            component: 0 for component in self._allocations
-        }
+        self._component_usage: dict[str, int] = {component: 0 for component in self._allocations}
 
         logger.info(
             f"📊 {self._provider_name} BudgetManager initialized: {monthly_limit} calls/month, "
@@ -109,9 +107,13 @@ class BaseBudgetManager(ABC):
         # Disabled mode: Only critical calls
         if usage_pct >= self.get_disabled_threshold():
             if is_critical or component in self._critical_components:
-                logger.debug(f"📊 [{self._provider_name}-BUDGET] Critical call allowed for {component} in disabled mode")
+                logger.debug(
+                    f"📊 [{self._provider_name}-BUDGET] Critical call allowed for {component} in disabled mode"
+                )
                 return True
-            logger.warning(f"⚠️ [{self._provider_name}-BUDGET] Call blocked for {component}: budget disabled (>{self.get_disabled_threshold()*100:.0f}%)")
+            logger.warning(
+                f"⚠️ [{self._provider_name}-BUDGET] Call blocked for {component}: budget disabled (>{self.get_disabled_threshold() * 100:.0f}%)"
+            )
             return False
 
         # Degraded mode: Throttle non-critical
@@ -122,7 +124,9 @@ class BaseBudgetManager(ABC):
             component_used = self._component_usage.get(component, 0)
             component_limit = self._allocations.get(component, 0)
             if component_used >= component_limit * 0.5:
-                logger.warning(f"⚠️ [{self._provider_name}-BUDGET] Call throttled for {component}: degraded mode")
+                logger.warning(
+                    f"⚠️ [{self._provider_name}-BUDGET] Call throttled for {component}: degraded mode"
+                )
                 return False
 
         # Normal mode: Check component allocation
@@ -130,7 +134,9 @@ class BaseBudgetManager(ABC):
         component_limit = self._allocations.get(component, 0)
 
         if component_limit > 0 and component_used >= component_limit:
-            logger.warning(f"⚠️ [{self._provider_name}-BUDGET] Component {component} at allocation limit ({component_limit})")
+            logger.warning(
+                f"⚠️ [{self._provider_name}-BUDGET] Component {component} at allocation limit ({component_limit})"
+            )
             return False
 
         return True
@@ -156,10 +162,14 @@ class BaseBudgetManager(ABC):
         if self._monthly_limit > 0:
             usage_pct = self._monthly_used / self._monthly_limit * 100
             if self._monthly_used % 100 == 0:
-                logger.info(f"📊 [{self._provider_name}-BUDGET] Usage: {self._monthly_used}/{self._monthly_limit} ({usage_pct:.1f}%)")
+                logger.info(
+                    f"📊 [{self._provider_name}-BUDGET] Usage: {self._monthly_used}/{self._monthly_limit} ({usage_pct:.1f}%)"
+                )
         else:
             if self._monthly_used % 100 == 0:
-                logger.info(f"📊 [{self._provider_name}-BUDGET] Usage: {self._monthly_used} calls (monitoring)")
+                logger.info(
+                    f"📊 [{self._provider_name}-BUDGET] Usage: {self._monthly_used} calls (monitoring)"
+                )
 
         # Check thresholds
         self._check_thresholds()
@@ -180,8 +190,12 @@ class BaseBudgetManager(ABC):
             monthly_limit=self._monthly_limit,
             daily_used=self._daily_used,
             daily_limit=sum(self._allocations.values()) // 30 if self._allocations else 0,
-            is_degraded=usage_pct >= self.get_degraded_threshold() if self._monthly_limit > 0 else False,
-            is_disabled=usage_pct >= self.get_disabled_threshold() if self._monthly_limit > 0 else False,
+            is_degraded=usage_pct >= self.get_degraded_threshold()
+            if self._monthly_limit > 0
+            else False,
+            is_disabled=usage_pct >= self.get_disabled_threshold()
+            if self._monthly_limit > 0
+            else False,
             usage_percentage=usage_pct * 100,
             component_usage=dict(self._component_usage),
         )
@@ -216,7 +230,7 @@ class BaseBudgetManager(ABC):
         if self._last_reset_month is None:
             self._last_reset_month = current_month
         elif current_month != self._last_reset_month:
-            logger.info(f"📅 New month detected, resetting budget")
+            logger.info("📅 New month detected, resetting budget")
             self.reset_monthly()
             return
 
@@ -241,7 +255,7 @@ class BaseBudgetManager(ABC):
         disabled_count = int(self._monthly_limit * self.get_disabled_threshold())
         if self._monthly_used == disabled_count:
             logger.warning(
-                f"🚨 [{self._provider_name}-BUDGET] DISABLED threshold reached ({self.get_disabled_threshold()*100:.0f}%): "
+                f"🚨 [{self._provider_name}-BUDGET] DISABLED threshold reached ({self.get_disabled_threshold() * 100:.0f}%): "
                 f"Only critical calls allowed"
             )
 
@@ -249,7 +263,7 @@ class BaseBudgetManager(ABC):
         degraded_count = int(self._monthly_limit * self.get_degraded_threshold())
         if self._monthly_used == degraded_count:
             logger.warning(
-                f"⚠️ [{self._provider_name}-BUDGET] DEGRADED threshold reached ({self.get_degraded_threshold()*100:.0f}%): "
+                f"⚠️ [{self._provider_name}-BUDGET] DEGRADED threshold reached ({self.get_degraded_threshold() * 100:.0f}%): "
                 f"Non-critical calls throttled"
             )
 

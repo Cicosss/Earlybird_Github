@@ -7,16 +7,16 @@ V2.0: Production-ready with comprehensive error handling
 
 import csv
 import logging
-import os
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 # Database imports with fallback
 try:
     from src.database.models import Match, NewsLog, SessionLocal
+
     DB_AVAILABLE = True
 except ImportError:
     DB_AVAILABLE = False
@@ -35,22 +35,23 @@ MATCH_FINISHED_THRESHOLD_SECONDS = 7200  # 2 hours
 
 # CSV Headers (Italian)
 CSV_HEADERS = [
-    'Lega',
-    'Partita',
-    'Data/Ora',
-    'Pronostico',
-    'Mercato',
-    'AI_Confidence',
-    'Motivo',
-    'Quote_1X2',
-    'Risultato',
-    'Esito'
+    "Lega",
+    "Partita",
+    "Data/Ora",
+    "Pronostico",
+    "Mercato",
+    "AI_Confidence",
+    "Motivo",
+    "Quote_1X2",
+    "Risultato",
+    "Esito",
 ]
 
 
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
+
 
 def _ensure_output_dir(output_dir: str) -> Path:
     """Ensure output directory exists and return Path object."""
@@ -61,14 +62,14 @@ def _ensure_output_dir(output_dir: str) -> Path:
 
 def _format_match_string(match: Any) -> str:
     """Format match string from match object."""
-    home_team = getattr(match, 'home_team', 'Unknown')
-    away_team = getattr(match, 'away_team', 'Unknown')
+    home_team = getattr(match, "home_team", "Unknown")
+    away_team = getattr(match, "away_team", "Unknown")
     return f"{home_team} vs {away_team}"
 
 
 def _format_match_time(match: Any) -> str:
     """Format match time for display."""
-    start_time = getattr(match, 'start_time', None)
+    start_time = getattr(match, "start_time", None)
     if not start_time:
         return "N/A"
     try:
@@ -79,9 +80,9 @@ def _format_match_time(match: Any) -> str:
 
 def _format_odds(match: Any) -> str:
     """Format odds string for display."""
-    home_odd = getattr(match, 'current_home_odd', None)
-    draw_odd = getattr(match, 'current_draw_odd', None)
-    away_odd = getattr(match, 'current_away_odd', None)
+    home_odd = getattr(match, "current_home_odd", None)
+    draw_odd = getattr(match, "current_draw_odd", None)
+    away_odd = getattr(match, "current_away_odd", None)
 
     if home_odd is None or draw_odd is None or away_odd is None:
         return ""
@@ -94,7 +95,7 @@ def _format_odds(match: Any) -> str:
 
 def _is_match_finished(match: Any, now: datetime) -> bool:
     """Check if match should be considered finished (started > 2 hours ago)."""
-    start_time = getattr(match, 'start_time', None)
+    start_time = getattr(match, "start_time", None)
     if not start_time:
         return False
 
@@ -111,8 +112,8 @@ def _is_match_finished(match: Any, now: datetime) -> bool:
 
 def _get_pronostico(log: Any) -> str:
     """Get pronostico from log, preferring combo_suggestion."""
-    combo = getattr(log, 'combo_suggestion', None)
-    market = getattr(log, 'recommended_market', None)
+    combo = getattr(log, "combo_suggestion", None)
+    market = getattr(log, "recommended_market", None)
     return combo or market or "N/A"
 
 
@@ -120,7 +121,10 @@ def _get_pronostico(log: Any) -> str:
 # MAIN EXPORT FUNCTION
 # ============================================
 
-def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPUT_DIR) -> Optional[str]:
+
+def export_bet_history(
+    days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPUT_DIR
+) -> str | None:
     """
     Export betting history to a human-readable CSV file.
 
@@ -135,7 +139,7 @@ def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPU
         logger.error("Database models not available. Cannot export bet history.")
         return None
 
-    db: Optional[Session] = None
+    db: Session | None = None
     try:
         db = SessionLocal()
 
@@ -147,14 +151,16 @@ def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPU
         cutoff = now - timedelta(days=days)
 
         # Query NewsLogs with JOIN to Match for human-readable data
-        results = db.query(NewsLog).join(
-            Match, NewsLog.match_id == Match.id
-        ).filter(
-            NewsLog.timestamp >= cutoff,
-            NewsLog.sent == True  # Only sent alerts
-        ).order_by(
-            NewsLog.timestamp.desc()
-        ).all()
+        results = (
+            db.query(NewsLog)
+            .join(Match, NewsLog.match_id == Match.id)
+            .filter(
+                NewsLog.timestamp >= cutoff,
+                NewsLog.sent == True,  # Only sent alerts
+            )
+            .order_by(NewsLog.timestamp.desc())
+            .all()
+        )
 
         if not results:
             logger.info("No betting history found for the specified period")
@@ -166,7 +172,7 @@ def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPU
         filepath = output_path / filename
 
         # Write CSV with Italian headers (utf-8-sig for Excel compatibility)
-        with open(filepath, 'w', newline='', encoding='utf-8-sig') as csvfile:
+        with open(filepath, "w", newline="", encoding="utf-8-sig") as csvfile:
             writer = csv.writer(csvfile)
 
             # Header row
@@ -176,7 +182,7 @@ def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPU
             records_written = 0
             for log in results:
                 # Safety: Handle orphan logs (match deleted)
-                match = getattr(log, 'match', None)
+                match = getattr(log, "match", None)
                 if not match:
                     logger.warning(f"Orphan NewsLog found: {getattr(log, 'id', 'unknown')}")
                     continue
@@ -193,18 +199,20 @@ def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPU
                 esito = "PENDING"
 
                 # Write row
-                writer.writerow([
-                    getattr(match, 'league', None) or "N/A",
-                    partita,
-                    match_time,
-                    pronostico,
-                    getattr(log, 'recommended_market', None) or "N/A",
-                    f"{getattr(log, 'score', 0)}/10" if getattr(log, 'score', None) else "N/A",
-                    getattr(log, 'primary_driver', None) or "N/A",
-                    odds_str,
-                    risultato,
-                    esito
-                ])
+                writer.writerow(
+                    [
+                        getattr(match, "league", None) or "N/A",
+                        partita,
+                        match_time,
+                        pronostico,
+                        getattr(log, "recommended_market", None) or "N/A",
+                        f"{getattr(log, 'score', 0)}/10" if getattr(log, "score", None) else "N/A",
+                        getattr(log, "primary_driver", None) or "N/A",
+                        odds_str,
+                        risultato,
+                        esito,
+                    ]
+                )
                 records_written += 1
 
         logger.info(f"Report generated: {filepath} ({records_written} records)")
@@ -226,7 +234,8 @@ def export_bet_history(days: int = DEFAULT_DAYS, output_dir: str = DEFAULT_OUTPU
 # DAILY SUMMARY FUNCTION
 # ============================================
 
-def get_daily_summary() -> Dict[str, Any]:
+
+def get_daily_summary() -> dict[str, Any]:
     """
     Get a summary of today's betting activity for the report caption.
 
@@ -235,9 +244,9 @@ def get_daily_summary() -> Dict[str, Any]:
     """
     if not DB_AVAILABLE:
         logger.error("Database models not available. Cannot get daily summary.")
-        return {'total_alerts': 0, 'leagues_covered': 0, 'top_score': 0}
+        return {"total_alerts": 0, "leagues_covered": 0, "top_score": 0}
 
-    db: Optional[Session] = None
+    db: Session | None = None
     try:
         db = SessionLocal()
 
@@ -245,34 +254,36 @@ def get_daily_summary() -> Dict[str, Any]:
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Count alerts sent today
-        total_alerts = db.query(NewsLog).filter(
-            NewsLog.timestamp >= today_start,
-            NewsLog.sent == True
-        ).count()
+        total_alerts = (
+            db.query(NewsLog).filter(NewsLog.timestamp >= today_start, NewsLog.sent == True).count()
+        )
 
         # Get unique leagues
-        leagues = db.query(Match.league).join(
-            NewsLog, NewsLog.match_id == Match.id
-        ).filter(
-            NewsLog.timestamp >= today_start,
-            NewsLog.sent == True
-        ).distinct().all()
+        leagues = (
+            db.query(Match.league)
+            .join(NewsLog, NewsLog.match_id == Match.id)
+            .filter(NewsLog.timestamp >= today_start, NewsLog.sent == True)
+            .distinct()
+            .all()
+        )
 
         # Get top score
-        top_score_result = db.query(NewsLog.score).filter(
-            NewsLog.timestamp >= today_start,
-            NewsLog.sent == True
-        ).order_by(NewsLog.score.desc()).first()
+        top_score_result = (
+            db.query(NewsLog.score)
+            .filter(NewsLog.timestamp >= today_start, NewsLog.sent == True)
+            .order_by(NewsLog.score.desc())
+            .first()
+        )
 
         return {
-            'total_alerts': total_alerts,
-            'leagues_covered': len(leagues),
-            'top_score': top_score_result[0] if top_score_result else 0
+            "total_alerts": total_alerts,
+            "leagues_covered": len(leagues),
+            "top_score": top_score_result[0] if top_score_result else 0,
         }
 
     except Exception as e:
         logger.error(f"Error getting daily summary: {e}")
-        return {'total_alerts': 0, 'leagues_covered': 0, 'top_score': 0}
+        return {"total_alerts": 0, "leagues_covered": 0, "top_score": 0}
 
     finally:
         if db:
@@ -286,10 +297,10 @@ def get_daily_summary() -> Dict[str, Any]:
 # BATCH REPORT FUNCTION
 # ============================================
 
+
 def export_bet_history_batch(
-    days_list: List[int],
-    output_dir: str = DEFAULT_OUTPUT_DIR
-) -> Dict[int, Optional[str]]:
+    days_list: list[int], output_dir: str = DEFAULT_OUTPUT_DIR
+) -> dict[int, str | None]:
     """
     Export betting history for multiple time periods.
 

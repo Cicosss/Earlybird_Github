@@ -12,10 +12,10 @@ from src.core import AnalysisEngine
 from src.core.settlement_service import get_settlement_service
 
 # Database exports
-from src.database.models import Match, NewsLog, TeamAlias, Base, init_db, SessionLocal
+from src.database.models import Base, Match, NewsLog, SessionLocal, TeamAlias, init_db
 
 # Models exports
-from src.models.schemas import GeminiResponse, OddsMovement, MatchAlert
+from src.models.schemas import GeminiResponse, MatchAlert, OddsMovement
 
 __all__ = [
     "__version__",

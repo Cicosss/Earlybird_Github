@@ -6,17 +6,17 @@ Implements tiered throttling based on usage thresholds.
 
 Requirements: Refactored to inherit from BaseBudgetManager (V1.1)
 """
+
 import logging
-from typing import Dict, Optional
 
 from config.settings import (
     BRAVE_BUDGET_ALLOCATION,
-    BRAVE_MONTHLY_BUDGET,
     BRAVE_DEGRADED_THRESHOLD,
     BRAVE_DISABLED_THRESHOLD,
+    BRAVE_MONTHLY_BUDGET,
 )
 
-from .base_budget_manager import BaseBudgetManager, BudgetStatus
+from .base_budget_manager import BaseBudgetManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class BudgetManager(BaseBudgetManager):
     def __init__(
         self,
         monthly_limit: int = BRAVE_MONTHLY_BUDGET,
-        allocations: Optional[Dict[str, int]] = None,
+        allocations: dict[str, int] | None = None,
     ):
         """
         Initialize BudgetManager.
@@ -77,9 +77,13 @@ class BudgetManager(BaseBudgetManager):
         # Disabled mode (>95%): Only critical calls
         if usage_pct >= BRAVE_DISABLED_THRESHOLD:
             if is_critical or component in self._critical_components:
-                logger.debug(f"📊 [BRAVE-BUDGET] Critical call allowed for {component} in disabled mode")
+                logger.debug(
+                    f"📊 [BRAVE-BUDGET] Critical call allowed for {component} in disabled mode"
+                )
                 return True
-            logger.warning(f"⚠️ [BRAVE-BUDGET] Call blocked for {component}: budget disabled (>{BRAVE_DISABLED_THRESHOLD*100:.0f}%)")
+            logger.warning(
+                f"⚠️ [BRAVE-BUDGET] Call blocked for {component}: budget disabled (>{BRAVE_DISABLED_THRESHOLD * 100:.0f}%)"
+            )
             return False
 
         # V10.0: Fix - Ensure degraded mode check returns False (not True) when at threshold
@@ -89,7 +93,7 @@ class BudgetManager(BaseBudgetManager):
             # In degraded mode (>90%), non-critical calls should be THROTTLED (return False)
             # NOT allowed (return True)
             if not is_critical and component not in self._critical_components:
-                logger.debug(f"📊 [BRAVE-BUDGET] Throttling non-critical call in degraded mode")
+                logger.debug("📊 [BRAVE-BUDGET] Throttling non-critical call in degraded mode")
                 return False
 
         # Normal mode: Check component allocation
@@ -97,7 +101,9 @@ class BudgetManager(BaseBudgetManager):
         component_limit = self._allocations.get(component, 0)
 
         if component_limit > 0 and component_used >= component_limit:
-            logger.warning(f"⚠️ [BRAVE-BUDGET] Component {component} at allocation limit ({component_limit})")
+            logger.warning(
+                f"⚠️ [BRAVE-BUDGET] Component {component} at allocation limit ({component_limit})"
+            )
             return False
 
         return True
@@ -107,7 +113,7 @@ class BudgetManager(BaseBudgetManager):
 # SINGLETON INSTANCE
 # ============================================
 
-_budget_manager_instance: Optional[BudgetManager] = None
+_budget_manager_instance: BudgetManager | None = None
 
 
 def get_brave_budget_manager() -> BudgetManager:

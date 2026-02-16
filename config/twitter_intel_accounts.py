@@ -24,22 +24,23 @@ NOTE:
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
 from enum import Enum
 
 
 class AccountType(Enum):
     """Tipo di account Twitter"""
-    BEAT_WRITER = "beat_writer"      # Giornalista specializzato su 1-2 club
-    JOURNALIST = "journalist"         # Giornalista professionista
-    PODCAST = "podcast"               # Produttore podcast calcistico
-    AGGREGATOR = "aggregator"         # Aggregatore notizie (non ufficiale)
-    INSIDER = "insider"               # Insider con fonti dirette
-    ANALYST = "analyst"               # Analista tattico/scout
+
+    BEAT_WRITER = "beat_writer"  # Giornalista specializzato su 1-2 club
+    JOURNALIST = "journalist"  # Giornalista professionista
+    PODCAST = "podcast"  # Produttore podcast calcistico
+    AGGREGATOR = "aggregator"  # Aggregatore notizie (non ufficiale)
+    INSIDER = "insider"  # Insider con fonti dirette
+    ANALYST = "analyst"  # Analista tattico/scout
 
 
 class LeagueTier(Enum):
     """Tier della lega nel sistema EarlyBird"""
+
     ELITE_7 = "elite_7"
     TIER_2 = "tier_2"
     GLOBAL = "global"  # Account cross-league che coprono più leghe/trasferimenti internazionali
@@ -49,7 +50,7 @@ class LeagueTier(Enum):
 class TwitterIntelAccount:
     """
     Account Twitter per intel calcistico.
-    
+
     Attributes:
         handle: Twitter handle (con @)
         name: Nome del giornalista/account
@@ -59,6 +60,7 @@ class TwitterIntelAccount:
         followers_approx: Follower approssimativi (K)
         note: Perché è utile per EarlyBird
     """
+
     handle: str
     name: str
     focus: str
@@ -76,8 +78,7 @@ class TwitterIntelAccount:
 # This dictionary serves as FALLBACK ONLY when Supabase is unavailable
 # Last updated: 2026-02-13
 # Migration status: Graceful degradation active
-TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
-    
+TWITTER_INTEL_ELITE_7: dict[str, list[TwitterIntelAccount]] = {
     # ============================================
     # 🇹🇷 TURKEY SUPER LIG (4 accounts)
     # ============================================
@@ -89,7 +90,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="156K",
-            note="Transfer specialist, breaking news su club turchi"
+            note="Transfer specialist, breaking news su club turchi",
         ),
         TwitterIntelAccount(
             handle="@UEFAcomCetinCY",
@@ -98,7 +99,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="5K+",
-            note="Corrispondente UEFA per Turchia, fonte credibile"
+            note="Corrispondente UEFA per Turchia, fonte credibile",
         ),
         TwitterIntelAccount(
             handle="@_sabirhan",
@@ -107,7 +108,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.BEAT_WRITER,
             language="turkish+english",
             followers_approx="50K+",
-            note="Insider Fenerbahçe, infortuni e formazioni"
+            note="Insider Fenerbahçe, infortuni e formazioni",
         ),
         TwitterIntelAccount(
             handle="@Onuranli",
@@ -116,10 +117,9 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.ANALYST,
             language="turkish+english",
             followers_approx="20K+",
-            note="Analisi controversie, sentiment tifosi, derby"
+            note="Analisi controversie, sentiment tifosi, derby",
         ),
     ],
-    
     # ============================================
     # 🇦🇷 ARGENTINA PRIMERA (4 accounts)
     # ============================================
@@ -131,7 +131,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.ANALYST,
             language="spanish",
             followers_approx="18.7K",
-            note="Focus Copa Libertadores Boca, formazioni coppa"
+            note="Focus Copa Libertadores Boca, formazioni coppa",
         ),
         TwitterIntelAccount(
             handle="@CABJ_English",
@@ -140,7 +140,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.PODCAST,
             language="english+spanish",
             followers_approx="5K+",
-            note="Podcast Boca in inglese, insider spogliatoio"
+            note="Podcast Boca in inglese, insider spogliatoio",
         ),
         TwitterIntelAccount(
             handle="@marc_cart",
@@ -149,7 +149,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english+spanish",
             followers_approx="5K+",
-            note="Giornalista Buenos Aires, copertura River Plate"
+            note="Giornalista Buenos Aires, copertura River Plate",
         ),
         TwitterIntelAccount(
             handle="@INDEPENDIENTEgc",
@@ -158,10 +158,9 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.INSIDER,
             language="spanish",
             followers_approx="22.6K",
-            note="56 anni esperienza, insider storico Independiente"
+            note="56 anni esperienza, insider storico Independiente",
         ),
     ],
-    
     # ============================================
     # 🇲🇽 MEXICO LIGA MX (3 accounts)
     # ============================================
@@ -173,7 +172,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="spanish+english",
             followers_approx="36K",
-            note="Notizie quotidiane Liga MX, bilingue"
+            note="Notizie quotidiane Liga MX, bilingue",
         ),
         TwitterIntelAccount(
             handle="@karentapia_a",
@@ -182,7 +181,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="spanish",
             followers_approx="5K+",
-            note="TV host CDMX, copertura América e Cruz Azul"
+            note="TV host CDMX, copertura América e Cruz Azul",
         ),
         TwitterIntelAccount(
             handle="@soymemozavala",
@@ -191,10 +190,9 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="spanish",
             followers_approx="5K+",
-            note="Telecronista, aggiornamenti real-time partite"
+            note="Telecronista, aggiornamenti real-time partite",
         ),
     ],
-    
     # ============================================
     # 🇬🇷 GREECE SUPER LEAGUE (3 accounts)
     # ============================================
@@ -206,7 +204,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.PODCAST,
             language="english",
             followers_approx="15K+",
-            note="Podcast settimanale, copertura Big 4 greci"
+            note="Podcast settimanale, copertura Big 4 greci",
         ),
         TwitterIntelAccount(
             handle="@A_McQuarrie",
@@ -215,7 +213,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="20K+",
-            note="Giornalista TNT/BBC, analisi tattica"
+            note="Giornalista TNT/BBC, analisi tattica",
         ),
         TwitterIntelAccount(
             handle="@LianosKostas",
@@ -224,10 +222,9 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="10K+",
-            note="Sky Sports, BBC, copertura europea"
+            note="Sky Sports, BBC, copertura europea",
         ),
     ],
-    
     # ============================================
     # 🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCOTLAND PREMIERSHIP (4 accounts)
     # ============================================
@@ -239,7 +236,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="53.7K",
-            note="Sky Sports News, breaking news trasferimenti"
+            note="Sky Sports News, breaking news trasferimenti",
         ),
         TwitterIntelAccount(
             handle="@anthonyabrown",
@@ -248,7 +245,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.BEAT_WRITER,
             language="english",
             followers_approx="15K+",
-            note="Specialista Edimburgo, autore libri Hearts"
+            note="Specialista Edimburgo, autore libri Hearts",
         ),
         TwitterIntelAccount(
             handle="@alan_pattullo",
@@ -257,7 +254,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.BEAT_WRITER,
             language="english",
             followers_approx="20K+",
-            note="Beat writer Celtic, formazioni e infortuni"
+            note="Beat writer Celtic, formazioni e infortuni",
         ),
         TwitterIntelAccount(
             handle="@ScottBurns75",
@@ -266,10 +263,9 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="25K+",
-            note="Analista trasferimenti Rangers/Celtic/Aberdeen"
+            note="Analista trasferimenti Rangers/Celtic/Aberdeen",
         ),
     ],
-    
     # ============================================
     # 🇦🇺 AUSTRALIA A-LEAGUE (4 accounts)
     # ============================================
@@ -281,7 +277,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english",
             followers_approx="15K+",
-            note="Hub centralizzato notizie A-League"
+            note="Hub centralizzato notizie A-League",
         ),
         TwitterIntelAccount(
             handle="@joeylynchy",
@@ -290,7 +286,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="12.7K",
-            note="ESPN/Guardian, esperto Melbourne Victory"
+            note="ESPN/Guardian, esperto Melbourne Victory",
         ),
         TwitterIntelAccount(
             handle="@JamesDodd89",
@@ -299,7 +295,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="5K+",
-            note="Senior reporter Fox Sports, talk SPORT"
+            note="Senior reporter Fox Sports, talk SPORT",
         ),
         TwitterIntelAccount(
             handle="@tarynheddo",
@@ -308,10 +304,9 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="5K+",
-            note="Commentatore A-League Women, analisi partite"
+            note="Commentatore A-League Women, analisi partite",
         ),
     ],
-    
     # ============================================
     # 🇵🇱 POLAND EKSTRAKLASA (3 accounts)
     # ============================================
@@ -323,7 +318,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.ANALYST,
             language="english",
             followers_approx="30K+",
-            note="Editore Ekstraklasa Magazine, giovani talenti"
+            note="Editore Ekstraklasa Magazine, giovani talenti",
         ),
         TwitterIntelAccount(
             handle="@Ryan_Hubbard",
@@ -332,7 +327,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="10K+",
-            note="Contributore EKSTRAKLASAreview, copertura inglese"
+            note="Contributore EKSTRAKLASAreview, copertura inglese",
         ),
         TwitterIntelAccount(
             handle="@golskapodcast",
@@ -341,7 +336,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.PODCAST,
             language="english",
             followers_approx="371",
-            note="Podcast inglese su Ekstraklasa, Legia vs Lech"
+            note="Podcast inglese su Ekstraklasa, Legia vs Lech",
         ),
     ],
 }
@@ -355,8 +350,7 @@ TWITTER_INTEL_ELITE_7: Dict[str, List[TwitterIntelAccount]] = {
 # This dictionary serves as FALLBACK ONLY when Supabase is unavailable
 # Last updated: 2026-02-13
 # Migration status: Graceful degradation active
-TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
-    
+TWITTER_INTEL_TIER_2: dict[str, list[TwitterIntelAccount]] = {
     # ============================================
     # 🇳🇴 NORWAY ELITESERIEN (3 accounts)
     # ============================================
@@ -368,7 +362,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.BEAT_WRITER,
             language="english",
             followers_approx="10K+",
-            note="Specialista Bodø/Glimt, formazioni e tattica"
+            note="Specialista Bodø/Glimt, formazioni e tattica",
         ),
         TwitterIntelAccount(
             handle="@StianWahl",
@@ -377,7 +371,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="norwegian+english",
             followers_approx="5K+",
-            note="Giornalista Nettavisen, Molde e Rosenborg"
+            note="Giornalista Nettavisen, Molde e Rosenborg",
         ),
         TwitterIntelAccount(
             handle="@ELundefugl52724",
@@ -386,10 +380,9 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.INSIDER,
             language="norwegian",
             followers_approx="<1K",
-            note="Molde insider, notizie allenatori e mercato"
+            note="Molde insider, notizie allenatori e mercato",
         ),
     ],
-    
     # ============================================
     # 🇫🇷 FRANCE LIGUE 1 (4 accounts)
     # ============================================
@@ -401,7 +394,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.BEAT_WRITER,
             language="english",
             followers_approx="20K+",
-            note="Specialista OM, BBC/Guardian/FourFourTwo"
+            note="Specialista OM, BBC/Guardian/FourFourTwo",
         ),
         TwitterIntelAccount(
             handle="@FrenchFtWeekly",
@@ -410,7 +403,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.PODCAST,
             language="english",
             followers_approx="17.2K",
-            note="Podcast settimanale Ligue 1, analisi partite"
+            note="Podcast settimanale Ligue 1, analisi partite",
         ),
         TwitterIntelAccount(
             handle="@GFFN",
@@ -419,7 +412,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english",
             followers_approx="281K",
-            note="Principale aggregatore Ligue 1, guida 74 pagine"
+            note="Principale aggregatore Ligue 1, guida 74 pagine",
         ),
         TwitterIntelAccount(
             handle="@mattspiro",
@@ -428,10 +421,9 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.PODCAST,
             language="english+french",
             followers_approx="5K+",
-            note="Podcast 'Across the Channel', broadcaster"
+            note="Podcast 'Across the Channel', broadcaster",
         ),
     ],
-    
     # ============================================
     # 🇧🇪 BELGIUM FIRST DIV (3 accounts)
     # ============================================
@@ -443,7 +435,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="dutch+french",
             followers_approx="105+",
-            note="Giornalista Mediahuis, Club Brugge/Anderlecht"
+            note="Giornalista Mediahuis, Club Brugge/Anderlecht",
         ),
         TwitterIntelAccount(
             handle="@Purple_RSCA_",
@@ -452,7 +444,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="dutch+english",
             followers_approx="3.7K",
-            note="Specialista Anderlecht, formazioni e infortuni"
+            note="Specialista Anderlecht, formazioni e infortuni",
         ),
         TwitterIntelAccount(
             handle="@GBeNeFN",
@@ -461,10 +453,9 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english",
             followers_approx="5K+",
-            note="Aggregatore Benelux, copertura multi-club"
+            note="Aggregatore Benelux, copertura multi-club",
         ),
     ],
-    
     # ============================================
     # 🇦🇹 AUSTRIA BUNDESLIGA (3 accounts)
     # ============================================
@@ -476,7 +467,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.ANALYST,
             language="english",
             followers_approx="<5K",
-            note="Scout Salisburgo/Rapid, analisi finanziaria"
+            note="Scout Salisburgo/Rapid, analisi finanziaria",
         ),
         TwitterIntelAccount(
             handle="@austrianfooty",
@@ -485,7 +476,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english",
             followers_approx="10K+",
-            note="Notizie trasferimenti e infortuni Austria"
+            note="Notizie trasferimenti e infortuni Austria",
         ),
         TwitterIntelAccount(
             handle="@Sky_Johannes",
@@ -494,10 +485,9 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="german+english",
             followers_approx="3.8K",
-            note="Reporter Sky Sport Austria, breaking news"
+            note="Reporter Sky Sport Austria, breaking news",
         ),
     ],
-    
     # ============================================
     # 🇳🇱 NETHERLANDS EREDIVISIE (4 accounts)
     # ============================================
@@ -509,7 +499,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="english",
             followers_approx="3.7K",
-            note="BBC/Sky/SiriusXM, esperto calcio olandese"
+            note="BBC/Sky/SiriusXM, esperto calcio olandese",
         ),
         TwitterIntelAccount(
             handle="@FootballOranje_",
@@ -518,7 +508,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.PODCAST,
             language="english",
             followers_approx="<5K",
-            note="Podcast Eredivisie, analisi Ajax/PSV/AZ"
+            note="Podcast Eredivisie, analisi Ajax/PSV/AZ",
         ),
         TwitterIntelAccount(
             handle="@joe_baker21",
@@ -527,7 +517,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.BEAT_WRITER,
             language="english",
             followers_approx="5K+",
-            note="Scrittore Amsterdam, insider Ajax"
+            note="Scrittore Amsterdam, insider Ajax",
         ),
         TwitterIntelAccount(
             handle="@scott_redfearn",
@@ -536,10 +526,9 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.ANALYST,
             language="english",
             followers_approx="5K+",
-            note="Football Oranje contributor, analisi tattica"
+            note="Football Oranje contributor, analisi tattica",
         ),
     ],
-    
     # ============================================
     # 🇨🇳 CHINA SUPER LEAGUE (1 account) - LIMITATO
     # ============================================
@@ -551,12 +540,11 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english+chinese",
             followers_approx="5.3K",
-            note="Giornale sportivo nazionale cinese, unica fonte X viabile"
+            note="Giornale sportivo nazionale cinese, unica fonte X viabile",
         ),
         # ⚠️ NOTA: X/Twitter non è fonte primaria per CSL
         # Raccomandazione: sistema parallelo Weibo
     ],
-    
     # ============================================
     # 🇯🇵 JAPAN J-LEAGUE (3 accounts)
     # ============================================
@@ -568,7 +556,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.ANALYST,
             language="english",
             followers_approx="<5K",
-            note="Analisi completa J-League, tattica dettagliata"
+            note="Analisi completa J-League, tattica dettagliata",
         ),
         TwitterIntelAccount(
             handle="@visselkobe_en",
@@ -577,7 +565,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english",
             followers_approx="10K+",
-            note="Vissel Kobe (2x campioni), formazioni e infortuni"
+            note="Vissel Kobe (2x campioni), formazioni e infortuni",
         ),
         TwitterIntelAccount(
             handle="@JFN_en",
@@ -586,10 +574,9 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english",
             followers_approx="5K+",
-            note="Traduzioni inglese notizie J-League"
+            note="Traduzioni inglese notizie J-League",
         ),
     ],
-    
     # ============================================
     # 🇧🇷 BRAZIL SÉRIE B (3 accounts)
     # ============================================
@@ -601,7 +588,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.AGGREGATOR,
             language="english+portuguese",
             followers_approx="142.6K",
-            note="Aggregatore calcio brasiliano, copertura Série B"
+            note="Aggregatore calcio brasiliano, copertura Série B",
         ),
         TwitterIntelAccount(
             handle="@raphaprates",
@@ -610,7 +597,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="portuguese",
             followers_approx="19.2K",
-            note="Commentatore Radio CBN, specialista Santos"
+            note="Commentatore Radio CBN, specialista Santos",
         ),
         TwitterIntelAccount(
             handle="@CABRALNETO10",
@@ -619,7 +606,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.JOURNALIST,
             language="portuguese",
             followers_approx="127.9K",
-            note="Commentatore Globo/SporTV, insider Nordeste"
+            note="Commentatore Globo/SporTV, insider Nordeste",
         ),
     ],
 }
@@ -631,8 +618,7 @@ TWITTER_INTEL_TIER_2: Dict[str, List[TwitterIntelAccount]] = {
 # Account che coprono trasferimenti internazionali, news globali,
 # o multiple leghe. Vengono sempre inclusi nel monitoraggio h24.
 
-TWITTER_INTEL_GLOBAL: Dict[str, List[TwitterIntelAccount]] = {
-    
+TWITTER_INTEL_GLOBAL: dict[str, list[TwitterIntelAccount]] = {
     # ============================================
     # 🌍 GLOBAL TRANSFER & NEWS (cross-league)
     # ============================================
@@ -644,7 +630,7 @@ TWITTER_INTEL_GLOBAL: Dict[str, List[TwitterIntelAccount]] = {
             account_type=AccountType.INSIDER,
             language="english",
             followers_approx="10K+",
-            note="Insider trasferimenti, copertura calcio africano e internazionale"
+            note="Insider trasferimenti, copertura calcio africano e internazionale",
         ),
     ],
 }
@@ -654,13 +640,14 @@ TWITTER_INTEL_GLOBAL: Dict[str, List[TwitterIntelAccount]] = {
 # HELPER FUNCTIONS
 # ============================================
 
-def get_twitter_intel_accounts(league_key: str) -> List[TwitterIntelAccount]:
+
+def get_twitter_intel_accounts(league_key: str) -> list[TwitterIntelAccount]:
     """
     Ottiene gli account Twitter intel per una lega specifica.
-    
+
     Args:
         league_key: Chiave API della lega (es. 'soccer_turkey_super_league')
-        
+
     Returns:
         Lista di TwitterIntelAccount per la lega
     """
@@ -684,100 +671,100 @@ def get_twitter_intel_accounts(league_key: str) -> List[TwitterIntelAccount]:
         "soccer_japan_j_league": "japan",
         "soccer_brazil_serie_b": "brazil_b",
     }
-    
+
     country = LEAGUE_TO_COUNTRY.get(league_key)
     if not country:
         return []
-    
+
     # Check Elite 7 first, then Tier 2
     if country in TWITTER_INTEL_ELITE_7:
         return TWITTER_INTEL_ELITE_7[country]
     elif country in TWITTER_INTEL_TIER_2:
         return TWITTER_INTEL_TIER_2[country]
-    
+
     return []
 
 
-def get_all_twitter_handles() -> List[str]:
+def get_all_twitter_handles() -> list[str]:
     """
     Ottiene tutti gli handle Twitter configurati.
-    
+
     Include: Elite 7 + Tier 2 + Global accounts.
-    
+
     V6.2 FIX: Aggiunta validazione handle per evitare None/vuoti.
-    
+
     Returns:
         Lista di tutti gli handle validi (con @)
     """
     handles = []
-    
+
     for accounts in TWITTER_INTEL_ELITE_7.values():
         for a in accounts:
             # V6.2: Validazione handle - skip None/vuoti
             if a.handle and isinstance(a.handle, str) and a.handle.strip():
                 handles.append(a.handle)
-    
+
     for accounts in TWITTER_INTEL_TIER_2.values():
         for a in accounts:
             if a.handle and isinstance(a.handle, str) and a.handle.strip():
                 handles.append(a.handle)
-    
+
     # V4.6: Include Global accounts (cross-league)
     for accounts in TWITTER_INTEL_GLOBAL.values():
         for a in accounts:
             if a.handle and isinstance(a.handle, str) and a.handle.strip():
                 handles.append(a.handle)
-    
+
     return handles
 
 
-def find_account_by_handle(handle: str) -> Optional[TwitterIntelAccount]:
+def find_account_by_handle(handle: str) -> TwitterIntelAccount | None:
     """
     V6.2: Funzione centralizzata per trovare un account dato l'handle.
-    
+
     Elimina duplicazione codice in main.py e twitter_intel_cache.py.
-    
+
     Args:
         handle: Twitter handle (con o senza @)
-        
+
     Returns:
         TwitterIntelAccount se trovato, None altrimenti
     """
     if not handle or not isinstance(handle, str):
         return None
-    
+
     handle_lower = handle.lower().replace("@", "").strip()
     if not handle_lower:
         return None
-    
+
     # Search Elite 7
     for accounts in TWITTER_INTEL_ELITE_7.values():
         for acc in accounts:
             if acc.handle and acc.handle.lower().replace("@", "") == handle_lower:
                 return acc
-    
+
     # Search Tier 2
     for accounts in TWITTER_INTEL_TIER_2.values():
         for acc in accounts:
             if acc.handle and acc.handle.lower().replace("@", "") == handle_lower:
                 return acc
-    
+
     # Search Global
     for accounts in TWITTER_INTEL_GLOBAL.values():
         for acc in accounts:
             if acc.handle and acc.handle.lower().replace("@", "") == handle_lower:
                 return acc
-    
+
     return None
 
 
-def get_handles_by_tier(tier: LeagueTier) -> Dict[str, List[str]]:
+def get_handles_by_tier(tier: LeagueTier) -> dict[str, list[str]]:
     """
     Ottiene gli handle raggruppati per paese, filtrati per tier.
-    
+
     Args:
         tier: LeagueTier.ELITE_7, LeagueTier.TIER_2, o LeagueTier.GLOBAL
-        
+
     Returns:
         Dict country -> list of handles
     """
@@ -789,17 +776,14 @@ def get_handles_by_tier(tier: LeagueTier) -> Dict[str, List[str]]:
         source = TWITTER_INTEL_GLOBAL
     else:
         source = TWITTER_INTEL_ELITE_7  # Default fallback
-    
-    return {
-        country: [a.handle for a in accounts]
-        for country, accounts in source.items()
-    }
+
+    return {country: [a.handle for a in accounts] for country, accounts in source.items()}
 
 
-def get_account_count() -> Dict[str, int]:
+def get_account_count() -> dict[str, int]:
     """
     Conta gli account per lega.
-    
+
     Returns:
         Dict con statistiche
     """
@@ -807,21 +791,21 @@ def get_account_count() -> Dict[str, int]:
         "elite_7_total": sum(len(accounts) for accounts in TWITTER_INTEL_ELITE_7.values()),
         "tier_2_total": sum(len(accounts) for accounts in TWITTER_INTEL_TIER_2.values()),
         "global_total": sum(len(accounts) for accounts in TWITTER_INTEL_GLOBAL.values()),
-        "by_country": {}
+        "by_country": {},
     }
-    
+
     for country, accounts in TWITTER_INTEL_ELITE_7.items():
         stats["by_country"][country] = len(accounts)
-    
+
     for country, accounts in TWITTER_INTEL_TIER_2.items():
         stats["by_country"][country] = len(accounts)
-    
+
     # V4.6: Include Global accounts
     for country, accounts in TWITTER_INTEL_GLOBAL.items():
         stats["by_country"][country] = len(accounts)
-    
+
     stats["total"] = stats["elite_7_total"] + stats["tier_2_total"] + stats["global_total"]
-    
+
     return stats
 
 
@@ -829,20 +813,21 @@ def get_account_count() -> Dict[str, int]:
 # GEMINI SEARCH GROUNDING PROMPT BUILDER
 # ============================================
 
-def build_gemini_twitter_extraction_prompt(handles: List[str], max_posts: int = 5) -> str:
+
+def build_gemini_twitter_extraction_prompt(handles: list[str], max_posts: int = 5) -> str:
     """
     Costruisce il prompt per Gemini Search Grounding per estrarre
     gli ultimi post dagli account Twitter specificati.
-    
+
     Args:
         handles: Lista di handle Twitter (con @)
         max_posts: Numero massimo di post per account
-        
+
     Returns:
         Prompt formattato per Gemini
     """
     handles_str = ", ".join(handles)
-    
+
     prompt = f"""
 Cerca su Twitter/X gli ultimi {max_posts} post di ciascuno di questi account:
 {handles_str}
@@ -887,15 +872,15 @@ if __name__ == "__main__":
     print("=" * 60)
     print("🐦 TWITTER INTEL ACCOUNTS - EarlyBird V4.6")
     print("=" * 60)
-    
+
     stats = get_account_count()
-    print(f"\n📊 STATISTICHE:")
+    print("\n📊 STATISTICHE:")
     print(f"   Elite 7: {stats['elite_7_total']} account")
     print(f"   Tier 2:  {stats['tier_2_total']} account")
     print(f"   Global:  {stats['global_total']} account")
     print(f"   TOTALE:  {stats['total']} account")
-    
-    print(f"\n📋 PER PAESE:")
+
+    print("\n📋 PER PAESE:")
     for country, count in stats["by_country"].items():
         if country in TWITTER_INTEL_ELITE_7:
             tier = "Elite 7"
@@ -904,8 +889,8 @@ if __name__ == "__main__":
         else:
             tier = "Global"
         print(f"   {country}: {count} ({tier})")
-    
-    print(f"\n🔗 TUTTI GLI HANDLE:")
+
+    print("\n🔗 TUTTI GLI HANDLE:")
     all_handles = get_all_twitter_handles()
     print(f"   {', '.join(all_handles[:10])}...")
     print(f"   ... e altri {len(all_handles) - 10}")

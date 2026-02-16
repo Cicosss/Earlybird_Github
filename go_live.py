@@ -11,10 +11,11 @@ Lightweight launcher for CLI + Telegram only (no web dashboard).
 Usage:
     python go_live.py [--skip-reset]
 """
+
 import os
-import sys
 import signal
 import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -35,41 +36,49 @@ def print_banner():
 def check_environment() -> bool:
     """Verify .env and required variables."""
     print("[1/3] 🔍 ENVIRONMENT CHECK")
-    
+
     env_file = Path(".env")
     if not env_file.exists():
         print("   ❌ .env file not found!")
         return False
-    
+
     from dotenv import load_dotenv
+
     load_dotenv()
-    
+
     # Required variables for main pipeline
-    required = ["OPENROUTER_API_KEY", "ODDS_API_KEY", "SERPER_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    required = [
+        "OPENROUTER_API_KEY",
+        "ODDS_API_KEY",
+        "SERPER_API_KEY",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
+    ]
     missing = [v for v in required if not os.getenv(v) or os.getenv(v, "").startswith("your_")]
-    
+
     if missing:
         print(f"   ❌ Missing: {', '.join(missing)}")
         return False
-    
+
     print("   ✅ All required variables configured")
-    
+
     # Check optional Telegram monitoring (user client for squad scraping)
     if os.getenv("TELEGRAM_API_ID") and os.getenv("TELEGRAM_API_HASH"):
         print("   ✅ Telegram monitoring enabled (user client)")
     else:
         print("   ⚠️  Telegram monitoring disabled (no API_ID/HASH)")
-    
+
     return True
 
 
 def init_database(skip_reset: bool = False) -> bool:
     """Initialize or reset database."""
     print("\n[2/3] 🗄️  DATABASE CHECK")
-    
+
     try:
-        sys.path.insert(0, '.')
+        sys.path.insert(0, ".")
         from src.database.models import init_db
+
         init_db()
         print("   ✅ Database ready")
         return True
@@ -83,11 +92,11 @@ def start_telegram_monitor() -> subprocess.Popen:
     if not os.getenv("TELEGRAM_API_ID") or not os.getenv("TELEGRAM_API_HASH"):
         print("   ⚠️  Telegram Monitor disabled (missing API_ID/HASH)")
         return None
-    
+
     if not Path("run_telegram_monitor.py").exists():
         print("   ⚠️  Telegram Monitor script not found")
         return None
-    
+
     try:
         # Open log file with proper context management
         log_file = open("telegram_monitor.log", "a")
@@ -95,7 +104,7 @@ def start_telegram_monitor() -> subprocess.Popen:
             [sys.executable, "run_telegram_monitor.py"],
             stdout=log_file,
             stderr=subprocess.STDOUT,
-            preexec_fn=os.setsid if os.name != 'nt' else None
+            preexec_fn=os.setsid if os.name != "nt" else None,
         )
         # Store file handle for cleanup
         process.log_file = log_file
@@ -116,7 +125,7 @@ def run_main_pipeline():
     print("📱 TG Log:    tail -f telegram_monitor.log")
     print("\n⚠️  Press Ctrl+C to stop")
     print("=" * 50 + "\n")
-    
+
     try:
         result = subprocess.run([sys.executable, "src/main.py"], check=False)
         # Check if main pipeline exited with error
@@ -134,14 +143,14 @@ def cleanup():
     if SHUTDOWN_FLAG:
         return
     SHUTDOWN_FLAG = True
-    
+
     print("\n🛑 Shutting down...")
-    
+
     for proc in BACKGROUND_PROCESSES:
         if proc and proc.poll() is None:
             try:
                 # Try graceful termination first
-                if os.name != 'nt':
+                if os.name != "nt":
                     # Unix: kill process group
                     try:
                         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -151,14 +160,14 @@ def cleanup():
                 else:
                     # Windows: terminate process
                     proc.terminate()
-                
+
                 # Wait for process to terminate (with timeout handling)
                 try:
                     proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
                     # Force kill if graceful termination failed
                     try:
-                        if os.name != 'nt':
+                        if os.name != "nt":
                             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                         else:
                             proc.kill()
@@ -166,14 +175,14 @@ def cleanup():
                         pass
             except Exception as e:
                 print(f"   ⚠️  Error terminating process: {e}")
-        
+
         # Close log file handle if exists
-        if hasattr(proc, 'log_file') and proc.log_file:
+        if hasattr(proc, "log_file") and proc.log_file:
             try:
                 proc.log_file.close()
             except Exception as e:
                 print(f"   ⚠️  Error closing log file: {e}")
-    
+
     print("✅ Stopped\n")
 
 
@@ -184,28 +193,37 @@ def signal_handler(signum, frame):
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="🦅 EarlyBird Headless Launcher")
     parser.add_argument("--skip-reset", action="store_true", help="Skip database reset")
     args = parser.parse_args()
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     print_banner()
-    
+
     try:
-        if not check_environment():
-            sys.exit(1)
-        
+        # ✅ NEW: Use centralized startup validator instead of check_environment()
+        try:
+            from src.utils.startup_validator import validate_startup_or_exit
+
+            validate_startup_or_exit()
+        except ImportError as e:
+            print(f"⚠️ Startup validator not available: {e}")
+            print("⚠️ Falling back to legacy check_environment()")
+            if not check_environment():
+                sys.exit(1)
+
         if not init_database(args.skip_reset):
             sys.exit(1)
-        
+
         print("\n[3/3] 🚀 STARTING PROCESSES")
         start_telegram_monitor()
         time.sleep(1)
-        
+
         run_main_pipeline()
-        
+
     except KeyboardInterrupt:
         pass
     except Exception as e:

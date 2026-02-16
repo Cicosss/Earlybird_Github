@@ -6,101 +6,102 @@ Each test validates specific requirements from the design document.
 
 Requirements: 1.2, 1.3, 1.4, 2.1-2.4, 3.2, 4.3, 6.2-6.4, 9.1-9.2, 11.2
 """
+
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-
 
 # ============================================
 # Property 2: Key Rotation on 429
 # ============================================
 
+
 class TestKeyRotationProperty:
     """
     **Feature: tavily-integration, Property 2: Key Rotation on 429**
     **Validates: Requirements 1.4, 11.2**
-    
+
     For any sequence of API calls where the current key returns 429,
     the TavilyKeyRotator SHALL automatically switch to the next available
     key in sequence (1→2→3→...→7) without manual intervention.
     """
-    
+
     @given(
         num_keys=st.integers(min_value=2, max_value=7),
         exhaustion_sequence=st.lists(
-            st.integers(min_value=0, max_value=6),
-            min_size=1,
-            max_size=7,
-            unique=True
-        )
+            st.integers(min_value=0, max_value=6), min_size=1, max_size=7, unique=True
+        ),
     )
     @settings(max_examples=100)
-    def test_key_rotation_sequence(self, num_keys: int, exhaustion_sequence: List[int]):
+    def test_key_rotation_sequence(self, num_keys: int, exhaustion_sequence: list[int]):
         """
         Property: Keys rotate in sequence when exhausted.
-        
+
         For any number of keys and any exhaustion sequence,
         rotation should follow the order 1→2→3→...→N.
         """
         # Create rotator with N keys
         keys = [f"tvly-test-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         # Filter exhaustion sequence to valid indices
         valid_exhaustions = [i for i in exhaustion_sequence if i < num_keys]
-        
+
         # Track rotation order
         rotation_order = []
-        
+
         for exhaust_idx in valid_exhaustions:
             # Get current key before exhaustion
             current_key = rotator.get_current_key()
             if current_key is None:
                 break
-            
+
             # Mark current key as exhausted
             rotator.mark_exhausted()
-            
+
             # Try to rotate
             if rotator.rotate_to_next():
                 rotation_order.append(rotator._current_index)
-        
+
         # Verify: rotation should be sequential (wrapping around)
         for i in range(1, len(rotation_order)):
             prev_idx = rotation_order[i - 1]
             curr_idx = rotation_order[i]
-            
+
             # Current should be next available after previous
             # (accounting for wrap-around and exhausted keys)
             expected_next = (prev_idx + 1) % num_keys
             while expected_next in rotator._exhausted_keys and expected_next != curr_idx:
                 expected_next = (expected_next + 1) % num_keys
-            
+
             # Either we found the expected next, or all keys are exhausted
             # Either we found the expected next, or all keys are exhausted
             # Either we found the expected next, or all keys are exhausted
             # V8.0: If reset occurred, we might jump to 1.
             # We allow either sequential next, OR 1 (reset target), OR exhaustion.
-            assert curr_idx == expected_next or curr_idx == 1 or len(rotator._exhausted_keys) >= num_keys - 1
-    
+            assert (
+                curr_idx == expected_next
+                or curr_idx == 1
+                or len(rotator._exhausted_keys) >= num_keys - 1
+            )
+
     @given(num_keys=st.integers(min_value=1, max_value=7))
     @settings(max_examples=100)
     def test_all_keys_exhausted_returns_none(self, num_keys: int):
         """
         Property: When all keys are exhausted, get_current_key returns None.
-        
+
         For any number of keys, exhausting all of them should result
         in get_current_key() returning None.
         """
         keys = [f"tvly-test-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         # Exhaust all keys (twice to surpass double cycle)
         # V8.0: Exhausting once triggers double cycle (reset).
         # We need to exhaust twice to really return None.
@@ -108,65 +109,67 @@ class TestKeyRotationProperty:
             # Exhaust all keys in current cycle
             for i in range(num_keys):
                 rotator.mark_exhausted(i)
-                
+
             # If this was first cycle, rotate to trigger reset
             if cycle == 0:
-                rotator._last_cycle_month = datetime.now(timezone.utc).month - 1 # Force reset allowed
+                rotator._last_cycle_month = (
+                    datetime.now(timezone.utc).month - 1
+                )  # Force reset allowed
                 rotator.rotate_to_next()
-        
+
         # Try one more rotation to confirm failure
         rotator.rotate_to_next()
-        
+
         # Should return None
 
         assert rotator.get_current_key() is None
         assert not rotator.is_available()
-    
+
     @given(num_keys=st.integers(min_value=2, max_value=7))
     @settings(max_examples=100)
     def test_rotation_skips_exhausted_keys(self, num_keys: int):
         """
         Property: Rotation skips already exhausted keys.
-        
+
         For any configuration, rotating should never land on an exhausted key.
         """
         keys = [f"tvly-test-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         # Exhaust first key
         rotator.mark_exhausted(0)
-        
+
         # Rotate should skip to key 1 (index 1)
         success = rotator.rotate_to_next()
-        
+
         if num_keys > 1:
             assert success
             assert rotator._current_index not in rotator._exhausted_keys
             assert rotator._current_index == 1
-    
+
     @given(
         num_keys=st.integers(min_value=1, max_value=7),
-        num_calls=st.integers(min_value=0, max_value=100)
+        num_calls=st.integers(min_value=0, max_value=100),
     )
     @settings(max_examples=100)
     def test_usage_tracking_consistency(self, num_keys: int, num_calls: int):
         """
         Property: Usage tracking is consistent.
-        
+
         For any number of calls, total usage should equal sum of per-key usage.
         """
         keys = [f"tvly-test-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         # Record calls
         for _ in range(num_calls):
             if rotator.get_current_key():
                 rotator.record_call()
-        
+
         # Verify consistency
         status = rotator.get_status()
         per_key_sum = sum(status["key_usage"].values())
-        
+
         assert status["total_usage"] == per_key_sum
         assert status["total_usage"] == num_calls
 
@@ -175,55 +178,56 @@ class TestKeyRotationProperty:
 # Property 1: API Key Validation and Loading
 # ============================================
 
+
 class TestKeyValidationProperty:
     """
     **Feature: tavily-integration, Property 1: API Key Validation and Loading**
     **Validates: Requirements 1.1, 11.1**
-    
+
     For any set of environment variables TAVILY_API_KEY_1 through TAVILY_API_KEY_7,
     the TavilyKeyRotator SHALL load all non-empty keys in order and set is_available()
     to True only when at least one valid key exists.
     """
-    
+
     @given(
         keys=st.lists(
             st.one_of(
                 st.just(""),
                 st.just(None),
-                st.text(min_size=1, max_size=50).filter(lambda x: x.strip())
+                st.text(min_size=1, max_size=50).filter(lambda x: x.strip()),
             ),
             min_size=0,
-            max_size=10
+            max_size=10,
         )
     )
     @settings(max_examples=100)
-    def test_empty_keys_filtered(self, keys: List):
+    def test_empty_keys_filtered(self, keys: list):
         """
         Property: Empty and None keys are filtered out.
-        
+
         For any list of keys including empty strings and None,
         only non-empty keys should be loaded.
         """
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         # Count expected valid keys
         expected_valid = len([k for k in keys if k and k.strip()])
-        
+
         assert len(rotator._keys) == expected_valid
         assert rotator.is_available() == (expected_valid > 0)
-    
+
     @given(num_valid_keys=st.integers(min_value=0, max_value=7))
     @settings(max_examples=100)
     def test_availability_matches_key_count(self, num_valid_keys: int):
         """
         Property: is_available() reflects key availability.
-        
+
         For any number of valid keys, is_available() should be True
         if and only if at least one key exists.
         """
         keys = [f"tvly-key-{i}" for i in range(num_valid_keys)]
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         assert rotator.is_available() == (num_valid_keys > 0)
 
 
@@ -231,41 +235,42 @@ class TestKeyValidationProperty:
 # Property 13: Monthly Reset
 # ============================================
 
+
 class TestMonthlyResetProperty:
     """
     **Feature: tavily-integration, Property 13: Monthly Reset**
     **Validates: Requirements 9.4, 11.5**
-    
+
     For any month boundary crossing, the Key_Rotator SHALL reset all keys
     to available status, reset all usage counters to 0, and restart from key 1.
     """
-    
+
     @given(
         num_keys=st.integers(min_value=1, max_value=7),
         num_exhausted=st.integers(min_value=0, max_value=7),
-        usage_per_key=st.integers(min_value=0, max_value=1000)
+        usage_per_key=st.integers(min_value=0, max_value=1000),
     )
     @settings(max_examples=100)
     def test_reset_clears_all_state(self, num_keys: int, num_exhausted: int, usage_per_key: int):
         """
         Property: reset_all() clears all exhaustion and usage state.
-        
+
         For any state of exhaustion and usage, reset_all() should
         restore the rotator to initial state.
         """
         keys = [f"tvly-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
-        
+
         # Simulate usage and exhaustion
         for i in range(min(num_exhausted, num_keys)):
             rotator.mark_exhausted(i)
-        
+
         for i in range(num_keys):
             rotator._key_usage[i] = usage_per_key
-        
+
         # Reset
         rotator.reset_all()
-        
+
         # Verify clean state
         assert rotator._current_index == 0
         assert len(rotator._exhausted_keys) == 0
@@ -277,126 +282,126 @@ class TestMonthlyResetProperty:
 # Property 3: Rate Limiting Enforcement
 # ============================================
 
+
 class TestRateLimitingProperty:
     """
     **Feature: tavily-integration, Property 3: Rate Limiting Enforcement**
     **Validates: Requirements 1.2**
-    
+
     For any sequence of N search requests, the time between consecutive
     requests SHALL be at least 1 second, ensuring total execution time >= (N-1) seconds.
     """
-    
+
     @given(num_requests=st.integers(min_value=2, max_value=4))
     @settings(max_examples=5, deadline=None)  # Reduced examples due to time-based test
     def test_rate_limiting_minimum_gap(self, num_requests: int):
         """
         Property: Minimum 1 second gap between requests.
-        
+
         For any number of requests, consecutive calls should have
         at least 1 second gap (after the first request).
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         # Create provider with test keys
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         # Simulate first request to set last_request_time
         provider._last_request_time = time.time()
-        
+
         # Track request times for subsequent requests
         request_times = [provider._last_request_time]
-        
+
         for _ in range(num_requests - 1):
             provider._apply_rate_limit()
             request_times.append(time.time())
-        
+
         # Verify minimum gap between consecutive requests
         for i in range(1, len(request_times)):
             gap = request_times[i] - request_times[i - 1]
             # Allow small tolerance for timing variations
-            assert gap >= 0.95, f"Gap {gap:.3f}s < 1s between requests {i-1} and {i}"
+            assert gap >= 0.95, f"Gap {gap:.3f}s < 1s between requests {i - 1} and {i}"
 
 
 # ============================================
 # Property 4: Cache Round-Trip
 # ============================================
 
+
 class TestCacheRoundTripProperty:
     """
     **Feature: tavily-integration, Property 4: Cache Round-Trip**
     **Validates: Requirements 1.3**
-    
+
     For any search query, calling search() twice within TTL SHALL return
     identical results, and the second call SHALL NOT make an API request.
     """
-    
+
     @given(
         query=st.text(min_size=1, max_size=100).filter(lambda x: x.strip()),
         search_depth=st.sampled_from(["basic", "advanced"]),
-        max_results=st.integers(min_value=1, max_value=10)
+        max_results=st.integers(min_value=1, max_value=10),
     )
     @settings(max_examples=100)
     def test_cache_key_determinism(self, query: str, search_depth: str, max_results: int):
         """
         Property: Cache keys are deterministic.
-        
+
         For any query parameters, the same inputs should always
         produce the same cache key.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         key1 = provider._get_cache_key(query, search_depth, max_results)
         key2 = provider._get_cache_key(query, search_depth, max_results)
-        
+
         assert key1 == key2, "Cache keys should be deterministic"
-    
+
     @given(
         query1=st.text(min_size=1, max_size=50).filter(lambda x: x.strip()),
-        query2=st.text(min_size=1, max_size=50).filter(lambda x: x.strip())
+        query2=st.text(min_size=1, max_size=50).filter(lambda x: x.strip()),
     )
     @settings(max_examples=100)
     def test_different_queries_different_keys(self, query1: str, query2: str):
         """
         Property: Different queries produce different cache keys.
-        
+
         For any two different queries, cache keys should be different.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         # Skip if queries are the same
         if query1.strip() == query2.strip():
             return
-        
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         key1 = provider._get_cache_key(query1, "basic", 5)
         key2 = provider._get_cache_key(query2, "basic", 5)
-        
+
         assert key1 != key2, "Different queries should have different cache keys"
-    
+
     def test_cache_hit_returns_same_response(self):
         """
         Property: Cache hit returns identical response.
-        
+
         When a response is cached, subsequent lookups should return
         the exact same response object.
         """
-        from src.ingestion.tavily_provider import (
-            TavilyProvider, TavilyResponse, TavilyResult
-        )
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import TavilyProvider, TavilyResponse, TavilyResult
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         # Create a test response
         test_response = TavilyResponse(
             query="test query",
@@ -406,66 +411,61 @@ class TestCacheRoundTripProperty:
                     title="Test Title",
                     url="https://example.com",
                     content="Test content",
-                    score=0.95
+                    score=0.95,
                 )
             ],
-            response_time=0.5
+            response_time=0.5,
         )
-        
+
         # Cache it
         cache_key = provider._get_cache_key("test query", "basic", 5)
         provider._update_cache(cache_key, test_response)
-        
+
         # Retrieve from cache
         cached = provider._check_cache(cache_key)
-        
+
         assert cached is not None
         assert cached.query == test_response.query
         assert cached.answer == test_response.answer
         assert len(cached.results) == len(test_response.results)
         assert cached.results[0].title == test_response.results[0].title
-    
+
     def test_expired_cache_returns_none(self):
         """
         Property: Expired cache entries return None.
-        
+
         When a cache entry has expired, _check_cache should return None.
         """
-        from src.ingestion.tavily_provider import (
-            TavilyProvider, TavilyResponse, CacheEntry
-        )
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import CacheEntry, TavilyProvider, TavilyResponse
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         # Create an expired cache entry
         test_response = TavilyResponse(
-            query="test query",
-            answer="test answer",
-            results=[],
-            response_time=0.5
+            query="test query", answer="test answer", results=[], response_time=0.5
         )
-        
+
         cache_key = "test_expired_key"
         provider._cache[cache_key] = CacheEntry(
             response=test_response,
             cached_at=datetime.now(timezone.utc) - timedelta(hours=1),  # 1 hour ago
-            ttl_seconds=1800  # 30 minutes TTL
+            ttl_seconds=1800,  # 30 minutes TTL
         )
-        
+
         # Should return None for expired entry
         cached = provider._check_cache(cache_key)
         assert cached is None
-        
+
         # Entry should be cleaned up
         assert cache_key not in provider._cache
-
 
 
 # ============================================
 # Property 5: Query Batching Round-Trip
 # ============================================
+
 
 class TestQueryBatchingProperty:
     """
@@ -507,7 +507,7 @@ class TestQueryBatchingProperty:
         )
     )
     @settings(max_examples=100)
-    def test_batched_query_contains_all_questions(self, questions: List[str]):
+    def test_batched_query_contains_all_questions(self, questions: list[str]):
         """
         Property: Batched query contains all questions.
 
@@ -535,11 +535,11 @@ class TestQueryBatchingProperty:
         For any number of questions, parse_batched_response should
         return exactly that many answers.
         """
-        from src.ingestion.tavily_provider import TavilyResponse, TavilyResult
+        from src.ingestion.tavily_provider import TavilyResponse
         from src.ingestion.tavily_query_builder import TavilyQueryBuilder
 
         # Create a mock response with numbered answers
-        answers = [f"Answer {i+1}" for i in range(num_questions)]
+        answers = [f"Answer {i + 1}" for i in range(num_questions)]
         mock_response = TavilyResponse(
             query="test query",
             answer=" | ".join(answers),
@@ -549,9 +549,7 @@ class TestQueryBatchingProperty:
 
         parsed = TavilyQueryBuilder.parse_batched_response(mock_response, num_questions)
 
-        assert (
-            len(parsed) == num_questions
-        ), f"Expected {num_questions} answers, got {len(parsed)}"
+        assert len(parsed) == num_questions, f"Expected {num_questions} answers, got {len(parsed)}"
 
 
 # ============================================
@@ -585,9 +583,7 @@ class TestQuerySplittingProperty:
         splits = TavilyQueryBuilder.split_long_query(query, max_length)
 
         for i, split in enumerate(splits):
-            assert (
-                len(split) <= max_length
-            ), f"Split {i} has length {len(split)} > {max_length}"
+            assert len(split) <= max_length, f"Split {i} has length {len(split)} > {max_length}"
 
     @given(query=st.text(min_size=1, max_size=400).filter(lambda x: x.strip()))
     @settings(max_examples=100)
@@ -621,7 +617,7 @@ class TestQuerySplittingProperty:
         )
     )
     @settings(max_examples=50)
-    def test_split_preserves_content(self, questions: List[str]):
+    def test_split_preserves_content(self, questions: list[str]):
         """
         Property: Splitting preserves question content.
 
@@ -629,8 +625,8 @@ class TestQuerySplittingProperty:
         should appear in at least one of the resulting queries.
         """
         from src.ingestion.tavily_query_builder import (
-            TavilyQueryBuilder,
             QUESTION_SEPARATOR,
+            TavilyQueryBuilder,
         )
 
         # Build a long query
@@ -646,9 +642,7 @@ class TestQuerySplittingProperty:
         for q in questions:
             # Question might be truncated, check first 40 chars
             q_prefix = q[:40]
-            assert (
-                q_prefix in combined
-            ), f"Question prefix '{q_prefix}' not found in splits"
+            assert q_prefix in combined, f"Question prefix '{q_prefix}' not found in splits"
 
     def test_empty_query_returns_empty_list(self):
         """
@@ -661,7 +655,6 @@ class TestQuerySplittingProperty:
 
         splits = TavilyQueryBuilder.split_long_query(None)
         assert splits == [], "None query should return empty list"
-
 
 
 # ============================================
@@ -709,9 +702,9 @@ class TestBudgetTrackingProperty:
 
         # Total should equal component sum
         component_sum = sum(status.component_usage.values())
-        assert (
-            status.monthly_used == component_sum
-        ), f"Monthly {status.monthly_used} != component sum {component_sum}"
+        assert status.monthly_used == component_sum, (
+            f"Monthly {status.monthly_used} != component sum {component_sum}"
+        )
         assert status.monthly_used == num_calls
 
     @given(
@@ -725,7 +718,7 @@ class TestBudgetTrackingProperty:
         )
     )
     @settings(max_examples=100)
-    def test_multi_component_tracking(self, calls_per_component: Dict[str, int]):
+    def test_multi_component_tracking(self, calls_per_component: dict[str, int]):
         """
         Property: Multi-component tracking is accurate.
 
@@ -746,9 +739,9 @@ class TestBudgetTrackingProperty:
         # Verify each component's usage
         for component, expected_calls in calls_per_component.items():
             actual = status.component_usage.get(component, 0)
-            assert (
-                actual == expected_calls
-            ), f"Component {component}: expected {expected_calls}, got {actual}"
+            assert actual == expected_calls, (
+                f"Component {component}: expected {expected_calls}, got {actual}"
+            )
 
         # Verify total
         expected_total = sum(calls_per_component.values())
@@ -778,12 +771,12 @@ class TestBudgetTrackingProperty:
         expected_degraded = usage_pct >= 0.90
         expected_disabled = usage_pct >= 0.95
 
-        assert (
-            status.is_degraded == expected_degraded
-        ), f"At {usage_pct*100:.1f}%: is_degraded should be {expected_degraded}"
-        assert (
-            status.is_disabled == expected_disabled
-        ), f"At {usage_pct*100:.1f}%: is_disabled should be {expected_disabled}"
+        assert status.is_degraded == expected_degraded, (
+            f"At {usage_pct * 100:.1f}%: is_degraded should be {expected_degraded}"
+        )
+        assert status.is_disabled == expected_disabled, (
+            f"At {usage_pct * 100:.1f}%: is_disabled should be {expected_disabled}"
+        )
 
     def test_reset_clears_all_counters(self):
         """
@@ -832,7 +825,6 @@ class TestBudgetTrackingProperty:
         assert manager.can_call("settlement_clv", is_critical=False)  # Always critical
 
 
-
 # ============================================
 # Property 7: Content Merging Preservation
 # ============================================
@@ -858,6 +850,7 @@ class TestContentMergingProperty:
 
         For any two strings, merging should preserve both completely.
         """
+
         # Simulate the merge logic from IntelligenceRouter
         def merge_context(existing: str, tavily: str) -> str:
             if not tavily:
@@ -938,10 +931,9 @@ class TestContentMergingProperty:
         separator_len = 2  # "\n\n"
         expected_len = len(original) + separator_len + len(enrichment)
 
-        assert (
-            len(merged) == expected_len
-        ), f"Merged length {len(merged)} != expected {expected_len}"
-
+        assert len(merged) == expected_len, (
+            f"Merged length {len(merged)} != expected {expected_len}"
+        )
 
 
 # ============================================
@@ -1043,7 +1035,6 @@ class TestConfidenceAdjustmentProperty:
         assert boosted_high >= ALERT_THRESHOLD
 
 
-
 # ============================================
 # Property 9: Trust Score Adjustment
 # ============================================
@@ -1101,9 +1092,7 @@ class TestTrustScoreAdjustmentProperty:
         # Verify reduction amount
         if original_trust - CONTRADICT_PENALTY >= 0.0:
             expected = original_trust - CONTRADICT_PENALTY
-            assert (
-                abs(reduced - expected) < 0.0001
-            ), f"Reduction incorrect: {reduced} != {expected}"
+            assert abs(reduced - expected) < 0.0001, f"Reduction incorrect: {reduced} != {expected}"
         else:
             assert reduced == 0.0, "Should be capped at 0.0"
 
@@ -1122,9 +1111,7 @@ class TestTrustScoreAdjustmentProperty:
         # Inconclusive = no change
         unchanged = original_trust
 
-        assert (
-            abs(unchanged - original_trust) < 0.0001
-        ), "Inconclusive should not change trust"
+        assert abs(unchanged - original_trust) < 0.0001, "Inconclusive should not change trust"
 
     @given(
         original_trust=st.floats(
@@ -1182,11 +1169,7 @@ class TestTwitterRecoveryProperty:
     recovery and normalize results to CachedTweet format with freshness decay.
     """
 
-    @given(
-        handle=st.text(min_size=1, max_size=15).filter(
-            lambda x: x.strip() and x.isalnum()
-        )
-    )
+    @given(handle=st.text(min_size=1, max_size=15).filter(lambda x: x.strip() and x.isalnum()))
     @settings(max_examples=100)
     def test_handle_normalization(self, handle: str):
         """
@@ -1203,9 +1186,7 @@ class TestTwitterRecoveryProperty:
         # Query should mention Twitter
         assert "Twitter" in query or "twitter" in query.lower()
 
-    @given(
-        age_hours=st.floats(min_value=0, max_value=100, allow_nan=False)
-    )
+    @given(age_hours=st.floats(min_value=0, max_value=100, allow_nan=False))
     @settings(max_examples=100)
     def test_freshness_decay_bounds(self, age_hours: float):
         """
@@ -1246,9 +1227,7 @@ class TestTwitterRecoveryProperty:
         score_48h = 0.5 - (48 - 24) * (0.3 / 24)
         assert abs(score_48h - 0.2) < 0.01
 
-    @given(
-        content=st.text(min_size=10, max_size=200)
-    )
+    @given(content=st.text(min_size=10, max_size=200))
     @settings(max_examples=50)
     def test_topic_extraction_returns_list(self, content: str):
         """
@@ -1318,9 +1297,9 @@ class TestFallbackActivationProperty:
         For any number of failures >= threshold, circuit should open.
         """
         from src.ingestion.tavily_provider import (
+            CIRCUIT_BREAKER_THRESHOLD,
             CircuitBreaker,
             CircuitBreakerState,
-            CIRCUIT_BREAKER_THRESHOLD,
         )
 
         breaker = CircuitBreaker()
@@ -1342,9 +1321,9 @@ class TestFallbackActivationProperty:
         For any number of successes >= threshold in half-open, circuit should close.
         """
         from src.ingestion.tavily_provider import (
+            CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
             CircuitBreaker,
             CircuitBreakerState,
-            CIRCUIT_BREAKER_SUCCESS_THRESHOLD,
         )
 
         breaker = CircuitBreaker()
@@ -1368,9 +1347,9 @@ class TestFallbackActivationProperty:
         HALF_OPEN -> OPEN (on failure)
         """
         from src.ingestion.tavily_provider import (
+            CIRCUIT_BREAKER_THRESHOLD,
             CircuitBreaker,
             CircuitBreakerState,
-            CIRCUIT_BREAKER_THRESHOLD,
         )
 
         breaker = CircuitBreaker()
@@ -1395,8 +1374,8 @@ class TestFallbackActivationProperty:
 
         When Tavily fails, fallback should try Brave first, then DDG.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
+        from src.ingestion.tavily_provider import TavilyProvider
 
         # Create provider with no keys (forces fallback)
         rotator = TavilyKeyRotator(keys=[])
@@ -1418,8 +1397,8 @@ class TestFallbackActivationProperty:
 
         For any number of keys, exhausting all should set fallback_active.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
+        from src.ingestion.tavily_provider import TavilyProvider
 
         keys = [f"tvly-test-key-{i}" for i in range(num_keys)]
         rotator = TavilyKeyRotator(keys=keys)
@@ -1439,11 +1418,12 @@ class TestFallbackActivationProperty:
         Recovery attempts should only happen after the configured interval.
         """
         import time
+
         from src.ingestion.tavily_provider import (
+            CIRCUIT_BREAKER_RECOVERY_SECONDS,
+            CIRCUIT_BREAKER_THRESHOLD,
             CircuitBreaker,
             CircuitBreakerState,
-            CIRCUIT_BREAKER_THRESHOLD,
-            CIRCUIT_BREAKER_RECOVERY_SECONDS,
         )
 
         breaker = CircuitBreaker()
@@ -1503,126 +1483,128 @@ class TestNativeNewsParametersProperty:
     """
     **Feature: tavily-integration, Property 14: Native News Parameters**
     **Validates: Requirements 1.2, 1.3 (V7.1 Enhancement)**
-    
+
     For news searches, the TavilyProvider SHALL use native Tavily API parameters
     (topic="news", days=N) instead of query string manipulation.
-    
+
     This ensures:
     - Better search quality from Tavily's native news filtering
     - Correct cache key generation including topic/days
     - Proper API payload construction
     """
-    
+
     def test_search_news_uses_native_topic_parameter(self):
         """
         REGRESSION TEST: search_news() must use topic="news" native parameter.
-        
+
         This test would FAIL with the old implementation that used:
             news_query = f"{query} news last {days} days"
-        
+
         And PASSES with the new implementation that uses:
             topic="news", days=days
         """
-        from unittest.mock import MagicMock, patch
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         # Create provider with test key
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         # Mock the HTTP client to capture the payload
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "answer": "Test answer",
-            "results": []
-        }
-        
+        mock_response.json.return_value = {"answer": "Test answer", "results": []}
+
         captured_payload = {}
-        
+
         def capture_post(*args, **kwargs):
             captured_payload.update(kwargs.get("json", {}))
             return mock_response
-        
+
         provider._http_client.post_sync = capture_post
-        
+
         # Call search_news
         provider.search_news(query="Manchester United injury", days=3, max_results=5)
-        
+
         # CRITICAL ASSERTIONS - These would fail with old implementation
-        assert "topic" in captured_payload, \
+        assert "topic" in captured_payload, (
             "BUG: search_news() must include 'topic' parameter in API payload"
-        assert captured_payload["topic"] == "news", \
+        )
+        assert captured_payload["topic"] == "news", (
             f"BUG: topic should be 'news', got '{captured_payload.get('topic')}'"
-        assert "days" in captured_payload, \
+        )
+        assert "days" in captured_payload, (
             "BUG: search_news() must include 'days' parameter in API payload"
-        assert captured_payload["days"] == 3, \
+        )
+        assert captured_payload["days"] == 3, (
             f"BUG: days should be 3, got {captured_payload.get('days')}"
-        
+        )
+
         # Query should NOT contain "news last X days" manipulation
         query = captured_payload.get("query", "")
-        assert "last 3 days" not in query.lower(), \
+        assert "last 3 days" not in query.lower(), (
             f"BUG: Query should not contain time filter string, got: {query}"
-        assert query == "Manchester United injury", \
+        )
+        assert query == "Manchester United injury", (
             f"BUG: Query should be clean without manipulation, got: {query}"
-    
+        )
+
     @given(days=st.integers(min_value=1, max_value=30))
     @settings(max_examples=20)
     def test_cache_key_includes_topic_and_days(self, days: int):
         """
         Property: Cache keys must include topic and days parameters.
-        
+
         Different topic/days combinations should produce different cache keys
         to avoid returning wrong cached results.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         query = "test query"
-        
+
         # Same query, different topic/days should have different cache keys
         key_general = provider._get_cache_key(query, "basic", 5, topic=None, days=None)
         key_news_7 = provider._get_cache_key(query, "basic", 5, topic="news", days=7)
         key_news_3 = provider._get_cache_key(query, "basic", 5, topic="news", days=3)
         key_news_custom = provider._get_cache_key(query, "basic", 5, topic="news", days=days)
-        
+
         # All should be different (unless days happens to be 7 or 3)
         assert key_general != key_news_7, "General and news cache keys should differ"
         assert key_news_7 != key_news_3, "Different days should produce different cache keys"
-        
+
         if days not in (3, 7):
             assert key_news_custom != key_news_7, "Custom days should differ from 7"
             assert key_news_custom != key_news_3, "Custom days should differ from 3"
-    
+
     def test_search_method_accepts_topic_and_days(self):
         """
         Property: search() method must accept topic and days parameters.
-        
+
         The base search() method should support native Tavily parameters.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        from unittest.mock import MagicMock
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         # Mock HTTP client
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"answer": None, "results": []}
-        
+
         captured_payload = {}
+
         def capture_post(*args, **kwargs):
             captured_payload.update(kwargs.get("json", {}))
             return mock_response
-        
+
         provider._http_client.post_sync = capture_post
-        
+
         # Call search with topic and days
         provider.search(
             query="test",
@@ -1630,51 +1612,51 @@ class TestNativeNewsParametersProperty:
             max_results=5,
             include_answer=True,
             topic="news",
-            days=7
+            days=7,
         )
-        
+
         # Verify payload includes topic and days
         assert captured_payload.get("topic") == "news"
         assert captured_payload.get("days") == 7
-    
+
     def test_days_only_sent_when_topic_is_news(self):
         """
         Property: days parameter should only be sent when topic="news".
-        
+
         Per Tavily API docs, days is only valid for news topic.
         """
-        from src.ingestion.tavily_provider import TavilyProvider
         from src.ingestion.tavily_key_rotator import TavilyKeyRotator
-        from unittest.mock import MagicMock
-        
+        from src.ingestion.tavily_provider import TavilyProvider
+
         rotator = TavilyKeyRotator(keys=["tvly-test-key"])
         provider = TavilyProvider(key_rotator=rotator)
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"answer": None, "results": []}
-        
+
         captured_payload = {}
+
         def capture_post(*args, **kwargs):
             captured_payload.clear()
             captured_payload.update(kwargs.get("json", {}))
             return mock_response
-        
+
         provider._http_client.post_sync = capture_post
-        
+
         # Call with days but topic="general" (or None)
         provider.search(query="test", topic="general", days=7)
-        
+
         # days should NOT be in payload when topic is not "news"
-        assert "days" not in captured_payload, \
+        assert "days" not in captured_payload, (
             "BUG: days should not be sent when topic is not 'news'"
-        
+        )
+
         # Now call with topic="news"
         provider.search(query="test", topic="news", days=7)
-        
+
         # days SHOULD be in payload
-        assert captured_payload.get("days") == 7, \
-            "days should be sent when topic='news'"
+        assert captured_payload.get("days") == 7, "days should be sent when topic='news'"
 
 
 # ============================================
@@ -1686,91 +1668,100 @@ class TestComponentNativeParametersProperty:
     """
     **Feature: tavily-integration, Property 15: Component Native Parameters**
     **Validates: V7.1 Enhancement - All news-searching components use native parameters**
-    
+
     Components that search for news should use topic="news" and days=N
     for optimal Tavily API filtering instead of query string manipulation.
     """
-    
+
     def test_news_radar_uses_native_parameters(self):
         """
         REGRESSION TEST: news_radar._tavily_enrich must use topic="news", days=3.
         """
         import inspect
+
         from src.services import news_radar
-        
+
         # Read the source code of the module
         source = inspect.getsource(news_radar)
-        
+
         # Find the _tavily_enrich method section
-        assert 'topic="news"' in source, \
+        assert 'topic="news"' in source, (
             "BUG: news_radar._tavily_enrich should use topic='news' native parameter"
-        assert 'days=3' in source or 'days=3' in source, \
+        )
+        assert "days=3" in source or "days=3" in source, (
             "BUG: news_radar._tavily_enrich should use days parameter"
-        
+        )
+
         # Verify query doesn't contain "news" keyword (moved to topic parameter)
         # The query should be: f"football soccer {search_context}"
-        assert 'f"football soccer {search_context}"' in source or \
-               "f'football soccer {search_context}'" in source, \
-            "BUG: news_radar query should not include 'news' keyword (use topic param instead)"
-    
+        assert (
+            'f"football soccer {search_context}"' in source
+            or "f'football soccer {search_context}'" in source
+        ), "BUG: news_radar query should not include 'news' keyword (use topic param instead)"
+
     def test_settler_uses_native_parameters(self):
         """
         REGRESSION TEST: settler._tavily_post_match_search must use topic="news", days=3.
         """
         import inspect
+
         from src.analysis import settler
-        
+
         source = inspect.getsource(settler)
-        
+
         # Check for native parameters in the tavily search call
-        assert 'topic="news"' in source, \
+        assert 'topic="news"' in source, (
             "BUG: settler._tavily_post_match_search should use topic='news'"
-        assert 'days=3' in source, \
-            "BUG: settler._tavily_post_match_search should use days=3"
-    
+        )
+        assert "days=3" in source, "BUG: settler._tavily_post_match_search should use days=3"
+
     def test_clv_tracker_uses_native_parameters(self):
         """
         REGRESSION TEST: clv_tracker._tavily_verify_line_movement must use topic="news", days=3.
         """
         import inspect
+
         from src.analysis import clv_tracker
-        
+
         source = inspect.getsource(clv_tracker)
-        
-        assert 'topic="news"' in source, \
+
+        assert 'topic="news"' in source, (
             "BUG: clv_tracker._tavily_verify_line_movement should use topic='news'"
-        assert 'days=3' in source, \
-            "BUG: clv_tracker._tavily_verify_line_movement should use days=3"
-    
+        )
+        assert "days=3" in source, "BUG: clv_tracker._tavily_verify_line_movement should use days=3"
+
     def test_telegram_listener_uses_native_parameters(self):
         """
         REGRESSION TEST: telegram_listener._tavily_verify_intel must use topic="news", days=3.
         """
         import inspect
+
         from src.processing import telegram_listener
-        
+
         source = inspect.getsource(telegram_listener)
-        
-        assert 'topic="news"' in source, \
+
+        assert 'topic="news"' in source, (
             "BUG: telegram_listener._tavily_verify_intel should use topic='news'"
-        assert 'days=3' in source, \
-            "BUG: telegram_listener._tavily_verify_intel should use days=3"
-    
+        )
+        assert "days=3" in source, "BUG: telegram_listener._tavily_verify_intel should use days=3"
+
     def test_twitter_cache_does_not_use_news_topic(self):
         """
         Verify twitter_intel_cache does NOT use topic="news" (it searches tweets, not news).
         """
         import inspect
+
         from src.services import twitter_intel_cache
-        
+
         source = inspect.getsource(twitter_intel_cache)
-        
+
         # Count occurrences - should be 0 or very few (only in comments maybe)
         # The _recover_via_tavily method should NOT use topic="news"
-        recover_section_start = source.find('def _recover_via_tavily')
-        recover_section_end = source.find('def _normalize_tavily_to_tweet')
-        
+        recover_section_start = source.find("def _recover_via_tavily")
+        recover_section_end = source.find("def _normalize_tavily_to_tweet")
+
         if recover_section_start > 0 and recover_section_end > recover_section_start:
             recover_section = source[recover_section_start:recover_section_end]
-            assert 'topic="news"' not in recover_section, \
+            assert 'topic="news"' not in recover_section, (
                 "twitter_intel_cache._recover_via_tavily should NOT use topic='news' (it searches tweets)"
+            )

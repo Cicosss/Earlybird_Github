@@ -18,9 +18,8 @@ Detection Methods:
 
 Author: EarlyBird AI
 """
+
 import logging
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -32,9 +31,9 @@ logger = logging.getLogger(__name__)
 # ============================================
 
 # Draw odds thresholds
-DRAW_EXTREME_LOW = 2.00       # Below this = EXTREME suspicion
-DRAW_SUSPICIOUS_LOW = 2.50    # Below this = HIGH suspicion
-DRAW_WATCH_LOW = 3.00         # Below this = worth monitoring
+DRAW_EXTREME_LOW = 2.00  # Below this = EXTREME suspicion
+DRAW_SUSPICIOUS_LOW = 2.50  # Below this = HIGH suspicion
+DRAW_WATCH_LOW = 3.00  # Below this = worth monitoring
 
 # V4.3: Minor League Biscotto Detection (Deep Research Enhancement)
 # Serie B, Turkey 2, and other minor leagues have higher biscotto frequency
@@ -56,25 +55,26 @@ MINOR_LEAGUES_BISCOTTO_RISK = {
 }
 
 # Drop percentage thresholds
-DROP_EXTREME = 25.0           # 25%+ drop = EXTREME
-DROP_HIGH = 15.0              # 15%+ drop = HIGH
-DROP_MEDIUM = 10.0            # 10%+ drop = MEDIUM
+DROP_EXTREME = 25.0  # 25%+ drop = EXTREME
+DROP_HIGH = 15.0  # 15%+ drop = HIGH
+DROP_MEDIUM = 10.0  # 10%+ drop = MEDIUM
 
 # League average draw probability (baseline)
-LEAGUE_AVG_DRAW_PROB = 0.28   # ~28% of matches end in draw
+LEAGUE_AVG_DRAW_PROB = 0.28  # ~28% of matches end in draw
 
 # Z-Score thresholds for anomaly detection
-ZSCORE_EXTREME = 2.5          # >2.5 standard deviations
-ZSCORE_HIGH = 2.0             # >2.0 standard deviations
-ZSCORE_MEDIUM = 1.5           # >1.5 standard deviations
+ZSCORE_EXTREME = 2.5  # >2.5 standard deviations
+ZSCORE_HIGH = 2.0  # >2.0 standard deviations
+ZSCORE_MEDIUM = 1.5  # >1.5 standard deviations
 
 # End-of-season detection
-END_OF_SEASON_ROUNDS = 5      # Last 5 rounds of season
-POINTS_BUFFER_SAFE = 3        # Teams within 3 points of safety
+END_OF_SEASON_ROUNDS = 5  # Last 5 rounds of season
+POINTS_BUFFER_SAFE = 3  # Teams within 3 points of safety
 
 
 class BiscottoSeverity(Enum):
     """Severity levels for biscotto detection."""
+
     NONE = "NONE"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -84,22 +84,23 @@ class BiscottoSeverity(Enum):
 
 class BiscottoPattern(Enum):
     """Pattern types for draw odds movement."""
-    STABLE = "STABLE"           # No significant movement
-    DRIFT = "DRIFT"             # Slow, steady decline (tacit collusion)
-    CRASH = "CRASH"             # Sudden drop (insider info)
-    REVERSE = "REVERSE"         # Dropped then recovered (false alarm)
+
+    STABLE = "STABLE"  # No significant movement
+    DRIFT = "DRIFT"  # Slow, steady decline (tacit collusion)
+    CRASH = "CRASH"  # Sudden drop (insider info)
+    REVERSE = "REVERSE"  # Dropped then recovered (false alarm)
 
 
 def is_minor_league_biscotto_risk(league_key: str) -> bool:
     """
     V4.3: Check if league has historically higher biscotto risk.
-    
+
     Minor leagues (Serie B, Segunda Division, etc.) have statistically
     higher draw rates in end-of-season matches between mid-table teams.
-    
+
     Args:
         league_key: League identifier
-        
+
     Returns:
         True if league is in high-risk category
     """
@@ -111,14 +112,14 @@ def is_minor_league_biscotto_risk(league_key: str) -> bool:
 def get_draw_threshold_for_league(league_key: str, end_of_season: bool = False) -> float:
     """
     V4.3: Get dynamic draw odds threshold based on league and season context.
-    
+
     Minor leagues in end-of-season get stricter threshold (2.60 vs 2.50).
     This catches more potential biscotto situations in high-risk contexts.
-    
+
     Args:
         league_key: League identifier
         end_of_season: Whether match is in last 5 rounds
-        
+
     Returns:
         Draw odds threshold for HIGH suspicion
     """
@@ -130,53 +131,55 @@ def get_draw_threshold_for_league(league_key: str, end_of_season: bool = False) 
 @dataclass
 class ClassificaContext:
     """Team's league table context for end-of-season analysis."""
+
     team_name: str
     position: int
     total_teams: int
     points: int
-    zone: str                   # "Safe", "Danger", "Relegation", "Promotion", "Title"
-    points_to_safety: Optional[int]
-    points_to_next_zone: Optional[int]
-    matches_remaining: Optional[int]
-    needs_point: bool           # True if 1 point would secure objective
+    zone: str  # "Safe", "Danger", "Relegation", "Promotion", "Title"
+    points_to_safety: int | None
+    points_to_next_zone: int | None
+    matches_remaining: int | None
+    needs_point: bool  # True if 1 point would secure objective
 
 
 @dataclass
 class BiscottoAnalysis:
     """Complete biscotto analysis result."""
+
     is_suspect: bool
     severity: BiscottoSeverity
-    confidence: int             # 0-100
-    
+    confidence: int  # 0-100
+
     # Odds analysis
-    current_draw_odd: Optional[float]
-    opening_draw_odd: Optional[float]
+    current_draw_odd: float | None
+    opening_draw_odd: float | None
     drop_percentage: float
     implied_probability: float
-    
+
     # Statistical analysis
     zscore: float
     pattern: BiscottoPattern
-    
+
     # Context analysis
-    home_context: Optional[ClassificaContext]
-    away_context: Optional[ClassificaContext]
+    home_context: ClassificaContext | None
+    away_context: ClassificaContext | None
     end_of_season_match: bool
-    mutual_benefit: bool        # Both teams benefit from draw
-    
+    mutual_benefit: bool  # Both teams benefit from draw
+
     # Output
     reasoning: str
     betting_recommendation: str  # "BET X", "MONITOR", "AVOID"
-    factors: List[str]          # List of detected factors
+    factors: list[str]  # List of detected factors
 
 
 def calculate_implied_probability(odds: float) -> float:
     """
     Calculate implied probability from decimal odds.
-    
+
     Args:
         odds: Decimal odds (e.g., 2.50)
-        
+
     Returns:
         Implied probability (0-1)
     """
@@ -188,71 +191,68 @@ def calculate_implied_probability(odds: float) -> float:
 def calculate_zscore(implied_prob: float, league_avg: float = LEAGUE_AVG_DRAW_PROB) -> float:
     """
     Calculate Z-Score of draw probability vs league average.
-    
+
     A high Z-Score indicates the draw is priced significantly
     higher than the league average, suggesting market knows something.
-    
+
     Args:
         implied_prob: Implied probability from current odds
         league_avg: League average draw probability (default 28%)
-        
+
     Returns:
         Z-Score (standard deviations from mean)
     """
     if implied_prob <= 0:
         return 0.0
-    
+
     # Standard deviation of draw probability (empirical ~0.08)
     std_dev = 0.08
-    
+
     # Z-Score = (observed - expected) / std_dev
     zscore = (implied_prob - league_avg) / std_dev
-    
+
     return round(zscore, 2)
 
 
-def detect_odds_pattern(
-    opening_odd: Optional[float],
-    current_odd: Optional[float]
-) -> BiscottoPattern:
+def detect_odds_pattern(opening_odd: float | None, current_odd: float | None) -> BiscottoPattern:
     """
     Detect the pattern of draw odds movement.
-    
+
     - DRIFT: Slow, steady decline (typical biscotto pattern)
     - CRASH: Sudden drop (possible insider info)
     - REVERSE: Dropped then recovered (false alarm)
     - STABLE: No significant movement
-    
+
     Args:
         opening_odd: Opening draw odds
         current_odd: Current draw odds
-        
+
     Returns:
         BiscottoPattern enum
     """
     if opening_odd is None or current_odd is None:
         return BiscottoPattern.STABLE
-    
+
     # Edge case: invalid odds values
     if opening_odd <= 0 or current_odd <= 0:
         return BiscottoPattern.STABLE
-    
+
     drop_pct = ((opening_odd - current_odd) / opening_odd) * 100
-    
+
     # No significant movement
     if abs(drop_pct) < 5:
         return BiscottoPattern.STABLE
-    
+
     # Odds went UP (reverse)
     if drop_pct < -5:
         return BiscottoPattern.REVERSE
-    
+
     # Significant drop
     if drop_pct >= 20:
         return BiscottoPattern.CRASH
     elif drop_pct >= 8:
         return BiscottoPattern.DRIFT
-    
+
     return BiscottoPattern.STABLE
 
 
@@ -262,11 +262,11 @@ def analyze_classifica_context(
     total_teams: int,
     points: int,
     zone: str,
-    matches_remaining: int = None
+    matches_remaining: int = None,
 ) -> ClassificaContext:
     """
     Analyze a team's league table context for end-of-season scenarios.
-    
+
     Args:
         team_name: Name of the team
         position: Current league position
@@ -274,7 +274,7 @@ def analyze_classifica_context(
         points: Current points
         zone: Zone from FotMob (Title Race, Relegation, etc.)
         matches_remaining: Matches left in season (optional)
-        
+
     Returns:
         ClassificaContext with analysis
     """
@@ -282,29 +282,29 @@ def analyze_classifica_context(
     needs_point = False
     points_to_safety = None
     points_to_next_zone = None
-    
+
     # Normalize zone
     zone_lower = zone.lower() if zone else ""
-    
+
     # Relegation zone analysis
     if "relegation" in zone_lower or "danger" in zone_lower:
         # Team fighting relegation - 1 point could be crucial
         if matches_remaining and matches_remaining <= END_OF_SEASON_ROUNDS:
             needs_point = True
-    
+
     # Safe but close to danger
     elif "mid" in zone_lower or "safe" in zone_lower:
         # Check if mathematically safe
         if matches_remaining and matches_remaining <= 3:
             # In final 3 matches, even mid-table teams might settle for draw
             needs_point = True
-    
+
     # Promotion/Title race
     elif "title" in zone_lower or "promotion" in zone_lower or "european" in zone_lower:
         # Teams chasing something usually DON'T want draws
         # Unless they're so far ahead that 1 point clinches it
         needs_point = False
-    
+
     return ClassificaContext(
         team_name=team_name,
         position=position,
@@ -314,67 +314,72 @@ def analyze_classifica_context(
         points_to_safety=points_to_safety,
         points_to_next_zone=points_to_next_zone,
         matches_remaining=matches_remaining,
-        needs_point=needs_point
+        needs_point=needs_point,
     )
 
 
 def check_mutual_benefit(
-    home_context: Optional[ClassificaContext],
-    away_context: Optional[ClassificaContext]
-) -> Tuple[bool, str]:
+    home_context: ClassificaContext | None, away_context: ClassificaContext | None
+) -> tuple[bool, str]:
     """
     Check if both teams would benefit from a draw.
-    
+
     Classic biscotto scenarios:
     - Both teams need 1 point for safety
     - Both teams have nothing to play for (mid-table end of season)
     - One team needs point, other has nothing to lose
-    
+
     Args:
         home_context: Home team's classifica context
         away_context: Away team's classifica context
-        
+
     Returns:
         Tuple of (mutual_benefit, reason)
     """
     if home_context is None or away_context is None:
         return False, "Contesto classifica non disponibile"
-    
+
     # Scenario 1: Both need a point
     if home_context.needs_point and away_context.needs_point:
         return True, "Entrambe le squadre hanno bisogno di 1 punto"
-    
+
     # Scenario 2: Both mid-table with nothing to play for
     home_mid = "mid" in home_context.zone.lower() if home_context.zone else False
     away_mid = "mid" in away_context.zone.lower() if away_context.zone else False
-    
+
     if home_mid and away_mid:
         return True, "Entrambe a metà classifica senza obiettivi"
-    
+
     # Scenario 3: One needs point, other is safe/mid-table
     if home_context.needs_point and (away_mid or "safe" in (away_context.zone or "").lower()):
-        return True, f"{home_context.team_name} ha bisogno di punti, {away_context.team_name} senza pressione"
-    
+        return (
+            True,
+            f"{home_context.team_name} ha bisogno di punti, {away_context.team_name} senza pressione",
+        )
+
     if away_context.needs_point and (home_mid or "safe" in (home_context.zone or "").lower()):
-        return True, f"{away_context.team_name} ha bisogno di punti, {home_context.team_name} senza pressione"
-    
+        return (
+            True,
+            f"{away_context.team_name} ha bisogno di punti, {home_context.team_name} senza pressione",
+        )
+
     return False, "Nessun beneficio reciproco evidente"
 
 
 def calculate_severity(
-    draw_odd: Optional[float],
+    draw_odd: float | None,
     drop_pct: float,
     zscore: float,
     pattern: BiscottoPattern,
     mutual_benefit: bool,
     end_of_season: bool,
-    suspicious_threshold: float = DRAW_SUSPICIOUS_LOW
-) -> Tuple[BiscottoSeverity, int, List[str]]:
+    suspicious_threshold: float = DRAW_SUSPICIOUS_LOW,
+) -> tuple[BiscottoSeverity, int, list[str]]:
     """
     Calculate overall biscotto severity from multiple factors.
-    
+
     V4.3: Now supports dynamic suspicious_threshold for minor leagues.
-    
+
     Args:
         draw_odd: Current draw odds
         drop_pct: Drop percentage from opening
@@ -383,13 +388,13 @@ def calculate_severity(
         mutual_benefit: Whether both teams benefit
         end_of_season: Whether it's end of season
         suspicious_threshold: Dynamic threshold for HIGH suspicion (V4.3)
-        
+
     Returns:
         Tuple of (severity, confidence, factors_list)
     """
     factors = []
     score = 0  # Accumulate severity score
-    
+
     # Factor 1: Absolute draw odds level (V4.3: uses dynamic threshold)
     if draw_odd is not None:
         if draw_odd < DRAW_EXTREME_LOW:
@@ -401,7 +406,7 @@ def calculate_severity(
         elif draw_odd < DRAW_WATCH_LOW:
             factors.append(f"🟡 Quota X bassa: {draw_odd:.2f}")
             score += 10
-    
+
     # Factor 2: Drop percentage
     if drop_pct >= DROP_EXTREME:
         factors.append(f"📉 Crollo quote: -{drop_pct:.1f}%")
@@ -412,7 +417,7 @@ def calculate_severity(
     elif drop_pct >= DROP_MEDIUM:
         factors.append(f"↘️ Drop moderato: -{drop_pct:.1f}%")
         score += 10
-    
+
     # Factor 3: Z-Score (statistical anomaly)
     if zscore >= ZSCORE_EXTREME:
         factors.append(f"📊 Anomalia statistica estrema (Z={zscore:.1f})")
@@ -423,7 +428,7 @@ def calculate_severity(
     elif zscore >= ZSCORE_MEDIUM:
         factors.append(f"📊 Anomalia statistica (Z={zscore:.1f})")
         score += 8
-    
+
     # Factor 4: Pattern
     if pattern == BiscottoPattern.CRASH:
         factors.append("⚡ Pattern CRASH (movimento improvviso)")
@@ -431,20 +436,20 @@ def calculate_severity(
     elif pattern == BiscottoPattern.DRIFT:
         factors.append("📈 Pattern DRIFT (discesa graduale)")
         score += 20  # Drift is more indicative of biscotto
-    
+
     # Factor 5: Mutual benefit
     if mutual_benefit:
         factors.append("🤝 Beneficio reciproco confermato")
         score += 25
-    
+
     # Factor 6: End of season
     if end_of_season:
         factors.append("📅 Fine stagione (ultime giornate)")
         score += 15
-    
+
     # Calculate confidence (capped at 95)
     confidence = min(score, 95)
-    
+
     # Determine severity
     if score >= 70:
         severity = BiscottoSeverity.EXTREME
@@ -456,27 +461,27 @@ def calculate_severity(
         severity = BiscottoSeverity.LOW
     else:
         severity = BiscottoSeverity.NONE
-    
+
     return severity, confidence, factors
 
 
 def analyze_biscotto(
     home_team: str,
     away_team: str,
-    current_draw_odd: Optional[float],
-    opening_draw_odd: Optional[float] = None,
-    home_motivation: Dict = None,
-    away_motivation: Dict = None,
+    current_draw_odd: float | None,
+    opening_draw_odd: float | None = None,
+    home_motivation: dict = None,
+    away_motivation: dict = None,
     matches_remaining: int = None,
     league_avg_draw: float = LEAGUE_AVG_DRAW_PROB,
-    league_key: str = None
+    league_key: str = None,
 ) -> BiscottoAnalysis:
     """
     Complete biscotto analysis for a match.
-    
+
     V4.3: Now supports league_key for dynamic thresholds.
     Minor leagues in end-of-season get stricter detection (2.60 vs 2.50).
-    
+
     Args:
         home_team: Home team name
         away_team: Away team name
@@ -487,16 +492,16 @@ def analyze_biscotto(
         matches_remaining: Matches left in season (optional)
         league_avg_draw: League average draw probability
         league_key: League identifier for dynamic thresholds (V4.3)
-        
+
     Returns:
         BiscottoAnalysis with complete assessment
     """
     # Check end of season first (needed for dynamic threshold)
     end_of_season = matches_remaining is not None and matches_remaining <= END_OF_SEASON_ROUNDS
-    
+
     # V4.3: Get dynamic threshold based on league and season context
     dynamic_suspicious_threshold = get_draw_threshold_for_league(league_key, end_of_season)
-    
+
     # Handle None/invalid odds
     if current_draw_odd is None or current_draw_odd <= 1.0:
         return BiscottoAnalysis(
@@ -515,48 +520,48 @@ def analyze_biscotto(
             mutual_benefit=False,
             reasoning="Quote pareggio non disponibili",
             betting_recommendation="AVOID",
-            factors=[]
+            factors=[],
         )
-    
+
     # Calculate drop percentage
     drop_pct = 0.0
     if opening_draw_odd and opening_draw_odd > 0:
         drop_pct = ((opening_draw_odd - current_draw_odd) / opening_draw_odd) * 100
-    
+
     # Calculate implied probability and Z-Score
     implied_prob = calculate_implied_probability(current_draw_odd)
     zscore = calculate_zscore(implied_prob, league_avg_draw)
-    
+
     # Detect odds pattern
     pattern = detect_odds_pattern(opening_draw_odd, current_draw_odd)
-    
+
     # Analyze classifica context
     home_context = None
     away_context = None
-    
+
     if home_motivation and isinstance(home_motivation, dict):
         home_context = analyze_classifica_context(
             team_name=home_team,
-            position=home_motivation.get('position', 0),
-            total_teams=home_motivation.get('total_teams', 20),
-            points=home_motivation.get('points', 0),
-            zone=home_motivation.get('zone', 'Unknown'),
-            matches_remaining=matches_remaining
+            position=home_motivation.get("position", 0),
+            total_teams=home_motivation.get("total_teams", 20),
+            points=home_motivation.get("points", 0),
+            zone=home_motivation.get("zone", "Unknown"),
+            matches_remaining=matches_remaining,
         )
 
     if away_motivation and isinstance(away_motivation, dict):
         away_context = analyze_classifica_context(
             team_name=away_team,
-            position=away_motivation.get('position', 0),
-            total_teams=away_motivation.get('total_teams', 20),
-            points=away_motivation.get('points', 0),
-            zone=away_motivation.get('zone', 'Unknown'),
-            matches_remaining=matches_remaining
+            position=away_motivation.get("position", 0),
+            total_teams=away_motivation.get("total_teams", 20),
+            points=away_motivation.get("points", 0),
+            zone=away_motivation.get("zone", "Unknown"),
+            matches_remaining=matches_remaining,
         )
-    
+
     # Check mutual benefit
     mutual_benefit, benefit_reason = check_mutual_benefit(home_context, away_context)
-    
+
     # Calculate severity (V4.3: pass dynamic threshold)
     severity, confidence, factors = calculate_severity(
         draw_odd=current_draw_odd,
@@ -565,32 +570,40 @@ def analyze_biscotto(
         pattern=pattern,
         mutual_benefit=mutual_benefit,
         end_of_season=end_of_season,
-        suspicious_threshold=dynamic_suspicious_threshold  # V4.3
+        suspicious_threshold=dynamic_suspicious_threshold,  # V4.3
     )
-    
+
     # Determine if suspect
-    is_suspect = severity in [BiscottoSeverity.MEDIUM, BiscottoSeverity.HIGH, BiscottoSeverity.EXTREME]
-    
+    is_suspect = severity in [
+        BiscottoSeverity.MEDIUM,
+        BiscottoSeverity.HIGH,
+        BiscottoSeverity.EXTREME,
+    ]
+
     # Build reasoning (V4.3: use dynamic threshold)
     reasoning_parts = []
-    
+
     if current_draw_odd < dynamic_suspicious_threshold:
-        reasoning_parts.append(f"Quota X a {current_draw_odd:.2f} (prob. implicita {implied_prob*100:.0f}%)")
-    
+        reasoning_parts.append(
+            f"Quota X a {current_draw_odd:.2f} (prob. implicita {implied_prob * 100:.0f}%)"
+        )
+
     if drop_pct >= DROP_MEDIUM:
         reasoning_parts.append(f"calo del {drop_pct:.1f}% dall'apertura")
-    
+
     if zscore >= ZSCORE_MEDIUM:
         reasoning_parts.append(f"Z-Score {zscore:.1f} (anomalia statistica)")
-    
+
     if mutual_benefit:
         reasoning_parts.append(benefit_reason)
-    
+
     if end_of_season:
         reasoning_parts.append("ultime giornate di campionato")
-    
-    reasoning = " | ".join(reasoning_parts) if reasoning_parts else "Nessun segnale biscotto rilevato"
-    
+
+    reasoning = (
+        " | ".join(reasoning_parts) if reasoning_parts else "Nessun segnale biscotto rilevato"
+    )
+
     # Betting recommendation
     if severity == BiscottoSeverity.EXTREME:
         betting_recommendation = "BET X (Alta fiducia)"
@@ -600,7 +613,7 @@ def analyze_biscotto(
         betting_recommendation = "MONITOR (Valutare live)"
     else:
         betting_recommendation = "AVOID"
-    
+
     return BiscottoAnalysis(
         is_suspect=is_suspect,
         severity=severity,
@@ -617,42 +630,44 @@ def analyze_biscotto(
         mutual_benefit=mutual_benefit,
         reasoning=reasoning,
         betting_recommendation=betting_recommendation,
-        factors=factors
+        factors=factors,
     )
 
 
 def format_biscotto_context(analysis: BiscottoAnalysis) -> str:
     """
     Format biscotto analysis for AI context injection.
-    
+
     Args:
         analysis: BiscottoAnalysis result
-        
+
     Returns:
         Formatted string for AI prompt
     """
     if not analysis.is_suspect:
         return ""
-    
+
     lines = [
         f"🍪 BISCOTTO ANALYSIS (Severity: {analysis.severity.value}):",
-        f"  Quota X: {analysis.current_draw_odd:.2f} (prob: {analysis.implied_probability*100:.0f}%)",
+        f"  Quota X: {analysis.current_draw_odd:.2f} (prob: {analysis.implied_probability * 100:.0f}%)",
     ]
-    
+
     if analysis.drop_percentage > 0:
-        lines.append(f"  Drop: -{analysis.drop_percentage:.1f}% | Pattern: {analysis.pattern.value}")
-    
+        lines.append(
+            f"  Drop: -{analysis.drop_percentage:.1f}% | Pattern: {analysis.pattern.value}"
+        )
+
     if analysis.zscore >= ZSCORE_MEDIUM:
         lines.append(f"  Z-Score: {analysis.zscore:.1f} (anomalia vs media lega)")
-    
+
     if analysis.mutual_benefit:
-        lines.append(f"  🤝 Beneficio reciproco rilevato")
-    
+        lines.append("  🤝 Beneficio reciproco rilevato")
+
     if analysis.end_of_season_match:
-        lines.append(f"  📅 Fine stagione")
-    
+        lines.append("  📅 Fine stagione")
+
     lines.append(f"  💡 Raccomandazione: {analysis.betting_recommendation}")
-    
+
     return "\n".join(lines)
 
 
@@ -660,39 +675,40 @@ def format_biscotto_context(analysis: BiscottoAnalysis) -> str:
 # INTEGRATION HELPER
 # ============================================
 
+
 def _estimate_matches_remaining_from_date(match_start_time, league_key: str = None) -> int:
     """
     V5.1: Fallback estimation of matches_remaining when FotMob data is unavailable.
-    
+
     Uses heuristics based on typical season calendar:
     - European leagues: End in May (weeks 18-22)
     - MLS: March-October season
     - A-League: October-May season (southern hemisphere)
     - Season has ~38 matches, spread over ~40 weeks
-    
+
     V1.1 Fix #7: Now uses league_key for league-specific season calendars.
-    
+
     This is a FALLBACK - FotMob data is always preferred when available.
-    
+
     Args:
         match_start_time: Match datetime
         league_key: League identifier for season-specific adjustments
-        
+
     Returns:
         Estimated matches remaining (conservative estimate)
     """
     if not match_start_time:
         return None
-    
+
     try:
-        from datetime import datetime, timezone
-        
+        from datetime import timezone
+
         # Ensure timezone-aware
         if match_start_time.tzinfo is None:
             match_start_time = match_start_time.replace(tzinfo=timezone.utc)
-        
+
         month = match_start_time.month
-        
+
         # Fix #7: League-specific season calendars
         # Southern hemisphere leagues (A-League, Brazil) have inverted seasons
         SOUTHERN_HEMISPHERE_LEAGUES = {
@@ -701,12 +717,12 @@ def _estimate_matches_remaining_from_date(match_start_time, league_key: str = No
             "soccer_brazil_serie_b",
             "soccer_argentina_primera_division",
         }
-        
+
         # MLS has March-October season
         MLS_LEAGUES = {
             "soccer_usa_mls",
         }
-        
+
         if league_key in SOUTHERN_HEMISPHERE_LEAGUES:
             # Southern hemisphere: Season runs Oct-May
             # End of season: March-May
@@ -719,7 +735,7 @@ def _estimate_matches_remaining_from_date(match_start_time, league_key: str = No
                 return 10
             else:  # June-Sept: Off-season or very early
                 return 30
-        
+
         elif league_key in MLS_LEAGUES:
             # MLS: Season runs March-October
             if month in (9, 10):  # Sept-Oct: End of season / playoffs
@@ -730,7 +746,7 @@ def _estimate_matches_remaining_from_date(match_start_time, league_key: str = No
                 return 15
             else:  # Nov-Feb: Off-season
                 return None  # No matches
-        
+
         else:
             # European leagues (default): Season runs Aug-May
             # End-of-season detection based on month
@@ -742,55 +758,61 @@ def _estimate_matches_remaining_from_date(match_start_time, league_key: str = No
                 return 18
             else:  # August-November: Early-mid season
                 return 25
-            
+
     except Exception as e:
         logger.debug(f"Could not estimate matches_remaining: {e}")
         return None
 
 
 def get_enhanced_biscotto_analysis(
-    match_obj,
-    home_motivation: Dict = None,
-    away_motivation: Dict = None
-) -> Tuple[BiscottoAnalysis, str]:
+    match_obj, home_motivation: dict = None, away_motivation: dict = None
+) -> tuple[BiscottoAnalysis, str]:
     """
     Integration helper for main.py - analyzes match for biscotto signals.
-    
+
     V4.3: Now extracts league_key from match_obj for dynamic thresholds.
     V4.4: Now extracts matches_remaining from motivation context for end-of-season detection.
     V5.1: Added fallback estimation when FotMob doesn't provide matches_remaining.
-    
+
     Args:
         match_obj: Match database object
         home_motivation: FotMob motivation context for home team
         away_motivation: FotMob motivation context for away team
-        
+
     Returns:
         Tuple of (BiscottoAnalysis, formatted_context_string)
     """
     # V4.3: Extract league_key for dynamic thresholds
-    league_key = getattr(match_obj, 'league', None)
-    
+    league_key = getattr(match_obj, "league", None)
+
     # V4.4: Extract matches_remaining from motivation context
     # Use the minimum of both teams (most conservative for end-of-season detection)
     matches_remaining = None
-    home_remaining = home_motivation.get('matches_remaining') if home_motivation and isinstance(home_motivation, dict) else None
-    away_remaining = away_motivation.get('matches_remaining') if away_motivation and isinstance(away_motivation, dict) else None
-    
+    home_remaining = (
+        home_motivation.get("matches_remaining")
+        if home_motivation and isinstance(home_motivation, dict)
+        else None
+    )
+    away_remaining = (
+        away_motivation.get("matches_remaining")
+        if away_motivation and isinstance(away_motivation, dict)
+        else None
+    )
+
     if home_remaining is not None and away_remaining is not None:
         matches_remaining = min(home_remaining, away_remaining)
     elif home_remaining is not None:
         matches_remaining = home_remaining
     elif away_remaining is not None:
         matches_remaining = away_remaining
-    
+
     # V5.1: Fallback estimation if FotMob data unavailable
     if matches_remaining is None:
-        match_start_time = getattr(match_obj, 'start_time', None)
+        match_start_time = getattr(match_obj, "start_time", None)
         matches_remaining = _estimate_matches_remaining_from_date(match_start_time, league_key)
         if matches_remaining is not None:
             logger.debug(f"🍪 matches_remaining estimated from date: {matches_remaining}")
-    
+
     analysis = analyze_biscotto(
         home_team=match_obj.home_team,
         away_team=match_obj.away_team,
@@ -799,9 +821,9 @@ def get_enhanced_biscotto_analysis(
         home_motivation=home_motivation,
         away_motivation=away_motivation,
         matches_remaining=matches_remaining,  # V4.4 + V5.1 fallback
-        league_key=league_key  # V4.3
+        league_key=league_key,  # V4.3
     )
-    
+
     context_str = format_biscotto_context(analysis)
-    
+
     return analysis, context_str

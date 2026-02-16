@@ -6,54 +6,52 @@ Verifica:
 - format_for_prompt allineato con Gemini (incluso btts_impact)
 - Edge cases (None, empty, malformed responses)
 """
-import pytest
 
 
 class TestPerplexityFormatForPrompt:
     """Test format_for_prompt - deve essere allineato con Gemini."""
-    
+
     def test_format_includes_btts_impact(self):
         """CRITICAL: btts_impact deve essere incluso (bug fix V4.2)."""
         from src.ingestion.perplexity_provider import PerplexityProvider
-        
+
         provider = PerplexityProvider()
-        
+
         deep_dive = {
             "internal_crisis": "Low - No issues",
             "btts_impact": "Positive - Key defender missing",
         }
-        
+
         result = provider.format_for_prompt(deep_dive)
-        
+
         assert "BTTS TACTICAL" in result
         assert "Positive" in result
-    
+
     def test_format_skips_unknown_btts(self):
         """btts_impact='Unknown' non deve apparire."""
         from src.ingestion.perplexity_provider import PerplexityProvider
-        
+
         provider = PerplexityProvider()
         deep_dive = {"btts_impact": "Unknown"}
-        
+
         result = provider.format_for_prompt(deep_dive)
         assert "BTTS" not in result
-    
+
     def test_format_none_returns_empty(self):
         """Edge case: deep_dive None."""
         from src.ingestion.perplexity_provider import PerplexityProvider
-        
+
         provider = PerplexityProvider()
         assert provider.format_for_prompt(None) == ""
-    
+
     def test_format_empty_dict(self):
         """Edge case: deep_dive vuoto (falsy) restituisce stringa vuota."""
         from src.ingestion.perplexity_provider import PerplexityProvider
-        
+
         provider = PerplexityProvider()
         result = provider.format_for_prompt({})
         # {} è falsy in Python, quindi restituisce ""
         assert result == ""
-
 
 
 class TestAiParserDefaults:

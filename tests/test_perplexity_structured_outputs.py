@@ -6,20 +6,21 @@ Validates that new structured outputs work correctly and handle edge cases.
 
 V1.0: Initial test suite for DeepDiveResponse and BettingStatsResponse models.
 """
+
 import pytest
 from pydantic import ValidationError
 
 from src.schemas.perplexity_schemas import (
-    DeepDiveResponse,
-    BettingStatsResponse,
+    BETTING_STATS_JSON_SCHEMA,
     DEEP_DIVE_JSON_SCHEMA,
-    BETTING_STATS_JSON_SCHEMA
+    BettingStatsResponse,
+    DeepDiveResponse,
 )
 
 
 class TestDeepDiveResponse:
     """Test suite for DeepDiveResponse Pydantic model."""
-    
+
     def test_valid_deep_dive_response(self):
         """Test that a valid Deep Dive response passes validation."""
         valid_data = {
@@ -31,9 +32,9 @@ class TestDeepDiveResponse:
             "btts_impact": "Neutral - No key defensive or attacking absences",
             "motivation_home": "High - Title race, 3 points behind leaders",
             "motivation_away": "Medium - European spots still achievable",
-            "table_context": "2nd vs 5th, 6 points gap"
+            "table_context": "2nd vs 5th, 6 points gap",
         }
-        
+
         response = DeepDiveResponse(**valid_data)
         assert response.internal_crisis == "Low - No internal issues reported"
         assert response.turnover_risk == "Medium - Manager may rotate for Cup match"
@@ -44,7 +45,7 @@ class TestDeepDiveResponse:
         assert response.motivation_home == "High - Title race, 3 points behind leaders"
         assert response.motivation_away == "Medium - European spots still achievable"
         assert response.table_context == "2nd vs 5th, 6 points gap"
-    
+
     def test_invalid_risk_levels(self):
         """Test that invalid risk levels raise ValidationError."""
         invalid_data = {
@@ -56,16 +57,16 @@ class TestDeepDiveResponse:
             "btts_impact": "Neutral - Valid",
             "motivation_home": "High - Valid",
             "motivation_away": "Medium - Valid",
-            "table_context": "Valid context"
+            "table_context": "Valid context",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             DeepDiveResponse(**invalid_data)
-        
+
         assert "internal_crisis" in str(exc_info.value)
         # Pydantic V2 uses commas in enum listing
         assert "High, Medium, Low, Unknown" in str(exc_info.value)
-    
+
     def test_invalid_referee_strictness(self):
         """Test that invalid referee strictness raises ValidationError."""
         invalid_data = {
@@ -77,16 +78,16 @@ class TestDeepDiveResponse:
             "btts_impact": "Neutral - Valid",
             "motivation_home": "High - Valid",
             "motivation_away": "Medium - Valid",
-            "table_context": "Valid context"
+            "table_context": "Valid context",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             DeepDiveResponse(**invalid_data)
-        
+
         assert "referee_intel" in str(exc_info.value)
         # Pydantic V2 uses commas
         assert "Strict, Medium, Lenient, Unknown" in str(exc_info.value)
-    
+
     def test_invalid_biscotto_potential(self):
         """Test that invalid biscotto potential raises ValidationError."""
         invalid_data = {
@@ -98,20 +99,20 @@ class TestDeepDiveResponse:
             "btts_impact": "Neutral - Valid",
             "motivation_home": "High - Valid",
             "motivation_away": "Medium - Valid",
-            "table_context": "Valid context"
+            "table_context": "Valid context",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             DeepDiveResponse(**invalid_data)
-        
+
         assert "biscotto_potential" in str(exc_info.value)
         # Pydantic V2 uses commas
         assert "Yes, No, Unknown" in str(exc_info.value)
-    
+
     def test_json_schema_structure(self):
         """Test that JSON schema is properly generated."""
         schema = DEEP_DIVE_JSON_SCHEMA
-        
+
         assert "properties" in schema
         assert "internal_crisis" in schema["properties"]
         assert "turnover_risk" in schema["properties"]
@@ -122,7 +123,7 @@ class TestDeepDiveResponse:
         assert "motivation_home" in schema["properties"]
         assert "motivation_away" in schema["properties"]
         assert "table_context" in schema["properties"]
-        
+
         # Check field types
         assert schema["properties"]["internal_crisis"]["type"] == "string"
         assert schema["properties"]["turnover_risk"]["type"] == "string"
@@ -130,7 +131,7 @@ class TestDeepDiveResponse:
 
 class TestBettingStatsResponse:
     """Test suite for BettingStatsResponse Pydantic model."""
-    
+
     def test_valid_betting_stats_response(self):
         """Test that a valid Betting Stats response passes validation."""
         valid_data = {
@@ -162,9 +163,9 @@ class TestBettingStatsResponse:
             "recommended_corner_line": "Over 9.5 Corners",
             "recommended_cards_line": "Over 3.5 Cards",
             "data_confidence": "High",
-            "sources_found": "Serie A official stats, SofaScore"
+            "sources_found": "Serie A official stats, SofaScore",
         }
-        
+
         response = BettingStatsResponse(**valid_data)
         assert response.home_form_wins == 3
         assert response.home_corners_avg == 5.2
@@ -174,7 +175,7 @@ class TestBettingStatsResponse:
         assert response.match_intensity == "High"
         assert response.is_derby is False
         assert response.data_confidence == "High"
-    
+
     def test_optional_fields_null(self):
         """Test that optional fields can be null."""
         data_with_nulls = {
@@ -189,16 +190,16 @@ class TestBettingStatsResponse:
             "recommended_corner_line": "No bet",
             "recommended_cards_line": "No bet",
             "data_confidence": "Low",
-            "sources_found": ""
+            "sources_found": "",
         }
-        
+
         response = BettingStatsResponse(**data_with_nulls)
         assert response.home_form_wins is None
         assert response.home_corners_avg is None
         assert response.referee_cards_avg is None
         assert response.corners_signal == "Unknown"
         assert response.data_confidence == "Low"
-    
+
     def test_invalid_form_values(self):
         """Test that invalid form values raise ValidationError."""
         invalid_data = {
@@ -213,14 +214,14 @@ class TestBettingStatsResponse:
             "recommended_corner_line": "No bet",
             "recommended_cards_line": "No bet",
             "data_confidence": "High",
-            "sources_found": "Test"
+            "sources_found": "Test",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BettingStatsResponse(**invalid_data)
-        
+
         assert "home_form_wins" in str(exc_info.value)
-    
+
     def test_negative_values(self):
         """Test that negative values raise ValidationError."""
         invalid_data = {
@@ -234,16 +235,16 @@ class TestBettingStatsResponse:
             "recommended_corner_line": "No bet",
             "recommended_cards_line": "No bet",
             "data_confidence": "High",
-            "sources_found": "Test"
+            "sources_found": "Test",
         }
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BettingStatsResponse(**invalid_data)
-        
+
         # Should catch both negative values
         error_msg = str(exc_info.value)
         assert "home_form_wins" in error_msg or "home_corners_avg" in error_msg
-    
+
     def test_enum_validation(self):
         """Test that enum fields validate correctly."""
         invalid_data = {
@@ -255,21 +256,21 @@ class TestBettingStatsResponse:
             "recommended_corner_line": "No bet",
             "recommended_cards_line": "No bet",
             "data_confidence": "High",
-            "sources_found": "Test"
+            "sources_found": "Test",
         }
-        
-        # V8.3: Pydantic V2 is strict by default for Enums. 
+
+        # V8.3: Pydantic V2 is strict by default for Enums.
         # Unless a pre-validator is added, this raises ValidationError.
         # Updating test to match current strict behavior.
         with pytest.raises(ValidationError) as exc_info:
             BettingStatsResponse(**invalid_data)
-        
+
         assert "corners_signal" in str(exc_info.value)
-    
+
     def test_json_schema_structure(self):
         """Test that JSON schema is properly generated."""
         schema = BETTING_STATS_JSON_SCHEMA
-        
+
         assert "properties" in schema
         assert "home_form_wins" in schema["properties"]
         assert "home_corners_avg" in schema["properties"]
@@ -279,7 +280,7 @@ class TestBettingStatsResponse:
         assert "match_intensity" in schema["properties"]
         assert "is_derby" in schema["properties"]
         assert "data_confidence" in schema["properties"]
-        
+
         # Check field existence (types can be complex in V2, e.g. anyOf)
         assert "home_form_wins" in schema["properties"]
         assert "home_corners_avg" in schema["properties"]
@@ -288,7 +289,7 @@ class TestBettingStatsResponse:
 
 class TestModelIntegration:
     """Integration tests for the complete structured outputs system."""
-    
+
     def test_deep_dive_serialization_roundtrip(self):
         """Test that DeepDiveResponse can serialize and deserialize correctly."""
         original_data = {
@@ -300,23 +301,23 @@ class TestModelIntegration:
             "btts_impact": "Negative - Missing goalscorer",
             "motivation_home": "High - Title race",
             "motivation_away": "Medium - European spot",
-            "table_context": "1st vs 4th, 8 points gap"
+            "table_context": "1st vs 4th, 8 points gap",
         }
-        
+
         # Create model
         response = DeepDiveResponse(**original_data)
-        
+
         # Serialize to dict
         serialized = response.model_dump()
-        
+
         # Create new model from serialized data
         response2 = DeepDiveResponse(**serialized)
-        
+
         # Should be identical
         assert response.internal_crisis == response2.internal_crisis
         assert response.turnover_risk == response2.turnover_risk
         assert response.injury_impact == response2.injury_impact
-    
+
     def test_betting_stats_serialization_roundtrip(self):
         """Test that BettingStatsResponse can serialize and deserialize correctly."""
         original_data = {
@@ -329,49 +330,49 @@ class TestModelIntegration:
             "referee_strictness": "Strict",
             "match_intensity": "High",
             "is_derby": True,
-            "data_confidence": "Medium"
+            "data_confidence": "Medium",
         }
-        
+
         # Create model
         response = BettingStatsResponse(**original_data)
-        
+
         # Serialize to dict
         serialized = response.model_dump()
-        
+
         # Create new model from serialized data
         response2 = BettingStatsResponse(**serialized)
-        
+
         # Should be identical
         assert response.home_form_wins == response2.home_form_wins
         assert response.corners_signal == response2.corners_signal
         assert response.is_derby == response2.is_derby
-    
+
     def test_json_serialization_compatibility(self):
         """Test that models can serialize to JSON and back."""
         import json
-        
+
         # Test DeepDiveResponse
         deep_dive_data = {
             "internal_crisis": "Low - Stable",
             "turnover_risk": "Low - No rotation",
             "referee_intel": "Lenient - 2.1 cards avg",
             "biscotto_potential": "Unknown - Unclear motives",
-            "injury_impact": "Unknown - None reported", # Must start with valid Enum value
+            "injury_impact": "Unknown - None reported",  # Must start with valid Enum value
             "btts_impact": "Neutral - Full squads",
             "motivation_home": "Medium - Safe position",
             "motivation_away": "Medium - Safe position",
-            "table_context": "8th vs 10th, mid-table"
+            "table_context": "8th vs 10th, mid-table",
         }
-        
+
         deep_dive = DeepDiveResponse(**deep_dive_data)
         deep_dive_json = deep_dive.model_dump_json()
-        
+
         # Parse back from JSON
         parsed_data = json.loads(deep_dive_json)
         deep_dive_restored = DeepDiveResponse(**parsed_data)
-        
+
         assert deep_dive.internal_crisis == deep_dive_restored.internal_crisis
-        
+
         # Test BettingStatsResponse
         betting_data = {
             "corners_signal": "Low",
@@ -379,16 +380,16 @@ class TestModelIntegration:
             "referee_strictness": "Lenient",
             "match_intensity": "Low",
             "is_derby": False,
-            "data_confidence": "Low"
+            "data_confidence": "Low",
         }
-        
+
         betting = BettingStatsResponse(**betting_data)
         betting_json = betting.model_dump_json()
-        
+
         # Parse back from JSON
         parsed_betting = json.loads(betting_json)
         betting_restored = BettingStatsResponse(**parsed_betting)
-        
+
         assert betting.corners_signal == betting_restored.corners_signal
 
 

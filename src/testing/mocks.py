@@ -1,5 +1,6 @@
-from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+
 
 @dataclass
 class Match:
@@ -8,6 +9,7 @@ class Match:
     home_team: str
     away_team: str
     commence_time: str
+
 
 # Mock Matches
 now = datetime.now(timezone.utc)
@@ -19,15 +21,15 @@ MOCK_MATCHES = [
         sport_key="soccer_brazil_serie_b",
         home_team="Santos",
         away_team="Ceara",
-        commence_time=tomorrow.isoformat()
+        commence_time=tomorrow.isoformat(),
     ),
     Match(
         id="match_2",
         sport_key="soccer_turkey_super_lig",
         home_team="Galatasaray",
         away_team="Fenerbahce",
-        commence_time=tomorrow.isoformat()
-    )
+        commence_time=tomorrow.isoformat(),
+    ),
 ]
 
 # Mock Search Results
@@ -42,7 +44,7 @@ MOCK_SEARCH_RESULTS = {
             "snippet": "O técnico decidiu poupar os titulares e o Santos vai a campo com uma equipe repleta de garotos do sub-20 devido à final da próxima semana.",
             "link": "https://globoesporte.globo.com/santos/noticia/time-reserva.html",
             "date": "1 hour ago",
-            "source": "Globo Esporte"
+            "source": "Globo Esporte",
         }
     ],
     "match_2": [
@@ -54,9 +56,9 @@ MOCK_SEARCH_RESULTS = {
             "snippet": "Teknik direktör derbi öncesi tüm oyuncuların hazır olduğunu belirtti. Eksik oyuncu bulunmuyor.",
             "link": "https://fanatik.com.tr/galatasaray/tam-kadro.html",
             "date": "2 hours ago",
-            "source": "Fanatik"
+            "source": "Fanatik",
         }
-    ]
+    ],
 }
 
 # Mock LLM Responses
@@ -66,12 +68,12 @@ MOCK_LLM_RESPONSES = {
         "relevance_score": 9,
         "category": "TURNOVER",
         "summary": "Il Santos giocherà con la squadra U20, titolari a riposo.",
-        "affected_team": "Santos"
+        "affected_team": "Santos",
     },
     "Galatasaray": {
         "relevance_score": 2,
         "category": "OTHER",
         "summary": "Squadra al completo, nessun problema segnalato.",
-        "affected_team": "Galatasaray"
-    }
+        "affected_team": "Galatasaray",
+    },
 }

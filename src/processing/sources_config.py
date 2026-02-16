@@ -14,9 +14,9 @@ Usage:
     from src.processing.sources_config import get_sources_for_league
     sources = get_sources_for_league("soccer_argentina_primera_division")
 """
-from typing import List, Optional, Set, Dict, Any
-from dataclasses import dataclass
+
 import logging
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +25,15 @@ logger = logging.getLogger(__name__)
 # V4.3: BEAT WRITER DATA STRUCTURE
 # ============================================
 
+
 @dataclass
 class BeatWriter:
     """
     V4.3: Represents a verified beat writer or insider account.
-    
+
     Beat writers are journalists who specialize in covering specific teams
     or leagues, often with privileged access to breaking news.
-    
+
     Attributes:
         handle: Twitter/X handle (with @)
         name: Full name of the journalist
@@ -41,6 +42,7 @@ class BeatWriter:
         reliability: Historical accuracy score (0.0-1.0)
         avg_lead_time_min: Average minutes before mainstream media picks up their news
     """
+
     handle: str
     name: str
     outlet: str
@@ -53,9 +55,9 @@ class BeatWriter:
 # V4.4: BEAT WRITERS DATABASE (REVISED)
 # ============================================
 # V4.4 IMPORTANT NOTE FROM DEEP RESEARCH:
-# The concept of "beat writers who leak injury/lineup news 10-30 min 
+# The concept of "beat writers who leak injury/lineup news 10-30 min
 # before mainstream media" does NOT exist in the way originally assumed.
-# 
+#
 # REALITY:
 # - Real leaks come from anonymous club insiders (WhatsApp/Discord), not journalists
 # - Journalists REPORT leaks, they don't CREATE them
@@ -127,59 +129,59 @@ LOCAL_SOURCES_MAPPING = {
     # ELITE 6 LEAGUES
     # ============================================
     "turkey": [
-        "fanatik.com.tr",       # Fanatik - Major sports newspaper
-        "sporx.com",            # Sporx - Sports portal
-        "sabah.com.tr",         # Sabah - News with sports section
+        "fanatik.com.tr",  # Fanatik - Major sports newspaper
+        "sporx.com",  # Sporx - Sports portal
+        "sabah.com.tr",  # Sabah - News with sports section
     ],
     "argentina": [
-        "ole.com.ar",           # Olé - Argentina's #1 sports newspaper
-        "tycsports.com",        # TyC Sports - Major sports broadcaster
-        "infobae.com",          # Infobae - News with strong sports section
+        "ole.com.ar",  # Olé - Argentina's #1 sports newspaper
+        "tycsports.com",  # TyC Sports - Major sports broadcaster
+        "infobae.com",  # Infobae - News with strong sports section
     ],
     "mexico": [
-        "mediotiempo.com",      # Medio Tiempo - Leading sports portal
-        "record.com.mx",        # Record - Major sports newspaper
-        "espn.com.mx",          # ESPN Mexico - Reliable coverage
+        "mediotiempo.com",  # Medio Tiempo - Leading sports portal
+        "record.com.mx",  # Record - Major sports newspaper
+        "espn.com.mx",  # ESPN Mexico - Reliable coverage
     ],
     "greece": [
-        "sdna.gr",              # SDNA - Sports news agency
-        "contra.gr",            # Contra - Popular sports site
-        "gazzetta.gr",          # Gazzetta Greece - Sports daily
+        "sdna.gr",  # SDNA - Sports news agency
+        "contra.gr",  # Contra - Popular sports site
+        "gazzetta.gr",  # Gazzetta Greece - Sports daily
     ],
     "scotland": [
-        "dailyrecord.co.uk",    # Daily Record - Scottish tabloid
-        "thescottishsun.co.uk", # Scottish Sun - Wide coverage
-        "bbc.com/sport",        # BBC Sport - Reliable for Scottish football
+        "dailyrecord.co.uk",  # Daily Record - Scottish tabloid
+        "thescottishsun.co.uk",  # Scottish Sun - Wide coverage
+        "bbc.com/sport",  # BBC Sport - Reliable for Scottish football
     ],
     "australia": [
-        "aleagues.com.au",      # A-Leagues Official - Primary source
-        "keepup.com.au",        # Keep Up - A-League specialist
-        "foxsports.com.au",     # Fox Sports Australia
+        "aleagues.com.au",  # A-Leagues Official - Primary source
+        "keepup.com.au",  # Keep Up - A-League specialist
+        "foxsports.com.au",  # Fox Sports Australia
     ],
     # ============================================
     # SEASONAL LEAGUES (for Radar support)
     # ============================================
     "china": [
-        "twitter.com",          # PROXY: @HotpotFootball aggregator
-        "dongqiudi.com",        # Dongqiudi - Chinese football portal
+        "twitter.com",  # PROXY: @HotpotFootball aggregator
+        "dongqiudi.com",  # Dongqiudi - Chinese football portal
     ],
     "japan": [
-        "nikkansports.com",     # Nikkan Sports - Major Japanese sports daily
+        "nikkansports.com",  # Nikkan Sports - Major Japanese sports daily
         "soccerdigestweb.com",  # Soccer Digest - J-League specialist
-        "football-zone.net",    # Football Zone - Japanese football news
+        "football-zone.net",  # Football Zone - Japanese football news
     ],
     "brazil_b": [
-        "lance.com.br",         # Lance! - Text ticker
-        "globoesporte.globo.com", # Globo Esporte - Major sports portal
-        "uol.com.br/esporte",   # UOL Esporte - Wide coverage
+        "lance.com.br",  # Lance! - Text ticker
+        "globoesporte.globo.com",  # Globo Esporte - Major sports portal
+        "uol.com.br/esporte",  # UOL Esporte - Wide coverage
     ],
     # ============================================
     # EGYPT - HYBRID MODE (No Odds Available)
     # ============================================
     "egypt": [
-        "yallakora.com",        # Yalla Kora - Egypt's #1 sports site
-        "filgoal.com",          # FilGoal - Major Egyptian football portal
-        "kingfut.com",          # KingFut - Egyptian football specialist
+        "yallakora.com",  # Yalla Kora - Egypt's #1 sports site
+        "filgoal.com",  # FilGoal - Major Egyptian football portal
+        "kingfut.com",  # KingFut - Egyptian football specialist
     ],
 }
 
@@ -206,7 +208,7 @@ NATIVE_KEYWORDS = {
 # Twitter handles of trusted beat writers and insider accounts
 # These are searched via site:twitter.com for breaking news
 #
-# V4.4 NOTE: Deep Research confirmed that "beat writers who leak 
+# V4.4 NOTE: Deep Research confirmed that "beat writers who leak
 # injury/lineup news 10-30 min before mainstream" don't exist publicly.
 # Real leaks come from anonymous club insiders, not journalists.
 # These handles are for OFFICIAL accounts that post quickly, not insiders.
@@ -217,58 +219,58 @@ NATIVE_KEYWORDS = {
 # Migration status: Graceful degradation active
 INSIDER_HANDLES = {
     "argentina": [
-        "@TyCSports",           # TyC Sports - Official (fast on breaking news)
-        "@ESPNArgentina",       # ESPN Argentina - Official
-        "@TNTSportsLA",         # TNT Sports Latin America
+        "@TyCSports",  # TyC Sports - Official (fast on breaking news)
+        "@ESPNArgentina",  # ESPN Argentina - Official
+        "@TNTSportsLA",  # TNT Sports Latin America
     ],
     "mexico": [
-        "@ABORICUA_MX",         # Placeholder - needs verification
-        "@FabrizioRomano",      # Fabrizio Romano (covers Liga MX transfers)
-        "@ABORICUA_MX2",        # Placeholder - needs verification
+        "@ABORICUA_MX",  # Placeholder - needs verification
+        "@FabrizioRomano",  # Fabrizio Romano (covers Liga MX transfers)
+        "@ABORICUA_MX2",  # Placeholder - needs verification
     ],
     "greece": [
-        "@SDABORICUA",          # SDNA - Greek sports news (needs verification)
-        "@GreekFooty",          # Greek Football News aggregator
-        "@NovasportsGR",        # Novasports Greece
+        "@SDABORICUA",  # SDNA - Greek sports news (needs verification)
+        "@GreekFooty",  # Greek Football News aggregator
+        "@NovasportsGR",  # Novasports Greece
     ],
     "turkey": [
-        "@Aboricua_TR",         # Placeholder - needs verification
-        "@beaboricuaTR",        # beIN Sports Turkey (needs verification)
-        "@Fanatik",             # Fanatik - Turkish sports daily
+        "@Aboricua_TR",  # Placeholder - needs verification
+        "@beaboricuaTR",  # beIN Sports Turkey (needs verification)
+        "@Fanatik",  # Fanatik - Turkish sports daily
     ],
     "scotland": [
-        "@PLZSoccer",           # PLZ Soccer - Scottish football show
-        "@ClydeSSB",            # Clyde SSB - Scottish football radio
-        "@ScotlandSky",         # Sky Sports Scotland (needs verification)
+        "@PLZSoccer",  # PLZ Soccer - Scottish football show
+        "@ClydeSSB",  # Clyde SSB - Scottish football radio
+        "@ScotlandSky",  # Sky Sports Scotland (needs verification)
     ],
     # AUSTRALIA FOCUS - OFFICIAL SOURCE STRATEGY
     "australia": [
-        "@ALeagues",            # A-Leagues Official
-        "@KeepUpFC",            # Keep Up FC - A-League specialist
-        "@FOXFootballAU",       # Fox Football Australia
+        "@ALeagues",  # A-Leagues Official
+        "@KeepUpFC",  # Keep Up FC - A-League specialist
+        "@FOXFootballAU",  # Fox Football Australia
     ],
     # SEASONAL LEAGUES
     "china": [
-        "@HotpotFootball",      # Hotpot Football - Chinese football aggregator
-        "@WildEastFootball",    # Wild East Football - CSL coverage
+        "@HotpotFootball",  # Hotpot Football - Chinese football aggregator
+        "@WildEastFootball",  # Wild East Football - CSL coverage
     ],
     "japan": [
-        "@J_League_En",         # J-League English official
-        "@dan_orlowitz",        # Dan Orlowitz - J-League journalist (verified)
+        "@J_League_En",  # J-League English official
+        "@dan_orlowitz",  # Dan Orlowitz - J-League journalist (verified)
     ],
     "brazil_b": [
-        "@geglobo",             # GE Globo official
-        "@TNTSportsBR",         # TNT Sports Brazil
+        "@geglobo",  # GE Globo official
+        "@TNTSportsBR",  # TNT Sports Brazil
     ],
     # EGYPT
     "egypt": [
-        "@FilGoalNews",         # FilGoal - Egyptian football
-        "@KingFut",             # KingFut - Egyptian football
+        "@FilGoalNews",  # FilGoal - Egyptian football
+        "@KingFut",  # KingFut - Egyptian football
     ],
     # POLAND
     "poland": [
-        "@LaczyNasPilka",       # Polish FA official
-        "@EkstraklasaSA",       # Ekstraklasa official
+        "@LaczyNasPilka",  # Polish FA official
+        "@EkstraklasaSA",  # Ekstraklasa official
     ],
 }
 
@@ -285,52 +287,51 @@ TELEGRAM_INSIDERS = {
     # ============================================
     "_global": [
         "injuries_suspensions",  # @injuries_suspensions - 100+ leagues, 5-15 min lead time
-        "allfootballss",         # @allfootballss - General news aggregator
+        "allfootballss",  # @allfootballss - General news aggregator
     ],
     # ============================================
     # LEAGUE-SPECIFIC CHANNELS
     # ============================================
     "turkey": [
-        "sporhaberleriguncel",   # Turkish sports news aggregator
-        "bgysportshaber",        # BGY Sports - Turkish football news
-        "ErsinnSezer",           # Ersin Sezer - Turkish insider
-        "besiktashaberleri",     # Besiktas news channel
-        "spor_tr",               # Turkish sports general
+        "sporhaberleriguncel",  # Turkish sports news aggregator
+        "bgysportshaber",  # BGY Sports - Turkish football news
+        "ErsinnSezer",  # Ersin Sezer - Turkish insider
+        "besiktashaberleri",  # Besiktas news channel
+        "spor_tr",  # Turkish sports general
         # V4.5: Removed "ensuperlig" - channel no longer exists (ValueError: No user has "ensuperlig" as username)
     ],
     "scotland": [
-        "GlasgowRangersUpdates", # Rangers FC updates
-        "SportMedics",           # Sports injury news
+        "GlasgowRangersUpdates",  # Rangers FC updates
+        "SportMedics",  # Sports injury news
     ],
     "greece": [
-        "thkalogiros",           # Greek football insider
+        "thkalogiros",  # Greek football insider
     ],
     "argentina": [
-        "infoboca",              # Boca Juniors insider channel
+        "infoboca",  # Boca Juniors insider channel
     ],
-    "mexico": [],                # Limited Telegram presence - WhatsApp dominant
+    "mexico": [],  # Limited Telegram presence - WhatsApp dominant
     # AUSTRALIA FOCUS
-    "australia": [],             # Limited Telegram - use A-League scraper instead
+    "australia": [],  # Limited Telegram - use A-League scraper instead
     # SEASONAL LEAGUES
-    "china": [],                 # WeChat dominant, not Telegram
-    "japan": [],                 # LINE dominant, not Telegram
-    "brazil_b": [],              # WhatsApp dominant
+    "china": [],  # WeChat dominant, not Telegram
+    "japan": [],  # LINE dominant, not Telegram
+    "brazil_b": [],  # WhatsApp dominant
     # EGYPT
-    "egypt": [],                 # To be added
+    "egypt": [],  # To be added
     # POLAND
-    "poland": [],                # Limited Telegram presence
+    "poland": [],  # Limited Telegram presence
 }
 
 
-
-def get_country_from_league(league_key: str) -> Optional[str]:
+def get_country_from_league(league_key: str) -> str | None:
     """
     Extract country identifier from league key.
     STRICT: Only matches our 9 target leagues.
-    
+
     Args:
         league_key: API league key (e.g., 'soccer_argentina_primera_division')
-        
+
     Returns:
         Country key or None
     """
@@ -347,17 +348,17 @@ def get_country_from_league(league_key: str) -> Optional[str]:
         "soccer_japan_j_league": "japan",
         "soccer_brazil_serie_b": "brazil_b",
     }
-    
+
     return LEAGUE_TO_COUNTRY.get(league_key)
 
 
-def get_sources_for_league(league_key: str) -> List[str]:
+def get_sources_for_league(league_key: str) -> list[str]:
     """
     Get local news sources for a league.
-    
+
     Args:
         league_key: API league key
-        
+
     Returns:
         List of domain names for site-dorking
     """
@@ -367,13 +368,13 @@ def get_sources_for_league(league_key: str) -> List[str]:
     return []
 
 
-def get_keywords_for_league(league_key: str) -> List[str]:
+def get_keywords_for_league(league_key: str) -> list[str]:
     """
     Get native language keywords for a league.
-    
+
     Args:
         league_key: API league key
-        
+
     Returns:
         List of native keywords for injury/lineup searches
     """
@@ -383,13 +384,13 @@ def get_keywords_for_league(league_key: str) -> List[str]:
     return ["injury", "lineup", "squad", "ruled out"]  # English fallback
 
 
-def get_insider_handles(league_key: str) -> List[str]:
+def get_insider_handles(league_key: str) -> list[str]:
     """
     Get Twitter handles of beat writers and insider accounts.
-    
+
     Args:
         league_key: API league key
-        
+
     Returns:
         List of Twitter handles (with @)
     """
@@ -399,13 +400,13 @@ def get_insider_handles(league_key: str) -> List[str]:
     return []
 
 
-def get_telegram_channels(league_key: str) -> List[str]:
+def get_telegram_channels(league_key: str) -> list[str]:
     """
     Get Telegram insider channels for a league.
-    
+
     Args:
         league_key: API league key
-        
+
     Returns:
         List of Telegram channel usernames
     """
@@ -418,42 +419,42 @@ def get_telegram_channels(league_key: str) -> List[str]:
 def get_all_telegram_channels() -> dict:
     """
     Get all configured Telegram channels grouped by country.
-    
+
     V4.4: Now includes global aggregator channels in each country's list.
     Global channels (key "_global") are appended to all country lists.
-    
+
     Returns:
         Dict of country -> list of channel usernames (including global aggregators)
     """
     # Get global channels that apply to all leagues
     global_channels = TELEGRAM_INSIDERS.get("_global", [])
-    
+
     result = {}
     for country, channels in TELEGRAM_INSIDERS.items():
         # Skip the _global key itself
         if country == "_global":
             continue
-        
+
         # Combine country-specific + global channels
         combined = list(channels) if channels else []
         combined.extend(global_channels)
-        
+
         # Only include if there are channels
         if combined:
             result[country] = combined
-    
+
     return result
 
 
-def get_telegram_channels(league_key: str) -> List[str]:
+def get_telegram_channels(league_key: str) -> list[str]:
     """
     Get Telegram channels for a specific league.
-    
+
     V4.4: Includes global aggregator channels automatically.
-    
+
     Args:
         league_key: API league key (e.g., 'soccer_turkey_super_league')
-        
+
     Returns:
         List of Telegram channel usernames
     """
@@ -461,16 +462,16 @@ def get_telegram_channels(league_key: str) -> List[str]:
     if not country:
         # Return only global channels for unknown leagues
         return TELEGRAM_INSIDERS.get("_global", [])
-    
+
     # Get country-specific channels
     country_channels = TELEGRAM_INSIDERS.get(country, [])
-    
+
     # Add global channels
     global_channels = TELEGRAM_INSIDERS.get("_global", [])
-    
+
     # Combine and deduplicate
     combined = list(country_channels) + [c for c in global_channels if c not in country_channels]
-    
+
     return combined
 
 
@@ -478,16 +479,17 @@ def get_telegram_channels(league_key: str) -> List[str]:
 # V4.3: BEAT WRITER FUNCTIONS
 # ============================================
 
-def get_beat_writers(league_key: str) -> List[BeatWriter]:
+
+def get_beat_writers(league_key: str) -> list[BeatWriter]:
     """
     V4.3: Get beat writers for a league.
-    
+
     Beat writers are searched BEFORE generic searches for priority intel.
     Results from beat writers get confidence="HIGH" and priority_boost=1.5.
-    
+
     Args:
         league_key: API league key (e.g., 'soccer_argentina_primera_division')
-        
+
     Returns:
         List of BeatWriter objects for the league
     """
@@ -497,15 +499,15 @@ def get_beat_writers(league_key: str) -> List[BeatWriter]:
     return []
 
 
-def get_beat_writer_handles(league_key: str) -> List[str]:
+def get_beat_writer_handles(league_key: str) -> list[str]:
     """
     V4.3: Get just the Twitter handles of beat writers for a league.
-    
+
     Convenience function for search queries.
-    
+
     Args:
         league_key: API league key
-        
+
     Returns:
         List of Twitter handles (with @)
     """
@@ -513,22 +515,22 @@ def get_beat_writer_handles(league_key: str) -> List[str]:
     return [w.handle for w in writers]
 
 
-def get_beat_writer_by_handle(handle: str, league_key: str = None) -> Optional[BeatWriter]:
+def get_beat_writer_by_handle(handle: str, league_key: str = None) -> BeatWriter | None:
     """
     V4.3: Look up a beat writer by their Twitter handle.
-    
+
     Args:
         handle: Twitter handle (with or without @)
         league_key: Optional league to narrow search
-        
+
     Returns:
         BeatWriter object or None if not found
     """
     # Normalize handle
-    if not handle.startswith('@'):
-        handle = f'@{handle}'
+    if not handle.startswith("@"):
+        handle = f"@{handle}"
     handle_lower = handle.lower()
-    
+
     # Search in specific league or all leagues
     if league_key:
         writers = get_beat_writers(league_key)
@@ -541,37 +543,37 @@ def get_beat_writer_by_handle(handle: str, league_key: str = None) -> Optional[B
             for writer in country_writers:
                 if writer.handle.lower() == handle_lower:
                     return writer
-    
+
     return None
 
 
 def build_site_dork_query(team_name: str, league_key: str) -> str:
     """
     Build a Serper query with site-dorking for local sources.
-    
+
     Example output:
         "River Plate lesionados site:ole.com.ar OR site:tycsports.com"
-    
+
     Args:
         team_name: Team to search for
         league_key: League key to determine sources
-        
+
     Returns:
         Formatted search query with site operators
     """
     sources = get_sources_for_league(league_key)
     keywords = get_keywords_for_league(league_key)
-    
+
     if not sources:
         # Fallback to generic search
         return f"{team_name} injury lineup news"
-    
+
     # Build site-dork string
     site_dork = " OR ".join([f"site:{domain}" for domain in sources])
-    
+
     # Use first keyword (most common injury term)
     keyword = keywords[0] if keywords else "injury"
-    
+
     return f"{team_name} {keyword} ({site_dork})"
 
 
@@ -587,12 +589,14 @@ def build_site_dork_query(team_name: str, league_key: str) -> str:
 #
 # Format: domain -> (tier, weight, source_type)
 
+
 @dataclass
 class SourceTier:
     """Credibility tier for a news source."""
-    tier: int           # 1, 2, or 3
-    weight: float       # 0.0-1.0 credibility multiplier
-    source_type: str    # "official", "newspaper", "broadcaster", "aggregator", "blog"
+
+    tier: int  # 1, 2, or 3
+    weight: float  # 0.0-1.0 credibility multiplier
+    source_type: str  # "official", "newspaper", "broadcaster", "aggregator", "blog"
 
 
 # ============================================
@@ -601,50 +605,53 @@ class SourceTier:
 # All sources in Supabase are Tier 1 (Maximum Trust)
 # This eliminates the need for manual SOURCE_TIERS_DB maintenance
 
-_TRUSTED_DOMAINS_CACHE: Set[str] = set()
-_TRUSTED_HANDLES_CACHE: Set[str] = set()
+_TRUSTED_DOMAINS_CACHE: set[str] = set()
+_TRUSTED_HANDLES_CACHE: set[str] = set()
 _WHITE_LIST_INITIALIZED = False
 
 
 def _initialize_white_list() -> None:
     """
     Initialize white-list cache from Supabase.
-    
+
     Fetches all news_sources (domains) and social_sources (handles)
     and caches them in memory for fast lookups.
     """
     global _TRUSTED_DOMAINS_CACHE, _TRUSTED_HANDLES_CACHE, _WHITE_LIST_INITIALIZED
-    
+
     if _WHITE_LIST_INITIALIZED:
         return
-    
+
     try:
         from src.database.supabase_provider import get_supabase
+
         supabase = get_supabase()
-        
+
         # Fetch all news sources (domains)
         all_news_sources = supabase.fetch_all_news_sources()
         for source in all_news_sources:
-            domain = source.get('domain', '').strip().lower()
+            domain = source.get("domain", "").strip().lower()
             if domain:
                 # Remove www. prefix for normalization
-                if domain.startswith('www.'):
+                if domain.startswith("www."):
                     domain = domain[4:]
                 _TRUSTED_DOMAINS_CACHE.add(domain)
-        
+
         # Fetch all social sources (Twitter handles)
         all_social_sources = supabase.get_social_sources()
         for source in all_social_sources:
-            handle = source.get('identifier', '').strip().lower()
+            handle = source.get("identifier", "").strip().lower()
             if handle:
                 # Ensure handle starts with @
-                if not handle.startswith('@'):
+                if not handle.startswith("@"):
                     handle = f"@{handle.lstrip('@')}"
                 _TRUSTED_HANDLES_CACHE.add(handle)
-        
+
         _WHITE_LIST_INITIALIZED = True
-        logger.info(f"✅ [WHITE-LIST] Initialized with {len(_TRUSTED_DOMAINS_CACHE)} domains and {len(_TRUSTED_HANDLES_CACHE)} handles")
-        
+        logger.info(
+            f"✅ [WHITE-LIST] Initialized with {len(_TRUSTED_DOMAINS_CACHE)} domains and {len(_TRUSTED_HANDLES_CACHE)} handles"
+        )
+
     except Exception as e:
         logger.warning(f"⚠️ [WHITE-LIST] Failed to initialize from Supabase: {e}")
         # Fall back to empty cache - will use DEFAULT_SOURCE_TIER
@@ -653,62 +660,67 @@ def _initialize_white_list() -> None:
 def get_trust_score(url_or_handle: str) -> SourceTier:
     """
     Get trust score for a source using white-list logic.
-    
+
     RULE: If source is in Supabase (news_sources or social_sources),
     it's Tier 1 (Maximum Trust). Otherwise, it's Tier 3 (Low Trust).
-    
+
     Args:
         url_or_handle: Full URL, domain, or Twitter handle of the source
-        
+
     Returns:
         SourceTier with tier, weight, and source_type
     """
     # Initialize white-list on first call
     if not _WHITE_LIST_INITIALIZED:
         _initialize_white_list()
-    
+
     if not url_or_handle:
         return DEFAULT_SOURCE_TIER
-    
+
     # Normalize input
     normalized = url_or_handle.strip().lower()
-    
+
     # Check if it's a Twitter handle
-    if normalized.startswith('@') or normalized.startswith('twitter.com/') or normalized.startswith('x.com/'):
+    if (
+        normalized.startswith("@")
+        or normalized.startswith("twitter.com/")
+        or normalized.startswith("x.com/")
+    ):
         # Extract handle
-        if normalized.startswith('@'):
+        if normalized.startswith("@"):
             handle = normalized
-        elif 'twitter.com/' in normalized:
+        elif "twitter.com/" in normalized:
             handle = f"@{normalized.split('twitter.com/')[1].split('/')[0]}"
-        elif 'x.com/' in normalized:
+        elif "x.com/" in normalized:
             handle = f"@{normalized.split('x.com/')[1].split('/')[0]}"
         else:
             handle = normalized
-        
+
         # Check white-list
         if handle in _TRUSTED_HANDLES_CACHE:
             return SourceTier(1, 1.0, "social")
         else:
             return SourceTier(3, 0.5, "social")
-    
+
     # It's a URL/domain
     # Remove protocol
     if "://" in normalized:
         normalized = normalized.split("://")[1]
-    
+
     # Remove path
     domain = normalized.split("/")[0]
-    
+
     # Remove www.
     if domain.startswith("www."):
         domain = domain[4:]
-    
+
     # Check white-list
     if domain in _TRUSTED_DOMAINS_CACHE:
         return SourceTier(1, 1.0, "official")
-    
+
     # Not in white-list - return Tier 3 (Low Trust)
     return SourceTier(3, 0.5, "unknown")
+
 
 # ============================================
 # V8.1: SOURCE TIERS DATABASE (DEPRECATED - REPLACED BY WHITE-LIST)
@@ -837,10 +849,10 @@ DEFAULT_SOURCE_TIER = SourceTier(3, 0.5, "unknown")
 def get_source_weight(url: str) -> float:
     """
     Get credibility weight (0.0-1.0) for a news source URL.
-    
+
     Args:
         url: Full URL or domain of the news source
-        
+
     Returns:
         Credibility weight between 0.0 and 1.0
     """
@@ -855,7 +867,7 @@ if __name__ == "__main__":
     print("🌍 9-LEAGUE FINAL STRATEGY - SOURCES CONFIG")
     print("=" * 60)
     print("V8.0: Reddit monitoring removed (no betting edge)")
-    
+
     test_leagues = [
         # Core leagues
         "soccer_turkey_super_league",
@@ -870,19 +882,19 @@ if __name__ == "__main__":
         "soccer_japan_j_league",
         "soccer_brazil_serie_b",
     ]
-    
+
     for league in test_leagues:
         country = get_country_from_league(league)
         sources = get_sources_for_league(league)
         keywords = get_keywords_for_league(league)
         telegram = get_telegram_channels(league)
-        
+
         print(f"\n📰 {league}")
         print(f"   Country: {country}")
         print(f"   Sources: {', '.join(sources)}")
         print(f"   Keywords: {', '.join(keywords[:3])}")
         print(f"   Telegram: {', '.join(telegram) if telegram else 'None'}")
-        
+
         # Example query
         query = build_site_dork_query("Test Team", league)
         print(f"   Example Query: {query[:60]}...")

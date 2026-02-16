@@ -9,22 +9,22 @@ V3.7: Production-ready with comprehensive system diagnostics
 - 6-hour cooldown per issue type to prevent spam
 """
 
-import os
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, List, Tuple, Any
+import os
 from dataclasses import dataclass, field
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
+import psutil
 import requests
 import requests.exceptions
-import psutil
 from sqlalchemy import text
 
 # Try to import database models, but don't fail if not available
 # (allows health monitor to work even if DB is down)
 try:
     from src.database.models import SessionLocal
+
     DB_AVAILABLE = True
 except ImportError:
     DB_AVAILABLE = False
@@ -53,16 +53,18 @@ API_TIMEOUT_SECONDS = 10
 # DATA CLASSES
 # ============================================
 
+
 @dataclass
 class HealthStats:
     """Container for health statistics."""
+
     start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     total_scans: int = 0
     total_alerts_sent: int = 0
     total_errors: int = 0
-    last_scan_time: Optional[datetime] = None
-    last_alert_time: Optional[datetime] = None
-    last_error_time: Optional[datetime] = None
+    last_scan_time: datetime | None = None
+    last_alert_time: datetime | None = None
+    last_error_time: datetime | None = None
     last_error_message: str = ""
     matches_processed: int = 0
     news_items_analyzed: int = 0
@@ -71,6 +73,7 @@ class HealthStats:
 # ============================================
 # HEALTH MONITOR CLASS
 # ============================================
+
 
 class HealthMonitor:
     """
@@ -86,11 +89,11 @@ class HealthMonitor:
 
     def __init__(self):
         self.stats = HealthStats()
-        self._last_error_alert_time: Optional[datetime] = None
-        self._last_heartbeat_time: Optional[datetime] = None
+        self._last_error_alert_time: datetime | None = None
+        self._last_heartbeat_time: datetime | None = None
         self._error_count_since_last_alert = 0
         # V3.7: Track last alert time per issue type (anti-spam)
-        self.last_alerts: Dict[str, datetime] = {}
+        self.last_alerts: dict[str, datetime] = {}
         logger.info("Health Monitor initialized")
 
     @property
@@ -185,7 +188,7 @@ class HealthMonitor:
         self._last_heartbeat_time = datetime.now(timezone.utc)
         logger.info("Heartbeat sent")
 
-    def get_heartbeat_message(self, api_quota: Optional[Dict[str, Any]] = None) -> str:
+    def get_heartbeat_message(self, api_quota: dict[str, Any] | None = None) -> str:
         """
         Generate heartbeat status message.
 
@@ -211,8 +214,8 @@ class HealthMonitor:
 
         # Add API quota if available
         if api_quota:
-            remaining = api_quota.get('remaining', 'N/A')
-            used = api_quota.get('used', 'N/A')
+            remaining = api_quota.get("remaining", "N/A")
+            used = api_quota.get("used", "N/A")
             lines.append(f"💰 API Quota: <b>{remaining}</b> remaining ({used} used)")
 
         # Add last scan time
@@ -258,7 +261,7 @@ class HealthMonitor:
 
         return "\n".join(line for line in lines if line)
 
-    def get_stats_dict(self) -> Dict[str, Any]:
+    def get_stats_dict(self) -> dict[str, Any]:
         """Get stats as dictionary for API/logging."""
         return {
             "uptime": self.uptime_str,
@@ -267,7 +270,9 @@ class HealthMonitor:
             "total_errors": self.stats.total_errors,
             "matches_processed": self.stats.matches_processed,
             "news_items_analyzed": self.stats.news_items_analyzed,
-            "last_scan": self.stats.last_scan_time.isoformat() if self.stats.last_scan_time else None,
+            "last_scan": self.stats.last_scan_time.isoformat()
+            if self.stats.last_scan_time
+            else None,
             "last_error": self.stats.last_error_message if self.stats.last_error_time else None,
         }
 
@@ -275,7 +280,7 @@ class HealthMonitor:
     # SELF-DIAGNOSIS AGENT
     # ============================================
 
-    def run_diagnostics(self) -> List[Tuple[str, str, str]]:
+    def run_diagnostics(self) -> list[tuple[str, str, str]]:
         """
         Esegue diagnostica completa del sistema.
 
@@ -300,44 +305,46 @@ class HealthMonitor:
 
         return issues
 
-    def _check_disk_usage(self) -> List[Tuple[str, str, str]]:
+    def _check_disk_usage(self) -> list[tuple[str, str, str]]:
         """Check disk usage and return issues if thresholds exceeded."""
         issues = []
         try:
-            disk = psutil.disk_usage('/')
+            disk = psutil.disk_usage("/")
             disk_percent = disk.percent
 
             if disk_percent > DISK_CRITICAL_THRESHOLD:
-                issues.append((
-                    "disk_full",
-                    SEVERITY_ERROR,
-                    f"⚠️ Disco in esaurimento: {disk_percent:.1f}% utilizzato"
-                ))
+                issues.append(
+                    (
+                        "disk_full",
+                        SEVERITY_ERROR,
+                        f"⚠️ Disco in esaurimento: {disk_percent:.1f}% utilizzato",
+                    )
+                )
                 logger.warning(f"DISK CRITICAL: {disk_percent:.1f}% used")
             elif disk_percent > DISK_WARNING_THRESHOLD:
                 logger.info(f"Disk usage: {disk_percent:.1f}%")
             else:
                 logger.debug(f"Disk usage: {disk_percent:.1f}%")
         except Exception as e:
-            issues.append((
-                "disk_check_failed",
-                SEVERITY_WARNING,
-                f"⚠️ Impossibile verificare disco: {str(e)[:100]}"
-            ))
+            issues.append(
+                (
+                    "disk_check_failed",
+                    SEVERITY_WARNING,
+                    f"⚠️ Impossibile verificare disco: {str(e)[:100]}",
+                )
+            )
             logger.error(f"Disk check failed: {e}")
 
         return issues
 
-    def _check_database(self) -> List[Tuple[str, str, str]]:
+    def _check_database(self) -> list[tuple[str, str, str]]:
         """Check database connectivity and return issues if any."""
         issues = []
 
         if not DB_AVAILABLE or SessionLocal is None:
-            issues.append((
-                "database_unavailable",
-                SEVERITY_WARNING,
-                "⚠️ Database module not available"
-            ))
+            issues.append(
+                ("database_unavailable", SEVERITY_WARNING, "⚠️ Database module not available")
+            )
             return issues
 
         try:
@@ -352,16 +359,18 @@ class HealthMonitor:
             finally:
                 db.close()
         except Exception as e:
-            issues.append((
-                "database_error",
-                SEVERITY_CRITICAL,
-                f"🚨 Database non raggiungibile: {str(e)[:100]}"
-            ))
+            issues.append(
+                (
+                    "database_error",
+                    SEVERITY_CRITICAL,
+                    f"🚨 Database non raggiungibile: {str(e)[:100]}",
+                )
+            )
             logger.error(f"DATABASE CRITICAL: {e}")
 
         return issues
 
-    def _check_odds_api(self) -> List[Tuple[str, str, str]]:
+    def _check_odds_api(self) -> list[tuple[str, str, str]]:
         """Check Odds API connectivity and return issues if any."""
         issues = []
 
@@ -376,25 +385,27 @@ class HealthMonitor:
             response = requests.get(url, timeout=API_TIMEOUT_SECONDS)
 
             if response.status_code == 401:
-                issues.append((
-                    "odds_api_auth",
-                    SEVERITY_WARNING,
-                    "⚠️ API Quote Errore: Chiave API non valida (401)"
-                ))
+                issues.append(
+                    (
+                        "odds_api_auth",
+                        SEVERITY_WARNING,
+                        "⚠️ API Quote Errore: Chiave API non valida (401)",
+                    )
+                )
                 logger.warning("Odds API: Invalid API key (401)")
             elif response.status_code == 403:
-                issues.append((
-                    "odds_api_forbidden",
-                    SEVERITY_WARNING,
-                    "⚠️ API Quote Errore: Accesso negato (403)"
-                ))
+                issues.append(
+                    (
+                        "odds_api_forbidden",
+                        SEVERITY_WARNING,
+                        "⚠️ API Quote Errore: Accesso negato (403)",
+                    )
+                )
                 logger.warning("Odds API: Forbidden (403)")
             elif response.status_code == 429:
-                issues.append((
-                    "odds_api_quota",
-                    SEVERITY_WARNING,
-                    "⚠️ API Quote Errore: Quota esaurita (429)"
-                ))
+                issues.append(
+                    ("odds_api_quota", SEVERITY_WARNING, "⚠️ API Quote Errore: Quota esaurita (429)")
+                )
                 logger.warning("Odds API: Rate limited (429)")
             elif response.status_code != 200:
                 logger.warning(f"Odds API: Unexpected status {response.status_code}")
@@ -402,25 +413,21 @@ class HealthMonitor:
                 logger.debug("Odds API connection OK")
 
         except requests.exceptions.Timeout:
-            issues.append((
-                "odds_api_timeout",
-                SEVERITY_WARNING,
-                "⚠️ API Quote Errore: Timeout connessione"
-            ))
+            issues.append(
+                ("odds_api_timeout", SEVERITY_WARNING, "⚠️ API Quote Errore: Timeout connessione")
+            )
             logger.warning("Odds API: Connection timeout")
         except requests.exceptions.ConnectionError as e:
-            issues.append((
-                "odds_api_connection",
-                SEVERITY_WARNING,
-                "⚠️ API Quote Errore: Connessione fallita"
-            ))
+            issues.append(
+                ("odds_api_connection", SEVERITY_WARNING, "⚠️ API Quote Errore: Connessione fallita")
+            )
             logger.warning(f"Odds API: Connection error - {e}")
         except Exception as e:
             logger.error(f"Odds API check failed: {e}")
 
         return issues
 
-    def report_issues(self, issues: List[Tuple[str, str, str]]) -> List[Tuple[str, str, str]]:
+    def report_issues(self, issues: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
         """
         Filtra issues già segnalati nelle ultime 6 ore e invia alert per i nuovi.
 
@@ -457,7 +464,7 @@ class HealthMonitor:
 
         return new_issues
 
-    def _send_diagnostic_alert(self, issues: List[Tuple[str, str, str]]) -> None:
+    def _send_diagnostic_alert(self, issues: list[tuple[str, str, str]]) -> None:
         """
         Invia alert diagnostico a Telegram.
 
@@ -477,7 +484,7 @@ class HealthMonitor:
                 severity_emoji = {
                     SEVERITY_CRITICAL: "🔴",
                     SEVERITY_ERROR: "🟠",
-                    SEVERITY_WARNING: "🟡"
+                    SEVERITY_WARNING: "🟡",
                 }.get(severity, "⚪")
                 lines.append(f"{severity_emoji} {message}")
 
@@ -496,7 +503,7 @@ class HealthMonitor:
 # SINGLETON INSTANCE
 # ============================================
 
-_monitor_instance: Optional[HealthMonitor] = None
+_monitor_instance: HealthMonitor | None = None
 
 
 def get_health_monitor() -> HealthMonitor:

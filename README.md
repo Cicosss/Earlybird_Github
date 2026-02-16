@@ -298,7 +298,7 @@ EarlyBird è composto da 4 processi gestiti automaticamente dal Launcher V3.7:
 | Processo | Script | Descrizione |
 |----------|--------|-------------|
 | **Pipeline Principale** | `src/main.py` | Odds + News + Analysis (ciclo ogni 120 min) |
-| **Telegram Bot** | `src/run_bot.py` | Comandi admin via Telegram |
+| **Telegram Bot** | `src/entrypoints/run_bot.py` | Comandi admin via Telegram |
 | **Telegram Monitor** | `run_telegram_monitor.py` | Scraper canali Telegram per insider intel (squad image scraping) |
 | **News Radar** | `run_news_radar.py` | Hunter autonomo 24/7 per leghe minori (autonomous news monitoring) |
 
@@ -414,11 +414,11 @@ EarlyBird opera in modalità **headless** (CLI + Telegram). Nessuna dashboard we
 python go_live.py                    # Launch everything (V3.1 Headless Launcher)
 
 # Launcher V3.7 - Process Orchestrator
-python src/launcher.py               # Direct launcher with process orchestration
+python src/entrypoints/launcher.py   # Direct launcher with process orchestration
 
 # Individual Components
 python src/main.py                   # Pipeline Principale
-python src/run_bot.py                # Telegram Bot
+python src/entrypoints/run_bot.py    # Telegram Bot
 python run_telegram_monitor.py       # Telegram Monitor
 python run_news_radar.py             # News Radar
 

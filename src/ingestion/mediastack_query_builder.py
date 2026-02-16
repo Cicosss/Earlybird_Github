@@ -5,8 +5,8 @@ Builds optimized queries for MediaStack API with batching support.
 
 Requirements: Standard library only (no new dependencies)
 """
+
 import logging
-from typing import List, Dict
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
@@ -50,14 +50,14 @@ class MediaStackQueryBuilder:
             return ""
 
         # URL-encode query for special characters
-        encoded_query = quote(cleaned_query, safe=' ')
+        encoded_query = quote(cleaned_query, safe=" ")
 
         logger.debug(f"🔍 MediaStack query built: {encoded_query[:60]}...")
 
         return encoded_query
 
     @staticmethod
-    def build_batched_query(questions: List[str]) -> str:
+    def build_batched_query(questions: list[str]) -> str:
         """
         Build a batched query combining multiple questions.
 
@@ -96,14 +96,14 @@ class MediaStackQueryBuilder:
             return cleaned_questions[0]
 
         # URL-encode
-        encoded_query = quote(combined, safe=' ')
+        encoded_query = quote(combined, safe=" ")
 
         logger.debug(f"🔍 MediaStack batched query built: {encoded_query[:60]}...")
 
         return encoded_query
 
     @staticmethod
-    def parse_batched_response(response: Dict) -> List[str]:
+    def parse_batched_response(response: dict) -> list[str]:
         """
         Parse a batched response to extract individual answers.
 
@@ -145,10 +145,26 @@ class MediaStackQueryBuilder:
 
         # Exclusion keywords (aligned with mediastack_provider.py)
         EXCLUSION_KEYWORDS = [
-            "basket", "basketball", "euroleague", "nba", "pallacanestro", "baloncesto",
-            "nfl", "american football", "touchdown", "super bowl",
-            "women", "woman", "ladies", "feminine", "femminile", "femenino",
-            "handball", "volleyball", "rugby", "futsal",
+            "basket",
+            "basketball",
+            "euroleague",
+            "nba",
+            "pallacanestro",
+            "baloncesto",
+            "nfl",
+            "american football",
+            "touchdown",
+            "super bowl",
+            "women",
+            "woman",
+            "ladies",
+            "feminine",
+            "femminile",
+            "femenino",
+            "handball",
+            "volleyball",
+            "rugby",
+            "futsal",
         ]
 
         cleaned = query
@@ -157,11 +173,12 @@ class MediaStackQueryBuilder:
         for kw in EXCLUSION_KEYWORDS:
             # Match "-keyword" or "- keyword"
             import re
-            pattern = rf'\s*-\s*{re.escape(kw)}\b'
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+
+            pattern = rf"\s*-\s*{re.escape(kw)}\b"
+            cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
 
         # Clean up multiple spaces
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
         return cleaned
 
@@ -170,10 +187,7 @@ class MediaStackQueryBuilder:
 # CLI TEST
 # ============================================
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     print("=" * 60)
     print("🔍 MEDIASTACK QUERY BUILDER TEST")
@@ -188,11 +202,7 @@ if __name__ == "__main__":
 
     # Test batched query
     print("\n📝 Testing batched query...")
-    questions = [
-        "Serie A injury",
-        "Milan Inter lineup",
-        "Juventus news"
-    ]
+    questions = ["Serie A injury", "Milan Inter lineup", "Juventus news"]
     query2 = builder.build_batched_query(questions)
     print(f"   Batched Query: {query2}")
 

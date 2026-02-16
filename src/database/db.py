@@ -5,19 +5,16 @@ Provides clean, maintainable database operations with proper session handling an
 
 Phase 1 Critical Fix: Added Unicode normalization for consistent text handling
 """
- 
+
 import logging
 import unicodedata
-from typing import List, Optional, Any
-from datetime import datetime
 from contextlib import contextmanager
-from src.database.models import (
-    init_db as init_models,
-    SessionLocal,
-    Match as MatchModel,
-    NewsLog,
-    TeamAlias
-)
+from datetime import datetime
+from typing import Any
+
+from src.database.models import Match as MatchModel
+from src.database.models import NewsLog, SessionLocal, TeamAlias
+from src.database.models import init_db as init_models
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -26,27 +23,27 @@ logger = logging.getLogger(__name__)
 def normalize_unicode(text: str) -> str:
     """
     Normalize Unicode to NFC form for consistent text handling.
-    
+
     Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
     Greek, Arabic, Chinese, Japanese, Korean, and other languages
     are handled consistently across all components.
-    
+
     Args:
         text: Input text to normalize
-        
+
     Returns:
         Normalized text in NFC form
     """
     if not text:
         return ""
-    return unicodedata.normalize('NFC', text)
+    return unicodedata.normalize("NFC", text)
 
 
 @contextmanager
 def get_db_context():
     """
     Context manager for database sessions with auto-commit/rollback and proper cleanup.
-    
+
     Yields:
         SQLAlchemy session object
     """
@@ -72,7 +69,7 @@ def init_db() -> None:
 def _ensure_alias(session, team_name: str) -> None:
     """
     Ensure a TeamAlias exists for the given team name.
-    
+
     Args:
         session: Active database session
         team_name: Name of the team to create an alias for
@@ -88,12 +85,12 @@ def _ensure_alias(session, team_name: str) -> None:
         logger.error(f"Error ensuring team alias for '{team_name}': {e}")
 
 
-def save_matches(matches_data: List[Any]) -> None:
+def save_matches(matches_data: list[Any]) -> None:
     """
     Saves a list of match objects to the database.
-    
+
     Expects objects with: id, sport_key, home_team, away_team, commence_time
-    
+
     Args:
         matches_data: List of match objects/dataclasses/dictionaries to save
     """
@@ -102,9 +99,15 @@ def save_matches(matches_data: List[Any]) -> None:
             try:
                 # Parse and normalize match time
                 if isinstance(m.commence_time, str):
-                    start_time = datetime.fromisoformat(m.commence_time.replace('Z', '+00:00')).replace(tzinfo=None)
+                    start_time = datetime.fromisoformat(
+                        m.commence_time.replace("Z", "+00:00")
+                    ).replace(tzinfo=None)
                 else:
-                    start_time = m.commence_time.replace(tzinfo=None) if m.commence_time.tzinfo else m.commence_time
+                    start_time = (
+                        m.commence_time.replace(tzinfo=None)
+                        if m.commence_time.tzinfo
+                        else m.commence_time
+                    )
 
                 # Check if match already exists
                 existing = session.query(MatchModel).filter(MatchModel.id == m.id).first()
@@ -121,10 +124,10 @@ def save_matches(matches_data: List[Any]) -> None:
                         league=m.sport_key,
                         home_team=m.home_team,
                         away_team=m.away_team,
-                        start_time=start_time
+                        start_time=start_time,
                     )
                     session.add(new_match)
-                    
+
                     # Create team aliases if they don't exist
                     _ensure_alias(session, m.home_team)
                     _ensure_alias(session, m.away_team)
@@ -135,9 +138,9 @@ def save_matches(matches_data: List[Any]) -> None:
 def save_analysis(analysis_data: Any) -> None:
     """
     Saves an analysis result to the database.
-    
+
     Expects object with: match_id, url, summary, relevance_score, category, affected_team
-    
+
     Args:
         analysis_data: Analysis result object/dataclass/dictionary
     """
@@ -149,29 +152,29 @@ def save_analysis(analysis_data: Any) -> None:
                 summary=analysis_data.summary,
                 score=analysis_data.score,
                 category=analysis_data.category,
-                affected_team=analysis_data.affected_team
+                affected_team=analysis_data.affected_team,
             )
             session.add(log)
         except Exception as e:
             logger.error(f"Error saving analysis: {e}")
 
 
-def get_upcoming_matches() -> List[MatchModel]:
+def get_upcoming_matches() -> list[MatchModel]:
     """
     Get all upcoming matches from the database.
-    
+
     Returns:
         List of MatchModel objects with compatibility attributes (sport_key, commence_time)
     """
     with get_db_context() as session:
         try:
             matches = session.query(MatchModel).all()
-            
+
             # Add compatibility attributes for older code that uses sport_key and commence_time
             for match in matches:
                 match.sport_key = match.league
                 match.commence_time = match.start_time
-                
+
             return matches
         except Exception as e:
             logger.error(f"Error getting upcoming matches: {e}")

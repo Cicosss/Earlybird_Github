@@ -129,7 +129,7 @@ This report synthesizes all findings from the Continental Strategy Feasibility A
 | Main Pipeline | [`src/main.py`](src/main.py:3843) | Fixed 6-hour cycle | ❌ NO | Smart Sleeping refactor |
 | News Radar | [`src/services/news_radar.py`](src/services/news_radar.py:191) | Off-peak optimization | ✅ YES | Add continent filtering |
 | Browser Monitor | [`src/services/browser_monitor.py`](src/services/browser_monitor.py:324) | Off-peak optimization | ✅ YES | Add continent filtering |
-| Launcher | [`src/launcher.py`](src/launcher.py:73) | Process monitoring | ❌ NO | Continent coordinator |
+| Launcher | [`src/entrypoints/launcher.py`](src/entrypoints/launcher.py:73) | Process monitoring | ❌ NO | Continent coordinator |
 | Sleep Logic | Multiple files | Scattered (65 calls) | ❌ NO | Centralized Sleep Manager |
 
 **Readiness Score:** 6/10 (MEDIUM)
@@ -239,7 +239,7 @@ This report synthesizes all findings from the Continental Strategy Feasibility A
 | Component | File | Issue | Why Centralization Needed | Proposed Solution |
 |-----------|------|-------|---------------------------|-------------------|
 | **Main Pipeline Sleep** | [`src/main.py`](src/main.py:3888) | Fixed 21600s (6h) | No timezone awareness | Centralized Sleep Manager |
-| **Launcher Health Check** | [`src/launcher.py`](src/launcher.py:393) | Fixed 5s interval | No continent coordination | Continent coordinator |
+| **Launcher Health Check** | [`src/entrypoints/launcher.py`](src/entrypoints/launcher.py:393) | Fixed 5s interval | No continent coordination | Continent coordinator |
 | **Scattered Sleep Logic** | 10+ files | 65 total sleep calls | No centralized coordination | Centralized Sleep Manager |
 
 **Impact:** MEDIUM - Inefficient resource utilization
@@ -654,7 +654,7 @@ class AlertCoordinator:
 |-----------|------|---------|--------|
 | **Sleep Manager** | `src/utils/sleep_manager.py` (NEW) | Centralized timezone-aware sleep | 2-3 days |
 | **Main Pipeline Refactor** | `src/main.py` | Use Sleep Manager, add continent param | 1-2 days |
-| **Continent Coordinator** | `src/launcher.py` | Orchestrate 3 parallel sessions | 2-3 days |
+| **Continent Coordinator** | `src/entrypoints/launcher.py` | Orchestrate 3 parallel sessions | 2-3 days |
 
 #### Implementation Details
 
@@ -723,7 +723,7 @@ def run_continuous(continent: str = "LATAM"):
 
 **3. Continent Coordinator**
 ```python
-# src/launcher.py (refactored)
+# src/entrypoints/launcher.py (refactored)
 class ContinentCoordinator:
     def __init__(self):
         self._continents = ["LATAM", "ASIA_EMEA", "EUROPE_AU"]
@@ -784,7 +784,7 @@ class ContinentCoordinator:
 | Component | File | Changes | Effort |
 |-----------|------|---------|--------|
 | **Dynamic Quota Allocation** | `src/utils/quota_manager.py` | Borrow/reclaim quota | 1-2 days |
-| **Memory Monitoring** | `src/launcher.py` | Auto-restart on OOM | 1 day |
+| **Memory Monitoring** | `src/entrypoints/launcher.py` | Auto-restart on OOM | 1 day |
 | **Browser Leak Fix** | `src/services/browser_monitor.py` | Periodic restart | 1 day |
 | **Per-Process Logging** | `src/main.py` | Continent-specific logs | 0.5 day |
 
@@ -813,7 +813,7 @@ class QuotaManager:
 
 **2. Memory Monitoring**
 ```python
-# src/launcher.py (enhanced)
+# src/entrypoints/launcher.py (enhanced)
 def monitor_memory(continent: str, pid: int):
     """Monitor process memory and restart if needed."""
     while True:
@@ -1542,7 +1542,7 @@ The Continental Strategy is a **viable long-term architecture** for EarlyBird, b
 | Main Pipeline Sleep | [`src/main.py`](src/main.py:3888) | 3888 | Fixed 21600s (6h) |
 | News Radar Scheduling | [`src/services/news_radar.py`](src/services/news_radar.py:191) | 191 | Timezone-aware |
 | Browser Monitor Scheduling | [`src/services/browser_monitor.py`](src/services/browser_monitor.py:324) | 324 | Timezone-aware |
-| Launcher Health Check | [`src/launcher.py`](src/launcher.py:393) | 393 | Fixed 5s interval |
+| Launcher Health Check | [`src/entrypoints/launcher.py`](src/entrypoints/launcher.py:393) | 393 | Fixed 5s interval |
 
 ### A.4 Sleep Logic
 
@@ -1554,9 +1554,9 @@ The Continental Strategy is a **viable long-term architecture** for EarlyBird, b
 | `src/main.py` | 3934 | `time.sleep` | Memory error retry |
 | `src/main.py` | 3956 | `time.sleep` | Connection error retry |
 | `src/main.py` | 3983 | `time.sleep` | General error retry |
-| `src/launcher.py` | 336 | `time.sleep` | Process restart backoff |
-| `src/launcher.py` | 386 | `time.sleep` | Inter-process startup delay |
-| `src/launcher.py` | 393 | `time.sleep` | Health check interval |
+| `src/entrypoints/launcher.py` | 336 | `time.sleep` | Process restart backoff |
+| `src/entrypoints/launcher.py` | 386 | `time.sleep` | Inter-process startup delay |
+| `src/entrypoints/launcher.py` | 393 | `time.sleep` | Health check interval |
 | `src/services/news_radar.py` | 999 | `asyncio.sleep` | Delay between pages |
 | `src/services/news_radar.py` | 1128 | `asyncio.sleep` | Rate limiting |
 | `src/services/news_radar.py` | 1470 | `asyncio.sleep` | Telegram rate limit |
@@ -1570,7 +1570,7 @@ The Continental Strategy is a **viable long-term architecture** for EarlyBird, b
 | `src/services/browser_monitor.py` | 1706 | `asyncio.sleep` | Scan loop error retry |
 | `src/services/browser_monitor.py` | 2073 | `asyncio.sleep` | Interval enforcement |
 | `src/services/browser_monitor.py` | 2091 | `asyncio.sleep` | Memory wait loop |
-| `src/run_bot.py` | 551 | `asyncio.sleep` | Bot heartbeat |
+| `src/entrypoints/run_bot.py` | 551 | `asyncio.sleep` | Bot heartbeat |
 
 ---
 

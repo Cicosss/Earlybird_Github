@@ -23,10 +23,10 @@ PYTHON := python3
 VENV_DIR := venv
 
 # Entry points based on actual codebase
-LAUNCHER := src/launcher.py
+LAUNCHER := src/entrypoints/launcher.py
 MAIN := src/main.py
 GO_LIVE := go_live.py
-RUN_BOT := src/run_bot.py
+RUN_BOT := src/entrypoints/run_bot.py
 RUN_NEWS_RADAR := run_news_radar.py
 RUN_TELEGRAM_MONITOR := run_telegram_monitor.py
 
@@ -73,9 +73,9 @@ COLOR_BLUE := \033[34m
 .PHONY: help test test-unit test-integration test-regression test-coverage test-continental
 .PHONY: setup setup-python setup-system install setup-telegram-auth
 .PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor
-.PHONY: check-apis check-health check-database
+.PHONY: check-apis check-startup check-health check-database
 .PHONY: clean clean-db clean-all
-.PHONY: migrate
+.PHONY: migrate lint fix format
 
 # ==============================================================================
 # Default Target
@@ -115,6 +115,7 @@ help:
 	@echo ""
 	@echo "$(COLOR_BOLD)Diagnostics Commands:$(COLOR_RESET)"
 	@echo "  make check-apis        - API Diagnostics"
+	@echo "  make check-startup      - Startup Validation (Pre-Flight Guard)"
 	@echo "  make check-health      - System health check"
 	@echo "  make check-database    - Database integrity check"
 	@echo ""
@@ -125,6 +126,11 @@ help:
 	@echo ""
 	@echo "$(COLOR_BOLD)Utility Commands:$(COLOR_RESET)"
 	@echo "  make migrate           - Run database migrations"
+	@echo ""
+	@echo "$(COLOR_BOLD)Code Quality Commands (Ruff):$(COLOR_RESET)"
+	@echo "  make lint              - Run Ruff linter to check code quality"
+	@echo "  make fix               - Run Ruff linter with --fix to auto-fix issues"
+	@echo "  make format            - Run Ruff formatter to align to Black standard"
 	@echo ""
 	@echo "$(COLOR_BOLD)Note:$(COLOR_RESET) All commands use the actual entry points from the codebase."
 
@@ -260,6 +266,10 @@ check-database: check-env
 		echo "$(COLOR_RED)Database file not found: $(DB_FILE)$(COLOR_RESET)"; \
 	fi
 
+check-startup: check-env
+	@echo "$(COLOR_GREEN)Running startup validation...$(COLOR_RESET)"
+	@PYTHONPATH=. $(PYTHON) -c "from src.utils.startup_validator import validate_startup_or_exit; validate_startup_or_exit()"
+
 # ==============================================================================
 # Cleanup Commands
 # ==============================================================================
@@ -324,6 +334,22 @@ migrate: check-env
 			fi \
 		done; \
 	fi
+
+# ==============================================================================
+# Code Quality Commands (Ruff)
+# ==============================================================================
+
+lint:
+	@echo "$(COLOR_GREEN)Running Ruff linter...$(COLOR_RESET)"
+	@ruff check .
+
+fix:
+	@echo "$(COLOR_GREEN)Running Ruff linter with --fix to auto-fix issues...$(COLOR_RESET)"
+	@ruff check --fix .
+
+format:
+	@echo "$(COLOR_GREEN)Running Ruff formatter to align to Black standard...$(COLOR_RESET)"
+	@ruff format .
 
 # ==============================================================================
 # Helper Functions

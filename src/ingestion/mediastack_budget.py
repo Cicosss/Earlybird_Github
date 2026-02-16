@@ -6,15 +6,14 @@ MediaStack is FREE unlimited tier - no throttling implemented.
 
 Requirements: Refactored to inherit from BaseBudgetManager (V1.1)
 """
+
 import logging
-from typing import Dict, Optional
 
 from config.settings import (
-    MEDIASTACK_BUDGET_ENABLED,
     MEDIASTACK_BUDGET_ALLOCATION,
 )
 
-from .base_budget_manager import BaseBudgetManager, BudgetStatus
+from .base_budget_manager import BaseBudgetManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class MediaStackBudget(BaseBudgetManager):
 
     def __init__(
         self,
-        allocations: Optional[Dict[str, int]] = None,
+        allocations: dict[str, int] | None = None,
     ):
         """
         Initialize MediaStackBudget.
@@ -76,6 +75,7 @@ class MediaStackBudget(BaseBudgetManager):
         """
         self._daily_used = 0
         from datetime import datetime, timezone
+
         self._last_reset_day = datetime.now(timezone.utc).day
         logger.info("📅 MediaStack budget: Daily reset")
 
@@ -84,7 +84,7 @@ class MediaStackBudget(BaseBudgetManager):
 # SINGLETON INSTANCE
 # ============================================
 
-_budget_instance: Optional[MediaStackBudget] = None
+_budget_instance: MediaStackBudget | None = None
 
 
 def get_mediastack_budget() -> MediaStackBudget:
@@ -104,10 +104,7 @@ def get_mediastack_budget() -> MediaStackBudget:
 # CLI TEST
 # ============================================
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     print("=" * 60)
     print("📊 MEDIASTACK BUDGET TEST")
@@ -123,7 +120,7 @@ if __name__ == "__main__":
 
     # Get status
     status = budget.get_status()
-    print(f"\n📊 Status:")
+    print("\n📊 Status:")
     print(f"   Monthly Used: {status.monthly_used}")
     print(f"   Daily Used: {status.daily_used}")
     print(f"   Component Usage: {status.component_usage}")

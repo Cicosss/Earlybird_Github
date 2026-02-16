@@ -10,16 +10,19 @@ Uses DeepSeek V3.2 with reasoning capabilities for high-quality analysis.
 
 Phase 1 Critical Fix: Added Unicode normalization and safe UTF-8 truncation
 """
- 
+
 import json
 import logging
 import os
 import re
 import threading
 import unicodedata
-from typing import Dict, Optional, List, Any
-from tenacity import retry, stop_after_attempt, wait_exponential
+from datetime import datetime, timezone
+from typing import Any
+
 from openai import OpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
+
 from src.database.models import NewsLog
 from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
@@ -29,45 +32,46 @@ from src.utils.validators import safe_get
 def normalize_unicode(text: str) -> str:
     """
     Normalize Unicode to NFC form for consistent text handling.
-    
+
     Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
     Greek, Arabic, Chinese, Japanese, Korean, and other languages
     are handled consistently across all components.
-    
+
     Args:
         text: Input text to normalize
-        
+
     Returns:
         Normalized text in NFC form
     """
     if not text:
         return ""
-    return unicodedata.normalize('NFC', text)
+    return unicodedata.normalize("NFC", text)
 
 
 def truncate_utf8(text: str, max_bytes: int) -> str:
     """
     Truncate text to fit within max_bytes UTF-8 encoded.
-    
+
     Phase 1 Critical Fix: Safe truncation that preserves UTF-8 characters
     instead of cutting at arbitrary byte positions which can corrupt
     multi-byte characters.
-    
+
     Args:
         text: Input text to truncate
         max_bytes: Maximum bytes in UTF-8 encoding
-        
+
     Returns:
         Truncated text with valid UTF-8 characters
     """
     if not text:
         return ""
-    encoded = text.encode('utf-8')
+    encoded = text.encode("utf-8")
     if len(encoded) <= max_bytes:
         return text
     # Truncate and decode, removing incomplete characters
-    truncated = encoded[:max_bytes].decode('utf-8', errors='ignore')
+    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
     return truncated
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -78,13 +82,13 @@ logger = logging.getLogger(__name__)
 # ============================================
 try:
     import orjson
-    
+
     def _json_loads(s):
         """orjson.loads wrapper - returns dict from bytes or str."""
         if isinstance(s, str):
-            s = s.encode('utf-8')
+            s = s.encode("utf-8")
         return orjson.loads(s)
-    
+
     _ORJSON_ENABLED = True
     logger.info("✅ ORJSON parser enabled for faster JSON processing")
 except ImportError:
@@ -96,10 +100,8 @@ except ImportError:
 # INTELLIGENCE ROUTER (V5.0 - Gemini/Perplexity Fallback)
 # ============================================
 try:
-    from src.services.intelligence_router import (
-        get_intelligence_router,
-        is_intelligence_available
-    )
+    from src.services.intelligence_router import get_intelligence_router, is_intelligence_available
+
     INTELLIGENCE_ROUTER_AVAILABLE = True
     logger.info("✅ Intelligence Router module loaded")
 except ImportError as e:
@@ -110,10 +112,8 @@ except ImportError as e:
 # PERPLEXITY PROVIDER (Fallback - Safe Import)
 # ============================================
 try:
-    from src.ingestion.perplexity_provider import (
-        get_perplexity_provider,
-        is_perplexity_available
-    )
+    from src.ingestion.perplexity_provider import get_perplexity_provider, is_perplexity_available
+
     PERPLEXITY_AVAILABLE = True
 except ImportError as e:
     PERPLEXITY_AVAILABLE = False
@@ -123,10 +123,8 @@ except ImportError as e:
 # INJURY IMPACT ENGINE (V5.3.1 - Context-Aware Injury Assessment)
 # ============================================
 try:
-    from src.analysis.injury_impact_engine import (
-        analyze_match_injuries,
-        InjuryDifferential
-    )
+    from src.analysis.injury_impact_engine import InjuryDifferential, analyze_match_injuries
+
     INJURY_IMPACT_AVAILABLE = True
     logger.info("✅ Injury Impact Engine loaded")
 except ImportError as e:
@@ -155,10 +153,7 @@ DEEPSEEK_V3_STABLE = MODEL_A_STANDARD  # V3 Stable (fallback)
 # Initialize OpenAI client for OpenRouter
 client = None
 if OPENROUTER_API_KEY:
-    client = OpenAI(
-        api_key=OPENROUTER_API_KEY,
-        base_url=OPENROUTER_BASE_URL
-    )
+    client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
     logger.info(f"✅ OpenRouter client initialized with model: {DEEPSEEK_V3_2}")
 else:
     logger.warning("⚠️ OpenRouter API key not configured")
@@ -591,62 +586,67 @@ Output ONLY the JSON object, nothing else.
 # DEEPSEEK API WRAPPER WITH FALLBACK
 # ============================================
 
+
 def extract_reasoning_from_response(content: str) -> tuple[str, str]:
     """
     Extract reasoning trace from DeepSeek response.
-    
+
     DeepSeek often outputs reasoning inside <think> tags.
     We extract it separately to avoid JSON parsing errors.
-    
+
     Args:
         content: Raw response content
-        
+
     Returns:
         Tuple of (clean_content, reasoning_trace)
     """
     reasoning_trace = ""
     clean_content = content
-    
+
     # Pattern 1: <think>...</think> tags
-    think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+    think_match = re.search(r"<think>(.*?)</think>", content, re.DOTALL)
     if think_match:
         reasoning_trace = think_match.group(1).strip()
-        clean_content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
-    
+        clean_content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
     # Pattern 2: [Thinking]...[/Thinking] tags
-    thinking_match = re.search(r'\[Thinking\](.*?)\[/Thinking\]', content, re.DOTALL | re.IGNORECASE)
+    thinking_match = re.search(
+        r"\[Thinking\](.*?)\[/Thinking\]", content, re.DOTALL | re.IGNORECASE
+    )
     if thinking_match:
         reasoning_trace = thinking_match.group(1).strip()
-        clean_content = re.sub(r'\[Thinking\].*?\[/Thinking\]', '', content, flags=re.DOTALL | re.IGNORECASE).strip()
-    
+        clean_content = re.sub(
+            r"\[Thinking\].*?\[/Thinking\]", "", content, flags=re.DOTALL | re.IGNORECASE
+        ).strip()
+
     return clean_content, reasoning_trace
 
 
 def extract_json_from_response(content: str) -> dict:
     """
     Extract JSON object from potentially chatty DeepSeek response.
-    
+
     DeepSeek sometimes adds explanatory text around the JSON.
     This function finds and parses only the JSON part.
-    
+
     Uses shared ai_parser.extract_json() for core parsing,
     then applies DeepSeek-specific validation.
-    
+
     Args:
         content: Response content (may contain extra text)
-        
+
     Returns:
         Parsed JSON dict with validated/defaulted fields
-        
+
     Raises:
         ValueError: If no valid JSON found
     """
     # First, clean up any reasoning tags (DeepSeek-specific)
     clean_content, _ = extract_reasoning_from_response(content)
-    
+
     # Use shared JSON extraction logic from ai_parser
     data = _extract_json_core(clean_content)
-    
+
     # Validate and apply defaults for expected fields (analyzer-specific)
     return validate_ai_response(data)
 
@@ -654,72 +654,55 @@ def extract_json_from_response(content: str) -> dict:
 def validate_ai_response(data: dict) -> dict:
     """
     Validate AI response structure and apply defaults for missing fields.
-    
+
     This prevents crashes when DeepSeek returns incomplete or malformed responses.
     Tracks invalid response frequency for monitoring (thread-safe).
-    
+
     Args:
         data: Parsed JSON dict from AI response
-        
+
     Returns:
         Validated dict with all expected fields
     """
     global _ai_invalid_response_count, _ai_total_response_count
-    
+
     invalid_fields_found = []
-    
+
     # Define expected fields with their defaults and validators
     schema = {
-        'final_verdict': {
-            'default': 'NO BET',
-            'valid_values': ['BET', 'NO BET'],
-            'type': str
+        "final_verdict": {"default": "NO BET", "valid_values": ["BET", "NO BET"], "type": str},
+        "confidence": {"default": 0, "type": int, "min": 0, "max": 100},
+        "recommended_market": {"default": "NONE", "type": str},
+        "primary_market": {"default": "NONE", "type": str},
+        "primary_driver": {
+            "default": "MATH_VALUE",
+            "valid_values": [
+                "INJURY_INTEL",
+                "SHARP_MONEY",
+                "MATH_VALUE",
+                "CONTEXT_PLAY",
+                "CONTRARIAN",
+                "NONE",
+            ],
+            "type": str,
         },
-        'confidence': {
-            'default': 0,
-            'type': int,
-            'min': 0,
-            'max': 100
-        },
-        'recommended_market': {
-            'default': 'NONE',
-            'type': str
-        },
-        'primary_market': {
-            'default': 'NONE',
-            'type': str
-        },
-        'primary_driver': {
-            'default': 'MATH_VALUE',
-            'valid_values': ['INJURY_INTEL', 'SHARP_MONEY', 'MATH_VALUE', 'CONTEXT_PLAY', 'CONTRARIAN', 'NONE'],
-            'type': str
-        },
-        'combo_suggestion': {
-            'default': None,
-            'type': (str, type(None))
-        },
-        'combo_reasoning': {
-            'default': 'Dati insufficienti per valutare combo',
-            'type': str
-        },
-        'reasoning': {
-            'default': 'Analisi non disponibile',
-            'type': str
-        }
+        "combo_suggestion": {"default": None, "type": (str, type(None))},
+        "combo_reasoning": {"default": "Dati insufficienti per valutare combo", "type": str},
+        "reasoning": {"default": "Analisi non disponibile", "type": str},
     }
-    
+
     validated = {}
-    
+
     for field, rules in schema.items():
         value = data.get(field)
-        
+
         # Apply default if missing or None (unless None is valid)
         if value is None:
-            validated[field] = rules['default']
+            validated[field] = rules["default"]
             continue
-        
+
         # Type check
-        expected_type = rules.get('type')
+        expected_type = rules.get("type")
         if expected_type and not isinstance(value, expected_type):
             try:
                 # Try to coerce to expected type
@@ -730,44 +713,46 @@ def validate_ai_response(data: dict) -> dict:
             except (ValueError, TypeError):
                 logging.warning(f"AI response field '{field}' has invalid type, using default")
                 invalid_fields_found.append(field)
-                validated[field] = rules['default']
+                validated[field] = rules["default"]
                 continue
-        
+
         # Range check for numeric fields
-        if 'min' in rules and value < rules['min']:
-            value = rules['min']
-        if 'max' in rules and value > rules['max']:
-            value = rules['max']
-        
+        if "min" in rules and value < rules["min"]:
+            value = rules["min"]
+        if "max" in rules and value > rules["max"]:
+            value = rules["max"]
+
         # Valid values check
-        if 'valid_values' in rules and value not in rules['valid_values']:
-            logging.warning(f"AI response field '{field}' has invalid value '{value}', using default")
+        if "valid_values" in rules and value not in rules["valid_values"]:
+            logging.warning(
+                f"AI response field '{field}' has invalid value '{value}', using default"
+            )
             invalid_fields_found.append(field)
-            validated[field] = rules['default']
+            validated[field] = rules["default"]
             continue
-        
+
         validated[field] = value
-    
+
     # Copy any extra fields that weren't in schema
     for key, value in data.items():
         if key not in validated:
             validated[key] = value
-    
+
     # Track and alert on frequent invalid responses (thread-safe)
     with _ai_stats_lock:
         _ai_total_response_count += 1
         if invalid_fields_found:
             _ai_invalid_response_count += 1
-            
+
             # Alert if error rate is high (>20% of last 50 responses)
             if _ai_total_response_count >= 10:
                 error_rate = _ai_invalid_response_count / _ai_total_response_count
                 if error_rate > 0.2:
                     logging.error(
                         f"🚨 AI response quality degraded: {_ai_invalid_response_count}/{_ai_total_response_count} "
-                        f"({error_rate*100:.1f}%) responses have invalid fields"
+                        f"({error_rate * 100:.1f}%) responses have invalid fields"
                     )
-    
+
     return validated
 
 
@@ -783,9 +768,9 @@ def get_ai_response_stats() -> dict:
         total = _ai_total_response_count
         invalid = _ai_invalid_response_count
     return {
-        'total_responses': total,
-        'invalid_responses': invalid,
-        'error_rate_percent': round((invalid / total * 100) if total > 0 else 0, 1)
+        "total_responses": total,
+        "invalid_responses": invalid,
+        "error_rate_percent": round((invalid / total * 100) if total > 0 else 0, 1),
     }
 
 
@@ -797,52 +782,58 @@ def reset_ai_response_stats() -> None:
         _ai_total_response_count = 0
 
 
-def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reasoner: bool = True, timeout: int = 60, max_retries: int = 3) -> tuple[str, str]:
+def call_deepseek(
+    messages: list[dict],
+    include_reasoning: bool = True,
+    use_reasoner: bool = True,
+    timeout: int = 60,
+    max_retries: int = 3,
+) -> tuple[str, str]:
     """
     Call DeepSeek via OpenRouter with dual-model support.
-    
+
     V6.2: Uses Model B (Reasoner) for triangulation by default,
     falls back to Model A (Standard) if Model B fails.
-    
+
     V6.3 FIX: Added timeout parameter, empty response validation, and retry logic with exponential backoff.
     Prevents excessive wait times (172.2s) and handles empty responses gracefully.
-    
+
     V6.4 FIX (2026-02-14): Enhanced empty response handling with:
     - Increased default max_retries from 2 to 3 (4 total attempts)
     - Added jitter to backoff to prevent thundering herd
     - Enhanced logging with raw response details for debugging
     - Faster fallback to Model A on repeated empty responses
-    
+
     Args:
         messages: List of message dicts (role, content)
         include_reasoning: Whether to request reasoning trace
         use_reasoner: Whether to use Model B (True) or Model A (False)
         timeout: Maximum time to wait for API response in seconds (default: 60)
         max_retries: Maximum number of retries for empty responses (default: 3)
-        
+
     Returns:
         Tuple of (response_content, reasoning_trace)
-        
+
     Raises:
         Exception: If all models fail after retries
     """
-    import time
     import random
-    
+    import time
+
     if not client:
         raise ValueError("OpenRouter client not initialized. Set OPENROUTER_API_KEY.")
-    
+
     # Validate messages payload
     if not messages or not isinstance(messages, list):
         raise ValueError("Payload messaggi non valido per DeepSeek")
-    
+
     for msg in messages:
-        if not isinstance(msg, dict) or 'role' not in msg or 'content' not in msg:
+        if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
             raise ValueError("Formato messaggio non valido: richiesti 'role' e 'content'")
         # Ensure content is string
-        if not isinstance(msg.get('content'), str):
-            msg['content'] = str(msg.get('content', ''))
-    
+        if not isinstance(msg.get("content"), str):
+            msg["content"] = str(msg.get("content", ""))
+
     # V6.2: Select model based on use_reasoner parameter
     if use_reasoner:
         models_to_try = [MODEL_B_REASONER, MODEL_A_STANDARD]
@@ -850,11 +841,11 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
     else:
         models_to_try = [MODEL_A_STANDARD]
         model_type = "Standard"
-    
+
     last_error = None
     AI_SLOW_THRESHOLD = 45  # seconds
     empty_response_count = 0  # Track consecutive empty responses for faster fallback
-    
+
     for model_id in models_to_try:
         retry_count = 0
         empty_response_count = 0  # Reset for each model
@@ -862,16 +853,16 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
             try:
                 # V6.2: Log which model is being used
                 if model_id == MODEL_B_REASONER:
-                    logging.info(f"🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...")
+                    logging.info("🧠 [DEEPSEEK] Using Model B (Reasoner) for triangulation...")
                 else:
-                    logging.info(f"🧠 [DEEPSEEK] Using Model A (Standard)...")
+                    logging.info("🧠 [DEEPSEEK] Using Model A (Standard)...")
                 start_time = time.time()
-                
+
                 # Build extra_body for reasoning
                 extra_body = {}
                 if include_reasoning:
                     extra_body["include_reasoning"] = True
-                
+
                 # V6.3 FIX: Add timeout parameter to prevent excessive wait times
                 response = client.chat.completions.create(
                     model=model_id,
@@ -879,102 +870,116 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
                     temperature=0.3,  # Lower for more consistent JSON
                     max_tokens=1000,
                     extra_body=extra_body if extra_body else None,
-                    timeout=timeout  # V6.3 FIX: Enforce timeout to prevent 172.2s waits
+                    timeout=timeout,  # V6.3 FIX: Enforce timeout to prevent 172.2s waits
                 )
-                
+
                 # Calculate and log latency
                 latency = time.time() - start_time
                 if latency > AI_SLOW_THRESHOLD:
-                    logging.warning(f"⚠️ AI Risposta Lenta: {model_id} ha impiegato {latency:.1f}s (soglia: {AI_SLOW_THRESHOLD}s)")
+                    logging.warning(
+                        f"⚠️ AI Risposta Lenta: {model_id} ha impiegato {latency:.1f}s (soglia: {AI_SLOW_THRESHOLD}s)"
+                    )
                 else:
                     logging.info(f"⏱️ AI latenza: {latency:.1f}s")
-                
+
                 content = response.choices[0].message.content
-                
+
                 # V6.4 FIX: Enhanced empty response validation with detailed logging
                 if not content or not content.strip():
                     empty_response_count += 1
-                    logging.warning(f"⚠️ {model_id} returned empty response (attempt {retry_count + 1}/{max_retries + 1}, consecutive empties: {empty_response_count})")
-                    
+                    logging.warning(
+                        f"⚠️ {model_id} returned empty response (attempt {retry_count + 1}/{max_retries + 1}, consecutive empties: {empty_response_count})"
+                    )
+
                     # V6.4 FIX: Log raw response details for debugging
-                    if hasattr(response, 'choices') and response.choices:
+                    if hasattr(response, "choices") and response.choices:
                         try:
                             raw_content = response.choices[0].message.content
-                            logging.debug(f"🔍 [DEBUG] Raw response content: '{raw_content}' (len={len(raw_content) if raw_content else 0})")
+                            logging.debug(
+                                f"🔍 [DEBUG] Raw response content: '{raw_content}' (len={len(raw_content) if raw_content else 0})"
+                            )
                         except Exception as debug_e:
                             logging.debug(f"🔍 [DEBUG] Could not extract raw response: {debug_e}")
-                    
+
                     # V6.4 FIX: Faster fallback to Model A if Model B has 2+ consecutive empty responses
                     if model_id == MODEL_B_REASONER and empty_response_count >= 2:
-                        logging.warning(f"⚠️ Model B has {empty_response_count} consecutive empty responses, switching to Model A...")
+                        logging.warning(
+                            f"⚠️ Model B has {empty_response_count} consecutive empty responses, switching to Model A..."
+                        )
                         break
-                    
+
                     if retry_count < max_retries:
                         # V6.4 FIX: Exponential backoff with jitter to prevent thundering herd
-                        base_backoff = 2 ** retry_count  # 1s, 2s, 4s, etc.
+                        base_backoff = 2**retry_count  # 1s, 2s, 4s, etc.
                         jitter = random.uniform(0, 0.5)  # Add 0-0.5s random jitter
                         backoff_time = base_backoff + jitter
-                        logging.warning(f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter...")
+                        logging.warning(
+                            f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter..."
+                        )
                         time.sleep(backoff_time)
                         retry_count += 1
                         continue
                     else:
-                        last_error = ValueError(f"Empty response from AI after {max_retries + 1} attempts")
-                        logging.error(f"❌ {model_id} failed: Empty response after {max_retries + 1} attempts")
+                        last_error = ValueError(
+                            f"Empty response from AI after {max_retries + 1} attempts"
+                        )
+                        logging.error(
+                            f"❌ {model_id} failed: Empty response after {max_retries + 1} attempts"
+                        )
                         break
-                
+
                 # Extract reasoning if present
                 clean_content, reasoning_trace = extract_reasoning_from_response(content)
-                
+
                 logging.info(f"✅ {model_id} risposta ricevuta con successo")
                 if reasoning_trace:
                     logging.debug(f"🧠 Reasoning trace: {reasoning_trace[:200]}...")
-                
+
                 return clean_content, reasoning_trace
-                
+
             except json.JSONDecodeError as e:
                 logging.error(f"❌ {model_id} risposta JSON non valida: {e}")
                 last_error = e
                 break
-                
+
             except TimeoutError as e:
                 logging.error(f"❌ {model_id} timeout after {timeout}s: {e}")
                 last_error = e
                 if retry_count < max_retries:
-                    backoff_time = 2 ** retry_count
+                    backoff_time = 2**retry_count
                     logging.warning(f"⏳ Retrying in {backoff_time}s after timeout...")
                     time.sleep(backoff_time)
                     retry_count += 1
                     continue
                 break
-                
+
             except Exception as e:
                 error_str = str(e)
                 logging.warning(f"⚠️ {model_id} fallito: {error_str[:100]}")
                 last_error = e
-                
+
                 # Check if it's a 404 (model not found) - try next model
                 if "404" in error_str or "not found" in error_str.lower():
                     logging.info(f"🔄 Modello {model_id} non disponibile, provo fallback...")
                     break
-                
+
                 # Rate limit - wait and retry
                 if "429" in error_str or "rate" in error_str.lower():
-                    logging.warning(f"⚠️ OpenRouter rate limit. Attesa 5s...")
+                    logging.warning("⚠️ OpenRouter rate limit. Attesa 5s...")
                     time.sleep(5)
                     retry_count += 1
                     if retry_count <= max_retries:
                         continue
                     break
-                
+
                 # Server errors - try fallback
                 if "502" in error_str or "503" in error_str or "504" in error_str:
-                    logging.warning(f"⚠️ OpenRouter server error, provo fallback...")
+                    logging.warning("⚠️ OpenRouter server error, provo fallback...")
                     break
-                
+
                 # For other errors, also try fallback
                 break
-    
+
     # All models failed
     raise Exception(f"Tutti i modelli DeepSeek falliti. Ultimo errore: {last_error}")
 
@@ -983,123 +988,125 @@ def call_deepseek(messages: List[Dict], include_reasoning: bool = True, use_reas
 # HELPER FUNCTIONS
 # ============================================
 
+
 def detect_cross_source_convergence(
-    snippet_data: Dict,
-    twitter_intel: str = "No Twitter intel available"
-) -> tuple[bool, Optional[Dict[str, Any]]]:
+    snippet_data: dict, twitter_intel: str = "No Twitter intel available"
+) -> tuple[bool, dict[str, Any] | None]:
     """
     V9.5: Cross-Source Convergence Detection
-    
+
     Detects when the same signal is confirmed by both Brave (Web) and Nitter (Social) sources.
-    
+
     Signal matching criteria:
     - Signal type must match exactly (e.g., "Injury", "B-Team", "Lineup Change")
     - Team/Player reference must match
     - Time window: signals within 24 hours of each other
     - Confidence threshold: Both sources must have confidence > 0.6
-    
+
     Args:
         snippet_data: Dictionary containing web source signal metadata
         twitter_intel: Twitter intel string from Nitter/Social scraper
-        
+
     Returns:
         Tuple of (is_convergent, convergence_sources_dict)
         - is_convergent: True if convergence criteria met
         - convergence_sources_dict: Dict with web and social signal details if convergent
     """
-    from datetime import datetime, timedelta, timezone
-    
+    from datetime import datetime
+
     is_convergent = False
     convergence_sources = None
-    
+
     try:
         # Extract web source signal info from snippet_data
-        web_source = snippet_data.get('source', 'web')
-        web_snippet = snippet_data.get('snippet', '')
-        web_team = snippet_data.get('team', '')
-        web_confidence = snippet_data.get('source_confidence', 0.7)
-        web_timestamp = snippet_data.get('timestamp')
-        
+        web_source = snippet_data.get("source", "web")
+        web_snippet = snippet_data.get("snippet", "")
+        web_team = snippet_data.get("team", "")
+        web_confidence = snippet_data.get("source_confidence", 0.7)
+        web_timestamp = snippet_data.get("timestamp")
+
         # Normalize signal type from web snippet
         web_signal_type = _normalize_signal_type(web_snippet)
-        
+
         # Check if we have valid web signal with sufficient confidence
         if not web_signal_type or web_confidence < 0.6:
             return False, None
-        
+
         # Parse twitter intel for social signals
         social_signals = _parse_twitter_intel(twitter_intel)
-        
+
         if not social_signals:
             return False, None
-        
+
         # Check for convergence with social signals
         for social_signal in social_signals:
-            social_signal_type = social_signal.get('type', '')
-            social_team = social_signal.get('team', '')
-            social_confidence = social_signal.get('confidence', 0.0)
-            social_timestamp = social_signal.get('timestamp')
-            
+            social_signal_type = social_signal.get("type", "")
+            social_team = social_signal.get("team", "")
+            social_confidence = social_signal.get("confidence", 0.0)
+            social_timestamp = social_signal.get("timestamp")
+
             # Signal type must match exactly
             if web_signal_type != social_signal_type:
                 continue
-            
+
             # Team must match (case-insensitive)
             if not web_team or not social_team:
                 continue
             if web_team.lower() != social_team.lower():
                 continue
-            
+
             # Confidence threshold: Both sources must have confidence > 0.6
             if web_confidence < 0.6 or social_confidence < 0.6:
                 continue
-            
+
             # Time window: signals within 24 hours of each other
             time_diff = None
             if web_timestamp and social_timestamp:
                 try:
                     # Parse timestamps
                     if isinstance(web_timestamp, str):
-                        web_time = datetime.fromisoformat(web_timestamp.replace('Z', '+00:00'))
+                        web_time = datetime.fromisoformat(web_timestamp.replace("Z", "+00:00"))
                     else:
                         web_time = web_timestamp
-                    
+
                     if isinstance(social_timestamp, str):
-                        social_time = datetime.fromisoformat(social_timestamp.replace('Z', '+00:00'))
+                        social_time = datetime.fromisoformat(
+                            social_timestamp.replace("Z", "+00:00")
+                        )
                     else:
                         social_time = social_timestamp
-                    
+
                     # Calculate time difference in hours
                     time_diff = abs((web_time - social_time).total_seconds() / 3600)
-                    
+
                     if time_diff > 24:
                         continue  # Outside 24-hour window
-                        
+
                 except (ValueError, TypeError) as e:
                     logging.debug(f"Timestamp parsing failed for convergence check: {e}")
                     continue
-            
+
             # All criteria met - convergence detected!
             is_convergent = True
             convergence_sources = {
-                'web': {
-                    'type': web_signal_type,
-                    'confidence': web_confidence,
-                    'team': web_team,
-                    'source': web_source,
-                    'timestamp': web_timestamp.isoformat() if web_timestamp else None
+                "web": {
+                    "type": web_signal_type,
+                    "confidence": web_confidence,
+                    "team": web_team,
+                    "source": web_source,
+                    "timestamp": web_timestamp.isoformat() if web_timestamp else None,
                 },
-                'social': {
-                    'type': social_signal_type,
-                    'confidence': social_confidence,
-                    'team': social_team,
-                    'source': 'nitter',
-                    'timestamp': social_timestamp.isoformat() if social_timestamp else None,
-                    'handle': social_signal.get('handle', '')
+                "social": {
+                    "type": social_signal_type,
+                    "confidence": social_confidence,
+                    "team": social_team,
+                    "source": "nitter",
+                    "timestamp": social_timestamp.isoformat() if social_timestamp else None,
+                    "handle": social_signal.get("handle", ""),
                 },
-                'time_diff_hours': time_diff
+                "time_diff_hours": time_diff,
             }
-            
+
             # Log convergence detection
             logging.info(
                 f"🔴 CROSS-SOURCE CONVERGENCE DETECTED: {web_signal_type} | "
@@ -1107,124 +1114,160 @@ def detect_cross_source_convergence(
                 f"Web Confidence: {web_confidence:.2f} | Social Confidence: {social_confidence:.2f} | "
                 f"Time Diff: {time_diff:.1f}h"
             )
-            
+
             break  # Only need one matching social signal for convergence
-            
+
     except Exception as e:
         logging.warning(f"⚠️ Convergence detection failed: {e}")
-    
+
     return is_convergent, convergence_sources
 
 
 def _normalize_signal_type(text: str) -> str:
     """
     Normalize signal type from text for convergence matching.
-    
+
     Maps various text patterns to standard signal types:
     - Injury-related: "Injury", "Injured", "Out", "Missing"
     - B-Team: "B-Team", "Rotation", "Turnover", "Reserves"
     - Lineup Change: "Lineup", "Starting XI", "Formation"
     - Return: "Returns", "Back", "Recovered", "Fit"
-    
+
     Args:
         text: Text to analyze for signal type
-        
+
     Returns:
         Normalized signal type string or empty string if no match
     """
     if not text:
         return ""
-    
+
     text_lower = text.lower()
-    
+
     # Signal type patterns
     signal_patterns = {
-        'Injury': [
-            'injury', 'injured', 'lesão', 'sakat', 'kontuzja', 'verletzung',
-            'out for', 'ruled out', 'sidelined', 'unavailable'
+        "Injury": [
+            "injury",
+            "injured",
+            "lesão",
+            "sakat",
+            "kontuzja",
+            "verletzung",
+            "out for",
+            "ruled out",
+            "sidelined",
+            "unavailable",
         ],
-        'B-Team': [
-            'b-team', 'b team', 'rotation', 'turnover', 'reserves', 'yedek',
-            'squad rotation', 'rotazione', 'rotação', 'rotación', 'u19', 'u21'
+        "B-Team": [
+            "b-team",
+            "b team",
+            "rotation",
+            "turnover",
+            "reserves",
+            "yedek",
+            "squad rotation",
+            "rotazione",
+            "rotação",
+            "rotación",
+            "u19",
+            "u21",
         ],
-        'Lineup Change': [
-            'lineup', 'starting xi', 'starting eleven', 'formation', 'titolare',
-            'titular', 'starting', 'formazione', 'alineación'
+        "Lineup Change": [
+            "lineup",
+            "starting xi",
+            "starting eleven",
+            "formation",
+            "titolare",
+            "titular",
+            "starting",
+            "formazione",
+            "alineación",
         ],
-        'Return': [
-            'returns', 'back in squad', 'back from injury', 'recovered', 'fit again',
-            'rientra', 'torna disponibile', 'recuperado', 'habilitado'
-        ]
+        "Return": [
+            "returns",
+            "back in squad",
+            "back from injury",
+            "recovered",
+            "fit again",
+            "rientra",
+            "torna disponibile",
+            "recuperado",
+            "habilitado",
+        ],
     }
-    
+
     for signal_type, patterns in signal_patterns.items():
         for pattern in patterns:
             if pattern in text_lower:
                 return signal_type
-    
+
     return ""
 
 
-def _parse_twitter_intel(twitter_intel: str) -> List[Dict[str, Any]]:
+def _parse_twitter_intel(twitter_intel: str) -> list[dict[str, Any]]:
     """
     Parse Twitter intel string to extract social signals.
-    
+
     Args:
         twitter_intel: Formatted Twitter intel string
-        
+
     Returns:
         List of signal dictionaries with type, team, confidence, timestamp, handle
     """
     signals = []
-    
+
     if not twitter_intel or twitter_intel == "No Twitter intel available":
         return signals
-    
+
     try:
         # Try to extract structured data from twitter_intel
         # Format example: "🐦 @handle: Player X injured (confidence: 0.8)"
-        lines = twitter_intel.split('\n')
-        
+        lines = twitter_intel.split("\n")
+
         for line in lines:
-            if '🐦' in line or '@' in line:
+            if "🐦" in line or "@" in line:
                 # Extract handle
-                handle_match = re.search(r'@(\w+)', line)
-                handle = handle_match.group(1) if handle_match else ''
-                
+                handle_match = re.search(r"@(\w+)", line)
+                handle = handle_match.group(1) if handle_match else ""
+
                 # Extract signal type
                 signal_type = _normalize_signal_type(line)
-                
+
                 # Extract team (from context or line)
-                team_match = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)', line)
-                team = team_match.group(1) if team_match else ''
-                
+                team_match = re.search(r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)", line)
+                team = team_match.group(1) if team_match else ""
+
                 # Extract confidence if present
-                conf_match = re.search(r'confidence[:\s]*([0-9.]+)', line, re.IGNORECASE)
+                conf_match = re.search(r"confidence[:\s]*([0-9.]+)", line, re.IGNORECASE)
                 confidence = float(conf_match.group(1)) if conf_match else 0.75
-                
+
                 if signal_type and team:
-                    signals.append({
-                        'type': signal_type,
-                        'team': team,
-                        'confidence': confidence,
-                        'handle': handle,
-                        'timestamp': datetime.now(timezone.utc)  # Use current time if not specified
-                    })
+                    signals.append(
+                        {
+                            "type": signal_type,
+                            "team": team,
+                            "confidence": confidence,
+                            "handle": handle,
+                            "timestamp": datetime.now(
+                                timezone.utc
+                            ),  # Use current time if not specified
+                        }
+                    )
     except Exception as e:
         logging.debug(f"Twitter intel parsing failed: {e}")
-    
+
     return signals
 
 
 def get_match_attr(match, attr: str, default=None):
     """
     Robust match attribute accessor - handles both SQLAlchemy Object and Dictionary.
-    
+
     Args:
         match: Either a SQLAlchemy model instance or a dictionary
         attr: Attribute/key name to access
         default: Default value if attribute not found
-        
+
     Returns:
         The attribute value or default
     """
@@ -1243,32 +1286,32 @@ def get_match_attr(match, attr: str, default=None):
 def safe_injuries_list(fotmob_data) -> list:
     """
     Safely extract injuries list from FotMob data with type validation.
-    
+
     Args:
         fotmob_data: FotMob response data (dict or None)
-        
+
     Returns:
         List of injury dictionaries, empty list if invalid
     """
     if not fotmob_data or not isinstance(fotmob_data, dict):
         return []
-    
-    injuries_list = fotmob_data.get('injuries') or []
+
+    injuries_list = fotmob_data.get("injuries") or []
     if not isinstance(injuries_list, list):
         injuries_list = []
-    
+
     # Validate each injury entry - name must be a non-empty string
     validated = []
     for p in injuries_list:
         if isinstance(p, dict):
-            name = p.get('name')
+            name = p.get("name")
             if isinstance(name, str) and name.strip():
                 validated.append(p)
-    
+
     return validated
 
 
-def extract_player_names(text: str) -> List[str]:
+def extract_player_names(text: str) -> list[str]:
     """
     Extract potential player names from news text.
     Uses simple heuristics: capitalized words (2-4 words) that look like names.
@@ -1276,78 +1319,108 @@ def extract_player_names(text: str) -> List[str]:
     """
     if not text:
         return []
-    
+
     # Unicode-aware pattern for player names
     # Matches: uppercase letter followed by lowercase letters (including accented)
     # Covers: Latin, Latin Extended-A/B, Turkish, Nordic, etc.
     # Using character class with common football name characters
-    upper_chars = r'A-ZÀ-ÖØ-ÞĀ-ŐŒ-ŽǍ-ǚȀ-ȳḀ-ỹÇĞİŞ'
-    lower_chars = r'a-zà-öø-ÿā-őœ-žǎ-ǜȁ-ȳḁ-ỹçğışñ'
-    
-    pattern = rf'\b([{upper_chars}][{lower_chars}]+(?:\s+[{upper_chars}][{lower_chars}]+){{1,3}})\b'
-    
+    upper_chars = r"A-ZÀ-ÖØ-ÞĀ-ŐŒ-ŽǍ-ǚȀ-ȳḀ-ỹÇĞİŞ"
+    lower_chars = r"a-zà-öø-ÿā-őœ-žǎ-ǜȁ-ȳḁ-ỹçğışñ"
+
+    pattern = rf"\b([{upper_chars}][{lower_chars}]+(?:\s+[{upper_chars}][{lower_chars}]+){{1,3}})\b"
+
     exclude_words = {
-        'The', 'In', 'On', 'At', 'To', 'For', 'With', 'By', 'From',
-        'Il', 'La', 'Le', 'Di', 'Da', 'Per', 'Con',
-        'O', 'A', 'Os', 'As', 'Do', 'Da', 'No', 'Na',
-        'Ve', 'Ile', 'Bir', 'Bu'
+        "The",
+        "In",
+        "On",
+        "At",
+        "To",
+        "For",
+        "With",
+        "By",
+        "From",
+        "Il",
+        "La",
+        "Le",
+        "Di",
+        "Da",
+        "Per",
+        "Con",
+        "O",
+        "A",
+        "Os",
+        "As",
+        "Do",
+        "No",
+        "Na",
+        "Ve",
+        "Ile",
+        "Bir",
+        "Bu",
     }
-    
+
     matches = re.findall(pattern, text)
-    
+
     player_names = []
     for match in matches:
         words = match.split()
         if len(words) >= 2 and words[0] not in exclude_words:
             player_names.append(match)
-    
+
     seen = set()
     unique_names = []
     for name in player_names:
         if name not in seen:
             seen.add(name)
             unique_names.append(name)
-    
+
     return unique_names[:5]
 
 
-def enrich_with_player_data(news_snippet: str, team_name: str) -> str:
+def enrich_with_player_data(news_snippet: str, team_name: str = None, team_id: int = None) -> str:
     """
     Extract player names from news and check their status via FotMob.
+
+    NEW APPROACH (V2): Supports team_id for team+season queries.
     """
     provider = get_data_provider()
     player_names = extract_player_names(news_snippet)
-    
+
     if not player_names:
         return "No player names detected in news snippet."
-    
+
     logging.info(f"🔍 Extracted {len(player_names)} potential player names: {player_names}")
-    
+
     results = []
     key_players_found = []
-    
+
     for player_name in player_names:
         try:
-            status = provider.check_player_status(player_name, team_name)
-            
-            if status['found']:
-                if status['is_key']:
+            # NEW APPROACH: Use team_id if provided
+            if team_id is not None:
+                status = provider.check_player_status(player_name, team_id=team_id)
+            else:
+                # Fallback to old behavior (team_name only)
+                status = provider.check_player_status(player_name, team_name=team_name)
+
+            if status["found"]:
+                if status["is_key"]:
                     key_players_found.append(player_name)
                     results.append(f"⭐ {player_name}: KEY PLAYER - {status['stats']}")
                 else:
                     results.append(f"📋 {player_name}: Regular player - {status['stats']}")
             else:
                 results.append(f"❓ {player_name}: Not found in FotMob")
-                
+
         except Exception as e:
             logging.error(f"Error checking player {player_name}: {e}")
             results.append(f"⚠️ {player_name}: Error checking status")
-    
+
     if key_players_found:
         summary = f"🚨 ALERT: {len(key_players_found)} KEY PLAYER(S) mentioned: {', '.join(key_players_found)}\n\n"
     else:
         summary = "ℹ️ No key players identified in this news.\n\n"
-    
+
     summary += "\n".join(results)
     return summary
 
@@ -1356,22 +1429,62 @@ def enrich_with_player_data(news_snippet: str, team_name: str) -> str:
 # MAIN ANALYSIS FUNCTIONS
 # ============================================
 
+
+def _format_team_stats(stats: dict) -> str:
+    """
+    Format team statistics dict into a readable string.
+
+    Args:
+        stats: Dictionary containing team statistics
+
+    Returns:
+        Formatted string representation of stats
+    """
+    if not stats or not isinstance(stats, dict):
+        return "No stats available"
+
+    parts = []
+    for key, value in stats.items():
+        if value is not None and value != "":
+            # Format key for display
+            display_key = key.replace("_", " ").title()
+            parts.append(f"{display_key}: {value}")
+
+    return " | ".join(parts) if parts else "No stats available"
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
 def analyze_with_triangulation(
-    news_snippet: str,
-    market_status: str,
-    official_data: str,
-    snippet_data: Dict,
+    # Legacy parameters (for backward compatibility)
+    news_snippet: str | None = None,
+    market_status: str | None = None,
+    official_data: str | None = None,
+    snippet_data: dict | None = None,
     team_stats: str = "No stats available",
     tactical_context: str = "No tactical data available",
     investigation_status: str = "Standard Analysis",
-    twitter_intel: str = "No Twitter intel available"
-) -> Optional[NewsLog]:
+    twitter_intel: str = "No Twitter intel available",
+    # New match-level parameters (primary interface)
+    match: Any = None,
+    home_context: dict | None = None,
+    away_context: dict | None = None,
+    home_stats: dict | None = None,
+    away_stats: dict | None = None,
+    news_articles: list | None = None,
+    twitter_intel_for_ai: str | None = None,
+    fatigue_differential: Any = None,
+    injury_impact_home: Any = None,
+    injury_impact_away: Any = None,
+    biscotto_result: dict | None = None,
+    market_intel: Any = None,
+    referee_info: Any = None,
+) -> NewsLog | None:
     """
     DeepSeek V3.2 Triangulation Analysis (INVESTIGATOR MODE)
     Correlates 6 data sources: News + Market + Official FotMob Data + Team Stats + Tactical Context + Twitter Intel
-    
+
     Args:
+        # Legacy parameters (for backward compatibility with snippet-level analysis)
         news_snippet: The news text from Serper
         market_status: e.g., "Odds dropped 12% (1.72 → 1.51)"
         official_data: e.g., "FotMob confirms: Top Scorer injured"
@@ -1380,86 +1493,237 @@ def analyze_with_triangulation(
         tactical_context: Tactical insights (Fortress, Travel Sick, Leaky Defense)
         investigation_status: "Full Data Gathered" or "Standard Analysis"
         twitter_intel: Formatted Twitter insider intel from TweetRelevanceFilter
-        
+
+        # New match-level parameters (primary interface for analysis_engine.py)
+        match: Match object from database
+        home_context: Home team context dict (injuries, form, etc.)
+        away_context: Away team context dict (injuries, form, etc.)
+        home_stats: Home team statistics dict
+        away_stats: Away team statistics dict
+        news_articles: List of news article dicts
+        twitter_intel_for_ai: Formatted Twitter intel for AI consumption
+        fatigue_differential: Fatigue analysis result
+        injury_impact_home: Home team injury impact analysis
+        injury_impact_away: Away team injury impact analysis
+        biscotto_result: Biscotto detection result
+        market_intel: Market intelligence analysis
+        referee_info: Referee information
+
     Returns:
         NewsLog with verdict, confidence, reasoning, and recommended_market
     """
+    # ============================================
+    # MATCH-LEVEL DATA TRANSFORMATION (V10.0)
+    # ============================================
+    # Transform match-level parameters into the legacy format expected by the core logic
+    # This ensures backward compatibility while supporting the new match-level interface
+
+    # Detect if we're being called with match-level parameters (new interface)
+    is_match_level_call = match is not None
+
+    if is_match_level_call:
+        # Transform match-level data into legacy format
+        logging.info(f"🔄 Processing match-level analysis: {match.home_team} vs {match.away_team}")
+
+        # Build snippet_data from match object
+        if snippet_data is None:
+            snippet_data = {}
+
+        # Populate snippet_data with match information
+        snippet_data.update(
+            {
+                "match_id": match.id,
+                "home_team": match.home_team,
+                "away_team": match.away_team,
+                "league": match.league,
+                "start_time": match.start_time,
+                "current_home_odd": match.current_home_odd,
+                "current_away_odd": match.current_away_odd,
+                "current_draw_odd": match.current_draw_odd,
+                "opening_home_odd": match.opening_home_odd,
+                "opening_away_odd": match.opening_away_odd,
+                "opening_draw_odd": match.opening_draw_odd,
+                "home_context": home_context or {},
+                "away_context": away_context or {},
+            }
+        )
+
+        # Aggregate news from news_articles
+        if news_articles:
+            news_snippets = []
+            for article in news_articles:
+                snippet = article.get("snippet", article.get("title", ""))
+                if snippet:
+                    news_snippets.append(snippet)
+            news_snippet = "\n\n".join(news_snippets) if news_snippets else "No news available"
+        else:
+            news_snippet = news_snippet or "No news available"
+
+        # Build market_status from match and market_intel
+        if market_status is None:
+            movement = match.get_odds_movement()
+            market_status_parts = []
+            if movement.get("home"):
+                market_status_parts.append(f"Home odds moved {movement['home']:+.1f}%")
+            if movement.get("away"):
+                market_status_parts.append(f"Away odds moved {movement['away']:+.1f}%")
+            if movement.get("draw"):
+                market_status_parts.append(f"Draw odds moved {movement['draw']:+.1f}%")
+
+            if market_intel and hasattr(market_intel, "summary"):
+                market_status_parts.append(market_intel.summary)
+
+            market_status = (
+                " | ".join(market_status_parts)
+                if market_status_parts
+                else "No market movement detected"
+            )
+
+        # Build official_data from contexts
+        if official_data is None:
+            official_parts = []
+
+            # Add injury information from home_context
+            if home_context and home_context.get("injuries"):
+                home_injuries = home_context["injuries"]
+                if isinstance(home_injuries, list) and len(home_injuries) > 0:
+                    official_parts.append(f"Home injuries: {len(home_injuries)} players affected")
+
+            # Add injury information from away_context
+            if away_context and away_context.get("injuries"):
+                away_injuries = away_context["injuries"]
+                if isinstance(away_injuries, list) and len(away_injuries) > 0:
+                    official_parts.append(f"Away injuries: {len(away_injuries)} players affected")
+
+            # Add referee info if available
+            if referee_info:
+                official_parts.append(f"Referee: {referee_info}")
+
+            official_data = (
+                " | ".join(official_parts) if official_parts else "No official data available"
+            )
+
+        # Build team_stats from home_stats and away_stats
+        if team_stats == "No stats available":
+            stats_parts = []
+
+            if home_stats:
+                stats_parts.append(f"Home Team Stats: {_format_team_stats(home_stats)}")
+
+            if away_stats:
+                stats_parts.append(f"Away Team Stats: {_format_team_stats(away_stats)}")
+
+            team_stats = "\n".join(stats_parts) if stats_parts else "No stats available"
+
+        # Build tactical_context from various sources
+        if tactical_context == "No tactical data available":
+            tactical_parts = []
+
+            # Add fatigue differential if available
+            if fatigue_differential and hasattr(fatigue_differential, "summary"):
+                tactical_parts.append(f"Fatigue Analysis: {fatigue_differential.summary}")
+
+            # Add injury impact if available
+            if injury_impact_home and hasattr(injury_impact_home, "summary"):
+                tactical_parts.append(f"Home Injury Impact: {injury_impact_home.summary}")
+
+            if injury_impact_away and hasattr(injury_impact_away, "summary"):
+                tactical_parts.append(f"Away Injury Impact: {injury_impact_away.summary}")
+
+            # Add biscotto result if suspect
+            if biscotto_result and biscotto_result.get("is_suspect"):
+                tactical_parts.append(f"⚠️ BISCOTTO ALERT: {biscotto_result.get('reason')}")
+
+            tactical_context = (
+                "\n".join(tactical_parts) if tactical_parts else "No tactical data available"
+            )
+
+        # Use twitter_intel_for_ai if provided
+        if twitter_intel_for_ai:
+            twitter_intel = twitter_intel_for_ai
+
+        # Set investigation status based on data availability
+        if news_articles and (home_context or away_context):
+            investigation_status = "Full Data Gathered"
+        else:
+            investigation_status = "Standard Analysis"
+
     # Validate snippet_data to prevent AttributeError on None
     if not snippet_data:
         snippet_data = {}
-    
+
     # Priority: Mock Data
     if os.getenv("USE_MOCK_DATA") == "true":
         from src.testing.mocks import MOCK_LLM_RESPONSES
-        team = snippet_data.get('team')
+
+        team = snippet_data.get("team")
         mock_resp = MOCK_LLM_RESPONSES.get(team)
         if mock_resp:
             return NewsLog(
-                match_id=snippet_data.get('match_id'),
-                url=snippet_data.get('link'),
-                summary=mock_resp['summary'],
-                score=mock_resp['relevance_score'],
-                category=mock_resp['category'],
-                affected_team=mock_resp['affected_team']
+                match_id=snippet_data.get("match_id"),
+                url=snippet_data.get("link"),
+                summary=mock_resp["summary"],
+                score=mock_resp["relevance_score"],
+                category=mock_resp["category"],
+                affected_team=mock_resp["affected_team"],
             )
         return None
 
     if not OPENROUTER_API_KEY:
         logging.warning("OPENROUTER_API_KEY not configured. Using fallback.")
-        return basic_keyword_analysis(news_snippet, snippet_data.get('team'), snippet_data)
+        return basic_keyword_analysis(news_snippet, snippet_data.get("team"), snippet_data)
 
     try:
         # STEP 0: Truncate news_snippet to prevent token overflow
         # Individual snippets are 350 chars each, but aggregated can blow budget
         from config.settings import NEWS_SNIPPET_MAX_CHARS
+
         if news_snippet and len(news_snippet) > NEWS_SNIPPET_MAX_CHARS:
             news_snippet = news_snippet[:NEWS_SNIPPET_MAX_CHARS] + "... [TRUNCATED]"
             logging.debug(f"📝 News snippet truncated to {NEWS_SNIPPET_MAX_CHARS} chars")
-        
-        
+
         # STEP 1: Enrich official_data with FotMob player status
-        team_name = snippet_data.get('team', 'Unknown Team')
-        
+        team_name = snippet_data.get("team", "Unknown Team")
+
         if not official_data or official_data == "No official data available":
             logging.info(f"🔄 Enriching news with FotMob player data for team: {team_name}")
             official_data = enrich_with_player_data(news_snippet, team_name)
-        
+
         # STEP 1c: H2H BTTS Trend Analysis (V4.1)
         # Fetch H2H data directly from FotMob and calculate BTTS trend
         h2h_context = ""
         try:
             # First check if h2h_history was passed in snippet_data
-            h2h_history = snippet_data.get('h2h_history', [])
-            
+            h2h_history = snippet_data.get("h2h_history", [])
+
             # If not passed, fetch it directly from FotMob
             if not h2h_history:
-                home_team_h2h = snippet_data.get('home_team')
-                away_team_h2h = snippet_data.get('away_team')
-                
+                home_team_h2h = snippet_data.get("home_team")
+                away_team_h2h = snippet_data.get("away_team")
+
                 if home_team_h2h and away_team_h2h:
                     try:
                         from src.ingestion.data_provider import get_data_provider
+
                         provider = get_data_provider()
-                        
+
                         # Fetch match details which includes H2H
                         match_details = provider.get_match_details(
-                            home_team_h2h,
-                            home_team=home_team_h2h,
-                            away_team=away_team_h2h
+                            home_team_h2h, home_team=home_team_h2h, away_team=away_team_h2h
                         )
-                        
-                        if match_details and not match_details.get('error'):
-                            h2h_history = match_details.get('h2h_history', [])
+
+                        if match_details and not match_details.get("error"):
+                            h2h_history = match_details.get("h2h_history", [])
                     except Exception as e:
                         logging.debug(f"H2H fetch failed (non-critical): {e}")
-            
+
             # Calculate BTTS trend if we have H2H data
             if h2h_history and isinstance(h2h_history, list) and len(h2h_history) > 0:
                 from src.analysis.math_engine import calculate_btts_trend
-                
+
                 btts_trend = calculate_btts_trend(h2h_history)
-                
-                if btts_trend.get('total_games', 0) > 0:
+
+                if btts_trend.get("total_games", 0) > 0:
                     h2h_context = (
                         f"\n\n[H2H BTTS INTELLIGENCE]\n"
                         f"📊 In the last {btts_trend['total_games']} head-to-head matches, "
@@ -1467,10 +1731,12 @@ def analyze_with_triangulation(
                         f"({btts_trend['btts_hits']}/{btts_trend['total_games']}).\n"
                         f"🎯 BTTS Trend: {btts_trend['trend_signal']}"
                     )
-                    logging.info(f"⚽ H2H BTTS injected: {btts_trend['btts_rate']}% ({btts_trend['trend_signal']})")
+                    logging.info(
+                        f"⚽ H2H BTTS injected: {btts_trend['btts_rate']}% ({btts_trend['trend_signal']})"
+                    )
         except Exception as e:
             logging.debug(f"H2H BTTS calculation failed (non-critical): {e}")
-        
+
         # STEP 1d: Intelligence Router Deep Dive (High Potential Matches Only)
         # Triggers when preliminary signals suggest high value opportunity
         # V6.0: Uses IntelligenceRouter (DeepSeek primary, Perplexity fallback)
@@ -1480,94 +1746,115 @@ def analyze_with_triangulation(
             try:
                 # Check for high potential signals before calling Gemini
                 high_potential_signals = (
-                    'TURNOVER' in official_data.upper() or
-                    'KEY PLAYER' in official_data.upper() or
-                    'CRASH' in market_status.upper() or
-                    'DROPPING' in market_status.upper()
+                    "TURNOVER" in official_data.upper()
+                    or "KEY PLAYER" in official_data.upper()
+                    or "CRASH" in market_status.upper()
+                    or "DROPPING" in market_status.upper()
                 )
-                
+
                 if high_potential_signals:
-                    home_team = snippet_data.get('home_team', team_name)
-                    away_team = snippet_data.get('away_team', 'Unknown')
-                    
+                    home_team = snippet_data.get("home_team", team_name)
+                    away_team = snippet_data.get("away_team", "Unknown")
+
                     # Extract match date and referee for enhanced query
                     match_date = None
                     referee_name = None
-                    
+
                     # Try to get match_date from snippet_data
-                    if snippet_data.get('match_date'):
+                    if snippet_data.get("match_date"):
                         try:
                             from datetime import datetime
-                            md = snippet_data['match_date']
+
+                            md = snippet_data["match_date"]
                             if isinstance(md, datetime):
-                                match_date = md.strftime('%Y-%m-%d')
+                                match_date = md.strftime("%Y-%m-%d")
                             elif isinstance(md, str):
                                 match_date = md[:10]  # YYYY-MM-DD
                         except Exception as e:
                             logging.debug(f"Match date extraction failed: {e}")
-                    
+
                     # Try to get referee from official_data (FotMob)
-                    if 'REFEREE:' in official_data.upper():
+                    if "REFEREE:" in official_data.upper():
                         try:
                             # Extract referee name from official_data
                             import re
-                            ref_match = re.search(r'REFEREE:\s*([^(\n]+)', official_data, re.IGNORECASE)
+
+                            ref_match = re.search(
+                                r"REFEREE:\s*([^(\n]+)", official_data, re.IGNORECASE
+                            )
                             if ref_match:
                                 referee_name = ref_match.group(1).strip()
                         except Exception as e:
                             logging.debug(f"Referee extraction failed: {e}")
-                    
-                    logging.info(f"🤖 High potential detected - triggering Intelligence Router deep dive")
-                    
+
+                    logging.info(
+                        "🤖 High potential detected - triggering Intelligence Router deep dive"
+                    )
+
                     # V5.0: Use IntelligenceRouter for automatic Gemini/Perplexity fallback
                     router = get_intelligence_router() if INTELLIGENCE_ROUTER_AVAILABLE else None
-                    
+
                     # Extract missing players from official_data for deep dive analysis
                     missing_players = []
                     try:
                         # Pattern 1: "X missing (Name1, Name2, Name3)"
                         import re
-                        missing_match = re.search(r'(\d+)\s+missing\s*\(([^)]+)\)', official_data, re.IGNORECASE)
+
+                        missing_match = re.search(
+                            r"(\d+)\s+missing\s*\(([^)]+)\)", official_data, re.IGNORECASE
+                        )
                         if missing_match:
                             names_str = missing_match.group(2)
-                            missing_players = [n.strip() for n in names_str.split(',') if n.strip()]
-                        
+                            missing_players = [n.strip() for n in names_str.split(",") if n.strip()]
+
                         # Pattern 2: "starters missing (Name1, Name2)"
                         if not missing_players:
-                            starters_match = re.search(r'starters?\s+(?:missing|out)\s*\(([^)]+)\)', official_data, re.IGNORECASE)
+                            starters_match = re.search(
+                                r"starters?\s+(?:missing|out)\s*\(([^)]+)\)",
+                                official_data,
+                                re.IGNORECASE,
+                            )
                             if starters_match:
                                 names_str = starters_match.group(1)
-                                missing_players = [n.strip() for n in names_str.split(',') if n.strip()]
-                        
+                                missing_players = [
+                                    n.strip() for n in names_str.split(",") if n.strip()
+                                ]
+
                         # Pattern 3: "TURNOVER ALERT: ... missing (Name1, Name2)"
                         if not missing_players:
-                            turnover_match = re.search(r'TURNOVER.*?missing\s*\(([^)]+)\)', official_data, re.IGNORECASE)
+                            turnover_match = re.search(
+                                r"TURNOVER.*?missing\s*\(([^)]+)\)", official_data, re.IGNORECASE
+                            )
                             if turnover_match:
                                 names_str = turnover_match.group(1)
-                                missing_players = [n.strip() for n in names_str.split(',') if n.strip()]
-                        
+                                missing_players = [
+                                    n.strip() for n in names_str.split(",") if n.strip()
+                                ]
+
                         if missing_players:
-                            logging.info(f"   📋 Extracted {len(missing_players)} missing players for deep dive: {missing_players[:5]}")
+                            logging.info(
+                                f"   📋 Extracted {len(missing_players)} missing players for deep dive: {missing_players[:5]}"
+                            )
                     except Exception as e:
                         logging.debug(f"Could not extract missing players: {e}")
-                    
+
                     # V5.0: Use IntelligenceRouter for automatic fallback
                     deep_dive = None
                     intel_source = None
-                    
+
                     if router and router.is_available():
                         deep_dive = router.get_match_deep_dive(
                             home_team,
                             away_team,
                             match_date=match_date,
                             referee=referee_name,
-                            missing_players=missing_players
+                            missing_players=missing_players,
                         )
                         if deep_dive:
                             gemini_intel = router.format_for_prompt(deep_dive)
                             intel_source = router.get_active_provider_name().capitalize()
                             logging.info(f"✅ {intel_source} Intel acquired")
-                    
+
                     # Fallback to Perplexity if router unavailable
                     if not deep_dive and not router:
                         if PERPLEXITY_AVAILABLE:
@@ -1580,15 +1867,17 @@ def analyze_with_triangulation(
                                         away_team,
                                         match_date=match_date,
                                         referee=referee_name,
-                                        missing_players=missing_players
+                                        missing_players=missing_players,
                                     )
                                     if deep_dive:
-                                        gemini_intel = perplexity_provider.format_for_prompt(deep_dive)
+                                        gemini_intel = perplexity_provider.format_for_prompt(
+                                            deep_dive
+                                        )
                                         intel_source = "Perplexity"
-                                        logging.info(f"✅ Perplexity Intel acquired (fallback)")
+                                        logging.info("✅ Perplexity Intel acquired (fallback)")
                             except Exception as e:
                                 logging.debug(f"Perplexity fallback failed: {e}")
-                    
+
                     if not deep_dive:
                         logging.debug("No deep dive intel available")
             except Exception as e:
@@ -1596,95 +1885,103 @@ def analyze_with_triangulation(
         else:
             # V6.1: Log when Intelligence Router is unavailable (was silent before)
             logging.debug("🔇 Intelligence Router not available - deep_dive skipped")
-        
+
         # Append Gemini intelligence to tactical context if available
         if gemini_intel:
             tactical_context = f"{tactical_context}\n\n{gemini_intel}"
-        
+
         # ============================================
         # MOTIVATION ENGINE - League Table Context
         # ============================================
         # Fetch league table for motivation analysis (primary source)
         league_table_context = None
         try:
-            league_id = snippet_data.get('league_id') or snippet_data.get('fotmob_league_id')
-            home_team_id = snippet_data.get('home_team_id') or snippet_data.get('home_fotmob_id')
-            away_team_id = snippet_data.get('away_team_id') or snippet_data.get('away_fotmob_id')
-            home_team_for_table = snippet_data.get('home_team', team_name)
-            away_team_for_table = snippet_data.get('away_team', 'Unknown')
-            
+            league_id = snippet_data.get("league_id") or snippet_data.get("fotmob_league_id")
+            home_team_id = snippet_data.get("home_team_id") or snippet_data.get("home_fotmob_id")
+            away_team_id = snippet_data.get("away_team_id") or snippet_data.get("away_fotmob_id")
+            home_team_for_table = snippet_data.get("home_team", team_name)
+            away_team_for_table = snippet_data.get("away_team", "Unknown")
+
             if league_id:
                 from src.ingestion.data_provider import get_data_provider
+
                 provider = get_data_provider()
                 league_table_context = provider.get_league_table_context(
                     league_id=league_id,
                     home_team_id=home_team_id,
                     away_team_id=away_team_id,
                     home_team_name=home_team_for_table,
-                    away_team_name=away_team_for_table
+                    away_team_name=away_team_for_table,
                 )
-                
-                if league_table_context and not league_table_context.get('error'):
-                    logging.info(f"📊 League Table: {league_table_context.get('motivation_summary', 'N/A')}")
+
+                if league_table_context and not league_table_context.get("error"):
+                    logging.info(
+                        f"📊 League Table: {league_table_context.get('motivation_summary', 'N/A')}"
+                    )
         except Exception as e:
             logging.warning(f"⚠️ League table fetch failed: {e}")
-        
+
         # Extract motivation data for score bonus (safe defaults)
         motivation_home = ""
         motivation_away = ""
         table_context = ""
-        
+
         # Priority 1: Use league table data (most reliable)
-        if league_table_context and isinstance(league_table_context, dict) and not league_table_context.get('error'):
-            h_rank = safe_get(league_table_context, 'home_rank')
-            h_zone = safe_get(league_table_context, 'home_zone', default='Unknown')
-            h_form = safe_get(league_table_context, 'home_form')
-            a_rank = safe_get(league_table_context, 'away_rank')
-            a_zone = safe_get(league_table_context, 'away_zone', default='Unknown')
-            a_form = safe_get(league_table_context, 'away_form')
-            
+        if (
+            league_table_context
+            and isinstance(league_table_context, dict)
+            and not league_table_context.get("error")
+        ):
+            h_rank = safe_get(league_table_context, "home_rank")
+            h_zone = safe_get(league_table_context, "home_zone", default="Unknown")
+            h_form = safe_get(league_table_context, "home_form")
+            a_rank = safe_get(league_table_context, "away_rank")
+            a_zone = safe_get(league_table_context, "away_zone", default="Unknown")
+            a_form = safe_get(league_table_context, "away_form")
+
             if h_rank:
                 form_str = f", Form: {h_form}" if h_form else ""
                 motivation_home = f"#{h_rank} ({h_zone}){form_str}"
             if a_rank:
                 form_str = f", Form: {a_form}" if a_form else ""
                 motivation_away = f"#{a_rank} ({a_zone}){form_str}"
-            
-            if league_table_context.get('motivation_mismatch'):
+
+            if league_table_context.get("motivation_mismatch"):
                 table_context = "⚠️ MOTIVATION MISMATCH: One team is desperate, the other is safe"
-        
+
         # Priority 2: Fallback to Gemini/Perplexity deep_dive data
         if deep_dive and isinstance(deep_dive, dict):
             if not motivation_home or motivation_home == "Unknown":
-                motivation_home = (safe_get(deep_dive, 'motivation_home') or "Unknown").strip()
+                motivation_home = (safe_get(deep_dive, "motivation_home") or "Unknown").strip()
             if not motivation_away or motivation_away == "Unknown":
-                motivation_away = (safe_get(deep_dive, 'motivation_away') or "Unknown").strip()
+                motivation_away = (safe_get(deep_dive, "motivation_away") or "Unknown").strip()
             if not table_context:
-                table_context = (safe_get(deep_dive, 'table_context') or "").strip()
-        
+                table_context = (safe_get(deep_dive, "table_context") or "").strip()
+
         # Add motivation to tactical context if not Unknown
-        home_team = snippet_data.get('home_team') or team_name
-        away_team = snippet_data.get('away_team') or 'Unknown'
-        
+        home_team = snippet_data.get("home_team") or team_name
+        away_team = snippet_data.get("away_team") or "Unknown"
+
         if motivation_home and motivation_home.lower() != "unknown":
             tactical_context = f"{tactical_context}\n\n[LEAGUE TABLE CONTEXT]\n🏠 Home ({home_team}): {motivation_home}"
         if motivation_away and motivation_away.lower() != "unknown":
             tactical_context = f"{tactical_context}\n🚌 Away ({away_team}): {motivation_away}"
         if table_context and table_context.lower() != "unknown":
             tactical_context = f"{tactical_context}\n📊 Analysis: {table_context}"
-        
+
         # STEP 2: Build messages with STATIC system prompt + DYNAMIC user message
         # This structure maximizes DeepSeek context caching (system prompt is constant)
-        
+
         # ISO 8601 date format to avoid USA/EU ambiguity
         from datetime import datetime, timezone
-        today_iso = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-        
+
+        today_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
         # Append H2H context to team_stats if available (V4.1)
         enriched_team_stats = team_stats
         if h2h_context:
             enriched_team_stats = f"{team_stats}{h2h_context}"
-        
+
         # Build dynamic user message with all variable data
         user_content = USER_MESSAGE_TEMPLATE.format(
             today=today_iso,
@@ -1696,32 +1993,32 @@ def analyze_with_triangulation(
             team_stats=enriched_team_stats,
             tactical_context=tactical_context,
             twitter_intel=twitter_intel if twitter_intel else "No Twitter intel available",
-            investigation_status=investigation_status
+            investigation_status=investigation_status,
         )
-        
+
         # Context caching optimized structure:
         # - System message: STATIC (TRIANGULATION_SYSTEM_PROMPT) = CACHED by DeepSeek
         # - User message: DYNAMIC (user_content) = Variable per request
         messages = [
             {"role": "system", "content": TRIANGULATION_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content}
+            {"role": "user", "content": user_content},
         ]
-        
+
         # STEP 3: Call DeepSeek (V6.2: Use Model B for triangulation)
         response_content, reasoning_trace = call_deepseek(messages, use_reasoner=True)
-        
+
         # STEP 4: Parse JSON response
         data = extract_json_from_response(response_content)
-        
+
         # Extract verdict and confidence
-        verdict = data.get('final_verdict', 'NO BET')
-        confidence = data.get('confidence', 0)
-        reasoning = data.get('reasoning', 'No reasoning provided')
-        recommended_market = data.get('recommended_market', 'NONE')
-        primary_market = data.get('primary_market', 'NONE')
-        combo_suggestion = data.get('combo_suggestion')
-        combo_reasoning = data.get('combo_reasoning')
-        
+        verdict = data.get("final_verdict", "NO BET")
+        confidence = data.get("confidence", 0)
+        reasoning = data.get("reasoning", "No reasoning provided")
+        recommended_market = data.get("recommended_market", "NONE")
+        primary_market = data.get("primary_market", "NONE")
+        combo_suggestion = data.get("combo_suggestion")
+        combo_reasoning = data.get("combo_reasoning")
+
         # V5.1: Programmatic Market Veto - Hard rule for market crashes
         # If odds have dropped >= 15%, override verdict to NO BET
         # This ensures the bot doesn't bet on fully priced-in news
@@ -1729,33 +2026,36 @@ def analyze_with_triangulation(
         try:
             # Extract percentage drop from market_status (e.g., "Odds dropped 12% (1.72 → 1.51)")
             import re
-            drop_match = re.search(r'dropped\s+(\d+(?:\.\d+)?)\s*%', market_status, re.IGNORECASE)
+
+            drop_match = re.search(r"dropped\s+(\d+(?:\.\d+)?)\s*%", market_status, re.IGNORECASE)
             if drop_match:
                 odds_drop = float(drop_match.group(1)) / 100.0  # Convert to decimal
         except (ValueError, AttributeError, TypeError):
             pass
-        
+
         # Apply market veto if drop >= 15%
         if odds_drop >= 0.15 and verdict == "BET":
             verdict = "NO BET"
             reasoning = f"⚠️ VALUE GONE: Market already crashed (>15% drop). News is fully priced in.\n\n{reasoning}"
-            logging.info(f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop*100:.1f}% (>=15%), overriding verdict to NO BET")
-        
+            logging.info(
+                f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop * 100:.1f}% (>=15%), overriding verdict to NO BET"
+            )
+
         # V8.1: Extract confidence breakdown (transparency feature)
-        confidence_breakdown = data.get('confidence_breakdown', {})
-        primary_driver = data.get('primary_driver', 'UNKNOWN')
-        
+        confidence_breakdown = data.get("confidence_breakdown", {})
+        primary_driver = data.get("primary_driver", "UNKNOWN")
+
         # Build market display
         market_display = ""
-        if primary_market and primary_market != 'NONE':
+        if primary_market and primary_market != "NONE":
             market_display = f"📊 MERCATO: {primary_market}"
-        elif recommended_market and recommended_market != 'NONE':
+        elif recommended_market and recommended_market != "NONE":
             market_display = f"📊 MERCATO: {recommended_market}"
-        
+
         # Ensure combo_reasoning has a default value
         if not combo_reasoning:
             combo_reasoning = "Dati insufficienti per valutare combo"
-        
+
         # Add combo section - ALWAYS show combo reasoning for visibility
         if combo_suggestion:
             market_display += f"\n🧩 SMART COMBO: {combo_suggestion}"
@@ -1763,10 +2063,10 @@ def analyze_with_triangulation(
         else:
             # Show why combo was skipped (discrete footer)
             market_display += f"\nℹ️ Combo: {combo_reasoning}"
-        
+
         if market_display:
             reasoning = f"{market_display}\n{reasoning}"
-        
+
         # Add motivation context to reasoning (only if not Unknown)
         motivation_display = ""
         if motivation_home and motivation_home.lower() != "unknown":
@@ -1776,14 +2076,14 @@ def analyze_with_triangulation(
                 motivation_display += f"\n🔥 Motivazione Trasferta: {motivation_away}"
             else:
                 motivation_display = f"🔥 Motivazione Trasferta: {motivation_away}"
-        
+
         if motivation_display:
             reasoning = f"{motivation_display}\n{reasoning}"
-        
+
         # Add reasoning trace if available
         if reasoning_trace:
             reasoning = f"{reasoning}\n\n🧠 Reasoning: {reasoning_trace[:300]}..."
-        
+
         # Convert to score
         if verdict == "BET" and confidence >= 70:
             score = 9
@@ -1794,83 +2094,93 @@ def analyze_with_triangulation(
         else:
             score = 4
             category = "NO_BET"
-        
+
         # MOTIVATION BONUS (V4.2) - Safe application with cap
         # High motivation (relegation/title) = +0.5, Dead rubber = -1.0
         motivation_bonus = 0.0
         mot_home_lower = (motivation_home or "").lower()
         mot_away_lower = (motivation_away or "").lower()
-        
+
         # Positive signals (both teams fighting = more intensity)
-        if any(kw in mot_home_lower for kw in ["relegation", "title", "championship", "golden boot"]):
+        if any(
+            kw in mot_home_lower for kw in ["relegation", "title", "championship", "golden boot"]
+        ):
             motivation_bonus += 0.3
-        if any(kw in mot_away_lower for kw in ["relegation", "title", "championship", "golden boot"]):
+        if any(
+            kw in mot_away_lower for kw in ["relegation", "title", "championship", "golden boot"]
+        ):
             motivation_bonus += 0.2
-        
+
         # Negative signals (dead rubber = less intensity, unpredictable)
-        if any(kw in mot_home_lower for kw in ["dead rubber", "nothing to play", "mid-table safe", "friendly"]):
+        if any(
+            kw in mot_home_lower
+            for kw in ["dead rubber", "nothing to play", "mid-table safe", "friendly"]
+        ):
             motivation_bonus -= 0.5
-        if any(kw in mot_away_lower for kw in ["dead rubber", "nothing to play", "mid-table safe", "friendly"]):
+        if any(
+            kw in mot_away_lower
+            for kw in ["dead rubber", "nothing to play", "mid-table safe", "friendly"]
+        ):
             motivation_bonus -= 0.5
-        
+
         # Apply bonus and cap at 10.0 (never exceed max score)
         if motivation_bonus != 0.0:
             original_score = score
             score = max(0, min(10.0, score + motivation_bonus))
             if motivation_bonus > 0:
-                logging.info(f"🔥 Motivation bonus: +{motivation_bonus:.1f} (score {original_score} → {score})")
+                logging.info(
+                    f"🔥 Motivation bonus: +{motivation_bonus:.1f} (score {original_score} → {score})"
+                )
             else:
-                logging.info(f"💤 Motivation penalty: {motivation_bonus:.1f} (score {original_score} → {score})")
-        
+                logging.info(
+                    f"💤 Motivation penalty: {motivation_bonus:.1f} (score {original_score} → {score})"
+                )
+
         # INJURY IMPACT ADJUSTMENT (V5.3.1) - Context-aware balanced assessment
         # Evaluates importance of missing players (starter vs backup) for both teams
         # and adjusts score based on differential impact AND recommended market
-        # 
+        #
         # LOGIC: If betting on Home (1, 1X) and Home is more injured → DECREASE score
         #        If betting on Away (2, X2) and Away is more injured → DECREASE score
         #        If injuries favor the bet direction → INCREASE score
         injury_impact_adjustment = 0.0
         injury_differential = None
-        
+
         if INJURY_IMPACT_AVAILABLE:
             try:
                 # Extract context data from snippet_data (passed from main.py)
-                home_context = safe_get(snippet_data, 'home_context')
-                away_context = safe_get(snippet_data, 'away_context')
-                
+                home_context = safe_get(snippet_data, "home_context")
+                away_context = safe_get(snippet_data, "away_context")
+
                 # Only calculate if we have injury data for at least one team
                 has_home_injuries = (
-                    home_context and 
-                    isinstance(home_context, dict) and 
-                    home_context.get('injuries')
+                    home_context and isinstance(home_context, dict) and home_context.get("injuries")
                 )
                 has_away_injuries = (
-                    away_context and 
-                    isinstance(away_context, dict) and 
-                    away_context.get('injuries')
+                    away_context and isinstance(away_context, dict) and away_context.get("injuries")
                 )
-                
+
                 if has_home_injuries or has_away_injuries:
                     injury_differential = analyze_match_injuries(
                         home_team=home_team,
                         away_team=away_team,
                         home_context=home_context,
-                        away_context=away_context
+                        away_context=away_context,
                     )
-                    
+
                     if injury_differential and abs(injury_differential.score_adjustment) >= 0.3:
                         raw_adjustment = injury_differential.score_adjustment
-                        
+
                         # V5.3.1: Context-aware adjustment based on recommended market
                         # raw_adjustment > 0 means Home is more affected (favors Away)
                         # raw_adjustment < 0 means Away is more affected (favors Home)
-                        market_lower = (primary_market or recommended_market or '').lower().strip()
-                        
+                        market_lower = (primary_market or recommended_market or "").lower().strip()
+
                         # Determine bet direction from market
-                        is_home_bet = market_lower in ('1', '1x') or 'home' in market_lower
-                        is_away_bet = market_lower in ('2', 'x2') or 'away' in market_lower
-                        is_draw_bet = market_lower == 'x' or market_lower == 'draw'
-                        
+                        is_home_bet = market_lower in ("1", "1x") or "home" in market_lower
+                        is_away_bet = market_lower in ("2", "x2") or "away" in market_lower
+                        is_draw_bet = market_lower == "x" or market_lower == "draw"
+
                         # Apply adjustment based on alignment with bet direction
                         if is_home_bet:
                             # Betting on Home: if Home more injured (raw > 0), DECREASE score
@@ -1888,37 +2198,59 @@ def analyze_with_triangulation(
                             # Non-result markets (BTTS, Over/Under, Corners, Cards)
                             # Injuries generally increase unpredictability, slight negative
                             injury_impact_adjustment = -abs(raw_adjustment) * 0.2
-                        
+
                         # V8.0: TACTICAL BRAIN - Boost weight for extreme offensive/defensive impact
                         extreme_threshold = 5.0
                         tactical_veto_tags = []
-                        
+
                         # Extract impact scores
-                        home_off = injury_differential.home_impact.offensive_impact if injury_differential.home_impact else 0.0
-                        home_def = injury_differential.home_impact.defensive_impact if injury_differential.home_impact else 0.0
-                        away_off = injury_differential.away_impact.offensive_impact if injury_differential.away_impact else 0.0
-                        away_def = injury_differential.away_impact.defensive_impact if injury_differential.away_impact else 0.0
-                        
+                        home_off = (
+                            injury_differential.home_impact.offensive_impact
+                            if injury_differential.home_impact
+                            else 0.0
+                        )
+                        home_def = (
+                            injury_differential.home_impact.defensive_impact
+                            if injury_differential.home_impact
+                            else 0.0
+                        )
+                        away_off = (
+                            injury_differential.away_impact.offensive_impact
+                            if injury_differential.away_impact
+                            else 0.0
+                        )
+                        away_def = (
+                            injury_differential.away_impact.defensive_impact
+                            if injury_differential.away_impact
+                            else 0.0
+                        )
+
                         # Check for extreme tactical impact
-                        has_extreme_offensive = home_off > extreme_threshold or away_off > extreme_threshold
-                        has_extreme_defensive = home_def > extreme_threshold or away_def > extreme_threshold
-                        
+                        has_extreme_offensive = (
+                            home_off > extreme_threshold or away_off > extreme_threshold
+                        )
+                        has_extreme_defensive = (
+                            home_def > extreme_threshold or away_def > extreme_threshold
+                        )
+
                         if has_extreme_offensive:
                             tactical_veto_tags.append("OFFENSIVE DEPLETION")
                         if has_extreme_defensive:
                             tactical_veto_tags.append("DEFENSIVE DEPLETION")
-                        
+
                         if has_extreme_offensive or has_extreme_defensive:
                             # Boost adjustment by 50% when tactical impact is extreme
                             original_adj = injury_impact_adjustment
                             injury_impact_adjustment *= 1.5
                             # Cap at ±2.0 (increased from implicit previous cap)
                             injury_impact_adjustment = max(-2.0, min(2.0, injury_impact_adjustment))
-                            logging.info(f"🚨 EXTREME TACTICAL IMPACT: Injury weight boosted {original_adj:+.2f} → {injury_impact_adjustment:+.2f}")
-                        
+                            logging.info(
+                                f"🚨 EXTREME TACTICAL IMPACT: Injury weight boosted {original_adj:+.2f} → {injury_impact_adjustment:+.2f}"
+                            )
+
                         original_score = score
                         score = max(0, min(10.0, score + injury_impact_adjustment))
-                        
+
                         # Add injury impact to reasoning with tactical veto tagging (V8.0)
                         injury_summary = injury_differential.summary
                         if tactical_veto_tags:
@@ -1926,86 +2258,94 @@ def analyze_with_triangulation(
                             reasoning = f"⚠️ TACTICAL VETO ATTIVO: {tactical_veto_str}\n⚖️ INJURY BALANCE:\n{injury_summary}\n{reasoning}"
                         elif injury_summary:
                             reasoning = f"⚖️ INJURY BALANCE:\n{injury_summary}\n{reasoning}"
-                        
+
                         # Log with context
-                        direction = "aligned with bet" if injury_impact_adjustment > 0 else "against bet"
+                        direction = (
+                            "aligned with bet" if injury_impact_adjustment > 0 else "against bet"
+                        )
                         logging.info(
                             f"🏥 Injury Impact: {injury_impact_adjustment:+.2f} ({direction}) | "
                             f"Market: {market_lower} | Score: {original_score} → {score}"
                         )
             except Exception as e:
                 logging.warning(f"⚠️ Injury impact calculation failed: {e}")
-        
+
         # Extract primary_driver (Alpha Source)
-        primary_driver = data.get('primary_driver', 'UNKNOWN')
-        valid_drivers = ['INJURY_INTEL', 'SHARP_MONEY', 'MATH_VALUE', 'CONTEXT_PLAY', 'CONTRARIAN']
+        primary_driver = data.get("primary_driver", "UNKNOWN")
+        valid_drivers = ["INJURY_INTEL", "SHARP_MONEY", "MATH_VALUE", "CONTEXT_PLAY", "CONTRARIAN"]
         # Handle "NONE" string from AI response
-        if primary_driver is None or primary_driver == 'NONE' or primary_driver not in valid_drivers:
-            primary_driver = 'MATH_VALUE'  # Default to MATH_VALUE instead of UNKNOWN
-        
+        if (
+            primary_driver is None
+            or primary_driver == "NONE"
+            or primary_driver not in valid_drivers
+        ):
+            primary_driver = "MATH_VALUE"  # Default to MATH_VALUE instead of UNKNOWN
+
         # Log with combo info and driver
         combo_log = f" | Combo: {combo_suggestion}" if combo_suggestion else ""
-        logging.info(f"🎯 DeepSeek Verdict: {verdict} | Confidence: {confidence}% | Market: {primary_market or recommended_market} | Driver: {primary_driver}{combo_log} | Score: {score}")
-        
+        logging.info(
+            f"🎯 DeepSeek Verdict: {verdict} | Confidence: {confidence}% | Market: {primary_market or recommended_market} | Driver: {primary_driver}{combo_log} | Score: {score}"
+        )
+
         # V4.2: Determine odds_taken based on recommended market
         # V4.4 FIX: Extended to cover all market formats (1, 2, X, 1X, X2, BTTS, Over/Under, Corners, Cards)
         odds_taken = None
-        market_lower = (primary_market or recommended_market or '').lower().strip()
-        
+        market_lower = (primary_market or recommended_market or "").lower().strip()
+
         # Home Win variants: "home win", "1", "home"
-        if market_lower in ('1', 'home') or ('home' in market_lower and 'win' in market_lower):
-            odds_taken = snippet_data.get('current_home_odd')
+        if market_lower in ("1", "home") or ("home" in market_lower and "win" in market_lower):
+            odds_taken = snippet_data.get("current_home_odd")
         # Away Win variants: "away win", "2", "away"
-        elif market_lower in ('2', 'away') or ('away' in market_lower and 'win' in market_lower):
-            odds_taken = snippet_data.get('current_away_odd')
+        elif market_lower in ("2", "away") or ("away" in market_lower and "win" in market_lower):
+            odds_taken = snippet_data.get("current_away_odd")
         # Draw variants: "draw", "x"
-        elif market_lower in ('x', 'draw'):
-            odds_taken = snippet_data.get('current_draw_odd')
+        elif market_lower in ("x", "draw"):
+            odds_taken = snippet_data.get("current_draw_odd")
         # Double Chance 1X: use home odd as proxy (conservative)
-        elif market_lower == '1x' or ('home' in market_lower and 'draw' in market_lower):
-            odds_taken = snippet_data.get('current_home_odd')
+        elif market_lower == "1x" or ("home" in market_lower and "draw" in market_lower):
+            odds_taken = snippet_data.get("current_home_odd")
         # Double Chance X2: use away odd as proxy (conservative)
-        elif market_lower == 'x2' or ('away' in market_lower and 'draw' in market_lower):
-            odds_taken = snippet_data.get('current_away_odd')
+        elif market_lower == "x2" or ("away" in market_lower and "draw" in market_lower):
+            odds_taken = snippet_data.get("current_away_odd")
         # Over/Under Goals, BTTS: use 1.90 as default
-        elif 'over' in market_lower or 'under' in market_lower or 'btts' in market_lower:
+        elif "over" in market_lower or "under" in market_lower or "btts" in market_lower:
             # Check if it's corners or cards (different default odds)
-            if 'corner' in market_lower:
+            if "corner" in market_lower:
                 odds_taken = 1.85  # Typical corners market odds
-            elif 'card' in market_lower:
+            elif "card" in market_lower:
                 odds_taken = 1.80  # Typical cards market odds
             else:
                 odds_taken = 1.90  # Default for goals totals
         # Corners market (standalone): "Over 9.5 Corners", "corners"
-        elif 'corner' in market_lower:
+        elif "corner" in market_lower:
             odds_taken = 1.85
         # Cards market (standalone): "Over 4.5 Cards", "cards"
-        elif 'card' in market_lower:
+        elif "card" in market_lower:
             odds_taken = 1.80
-        
+
         # V8.1: Serialize confidence_breakdown to JSON string
         import json
+
         confidence_breakdown_str = None
         if confidence_breakdown:
             try:
                 confidence_breakdown_str = json.dumps(confidence_breakdown)
             except (TypeError, ValueError):
                 confidence_breakdown_str = None
-        
+
         # V9.5: Cross-Source Convergence Detection
         # Check if signal is confirmed by both Web (Brave) and Social (Nitter) sources
         is_convergent = False
         convergence_sources_str = None
-        
+
         try:
             # Only check convergence if market veto hasn't been triggered
             # Market veto takes precedence over convergence
             if odds_drop < 0.15:
                 is_convergent, convergence_sources = detect_cross_source_convergence(
-                    snippet_data=snippet_data,
-                    twitter_intel=twitter_intel
+                    snippet_data=snippet_data, twitter_intel=twitter_intel
                 )
-                
+
                 # Serialize convergence_sources to JSON string
                 if convergence_sources:
                     try:
@@ -2016,14 +2356,14 @@ def analyze_with_triangulation(
         except Exception as e:
             logging.warning(f"⚠️ Convergence detection error: {e}")
             is_convergent = False
-        
+
         return NewsLog(
-            match_id=snippet_data.get('match_id'),
-            url=snippet_data.get('link'),
+            match_id=snippet_data.get("match_id"),
+            url=snippet_data.get("link"),
             summary=reasoning,
             score=score,
             category=category,
-            affected_team=snippet_data.get('team'),
+            affected_team=snippet_data.get("team"),
             combo_suggestion=combo_suggestion,
             combo_reasoning=combo_reasoning,
             recommended_market=primary_market or recommended_market,
@@ -2031,7 +2371,7 @@ def analyze_with_triangulation(
             odds_taken=odds_taken,  # V4.2: CLV Tracking
             confidence_breakdown=confidence_breakdown_str,  # V8.1: Transparency
             is_convergent=is_convergent,  # V9.5: Cross-Source Convergence
-            convergence_sources=convergence_sources_str  # V9.5: Convergence details
+            convergence_sources=convergence_sources_str,  # V9.5: Convergence details
         )
 
     except Exception as e:
@@ -2041,56 +2381,89 @@ def analyze_with_triangulation(
             error_msg = error_msg.replace(OPENROUTER_API_KEY, "[REDACTED]")
         logging.error(f"DeepSeek Triangulation failed: {error_msg}")
         logging.info("Falling back to Basic Keyword Analysis...")
-        return basic_keyword_analysis(news_snippet, snippet_data.get('team'), snippet_data)
+        return basic_keyword_analysis(news_snippet, snippet_data.get("team"), snippet_data)
 
 
 # Legacy function for backward compatibility
-def analyze_relevance(snippet_data: Dict) -> Optional[NewsLog]:
+def analyze_relevance(snippet_data: dict) -> NewsLog | None:
     """
     Legacy function - now calls triangulation with empty official data
     """
     return analyze_with_triangulation(
-        news_snippet=snippet_data.get('snippet', ''),
+        news_snippet=snippet_data.get("snippet", ""),
         market_status="No market data available",
         official_data="No official data available",
-        snippet_data=snippet_data
+        snippet_data=snippet_data,
     )
 
 
-def basic_keyword_analysis(text: str, team: str, snippet_data: Dict) -> Optional[NewsLog]:
+def basic_keyword_analysis(text: str, team: str, snippet_data: dict) -> NewsLog | None:
     """
     Fallback mechanism if LLM is down.
     Scores 6 if High Risk Keywords are found.
     Also detects Comeback and National Duty factors.
     """
     text_lower = text.lower()
-    
+
     # Negative impact keywords (absences)
     critical_keywords = [
-        'lesão', 'fratura', 'fora', 'desfalque', 'sub-20', 'reservas',
-        'sakat', 'kadro dışı', 'yedek', 'u19', 'oynamayacak',
-        'kontuzja', 'uraz', 'rezerwowy',
-        'injury', 'out', 'squad', 'ruled out', 'doubtful', 'missing'
+        "lesão",
+        "fratura",
+        "fora",
+        "desfalque",
+        "sub-20",
+        "reservas",
+        "sakat",
+        "kadro dışı",
+        "yedek",
+        "u19",
+        "oynamayacak",
+        "kontuzja",
+        "uraz",
+        "rezerwowy",
+        "injury",
+        "out",
+        "squad",
+        "ruled out",
+        "doubtful",
+        "missing",
     ]
-    
+
     # National Duty keywords (HIGH IMPACT absence)
     national_duty_keywords = [
-        'national team', 'selección', 'convocados', 'afcon', 'asian cup',
-        'milli takim', 'arab cup', 'world cup qualifiers', 'international duty',
-        'copa america', 'euro qualifiers'
+        "national team",
+        "selección",
+        "convocados",
+        "afcon",
+        "asian cup",
+        "milli takim",
+        "arab cup",
+        "world cup qualifiers",
+        "international duty",
+        "copa america",
+        "euro qualifiers",
     ]
-    
+
     # Comeback keywords (POSITIVE impact)
     comeback_keywords = [
-        'returns', 'back in squad', 'rientra', 'torna disponibile', 'recovered',
-        'habilitado', 'fit again', 'cleared to play', 'back from injury',
-        'available again', 'regresa', 'vuelve'
+        "returns",
+        "back in squad",
+        "rientra",
+        "torna disponibile",
+        "recovered",
+        "habilitado",
+        "fit again",
+        "cleared to play",
+        "back from injury",
+        "available again",
+        "regresa",
+        "vuelve",
     ]
-    
+
     found_critical = [kw for kw in critical_keywords if kw in text_lower]
     found_national = [kw for kw in national_duty_keywords if kw in text_lower]
     found_comeback = [kw for kw in comeback_keywords if kw in text_lower]
-    
+
     # Determine score and category
     if found_national:
         summary = f"🌍 NATIONAL DUTY ABSENCE (AI Unavailable): {', '.join(found_national)}"
@@ -2101,7 +2474,9 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: Dict) -> Optional
         score = 6
         category = "KEY_RETURN"
     elif found_critical:
-        summary = f"⚠️ KEYWORD ALERT (AI Unavailable): Found suspicious terms: {', '.join(found_critical)}"
+        summary = (
+            f"⚠️ KEYWORD ALERT (AI Unavailable): Found suspicious terms: {', '.join(found_critical)}"
+        )
         score = 6
         category = "KEYWORD_MATCH"
     else:
@@ -2110,31 +2485,31 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: Dict) -> Optional
         category = "LOW_RELEVANCE"
 
     return NewsLog(
-        match_id=snippet_data.get('match_id'),
-        url=snippet_data.get('link'),
+        match_id=snippet_data.get("match_id"),
+        url=snippet_data.get("link"),
         summary=summary,
         score=score,
         category=category,
-        affected_team=team
+        affected_team=team,
     )
 
 
-def batch_analyze(snippets: List[Dict]) -> List[NewsLog]:
+def batch_analyze(snippets: list[dict]) -> list[NewsLog]:
     """
     Process a list of snippets.
     """
     results = []
     seen_urls = set()
-    
+
     for s in snippets:
-        if s.get('link') in seen_urls:
+        if s.get("link") in seen_urls:
             continue
-        seen_urls.add(s.get('link'))
-        
+        seen_urls.add(s.get("link"))
+
         analysis = analyze_relevance(s)
         if analysis:
             results.append(analysis)
-            
+
     return results
 
 
@@ -2145,20 +2520,20 @@ def analyze_biscotto(
     away_team: str,
     draw_odd: float,
     opening_draw: float,
-    league: str
-) -> Optional[Dict]:
+    league: str,
+) -> dict | None:
     """
     🍪 BISCOTTO ANALYSIS: Use DeepSeek to validate if news confirms a "convenient draw".
     """
     if not OPENROUTER_API_KEY:
         logging.warning("OPENROUTER_API_KEY not available for Biscotto analysis")
         return None
-    
+
     # Safe calculation: validate both values before division
     drop_pct = 0
     if opening_draw and opening_draw > 0 and draw_odd is not None:
         drop_pct = ((opening_draw - draw_odd) / opening_draw) * 100
-    
+
     try:
         prompt = BISCOTTO_PROMPT.format(
             home_team=home_team,
@@ -2167,49 +2542,54 @@ def analyze_biscotto(
             opening_draw=opening_draw or draw_odd or 0,
             drop_pct=drop_pct,
             league=league,
-            news_snippet=news_snippet
+            news_snippet=news_snippet,
         )
-        
+
         messages = [
-            {"role": "system", "content": "You are a betting analyst specializing in match-fixing detection. Output only valid JSON."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a betting analyst specializing in match-fixing detection. Output only valid JSON.",
+            },
+            {"role": "user", "content": prompt},
         ]
-        
+
         # V6.2: Use Model B for biscotto analysis (reasoning task)
         response_content, reasoning_trace = call_deepseek(messages, use_reasoner=True)
         data = extract_json_from_response(response_content)
-        
-        logging.info(f"🍪 Biscotto Analysis: is_biscotto={data.get('is_biscotto')} | confidence={data.get('confidence')}%")
-        
+
+        logging.info(
+            f"🍪 Biscotto Analysis: is_biscotto={data.get('is_biscotto')} | confidence={data.get('confidence')}%"
+        )
+
         if reasoning_trace:
-            data['reasoning_trace'] = reasoning_trace
-        
+            data["reasoning_trace"] = reasoning_trace
+
         return data
-        
+
     except Exception as e:
         logging.error(f"Biscotto analysis failed: {e}")
         return None
 
 
-def check_biscotto_keywords(text: str, lang: str = 'en') -> List[str]:
+def check_biscotto_keywords(text: str, lang: str = "en") -> list[str]:
     """
     Check text for Biscotto-related keywords.
     """
     from config.settings import BISCOTTO_KEYWORDS
-    
+
     text_lower = text.lower()
     found = []
-    
+
     keywords = BISCOTTO_KEYWORDS.get(lang, [])
     for kw in keywords:
         if kw.lower() in text_lower:
             found.append(kw)
-    
-    if lang != 'en':
-        for kw in BISCOTTO_KEYWORDS.get('en', []):
+
+    if lang != "en":
+        for kw in BISCOTTO_KEYWORDS.get("en", []):
             if kw.lower() in text_lower:
                 found.append(kw)
-    
+
     return list(set(found))
 
 
@@ -2217,22 +2597,25 @@ def check_biscotto_keywords(text: str, lang: str = 'en') -> List[str]:
 # CLI for testing
 # ============================================
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
     print("=" * 60)
     print("🤖 DEEPSEEK V3.2 ANALYZER TEST")
     print("=" * 60)
-    
-    print(f"\n📋 Configuration:")
+
+    print("\n📋 Configuration:")
     print(f"   OpenRouter API Key: {'✅ Set' if OPENROUTER_API_KEY else '❌ Not set'}")
     print(f"   Primary Model: {DEEPSEEK_V3_2}")
     print(f"   Fallback Model: {DEEPSEEK_V3_STABLE}")
-    
+
     if OPENROUTER_API_KEY:
         print("\n🧪 Testing DeepSeek call...")
         try:
             test_messages = [
-                {"role": "user", "content": "Say 'Hello EarlyBird!' in JSON format: {\"message\": \"...\"}"}
+                {
+                    "role": "user",
+                    "content": 'Say \'Hello EarlyBird!\' in JSON format: {"message": "..."}',
+                }
             ]
             response, reasoning = call_deepseek(test_messages, include_reasoning=False)
             print(f"   Response: {response[:100]}")
@@ -2241,5 +2624,5 @@ if __name__ == "__main__":
             print(f"   ❌ Error: {e}")
     else:
         print("\n⚠️ Set OPENROUTER_API_KEY to test DeepSeek connection")
-    
+
     print("\n✅ Test complete")

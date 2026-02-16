@@ -82,7 +82,7 @@ Guida definitiva per il deploy su Ubuntu VPS.
 
 ### Key Components
 
-1. **Launcher V3.7** ([`src/launcher.py`](src/launcher.py:36)) - Process Orchestrator
+1. **Launcher V3.7** ([`src/entrypoints/launcher.py`](src/entrypoints/launcher.py:36)) - Process Orchestrator
    - Manages 4 processes with auto-restart
    - Exponential backoff for crash recovery
    - CPU protection and graceful shutdown
@@ -880,7 +880,7 @@ Questo comando (V8.3):
 ┌─────────────────────────────┬─────────────────────────────┐
 │                             │                             │
 │   🦅 MAIN ORCHESTRATOR      │   🧪 HEALTH MONITOR         │
-│   (src/launcher.py)         │   (run_tests_monitor.sh)    │
+│   (src/entrypoints/launcher.py) │   (run_tests_monitor.sh)    │
 │                             │                             │
 │   • Pipeline (main)         │   • Validatori Data         │
 │   • Bot Telegram            │   • DB Checks               │
@@ -924,12 +924,12 @@ screen -r earlybird
 
 ### 🤖 Processi Avviati Automaticamente
 
-Il launcher ([`src/launcher.py`](src/launcher.py:36)) gestisce 4 processi con auto-restart:
+Il launcher ([`src/entrypoints/launcher.py`](src/entrypoints/launcher.py:36)) gestisce 4 processi con auto-restart:
 
 | Process Name | Script | Purpose | Location |
 |--------------|--------|---------|----------|
-| `main` | [`src/main.py`](src/launcher.py:36) | Pipeline Principale (Odds + News + Analysis) | Main Application |
-| `bot` | [`src/run_bot.py`](src/launcher.py:41) | Telegram Bot (User commands interface) | User Commands |
+| `main` | [`src/main.py`](src/entrypoints/launcher.py:36) | Pipeline Principale (Odds + News + Analysis) | Main Application |
+| `bot` | [`src/entrypoints/run_bot.py`](src/entrypoints/launcher.py:41) | Telegram Bot (User commands interface) | User Commands |
 | `monitor` | `run_telegram_monitor.py` | Telegram Monitor (Squad image scraping) | Insider Channel Monitoring |
 | `news_radar` | `run_news_radar.py` | News Radar (Autonomous news monitoring for minor leagues) | 24/7 News Hunter |
 
@@ -951,8 +951,8 @@ Il launcher implementa robusto process management con:
 | `run_news_radar.py` | - | News Radar Monitor (autonomo 24/7) |
 | `run_telegram_monitor.py` | - | Telegram Monitor (squad image scraping) |
 | `src/main.py` | - | Main Application (pipeline principale) |
-| `src/launcher.py` | V3.7 | Process Orchestrator (gestisce 4 processi) |
-| `src/run_bot.py` | - | Telegram Bot (interfaccia comandi utente) |
+| `src/entrypoints/launcher.py` | V3.7 | Process Orchestrator (gestisce 4 processi) |
+| `src/entrypoints/run_bot.py` | - | Telegram Bot (interfaccia comandi utente) |
 
 ### Shell Scripts
 

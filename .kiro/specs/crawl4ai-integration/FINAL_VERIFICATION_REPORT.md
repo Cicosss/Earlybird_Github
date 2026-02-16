@@ -102,7 +102,7 @@ def _search_brave(self, query: str, limit: int = 5) -> List[Dict]:
 **PRODUZIONE**:
 ```bash
 # Sistema attivo da 15 ore senza crash
-root  1342372  0.0  1.8  534196 152576  Ssl  07:47  0:11  python3 src/run_bot.py
+root  1342372  0.0  1.8  534196 152576  Ssl  07:47  0:11  python3 src/entrypoints/run_bot.py
 
 # Playwright drivers attivi
 root  1342365  2.8 16.9 2728024 1378692  Sl   07:47 26:04  playwright driver

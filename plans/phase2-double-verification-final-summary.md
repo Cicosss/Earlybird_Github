@@ -60,7 +60,7 @@ All 4 main entry points were verified to correctly call modified functions:
 | **Main Pipeline** | `src/main.py` | `news_hunter.py`, `verification_layer.py` | ✅ VERIFIED |
 | **Telegram Monitor** | `run_telegram_monitor.py` | `telegram_listener.py` | ✅ VERIFIED |
 | **News Radar** | `run_news_radar.py` | `news_hunter.py` | ✅ VERIFIED |
-| **Launcher** | `src/launcher.py` | All components (orchestrator) | ✅ VERIFIED |
+| **Launcher** | `src/entrypoints/launcher.py` | All components (orchestrator) | ✅ VERIFIED |
 
 ### 2.2 Data Flow Paths Verified
 

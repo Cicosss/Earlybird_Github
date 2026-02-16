@@ -21,7 +21,6 @@ LEAGUE_FOTMOB_IDS = {
     "soccer_australia_aleague": 268,
     "soccer_argentina_primera_division": 112,
     "soccer_mexico_ligamx": 230,
-    
     # Tier 2 Leagues
     "soccer_brazil_serie_b": 325,
     "soccer_poland_ekstraklasa": 196,
@@ -29,7 +28,6 @@ LEAGUE_FOTMOB_IDS = {
     "soccer_japan_j_league": 183,
     "soccer_korea_kleague1": 186,
     "soccer_saudi_professional_league": 278,
-    
     # European Leagues (for future expansion)
     "soccer_epl": 47,  # England Premier League
     "soccer_spain_la_liga": 87,
@@ -50,10 +48,10 @@ LEAGUE_FOTMOB_IDS = {
 def get_fotmob_league_id(odds_api_key: str) -> int:
     """
     Get FotMob league ID from OddsAPI league key.
-    
+
     Args:
         odds_api_key: League key from The-Odds-API (e.g., 'soccer_turkey_super_league')
-        
+
     Returns:
         FotMob league ID or None if not mapped
     """
@@ -69,11 +67,9 @@ TEAM_FOTMOB_IDS = {
     "Galatasaray": 8601,
     "Fenerbahce": 8600,
     "Trabzonspor": 8609,
-    
     # Poland Ekstraklasa
     "Legia Warsaw": 8673,
     "Lech Poznan": 8672,
-    
     # Add more teams as needed via mapping_tool.py
 }
 
@@ -81,29 +77,26 @@ TEAM_FOTMOB_IDS = {
 def get_fotmob_team_id(team_name: str) -> int:
     """
     Get FotMob team ID from team name.
-    
+
     Args:
         team_name: Team name from The-Odds-API
-        
+
     Returns:
         FotMob team ID or None if not found
     """
     # Direct lookup
     if team_name in TEAM_FOTMOB_IDS:
         return TEAM_FOTMOB_IDS[team_name]
-    
+
     # Try case-insensitive lookup
     team_lower = team_name.lower()
     for name, team_id in TEAM_FOTMOB_IDS.items():
         if name.lower() == team_lower:
             return team_id
-    
+
     return None
 
 
 def add_team_mapping(team_name: str, fotmob_id: int):
     """Add a new team mapping (runtime only)."""
     TEAM_FOTMOB_IDS[team_name] = fotmob_id
-
-
-

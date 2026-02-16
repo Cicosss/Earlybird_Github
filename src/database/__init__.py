@@ -3,9 +3,9 @@
 Database models, migrations, and connection management.
 """
 
-from .models import Match, NewsLog, TeamAlias, Base, init_db, SessionLocal
 from .db import get_db_context
 from .migration import check_and_migrate
+from .models import Base, Match, NewsLog, SessionLocal, TeamAlias, init_db
 
 __all__ = [
     "Match",

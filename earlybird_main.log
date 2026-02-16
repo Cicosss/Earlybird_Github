@@ -1,21 +1,21 @@
-2026-02-14 09:56:21,590 - config.settings - INFO - ✅ Loaded environment from .env file
-2026-02-14 09:56:21,891 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
-2026-02-14 09:56:21,896 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
-2026-02-14 09:56:21,898 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
-2026-02-14 09:56:21,917 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
-2026-02-14 09:56:22,095 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
-2026-02-14 09:56:22,097 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
-2026-02-14 09:56:22,148 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
-2026-02-14 09:56:22,231 - src.database.supabase_provider - INFO - Supabase connection established successfully
-2026-02-14 09:56:22,232 - root - INFO - ✅ Supabase provider available for social sources
-2026-02-14 09:56:22,233 - root - INFO - ✅ Supabase provider available for social sources
-2026-02-14 09:56:22,236 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
-2026-02-14 09:56:22,236 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
-2026-02-14 09:56:22,242 - __main__ - INFO - ✅ Supabase Provider module loaded
-2026-02-14 09:56:22,243 - __main__ - INFO - ✅ Intelligence Router module loaded
-2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
-2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Market Intelligence module loaded
-2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
-2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
-2026-02-14 09:56:22,244 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
-2026-02-14 09:56:22,250 - __main__ - INFO - ✅ Twitter Intel Cache loaded
+2026-02-16 13:10:29,474 - config.settings - INFO - ✅ Loaded environment from .env file
+2026-02-16 13:10:31,051 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-16 13:10:31,089 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-16 13:10:31,090 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-16 13:10:31,096 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-16 13:10:31,349 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-16 13:10:31,353 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-16 13:10:31,448 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-16 13:10:31,535 - src.processing.continental_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-16 13:10:31,535 - src.processing.continental_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-16 13:10:31,709 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-16 13:10:31,709 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-16 13:10:31,711 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-16 13:10:31,739 - __main__ - INFO - ✅ Supabase Provider module loaded
+2026-02-16 13:10:31,739 - __main__ - INFO - ✅ Intelligence Router module loaded
+2026-02-16 13:10:31,741 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
+2026-02-16 13:10:31,741 - __main__ - INFO - ✅ Market Intelligence module loaded
+2026-02-16 13:10:31,741 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-02-16 13:10:31,742 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-02-16 13:10:31,747 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-02-16 13:10:31,755 - __main__ - INFO - ✅ Twitter Intel Cache loaded

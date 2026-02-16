@@ -9,19 +9,16 @@ Search Priority (V4.4):
 
 Provides robust search without any Docker dependencies.
 
-V4.4: 
+V4.4:
 - Migrated to centralized HTTP client with fingerprint rotation
 - Added Mediastack as 4th fallback (free unlimited tier)
 
 Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
+
 import html
 import logging
-import os
-import random
 import re
-from typing import List, Dict, Optional
-import time
 from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
@@ -34,6 +31,7 @@ from src.utils.http_client import get_http_client
 # ============================================
 try:
     from src.database.supabase_provider import get_supabase
+
     _SUPABASE_PROVIDER_AVAILABLE = True
     logger.info("✅ Supabase Provider available for hierarchical source fetching")
 except ImportError as e:
@@ -45,70 +43,71 @@ except ImportError as e:
 # V10.0: SUPABASE NEWS SOURCES FETCHING WITH FALLBACK
 # ============================================
 
-def _get_league_id_from_key(league_key: str) -> Optional[str]:
+
+def _get_league_id_from_key(league_key: str) -> str | None:
     """
     Map league_key (e.g., 'soccer_brazil_campeonato') to league_id (UUID).
-    
+
     Args:
         league_key: API league key
-        
+
     Returns:
         League UUID or None if not found
     """
     if not _SUPABASE_PROVIDER_AVAILABLE:
         return None
-    
+
     try:
         sb = get_supabase()
         if not sb:
             return None
-        
+
         leagues = sb.get_active_leagues()
-        
+
         # Find league with matching api_key
         for league in leagues:
-            if league.get('api_key') == league_key:
-                return league.get('id')
-        
+            if league.get("api_key") == league_key:
+                return league.get("id")
+
         return None
     except Exception as e:
         logger.warning(f"⚠️ Failed to map league_key to league_id: {e}")
         return None
 
 
-def _fetch_news_sources_from_supabase(league_key: str) -> Optional[List[str]]:
+def _fetch_news_sources_from_supabase(league_key: str) -> list[str] | None:
     """
     Fetch news source domains for a specific league from Supabase.
-    
+
     Args:
         league_key: API league key (e.g., 'soccer_brazil_campeonato')
-        
+
     Returns:
         List of domain names or None if Supabase unavailable
     """
     if not _SUPABASE_PROVIDER_AVAILABLE:
         return None
-    
+
     try:
         sb = get_supabase()
         if not sb:
             return None
-        
+
         # Map league_key to league_id
         league_id = _get_league_id_from_key(league_key)
         if not league_id:
             return None
-        
+
         # Fetch news sources for this league
         news_sources = sb.get_news_sources(league_id)
-        
+
         # Extract domain names
         domains = []
         for source in news_sources:
-            domain = source.get('domain')
-            if domain and source.get('is_active'):
+            domain = source.get("domain")
+            if domain and source.get("is_active"):
                 domains.append(domain)
-        
+
         if domains:
             logger.info(f"✅ [SUPABASE] Fetched {len(domains)} news sources for {league_key}")
             return domains
@@ -119,32 +118,33 @@ def _fetch_news_sources_from_supabase(league_key: str) -> Optional[List[str]]:
         return None
 
 
-def get_news_domains_for_league(league_key: str) -> List[str]:
+def get_news_domains_for_league(league_key: str) -> list[str]:
     """
     Get news source domains for a specific league with Supabase-first strategy.
-    
+
     Priority:
     1. Try Supabase (news_sources table)
     2. Fallback to hardcoded LEAGUE_DOMAINS
-    
+
     Args:
         league_key: API league key (e.g., 'soccer_brazil_campeonato')
-        
+
     Returns:
         List of domain names
     """
     # Try Supabase first
     domains_from_supabase = _fetch_news_sources_from_supabase(league_key)
-    
+
     if domains_from_supabase:
         return domains_from_supabase
-    
+
     # Fallback to hardcoded list
     if league_key in LEAGUE_DOMAINS:
         logger.info(f"🔄 [FALLBACK] Using hardcoded LEAGUE_DOMAINS for {league_key}")
         return LEAGUE_DOMAINS[league_key]
-    
+
     return []
+
 
 # ============================================
 # CONFIGURATION
@@ -240,85 +240,98 @@ LEAGUE_DOMAINS = {
     # ==========================================
     # TURKEY (news + forum)
     "soccer_turkey_super_league": [
-        "ajansspor.com", "fotospor.com", "turkish-football.com", "gscimbom.com"
+        "ajansspor.com",
+        "fotospor.com",
+        "turkish-football.com",
+        "gscimbom.com",
     ],
     # ARGENTINA (news + forums)
     "soccer_argentina_primera_division": [
-        "dobleamarilla.com.ar", "mundoalbiceleste.com", "turiver.com", "promiedos.com.ar"
+        "dobleamarilla.com.ar",
+        "mundoalbiceleste.com",
+        "turiver.com",
+        "promiedos.com.ar",
     ],
     # MEXICO (news + forum)
     "soccer_mexico_ligamx": [
-        "futboltotal.com.mx", "soyfutbol.com", "fmfstateofmind.com", "bigsoccer.com"
+        "futboltotal.com.mx",
+        "soyfutbol.com",
+        "fmfstateofmind.com",
+        "bigsoccer.com",
     ],
     # GREECE (news + forum)
-    "soccer_greece_super_league": [
-        "agonasport.com", "sdna.gr", "sportdog.gr", "paokmania.gr"
-    ],
+    "soccer_greece_super_league": ["agonasport.com", "sdna.gr", "sportdog.gr", "paokmania.gr"],
     # SCOTLAND (news + forum)
     "soccer_spl": [
-        "dailyrecord.co.uk", "thescottishsun.co.uk", "scottishfootballnews.com", "pieandbovril.com"
+        "dailyrecord.co.uk",
+        "thescottishsun.co.uk",
+        "scottishfootballnews.com",
+        "pieandbovril.com",
     ],
     # AUSTRALIA
-    "soccer_australia_aleague": [
-        "theroar.com.au", "ftbl.com.au", "keepup.com.au"
-    ],
+    "soccer_australia_aleague": ["theroar.com.au", "ftbl.com.au", "keepup.com.au"],
     # FRANCE (news + forums)
-    "soccer_france_ligue_one": [
-        "maxifoot.fr", "lequipe.fr", "culturepsg.com", "lephoceen.fr"
-    ],
+    "soccer_france_ligue_one": ["maxifoot.fr", "lequipe.fr", "culturepsg.com", "lephoceen.fr"],
     # PORTUGAL
-    "soccer_portugal_primeira_liga": [
-        "ojogo.pt", "abola.pt", "maisfutebol.iol.pt"
-    ],
+    "soccer_portugal_primeira_liga": ["ojogo.pt", "abola.pt", "maisfutebol.iol.pt"],
     # SWITZERLAND
-    "soccer_switzerland_superleague": [
-        "blick.ch", "20min.ch", "transfermarkt.ch"
-    ],
-    
+    "soccer_switzerland_superleague": ["blick.ch", "20min.ch", "transfermarkt.ch"],
     # ==========================================
     # TIER 2 - ROTATION
     # ==========================================
     # NORWAY (news + forum)
-    "soccer_norway_eliteserien": [
-        "nettavisen.no", "tv2.no", "vg.no", "vgd.no"
-    ],
+    "soccer_norway_eliteserien": ["nettavisen.no", "tv2.no", "vg.no", "vgd.no"],
     # POLAND (forums + news) - Polish football is forum-centric
     "soccer_poland_ekstraklasa": [
-        "swiatpilki.com",           # Main Polish football forum
-        "weszlo.com",               # Major news site
-        "meczyki.pl",               # News aggregator
-        "90minut.pl",               # Historic forum + news
-        "ekstraklasakibice.fora.pl" # Ekstraklasa-focused forum
+        "swiatpilki.com",  # Main Polish football forum
+        "weszlo.com",  # Major news site
+        "meczyki.pl",  # News aggregator
+        "90minut.pl",  # Historic forum + news
+        "ekstraklasakibice.fora.pl",  # Ekstraklasa-focused forum
     ],
     # BELGIUM
-    "soccer_belgium_first_div": [
-        "voetbalkrant.com", "walfoot.be", "sporza.be"
-    ],
+    "soccer_belgium_first_div": ["voetbalkrant.com", "walfoot.be", "sporza.be"],
     # AUSTRIA (news + forum)
     "soccer_austria_bundesliga": [
-        "abseits.at", "laola1.at", "ligaportal.at", "austriansoccerboard.at"
+        "abseits.at",
+        "laola1.at",
+        "ligaportal.at",
+        "austriansoccerboard.at",
     ],
     # NETHERLANDS (news + forum)
     "soccer_netherlands_eredivisie": [
-        "fcupdate.nl", "voetbalprimeur.nl", "vi.nl", "voetbalzone.nl"
+        "fcupdate.nl",
+        "voetbalprimeur.nl",
+        "vi.nl",
+        "voetbalzone.nl",
     ],
     # CHINA (news + forum)
     "soccer_china_superleague": [
-        "dongqiudi.com", "wildeastfootball.net", "sports.sina.com.cn", "bbs.hupu.com"
+        "dongqiudi.com",
+        "wildeastfootball.net",
+        "sports.sina.com.cn",
+        "bbs.hupu.com",
     ],
     # JAPAN (news + forum)
     "soccer_japan_j_league": [
-        "gekisaka.jp", "soccerdigestweb.com", "football-zone.net", "wc2014.5ch.net"
+        "gekisaka.jp",
+        "soccerdigestweb.com",
+        "football-zone.net",
+        "wc2014.5ch.net",
     ],
     # BRAZIL SERIE B (news + forum)
     "soccer_brazil_serie_b": [
-        "ge.globo.com", "futebolinterior.com.br", "sambafoot.com", "hardmob.com.br"
+        "ge.globo.com",
+        "futebolinterior.com.br",
+        "sambafoot.com",
+        "hardmob.com.br",
     ],
 }
 
 # Import Brave Search Provider
 try:
-    from src.ingestion.brave_provider import get_brave_provider, BraveSearchProvider
+    from src.ingestion.brave_provider import BraveSearchProvider, get_brave_provider
+
     _BRAVE_AVAILABLE = True
 except ImportError:
     _BRAVE_AVAILABLE = False
@@ -327,6 +340,7 @@ except ImportError:
 # Import DuckDuckGo Search (renamed package: ddgs)
 try:
     from ddgs import DDGS
+
     _DDGS_AVAILABLE = True
     logger.info("✅ DuckDuckGo Search library available")
 except ImportError:
@@ -342,6 +356,7 @@ except ImportError:
 # Import Mediastack Provider (V4.4 - emergency fallback)
 try:
     from src.ingestion.mediastack_provider import get_mediastack_provider
+
     _MEDIASTACK_AVAILABLE = True
 except ImportError:
     _MEDIASTACK_AVAILABLE = False
@@ -351,16 +366,16 @@ except ImportError:
 class SearchProvider:
     """
     Search Provider with Brave as primary engine (V4.5).
-    
+
     Layer 0: Brave Search API - Quality + Stability (2000/month)
     Layer 1: DuckDuckGo - Free, no API key needed, no Docker
     Layer 2: Mediastack - FREE unlimited, emergency last-resort
-    
+
     V4.5: Removed Serper from fallback chain (HTTP 400 due to long queries).
-    
+
     V4.4: Uses centralized HTTP client with fingerprint rotation.
     """
-    
+
     def __init__(self):
         self._ddgs_available = _DDGS_AVAILABLE
         self._serper_exhausted = False
@@ -368,35 +383,37 @@ class SearchProvider:
         self._brave = get_brave_provider() if _BRAVE_AVAILABLE else None
         self._mediastack = get_mediastack_provider() if _MEDIASTACK_AVAILABLE else None
         self._http_client = get_http_client()  # Centralized HTTP client
-        
+
         if self._brave and self._brave.is_available():
-            logger.info("🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)")
+            logger.info(
+                "🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)"
+            )
         else:
             logger.info("🔍 SearchProvider initialized (DDG Primary + Serper Fallback)")
-    
+
     def _apply_rate_limit(self, rate_limit_key: str = "duckduckgo"):
         """Apply rate limiting via centralized HTTP client.
-        
+
         Delegates to HTTP client's rate limiter for consistent behavior.
         """
         # Rate limiting is now handled by HTTP client
         # This method exists for backward compatibility
         pass
-    
+
     # ============================================
     # LAYER 0: BRAVE SEARCH (Primary - Quality + Stability)
     # ============================================
-    def _search_brave(self, query: str, num_results: int = 10) -> List[Dict]:
+    def _search_brave(self, query: str, num_results: int = 10) -> list[dict]:
         """Search using Brave Search API (primary engine V3.6)."""
         if not self._brave or not self._brave.is_available():
             return []
-        
+
         try:
             results = self._brave.search_news(query, num_results)
             # Normalize field names for compatibility
             for r in results:
-                if 'url' in r and 'link' not in r:
-                    r['link'] = r['url']
+                if "url" in r and "link" not in r:
+                    r["link"] = r["url"]
             return results
         except ValueError as e:
             logger.warning(f"⚠️ Brave Search not configured: {e}")
@@ -404,10 +421,58 @@ class SearchProvider:
         except Exception as e:
             logger.warning(f"⚠️ Brave Search failed: {e}")
             return []
-    
+
     # ============================================
     # LAYER 1: DUCKDUCKGO (Secondary - Free Fallback)
     # ============================================
+    def _get_query_variations(self, query: str) -> list[str]:
+        """
+        Generate query variations from most specific to most general.
+
+        Implements query degradation strategy:
+        1. Optimized query (current behavior)
+        2. Query without SPORT_EXCLUSION_TERMS
+        3. Query without site dork (and exclusions if still too long)
+        4. Simplified query (team_name + sport_keyword only)
+
+        Args:
+            query: Original query string
+
+        Returns:
+            List of query variations in order of preference
+        """
+        variations = []
+
+        # Variation 1: Optimized query (current behavior)
+        optimized = self._optimize_query_for_ddg(query)
+        variations.append(optimized)
+
+        # Variation 2: Query without SPORT_EXCLUSION_TERMS
+        if SPORT_EXCLUSION_TERMS in query:
+            without_exclusions = query.replace(SPORT_EXCLUSION_TERMS, "")
+            if without_exclusions != query:
+                variations.append(without_exclusions)
+
+        # Variation 3: Query without site dork
+        site_pattern = r"\(site:[^)]+\)"
+        without_site = re.sub(site_pattern, "", query).strip()
+        if without_site != query:
+            # If still too long, also remove exclusions
+            if len(without_site) > 280 and SPORT_EXCLUSION_TERMS in without_site:
+                without_site = without_site.replace(SPORT_EXCLUSION_TERMS, "")
+            variations.append(without_site)
+
+        # Variation 4: Simplified query (team_name + sport_keyword only)
+        # Extract team_name from query (first quoted string)
+        team_match = re.search(r'"([^"]+)"', query)
+        if team_match:
+            team_name = team_match.group(1)
+            simplified = f'"{team_name}" football'
+            if simplified not in variations:
+                variations.append(simplified)
+
+        return variations
+
     def _optimize_query_for_ddg(self, query: str) -> str:
         """Optimize query for DuckDuckGo to avoid length limit errors.
 
@@ -432,18 +497,20 @@ class SearchProvider:
         if SPORT_EXCLUSION_TERMS in query:
             optimized = query.replace(SPORT_EXCLUSION_TERMS, "")
             if len(optimized) <= DDG_MAX_LENGTH:
-                logger.info(f"[DDG-OPT] Removed sport exclusions: {original_length} → {len(optimized)} chars")
+                logger.info(
+                    f"[DDG-OPT] Removed sport exclusions: {original_length} → {len(optimized)} chars"
+                )
                 return optimized
 
         # Step 2: Limit site dork domains to top 3
         # Pattern: (site:domain1 OR site:domain2 OR ...)
-        site_pattern = r'\(site:[^)]+\)'
+        site_pattern = r"\(site:[^)]+\)"
         site_match = re.search(site_pattern, query)
 
         if site_match:
             site_dork = site_match.group(0)
             # Extract domains
-            domains = re.findall(r'site:([^\s)]+)', site_dork)
+            domains = re.findall(r"site:([^\s)]+)", site_dork)
 
             if len(domains) > 3:
                 # Keep only first 3 domains
@@ -451,14 +518,18 @@ class SearchProvider:
                 optimized = query.replace(site_dork, f"({limited_dork})")
 
                 if len(optimized) <= DDG_MAX_LENGTH:
-                    logger.info(f"[DDG-OPT] Limited domains from {len(domains)} to 3: {original_length} → {len(optimized)} chars")
+                    logger.info(
+                        f"[DDG-OPT] Limited domains from {len(domains)} to 3: {original_length} → {len(optimized)} chars"
+                    )
                     return optimized
 
         # Step 3: Remove site dork entirely and keep only query + sport keyword
         if site_match:
-            optimized = re.sub(site_pattern, '', query).strip()
+            optimized = re.sub(site_pattern, "", query).strip()
             if len(optimized) <= DDG_MAX_LENGTH:
-                logger.info(f"[DDG-OPT] Removed site dork: {original_length} → {len(optimized)} chars")
+                logger.info(
+                    f"[DDG-OPT] Removed site dork: {original_length} → {len(optimized)} chars"
+                )
                 return optimized
 
         # Step 4: Last resort - truncate to safe limit
@@ -466,12 +537,15 @@ class SearchProvider:
         logger.warning(f"[DDG-OPT] Truncated query: {original_length} → {len(truncated)} chars")
         return truncated
 
-    def _search_duckduckgo(self, query: str, num_results: int = 10) -> List[Dict]:
-        """Search using DuckDuckGo Python library (secondary engine).
+    def _search_duckduckgo(self, query: str, num_results: int = 10) -> list[dict]:
+        """Search using DuckDuckGo Python library with multi-level query degradation.
 
         Includes specific error handling for common failure modes.
         Uses timelimit="w" to filter results to past week only.
         Rate limiting applied via centralized HTTP client.
+        Implements query degradation to handle "No results found" errors.
+
+        V9.5: Added query degradation strategy to reduce DDG failures.
         """
         if not self._ddgs_available:
             logger.warning("Libreria DuckDuckGo non disponibile")
@@ -481,84 +555,118 @@ class SearchProvider:
         rate_limiter = self._http_client._get_rate_limiter("duckduckgo")
         rate_limiter.wait_sync()
 
-        # Optimize query for DDG length limits
-        optimized_query = self._optimize_query_for_ddg(query)
-        query_length = len(optimized_query)
+        # Generate query variations from most specific to most general
+        query_variations = self._get_query_variations(query)
+        logger.info(f"[DDG-DIAG] Query variations to try: {len(query_variations)}")
+        for i, qv in enumerate(query_variations):
+            logger.debug(f"[DDG-DIAG] Variation {i + 1}: {qv[:100]}... (length: {len(qv)} chars)")
 
-        # DIAGNOSTIC: Log query complexity before making request
-        # SOLUTION B: Using reliable engines only (duckduckgo, brave, google)
-        # Grokipedia disabled due to timeout issues with complex queries
-        # NOTE: "bing" engine not available in DDGS library
-        logger.debug(f"[DDGS-DIAG] Starting DuckDuckGo search - Query length: {query_length} chars, Max results: {num_results}, Timeout: {DDGS_TIMEOUT}s, Engines: duckduckgo,brave,google")
-        if query_length > 200:
-            logger.debug(f"[DDGS-DIAG] Long query detected (first 100 chars): {optimized_query[:100]}...")
+        # Try each query variation in order
+        for i, query_variant in enumerate(query_variations):
+            query_length = len(query_variant)
 
-        try:
-            # DIAGNOSTIC: Pass timeout parameter to DDGS constructor
-            ddgs = DDGS(timeout=DDGS_TIMEOUT)
-            # timelimit="w" filters to past week - prevents stale news
-            # SOLUTION B: Disable Grokipedia engine (unreliable for complex queries)
-            # Use only reliable engines: duckduckgo, brave, google
-            # NOTE: "bing" engine is not available in DDGS library
-            raw_results = ddgs.text(
-                optimized_query,
-                max_results=num_results,
-                timelimit="w",
-                backend="duckduckgo,brave,google"  # Skip grokipedia (bing not available)
+            # DIAGNOSTIC: Log query complexity before making request
+            # SOLUTION B: Using reliable engines only (duckduckgo, brave, google)
+            # Grokipedia disabled due to timeout issues with complex queries
+            # NOTE: "bing" engine not available in DDGS library
+            logger.debug(
+                f"[DDGS-DIAG] Trying variation {i + 1}/{len(query_variations)} - Query length: {query_length} chars, Max results: {num_results}, Timeout: {DDGS_TIMEOUT}s, Engines: duckduckgo,brave,google"
             )
-            
-            results = []
-            for item in raw_results:
-                # Clean and truncate snippet to save tokens (unescape HTML + limit to 350 chars)
-                raw_snippet = item.get("body", "")
-                clean_snippet = html.unescape(raw_snippet)[:350] if raw_snippet else ""
-                
-                results.append({
-                    "title": item.get("title", ""),
-                    "link": item.get("href", ""),
-                    "url": item.get("href", ""),  # Alias for compatibility
-                    "snippet": clean_snippet,
-                    "summary": clean_snippet,  # Analyzer compatibility
-                    "source": "duckduckgo",
-                    "date": "",
-                })
-            
-            if results:
-                logger.debug(f"[DuckDuckGo] Trovati {len(results)} risultati")
-            return results
-            
-        except Exception as e:
-            error_msg = str(e).lower()
-            error_type = type(e).__name__
-            
-            # DIAGNOSTIC: Enhanced error logging with query context
-            logger.error(f"[DDGS-ERROR] Search failed - Error type: {error_type}, Query length: {query_length}, Error: {e}")
-            
-            if "ratelimit" in error_msg or "rate" in error_msg or "429" in error_msg:
-                logger.warning(f"⚠️ DuckDuckGo rate limit raggiunto: {e}")
-                # Trigger fingerprint rotation on rate limit
-                self._http_client._fingerprint.force_rotate()
-            elif "403" in error_msg or "forbidden" in error_msg:
-                logger.warning(f"⚠️ DuckDuckGo accesso negato (possibile blocco IP): {e}")
-                self._http_client._fingerprint.force_rotate()
-            elif "timeout" in error_msg:
-                logger.warning(f"⚠️ DuckDuckGo timeout - servizio lento (query length: {query_length} chars)")
-            elif "connection" in error_msg:
-                logger.warning(f"⚠️ DuckDuckGo errore connessione: {e}")
-            else:
-                logger.warning(f"⚠️ DuckDuckGo errore ricerca: {e}")
-            return []
-    
+            if query_length > 200:
+                logger.debug(
+                    f"[DDGS-DIAG] Long query detected (first 100 chars): {query_variant[:100]}..."
+                )
+
+            try:
+                # DIAGNOSTIC: Pass timeout parameter to DDGS constructor
+                ddgs = DDGS(timeout=DDGS_TIMEOUT)
+                # timelimit="w" filters to past week - prevents stale news
+                # SOLUTION B: Disable Grokipedia engine (unreliable for complex queries)
+                # Use only reliable engines: duckduckgo, brave, google
+                # NOTE: "bing" engine is not available in DDGS library
+                raw_results = ddgs.text(
+                    query_variant,
+                    max_results=num_results,
+                    timelimit="w",
+                    backend="duckduckgo,brave,google",  # Skip grokipedia (bing not available)
+                )
+
+                # If we got results, return them
+                if raw_results:
+                    logger.info(
+                        f"[DDG] Query variation {i + 1} succeeded: {len(raw_results)} results"
+                    )
+
+                    results = []
+                    for item in raw_results:
+                        # Clean and truncate snippet to save tokens (unescape HTML + limit to 350 chars)
+                        raw_snippet = item.get("body", "")
+                        clean_snippet = html.unescape(raw_snippet)[:350] if raw_snippet else ""
+
+                        results.append(
+                            {
+                                "title": item.get("title", ""),
+                                "link": item.get("href", ""),
+                                "url": item.get("href", ""),  # Alias for compatibility
+                                "snippet": clean_snippet,
+                                "summary": clean_snippet,  # Analyzer compatibility
+                                "source": "duckduckgo",
+                                "date": "",
+                            }
+                        )
+
+                    return results
+                else:
+                    logger.debug(f"[DDG] Query variation {i + 1} returned no results")
+
+            except Exception as e:
+                error_msg = str(e).lower()
+                error_type = type(e).__name__
+
+                # DIAGNOSTIC: Enhanced error logging with query context
+                logger.debug(
+                    f"[DDGS-ERROR] Variation {i + 1} failed - Error type: {error_type}, Query length: {query_length}, Error: {e}"
+                )
+
+                # If this is a rate limit or 403 error, don't try other variations
+                if "ratelimit" in error_msg or "rate" in error_msg or "429" in error_msg:
+                    logger.warning(f"⚠️ DuckDuckGo rate limit raggiunto: {e}")
+                    # Trigger fingerprint rotation on rate limit
+                    self._http_client._fingerprint.force_rotate()
+                    return []  # Don't try other variations on rate limit
+                elif "403" in error_msg or "forbidden" in error_msg:
+                    logger.warning(f"⚠️ DuckDuckGo accesso negato (possibile blocco IP): {e}")
+                    self._http_client._fingerprint.force_rotate()
+                    return []  # Don't try other variations on 403
+                elif "timeout" in error_msg:
+                    logger.warning(
+                        f"⚠️ DuckDuckGo timeout - servizio lento (query length: {query_length} chars)"
+                    )
+                    # Try next variation on timeout
+                    continue
+                elif "connection" in error_msg:
+                    logger.warning(f"⚠️ DuckDuckGo errore connessione: {e}")
+                    # Try next variation on connection error
+                    continue
+                else:
+                    logger.warning(f"⚠️ DuckDuckGo errore ricerca: {e}")
+                    # Try next variation on other errors
+                    continue
+
+        # All variations failed
+        logger.warning("[DDG] All query variations failed")
+        return []
+
     # ============================================
     # LAYER 2: SERPER (DISABLED - queries too long cause HTTP 400)
     # ============================================
-    def _search_serper(self, query: str, num_results: int = 10) -> List[Dict]:
+    def _search_serper(self, query: str, num_results: int = 10) -> list[dict]:
         """Search using Serper API (paid fallback).
-        
+
         V4.5: DISABLED - Serper has a ~2048 char limit and our queries with
         sport exclusions + site dorking easily exceed 500+ chars, causing HTTP 400.
         Keeping the method for potential future use with shorter queries.
-        
+
         Uses centralized HTTP client with rate limiting and retry logic.
         """
         # V4.5: Serper disabled - queries too long cause HTTP 400
@@ -566,32 +674,32 @@ class SearchProvider:
         # which exceeds Serper's limit. Mediastack is a better fallback.
         logger.debug("⚠️ Serper disabled (query length issues)")
         return []
-    
+
     # ============================================
     # LAYER 3: MEDIASTACK (FREE Unlimited Emergency Fallback)
     # ============================================
-    def _search_mediastack(self, query: str, num_results: int = 10) -> List[Dict]:
+    def _search_mediastack(self, query: str, num_results: int = 10) -> list[dict]:
         """Search using Mediastack API (free unlimited fallback).
-        
+
         Last-resort fallback when Brave, DDG, and Serper all fail.
         Free tier has unlimited requests but lower quality results.
-        
+
         Args:
             query: Search query string
             num_results: Maximum results to return
-            
+
         Returns:
             List of search results
         """
         if not self._mediastack or not self._mediastack.is_available():
             return []
-        
+
         try:
             results = self._mediastack.search_news(query, limit=num_results)
             # Normalize field names for compatibility
             for r in results:
-                if 'url' in r and 'link' not in r:
-                    r['link'] = r['url']
+                if "url" in r and "link" not in r:
+                    r["link"] = r["url"]
             return results
         except ValueError as e:
             logger.warning(f"⚠️ Mediastack not configured: {e}")
@@ -599,35 +707,35 @@ class SearchProvider:
         except Exception as e:
             logger.warning(f"⚠️ Mediastack search failed: {e}")
             return []
-    
+
     def _build_insider_query(self, team: str, keywords: str, league_key: str = None) -> str:
         """
         Build search query with insider domain dorking for Elite leagues.
-        
+
         If league_key is in LEAGUE_DOMAINS, restricts search to those domains
         using site: operator for higher quality results.
-        
+
         Phase 1 Critical Fix: URL-encode team names and keywords to handle non-ASCII
         characters (e.g., Turkish "ş", Polish "ą", Greek "α").
-        
+
         Args:
             team: Team name
             keywords: Search keywords (e.g., "injury OR lineup")
             league_key: League key for domain lookup
-            
+
         Returns:
             Formatted query string with site: dorking if applicable
         """
         # Phase 1 Critical Fix: URL-encode team name to handle special characters
         # This fixes search failures for non-English team names like "Beşiktaş", "Lech Poznań"
-        encoded_team = quote(team, safe='')
-        
+        encoded_team = quote(team, safe="")
+
         # Phase 1 Critical Fix: URL-encode keywords to handle special characters
-        encoded_keywords = quote(keywords, safe=' ')
-        
+        encoded_keywords = quote(keywords, safe=" ")
+
         # Base query with URL-encoded team and keywords
         base_query = f'"{encoded_team}" {encoded_keywords}'
-        
+
         # Add insider domain dorking if league has configured domains
         # V10.0: Use Supabase-first strategy with fallback to LEAGUE_DOMAINS
         if league_key:
@@ -635,57 +743,57 @@ class SearchProvider:
             if domains:
                 # Phase 1 Critical Fix: URL-encode domain names as well
                 site_dork = " OR ".join([f"site:{quote(d, safe='')}" for d in domains])
-                base_query = f'{base_query} ({site_dork})'
+                base_query = f"{base_query} ({site_dork})"
                 logger.debug(f"🎯 Insider dorking for {league_key}: {domains}")
-        
+
         # Add sport exclusions (these are ASCII, no encoding needed)
-        base_query = f'{base_query}{SPORT_EXCLUSION_TERMS}'
-        
+        base_query = f"{base_query}{SPORT_EXCLUSION_TERMS}"
+
         return base_query
-    
+
     def search_insider_news(
         self,
         team: str,
         league_key: str,
         keywords: str = "injury OR lineup OR squad OR team news",
-        num_results: int = 5
-    ) -> List[Dict]:
+        num_results: int = 5,
+    ) -> list[dict]:
         """
         Search insider sources for a specific team and league.
-        
+
         Uses curated domain list for higher quality results.
         Falls back to general search if no domains configured.
-        
+
         Args:
             team: Team name
             league_key: League key (e.g., "soccer_turkey_super_league")
             keywords: Search keywords
             num_results: Maximum results
-            
+
         Returns:
             List of search results
         """
         query = self._build_insider_query(team, keywords, league_key)
-        
+
         # V10.0: Log domains from Supabase or fallback
         domains = get_news_domains_for_league(league_key)
         if domains:
             logger.info(f"🔍 [INSIDER] Searching {team} on {domains}")
-        
+
         return self.search(query, num_results)
-    
+
     # ============================================
     # MAIN SEARCH METHOD (Brave -> DDG -> Mediastack)
     # ============================================
-    def search(self, query: str, num_results: int = 5) -> List[Dict]:
+    def search(self, query: str, num_results: int = 5) -> list[dict]:
         """
         Search with automatic failover.
-        
+
         Priority: Brave -> DuckDuckGo -> Mediastack
-        
+
         V4.5: Removed Serper from chain (HTTP 400 due to long queries with
         sport exclusions + site dorking exceeding Serper's ~2048 char limit).
-        
+
         Rate limiting is handled by centralized HTTP client.
         Fingerprint rotation on 403/429 errors.
         """
@@ -693,7 +801,7 @@ class SearchProvider:
         if not query or len(query.strip()) < 3:
             logger.warning(f"⚠️ Empty or too short query skipped: '{query}'")
             return []
-        
+
         # Layer 0: Brave Search (Primary - Quality + Stability)
         try:
             if self._brave and self._brave.is_available():
@@ -702,7 +810,7 @@ class SearchProvider:
                     return results
         except Exception as e:
             logger.warning(f"⚠️ Brave Search failed: {e}")
-        
+
         # Layer 1: DuckDuckGo (Free Fallback)
         # Rate limiting handled by HTTP client via rate_limit_key="duckduckgo"
         try:
@@ -712,26 +820,26 @@ class SearchProvider:
         except Exception as e:
             error_msg = str(e).lower()
             if "ratelimit" in error_msg or "rate" in error_msg or "429" in error_msg:
-                logger.warning(f"⚠️ Rate Limit DuckDuckGo rilevato. Fallback a Mediastack.")
+                logger.warning("⚠️ Rate Limit DuckDuckGo rilevato. Fallback a Mediastack.")
             else:
                 logger.warning(f"DuckDuckGo error: {e}")
-        
+
         # Layer 2: Mediastack (FREE unlimited emergency fallback)
         # V4.5: Serper removed - Mediastack is now the direct fallback after DDG
         results = self._search_mediastack(query, num_results)
         if results:
             logger.info(f"🆘 Mediastack emergency fallback returned {len(results)} results")
             return results
-        
+
         logger.warning(f"All search backends failed for: {query[:50]}...")
         return []
-    
-    def search_news(self, query: str, num_results: int = 5, league_key: str = None) -> List[Dict]:
+
+    def search_news(self, query: str, num_results: int = 5, league_key: str = None) -> list[dict]:
         """Search specifically for news (football only, excludes basketball).
-        
+
         If league_key is provided and has insider domains configured,
         uses site: dorking for higher quality results.
-        
+
         Args:
             query: Search query string
             num_results: Maximum number of results
@@ -741,7 +849,7 @@ class SearchProvider:
         sport_keyword = DEFAULT_SPORT_KEYWORD
         if league_key and league_key in LEAGUE_SPORT_KEYWORDS:
             sport_keyword = LEAGUE_SPORT_KEYWORDS[league_key]
-        
+
         # Build query with insider domain dorking if available
         # V10.0: Use Supabase-first strategy with fallback to LEAGUE_DOMAINS
         domains = get_news_domains_for_league(league_key)
@@ -751,16 +859,16 @@ class SearchProvider:
             logger.debug(f"🎯 News search with insider domains: {domains}")
         else:
             news_query = f"{query} {sport_keyword} news OR update OR latest{SPORT_EXCLUSION_TERMS}"
-        
+
         return self.search(news_query, num_results)
-    
-    def search_twitter(self, query: str, num_results: int = 5) -> List[Dict]:
+
+    def search_twitter(self, query: str, num_results: int = 5) -> list[dict]:
         """Search Twitter/X content.
-        
+
         DEPRECATED V7.0: This method returns 0 results because Twitter/X
         blocked search engine indexing in mid-2023. Use TwitterIntelCache
         instead for Twitter data.
-        
+
         Kept for backward compatibility but will always return empty results.
         """
         logger.warning(
@@ -769,17 +877,17 @@ class SearchProvider:
         )
         twitter_query = f"{query} site:twitter.com OR site:x.com"
         return self.search(twitter_query, num_results)
-    
+
     def search_local_news(
         self,
         team_name: str,
-        domains: List[str],
-        keywords: List[str],
+        domains: list[str],
+        keywords: list[str],
         num_results: int = 5,
-        league_key: str = None
-    ) -> List[Dict]:
+        league_key: str = None,
+    ) -> list[dict]:
         """Search local news sources for team information (football only).
-        
+
         Args:
             team_name: Team name to search (can be empty for general radar scans)
             domains: List of domains to search
@@ -789,54 +897,56 @@ class SearchProvider:
         """
         # Build query parts
         query_parts = []
-        
+
         # Add team name if provided
         if team_name and team_name.strip():
             query_parts.append(f'"{team_name}"')
-        
+
         # Add domain filter
         if domains:
             site_filter = " OR ".join([f"site:{d}" for d in domains[:3]])
-            query_parts.append(f'({site_filter})')
-        
+            query_parts.append(f"({site_filter})")
+
         # Add keywords
         if keywords:
             kw_filter = " OR ".join(keywords[:3])
-            query_parts.append(f'({kw_filter})')
-        
+            query_parts.append(f"({kw_filter})")
+
         # Combine parts
         query = " ".join(query_parts)
-        
+
         # Guard: Skip if query is empty or too short
         if not query or len(query.strip()) < 5:
-            logger.warning(f"⚠️ Skipping empty/short query in search_local_news")
+            logger.warning("⚠️ Skipping empty/short query in search_local_news")
             return []
-        
+
         # Add localized sport keyword
         sport_keyword = DEFAULT_SPORT_KEYWORD
         if league_key and league_key in LEAGUE_SPORT_KEYWORDS:
             sport_keyword = LEAGUE_SPORT_KEYWORDS[league_key]
-        query = f'{query} {sport_keyword}'
-        
+        query = f"{query} {sport_keyword}"
+
         # Add sport exclusion to filter out basketball news
-        query = f'{query}{SPORT_EXCLUSION_TERMS}'
-        
+        query = f"{query}{SPORT_EXCLUSION_TERMS}"
+
         return self.search(query, num_results)
-    
+
     def is_available(self) -> bool:
         """Check if any search backend is available.
-        
+
         V4.5: Removed Serper from availability check (disabled due to query length issues).
         """
         brave_ok = self._brave and self._brave.is_available() if self._brave else False
-        mediastack_ok = self._mediastack and self._mediastack.is_available() if self._mediastack else False
+        mediastack_ok = (
+            self._mediastack and self._mediastack.is_available() if self._mediastack else False
+        )
         return brave_ok or self._ddgs_available or mediastack_ok
 
 
 # ============================================
 # SINGLETON & CONVENIENCE FUNCTIONS
 # ============================================
-_provider_instance: Optional[SearchProvider] = None
+_provider_instance: SearchProvider | None = None
 
 
 def get_search_provider() -> SearchProvider:
@@ -847,28 +957,29 @@ def get_search_provider() -> SearchProvider:
     return _provider_instance
 
 
-def search_news(query: str, num_results: int = 5, league_key: str = None) -> List[Dict]:
+def search_news(query: str, num_results: int = 5, league_key: str = None) -> list[dict]:
     """Convenience function for news search."""
     return get_search_provider().search_news(query, num_results, league_key=league_key)
 
 
-def search_twitter(query: str, num_results: int = 5) -> List[Dict]:
+def search_twitter(query: str, num_results: int = 5) -> list[dict]:
     """Convenience function for Twitter search.
-    
+
     DEPRECATED V7.0: Returns 0 results - Twitter blocks indexing.
     Use TwitterIntelCache instead.
     """
     return get_search_provider().search_twitter(query, num_results)
 
 
-def search_local(team: str, domains: List[str], keywords: List[str], league_key: str = None) -> List[Dict]:
+def search_local(
+    team: str, domains: list[str], keywords: list[str], league_key: str = None
+) -> list[dict]:
     """Convenience function for local news search."""
     return get_search_provider().search_local_news(team, domains, keywords, league_key=league_key)
 
 
-def search_insider(team: str, league_key: str, keywords: str = "injury OR lineup OR squad") -> List[Dict]:
+def search_insider(
+    team: str, league_key: str, keywords: str = "injury OR lineup OR squad"
+) -> list[dict]:
     """Convenience function for insider domain search."""
     return get_search_provider().search_insider_news(team, league_key, keywords)
-
-
-

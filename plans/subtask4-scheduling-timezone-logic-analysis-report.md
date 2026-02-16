@@ -66,7 +66,7 @@ while True:
 - **Pause lock support** for manual control
 - **Error-based backoff** with exponential delays
 
-### 1.2 Launcher Scheduling (`src/launcher.py`)
+### 1.2 Launcher Scheduling (`src/entrypoints/launcher.py`)
 
 **Orchestrator Loop:**
 ```python
@@ -79,9 +79,9 @@ while not _shutdown_requested:
 
 | Location | Line | Purpose | Duration | Type |
 |----------|-------|---------|----------|------|
-| [`src/launcher.py:336`](src/launcher.py:336) | Process restart backoff | Dynamic (2-60s) | Dynamic |
-| [`src/launcher.py:386`](src/launcher.py:386) | Inter-process startup delay | 2s | Fixed |
-| [`src/launcher.py:393`](src/launcher.py:393) | Health check interval | 5s | Fixed |
+| [`src/entrypoints/launcher.py:336`](src/entrypoints/launcher.py:336) | Process restart backoff | Dynamic (2-60s) | Dynamic |
+| [`src/entrypoints/launcher.py:386`](src/entrypoints/launcher.py:386) | Inter-process startup delay | 2s | Fixed |
+| [`src/entrypoints/launcher.py:393`](src/entrypoints/launcher.py:393) | Health check interval | 5s | Fixed |
 
 **Scheduling Characteristics:**
 - **Process-level monitoring** (not content scheduling)
@@ -97,7 +97,7 @@ while not _shutdown_requested:
 source venv/bin/activate
 
 # Launch orchestrator (handles all scheduling internally)
-python3 src/launcher.py
+python3 src/entrypoints/launcher.py
 ```
 
 **Characteristics:**
@@ -290,9 +290,9 @@ await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
 | `src/main.py:3934` | `time.sleep` | Memory error retry | 600s (10m) | ❌ No |
 | `src/main.py:3956` | `time.sleep` | Connection error retry | 300s (5m) | ❌ No |
 | `src/main.py:3983` | `time.sleep` | General error retry | Dynamic | ❌ No |
-| `src/launcher.py:336` | `time.sleep` | Process restart backoff | Dynamic (2-60s) | ❌ No |
-| `src/launcher.py:386` | `time.sleep` | Inter-process startup delay | 2s | ❌ No |
-| `src/launcher.py:393` | `time.sleep` | Health check interval | 5s | ❌ No |
+| `src/entrypoints/launcher.py:336` | `time.sleep` | Process restart backoff | Dynamic (2-60s) | ❌ No |
+| `src/entrypoints/launcher.py:386` | `time.sleep` | Inter-process startup delay | 2s | ❌ No |
+| `src/entrypoints/launcher.py:393` | `time.sleep` | Health check interval | 5s | ❌ No |
 | `src/services/news_radar.py:999` | `asyncio.sleep` | Delay between pages | Dynamic | ❌ No |
 | `src/services/news_radar.py:1128` | `asyncio.sleep` | Rate limiting | Dynamic | ❌ No |
 | `src/services/news_radar.py:1470` | `asyncio.sleep` | Telegram rate limit | Dynamic | ❌ No |
@@ -306,7 +306,7 @@ await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
 | `src/services/browser_monitor.py:1706` | `asyncio.sleep` | Scan loop error retry | 60s | ❌ No |
 | `src/services/browser_monitor.py:2073` | `asyncio.sleep` | Interval enforcement | Dynamic | ❌ No |
 | `src/services/browser_monitor.py:2091` | `asyncio.sleep` | Memory wait loop | 10s | ❌ No |
-| `src/run_bot.py:551` | `asyncio.sleep` | Bot heartbeat | 3600s (1h) | ❌ No |
+| `src/entrypoints/run_bot.py:551` | `asyncio.sleep` | Bot heartbeat | 3600s (1h) | ❌ No |
 
 ### 3.2 Sleep Logic Analysis
 
@@ -315,7 +315,7 @@ await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
 | Category | Files | Count | Total Impact |
 |----------|-------|-------|--------------|
 | Main pipeline cycle | `src/main.py` | 1 | **CRITICAL** - Controls overall execution |
-| Launcher health check | `src/launcher.py` | 2 | Medium - Process monitoring |
+| Launcher health check | `src/entrypoints/launcher.py` | 2 | Medium - Process monitoring |
 | Pause lock | `src/main.py` | 1 | Low - Manual control |
 | Error retry | `src/main.py` | 3 | Medium - Error recovery |
 
@@ -856,7 +856,7 @@ LATAM Session:
 - [`config/browser_sources.json`](config/browser_sources.json) - Browser monitor sources with timezones
 
 ### Launcher Logic
-- [`src/launcher.py:391`](src/launcher.py:391) - Orchestrator main loop
+- [`src/entrypoints/launcher.py:391`](src/entrypoints/launcher.py:391) - Orchestrator main loop
 - [`run_forever.sh`](run_forever.sh) - Shell wrapper
 
 ---

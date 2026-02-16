@@ -242,8 +242,8 @@ graph TD
     %% ============================================
     subgraph CORE["Core Processes"]
         MP["Main Pipeline<br/>src/main.py"]
-        LNCH["Launcher<br/>src/launcher.py"]
-        TB["Telegram Bot<br/>src/run_bot.py"]
+        LNCH["Launcher<br/>src/entrypoints/launcher.py"]
+        TB["Telegram Bot<br/>src/entrypoints/run_bot.py"]
         NR["News Radar<br/>src/services/news_radar.py"]
         BM["Browser Monitor<br/>src/services/browser_monitor.py"]
         TLM["Telegram Monitor<br/>src/processing/telegram_listener.py"]
