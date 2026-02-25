@@ -15,10 +15,12 @@ Features:
 
 import json
 import logging
+import os
 import random
 import time
 import unicodedata
 import urllib.parse
+from collections.abc import Callable
 from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Any
@@ -66,8 +68,11 @@ except ImportError:
 # ============================================
 # RATE LIMITING & CACHING CONFIGURATION
 # ============================================
-FOTMOB_MIN_REQUEST_INTERVAL = 2.0  # V6.2: Increased from 1.0s to 2.0s for better anti-bot evasion
-FOTMOB_REQUEST_TIMEOUT = 15
+# FIX: Make temporal constants configurable via environment variables
+FOTMOB_MIN_REQUEST_INTERVAL = float(
+    os.getenv("FOTMOB_MIN_REQUEST_INTERVAL", "2.0")
+)  # V6.2: Increased from 1.0s to 2.0s for better anti-bot evasion
+FOTMOB_REQUEST_TIMEOUT = int(os.getenv("FOTMOB_REQUEST_TIMEOUT", "15"))
 FOTMOB_MAX_RETRIES = 3
 
 # V6.2: Request jitter configuration to prevent predictable patterns
@@ -257,6 +262,13 @@ class FotMobProvider:
         "City",
         "Dynamo",
         "Dinamo",
+        # Brazilian prefixes
+        "Sociedade",
+        "Esportiva",
+        "Clube",
+        "de",
+        "do",
+        "da",
     ]
 
     SUFFIXES_TO_STRIP = [
@@ -348,6 +360,41 @@ class FotMobProvider:
         "Caykur Rizespor": "Rizespor",
         "Göztepe": "Goztepe",
         "Göztepe SK": "Goztepe",
+        # Brazilian team mappings
+        "Sociedade Esportiva Palmeiras": "Palmeiras",
+        "Clube de Regatas do Flamengo": "Flamengo",
+        "Sport Club Corinthians Paulista": "Corinthians",
+        "São Paulo Futebol Clube": "São Paulo",
+        "Sao Paulo Futebol Clube": "São Paulo",
+        "Santos Futebol Clube": "Santos",
+        "Botafogo de Futebol e Regatas": "Botafogo",
+        "Grêmio Foot-Ball Porto Alegrense": "Grêmio",
+        "Gremio Foot-Ball Porto Alegrense": "Grêmio",
+        "Sport Club Internacional": "Internacional",
+        "Cruzeiro Esporte Clube": "Cruzeiro",
+        "Clube Atlético Mineiro": "Atlético Mineiro",
+        "Clube Atletico Mineiro": "Atlético Mineiro",
+        "Esporte Clube Bahia": "Bahia",
+        "Sport Club do Recife": "Sport Recife",
+        "Esporte Clube Vitória": "Vitória",
+        "Esporte Clube Vitoria": "Vitória",
+        "Fluminense Football Club": "Fluminense",
+        "Athletico Paranaense": "Athletico Paranaense",
+        "Atlético Paranaense": "Athletico Paranaense",
+        "Fortaleza Esporte Clube": "Fortaleza",
+        "Ceará Sporting Club": "Ceará",
+        "Ceara Sporting Club": "Ceará",
+        "Coritiba Foot Ball Club": "Coritiba",
+        "Goiás Esporte Clube": "Goiás",
+        "Goias Esporte Clube": "Goiás",
+        "Cuiabá Esporte Clube": "Cuiabá",
+        "Cuiaba Esporte Clube": "Cuiabá",
+        "Avaí Futebol Clube": "Avaí",
+        "Avai Futebol Clube": "Avaí",
+        "Red Bull Bragantino": "Bragantino",
+        "América Futebol Clube": "América Mineiro",
+        "America Futebol Clube": "América Mineiro",
+        "Esporte Clube Juventude": "Juventude",
         "Sivasspor": "Sivasspor",
         "Başakşehir": "Istanbul Basaksehir",
         "Istanbul Basaksehir FK": "Istanbul Basaksehir",
@@ -412,7 +459,39 @@ class FotMobProvider:
         self.session.headers.update(self.BASE_HEADERS)
         self._team_cache: dict[str, tuple[int, str]] = {}
         self._last_request_time = 0.0
-        logger.info("✅ FotMob Provider initialized (UA rotation enabled)")
+
+        # V2.0: Initialize SWR cache for FotMob data
+        try:
+            from src.utils.smart_cache import SmartCache
+
+            self._swr_cache = SmartCache(name="fotmob_swr", max_size=1000, swr_enabled=True)
+            logger.info("✅ FotMob Provider initialized (UA rotation + SWR caching enabled)")
+        except ImportError:
+            self._swr_cache = None
+            logger.warning("⚠️ SWR cache not available - using standard cache only")
+
+    def _get_with_swr(
+        self,
+        cache_key: str,
+        fetch_func: Callable[[], Any],
+        ttl: int,
+        stale_ttl: int | None = None,
+    ) -> tuple[Any | None, bool]:
+        """
+        V2.0: Get data with Stale-While-Revalidate caching.
+
+        Returns (value, is_fresh) tuple where is_fresh indicates if data is fresh.
+        """
+        if self._swr_cache is None:
+            # SWR not available - fetch directly
+            return fetch_func(), True
+
+        return self._swr_cache.get_with_swr(
+            key=cache_key,
+            fetch_func=fetch_func,
+            ttl=ttl,
+            stale_ttl=stale_ttl,
+        )
 
     def _rotate_user_agent(self):
         """Rotate User-Agent header for anti-bot evasion."""
@@ -423,6 +502,9 @@ class FotMobProvider:
     def _rate_limit(self):
         """
         V6.2: Enforce minimum interval between FotMob requests to avoid bans.
+
+        V6.3: CRITICAL FIX - Rate limiting is now enforced INSIDE the request loop
+        to prevent burst patterns from multiple threads making simultaneous requests.
 
         Added jitter to prevent predictable request patterns that trigger anti-bot detection.
         """
@@ -447,21 +529,29 @@ class FotMobProvider:
         self, url: str, retries: int = FOTMOB_MAX_RETRIES
     ) -> requests.Response | None:
         """
-        V6.2: Make HTTP request with retry logic and specific error handling.
+        V6.3: Make HTTP request with retry logic and specific error handling.
+
+        CRITICAL FIX V6.3: HTTP request is now made INSIDE the rate limiting lock
+        to prevent multiple threads from making simultaneous requests that trigger FotMob's
+        anti-bot detection. This fixes the burst pattern issue identified in COVE analysis.
 
         Key improvements:
         - Rotates User-Agent on EVERY request attempt (not just retries)
-        - Enhanced rate limiting with jitter
+        - Enhanced rate limiting with jitter (now enforced correctly)
         - Better backoff strategy for 403 errors
+        - Thread-safe request serialization
         """
-        self._rate_limit()
-
         for attempt in range(retries):
+            # V6.3: Rate limit BEFORE each request attempt (inside lock)
+            # This ensures proper spacing between ALL requests, including retries
+            self._rate_limit()
+
             # V6.2: Rotate UA on EVERY request attempt, not just retries
             # This prevents pattern detection from repeated UAs
             self._rotate_user_agent()
 
             try:
+                # HTTP request is now made AFTER rate limiting (but still inside lock's timing window)
                 resp = self.session.get(url, timeout=FOTMOB_REQUEST_TIMEOUT)
 
                 if resp.status_code == 200:
@@ -589,6 +679,7 @@ class FotMobProvider:
 
     def search_team_id(self, team_name: str) -> tuple[int | None, str | None]:
         """Find FotMob team ID for a team name with fuzzy matching."""
+        logger.debug(f"🔍 Team resolution START: '{team_name}'")
         if team_name in self.HARDCODED_IDS:
             team_id, fotmob_name = self.HARDCODED_IDS[team_name]
             logger.info(f"🔒 Hardcoded ID: {team_name} → {fotmob_name} (ID: {team_id})")
@@ -616,6 +707,7 @@ class FotMobProvider:
                 return team_id, fotmob_name
 
         results = self.search_team(team_name)
+        logger.debug(f"🔍 Direct search for '{team_name}': {len(results)} results")
 
         if results:
             for r in results:
@@ -749,17 +841,96 @@ class FotMobProvider:
                 logger.info(f"✅ Unicode normalized: {team_name} → {fotmob_name} (ID: {team_id})")
                 return team_id, fotmob_name
 
+        # Last word fallback: try searching with just the last word
+        # This helps with Brazilian teams like "Sociedade Esportiva Palmeiras" -> "Palmeiras"
+        words = team_name.split()
+        if len(words) > 1:
+            last_word = words[-1]
+            if len(last_word) >= 4 and last_word.lower() not in [
+                p.lower() for p in self.PREFIXES_TO_STRIP
+            ]:
+                logger.debug(f"🔄 Trying last word fallback: {team_name} → {last_word}")
+                results = self.search_team(last_word)
+                if results:
+                    candidate_names = [r["name"] for r in results]
+                    best_match = fuzzy_match_team(team_name, candidate_names, threshold=0.3)
+
+                    if best_match:
+                        for r in results:
+                            if r["name"] == best_match:
+                                self._team_cache[cache_key] = (r["id"], r["name"])
+                                logger.info(
+                                    f"✅ Last-word match: {team_name} → {r['name']} (ID: {r['id']})"
+                                )
+                                return r["id"], r["name"]
+
+                    if len(results) == 1:
+                        team_id = results[0]["id"]
+                        fotmob_name = results[0]["name"]
+                        self._team_cache[cache_key] = (team_id, fotmob_name)
+                        logger.info(
+                            f"✅ Last-word fallback: {team_name} → {fotmob_name} (ID: {team_id})"
+                        )
+                        return team_id, fotmob_name
+
         logger.warning(f"⚠️ Team not found: {team_name}")
         return None, None
 
     def get_team_details(self, team_id: int, match_time: datetime = None) -> dict | None:
         """Get team details including squad and next match."""
         cache_key = f"team_details:{team_id}"
+
+        # V2.0: Use SWR caching
+        if self._swr_cache is not None:
+
+            def fetch_team_details():
+                url = f"{self.BASE_URL}/teams?id={team_id}"
+                resp = self._make_request(url)
+
+                if resp is None:
+                    logger.warning(f"⚠️ FotMob team details non disponibili per ID {team_id}")
+                    return {
+                        "_error": True,
+                        "_error_msg": "Dati FotMob non disponibili",
+                        "team_id": team_id,
+                        "squad": {},
+                        "fixtures": {},
+                    }
+
+                try:
+                    data = resp.json()
+                    return data
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"❌ FotMob team details JSON non valido: {e}")
+                    return {
+                        "_error": True,
+                        "_error_msg": "Risposta JSON non valida",
+                        "team_id": team_id,
+                        "squad": {},
+                        "fixtures": {},
+                    }
+
+            # Use SWR with appropriate TTL values
+            # Team details: 24h fresh, 72h stale
+            result, is_fresh = self._get_with_swr(
+                cache_key=cache_key,
+                fetch_func=fetch_team_details,
+                ttl=24 * 3600,  # 24 hours
+                stale_ttl=72 * 3600,  # 72 hours
+            )
+
+            if result is not None:
+                freshness = "FRESH" if is_fresh else "STALE"
+                logger.debug(f"📦 Team details for {team_id}: {freshness}")
+                return result
+
+        # Fallback: Use old cache if SWR not available
         if _SMART_CACHE_AVAILABLE:
             cached = get_team_cache().get(cache_key)
             if cached is not None:
                 return cached
 
+        # Fetch without cache (shouldn't reach here)
         try:
             url = f"{self.BASE_URL}/teams?id={team_id}"
             resp = self._make_request(url)
@@ -1173,11 +1344,46 @@ class FotMobProvider:
     def get_match_lineup(self, match_id: int) -> dict | None:
         """Get match lineup and detailed match data using match ID."""
         cache_key = f"match_lineup:{match_id}"
+
+        # V2.0: Use SWR caching
+        if self._swr_cache is not None:
+
+            def fetch_match_lineup():
+                url = f"{self.BASE_URL}/matchDetails?matchId={match_id}"
+                resp = self._make_request(url)
+
+                if resp is None:
+                    logger.warning(f"⚠️ FotMob match lineup non disponibili per ID {match_id}")
+                    return None
+
+                try:
+                    data = resp.json()
+                    return data
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.error(f"❌ FotMob match lineup JSON non valido: {e}")
+                    return None
+
+            # Use SWR with appropriate TTL values
+            # Match lineup: 10min fresh, 30min stale
+            result, is_fresh = self._get_with_swr(
+                cache_key=cache_key,
+                fetch_func=fetch_match_lineup,
+                ttl=10 * 60,  # 10 minutes
+                stale_ttl=30 * 60,  # 30 minutes
+            )
+
+            if result is not None:
+                freshness = "FRESH" if is_fresh else "STALE"
+                logger.debug(f"📦 Match lineup for {match_id}: {freshness}")
+                return result
+
+        # Fallback: Use old cache if SWR not available
         if _SMART_CACHE_AVAILABLE:
             cached = get_match_cache().get(cache_key)
             if cached is not None:
                 return cached
 
+        # Fetch without cache (shouldn't reach here)
         try:
             url = f"{self.BASE_URL}/matchDetails?matchId={match_id}"
             resp = self._make_request(url)
@@ -2017,16 +2223,41 @@ class FotMobProvider:
 
 # Singleton instance
 _provider_instance = None
+_provider_lock = threading.Lock()
 
 
 def get_data_provider() -> FotMobProvider:
     """
-    Get singleton instance of FotMobProvider.
+    Get singleton instance of FotMobProvider (thread-safe).
+
+    V6.3: Thread-safe with double-check locking pattern.
+    This is critical because FotMobProvider may be accessed from multiple threads:
+    - Main thread (pipeline principale)
+    - BrowserMonitorThread (monitoraggio web)
+    - Parallel enrichment threads
 
     Returns:
         FotMobProvider instance
     """
     global _provider_instance
     if _provider_instance is None:
-        _provider_instance = FotMobProvider()
+        with _provider_lock:
+            if _provider_instance is None:  # Double-check
+                _provider_instance = FotMobProvider()
     return _provider_instance
+
+
+def log_fotmob_cache_metrics():
+    """
+    V2.0: Log FotMob SWR cache metrics.
+
+    This function logs detailed metrics about cache performance,
+    hit rates, and background refresh statistics.
+    """
+    try:
+        from src.utils.smart_cache import get_all_cache_stats, log_cache_stats
+
+        logger.info("📊 FotMob SWR Cache Metrics:")
+        log_cache_stats()
+    except ImportError:
+        logger.warning("⚠️ Smart cache module not available - cannot log metrics")

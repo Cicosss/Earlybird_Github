@@ -1551,11 +1551,26 @@ def analyze_with_triangulation(
         # Aggregate news from news_articles
         if news_articles:
             news_snippets = []
+            team_names = set()  # Track which teams have news
+
             for article in news_articles:
                 snippet = article.get("snippet", article.get("title", ""))
                 if snippet:
                     news_snippets.append(snippet)
+                    # Preserve team information from article
+                    team = article.get("team")
+                    if team:
+                        team_names.add(team)
+
             news_snippet = "\n\n".join(news_snippets) if news_snippets else "No news available"
+
+            # Add team information to snippet_data
+            # If only one team has news, use that team
+            # If both teams have news, default to home team
+            if len(team_names) == 1:
+                snippet_data["team"] = team_names.pop()
+            elif len(team_names) > 1:
+                snippet_data["team"] = match.home_team
         else:
             news_snippet = news_snippet or "No news available"
 
@@ -1683,11 +1698,19 @@ def analyze_with_triangulation(
             logging.debug(f"📝 News snippet truncated to {NEWS_SNIPPET_MAX_CHARS} chars")
 
         # STEP 1: Enrich official_data with FotMob player status
-        team_name = snippet_data.get("team", "Unknown Team")
-
+        team_name = snippet_data.get("team", match.home_team)
+        
         if not official_data or official_data == "No official data available":
-            logging.info(f"🔄 Enriching news with FotMob player data for team: {team_name}")
-            official_data = enrich_with_player_data(news_snippet, team_name)
+            # Resolve team_id for FotMob lookup
+            provider = get_data_provider()
+            team_id, fotmob_name = provider.search_team_id(team_name)
+            
+            if team_id:
+                logging.info(f"🔄 Enriching news with FotMob player data for team: {team_name} (ID: {team_id})")
+                official_data = enrich_with_player_data(news_snippet, team_name, team_id)
+            else:
+                logging.warning(f"⚠️ Could not resolve team_id for: {team_name}")
+                official_data = "No official data available"
 
         # STEP 1c: H2H BTTS Trend Analysis (V4.1)
         # Fetch H2H data directly from FotMob and calculate BTTS trend

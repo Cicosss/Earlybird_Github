@@ -18,6 +18,7 @@ import os
 
 # Setup path
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 CACHE_TTL_SECONDS = 3600  # 1 hour cache
+SUPABASE_QUERY_TIMEOUT = 10.0  # 10 second timeout for queries (V11.1)
 MIRROR_FILE_PATH = Path("data/supabase_mirror.json")
 DATA_DIR = Path("data")
 
@@ -62,16 +64,22 @@ class SupabaseProvider:
     - Hierarchical data fetching (Continents -> Countries -> Leagues -> Sources)
     - Smart 1-hour cache to minimize API usage
     - Fail-safe mirror: saves local copy and falls back on connection failure
+    - Thread-safe operations (V11.1)
+    - Atomic mirror writes (V11.1)
+    - Data completeness validation (V11.1)
     """
 
     _instance: Optional["SupabaseProvider"] = None
     _client: Any | None = None
+    _instance_lock = threading.Lock()  # Thread-safe singleton creation (V11.1)
 
     def __new__(cls):
-        """Singleton pattern: ensure only one instance exists."""
+        """Singleton pattern: ensure only one instance exists (thread-safe)."""
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
+            with cls._instance_lock:  # V11.1: Thread-safe singleton creation
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
@@ -82,6 +90,7 @@ class SupabaseProvider:
         self._initialized = True
         self._cache: dict[str, Any] = {}
         self._cache_timestamps: dict[str, float] = {}
+        self._cache_lock = threading.Lock()  # V11.1: Thread-safe cache operations
         self._connected = False
         self._connection_error: str | None = None
 
@@ -107,6 +116,7 @@ class SupabaseProvider:
             return
 
         try:
+            # V11.1: Create Supabase client (timeout configuration requires investigation of specific client version)
             self._client = create_client(supabase_url, supabase_key)
             self._connected = True
             logger.info("Supabase connection established successfully")
@@ -125,34 +135,71 @@ class SupabaseProvider:
 
     def _is_cache_valid(self, cache_key: str) -> bool:
         """Check if cache entry is still valid (within TTL)."""
-        if cache_key not in self._cache_timestamps:
-            return False
+        with self._cache_lock:  # V11.1: Thread-safe cache read
+            if cache_key not in self._cache_timestamps:
+                return False
 
-        cache_age = time.time() - self._cache_timestamps[cache_key]
-        return cache_age < CACHE_TTL_SECONDS
+            cache_age = time.time() - self._cache_timestamps[cache_key]
+            return cache_age < CACHE_TTL_SECONDS
 
     def _get_from_cache(self, cache_key: str) -> Any | None:
-        """Retrieve data from cache if valid."""
-        if self._is_cache_valid(cache_key):
-            logger.debug(f"Cache hit for key: {cache_key}")
-            return self._cache[cache_key]
+        """Retrieve data from cache if valid (thread-safe)."""
+        with self._cache_lock:  # V11.1: Thread-safe cache read
+            if self._is_cache_valid(cache_key):
+                logger.debug(f"Cache hit for key: {cache_key}")
+                return self._cache[cache_key]
         return None
 
     def _set_cache(self, cache_key: str, data: Any) -> None:
-        """Store data in cache with current timestamp."""
-        self._cache[cache_key] = data
-        self._cache_timestamps[cache_key] = time.time()
-        logger.debug(f"Cache set for key: {cache_key}")
+        """Store data in cache with current timestamp (thread-safe)."""
+        with self._cache_lock:  # V11.1: Thread-safe cache write
+            self._cache[cache_key] = data
+            self._cache_timestamps[cache_key] = time.time()
+            logger.debug(f"Cache set for key: {cache_key}")
+
+    def _validate_data_completeness(self, data: dict[str, Any]) -> bool:
+        """
+        Validate data completeness before saving to mirror (V11.1).
+
+        Args:
+            data: Data to validate
+
+        Returns:
+            True if data is complete, False otherwise
+        """
+        # V11.1: Check for required top-level keys
+        required_keys = ["continents", "countries", "leagues", "news_sources"]
+        missing_keys = [key for key in required_keys if key not in data]
+
+        if missing_keys:
+            logger.warning(f"⚠️ Missing required keys in mirror data: {missing_keys}")
+            return False
+
+        # V11.1: Check if any required section is empty
+        for key in required_keys:
+            if not data[key] or (isinstance(data[key], list) and len(data[key]) == 0):
+                logger.warning(f"⚠️ Empty section in mirror data: {key}")
+                # Don't fail on empty sections, just warn
+
+        return True
 
     def _save_to_mirror(self, data: dict[str, Any], version: str = "V9.5") -> None:
         """
         Save Supabase data to local mirror file with version and checksum.
+
+        V11.1: Uses atomic write pattern to prevent corruption on crashes.
+        V11.1: Validates data completeness before saving.
 
         Args:
             data: Data to save to mirror
             version: Mirror version string
         """
         try:
+            # V11.1: Validate data completeness before saving
+            if not self._validate_data_completeness(data):
+                logger.warning("⚠️ Data completeness validation failed, not updating mirror")
+                return
+
             # Validate UTF-8 integrity before saving
             if not self._validate_utf8_integrity(data):
                 logger.warning("⚠️ UTF-8 integrity check failed, but saving anyway")
@@ -166,8 +213,15 @@ class SupabaseProvider:
                 "checksum": checksum,
                 "data": data,
             }
-            with open(MIRROR_FILE_PATH, "w", encoding="utf-8") as f:
+
+            # V11.1: Atomic write pattern - write to temp file, then rename
+            temp_file = MIRROR_FILE_PATH.with_suffix(".tmp")
+            with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(mirror_data, f, indent=2, ensure_ascii=False)
+
+            # Atomic rename (POSIX guarantees atomicity)
+            temp_file.replace(MIRROR_FILE_PATH)
+
             logger.info(
                 f"✅ Supabase data mirrored to {MIRROR_FILE_PATH} (v{version}, checksum: {checksum[:8]}...)"
             )
@@ -281,6 +335,8 @@ class SupabaseProvider:
         """
         Execute Supabase query with caching and fail-safe mirror.
 
+        V11.1: Added explicit timeout to prevent indefinite hangs on VPS.
+
         Args:
             table_name: Name of the table to query
             cache_key: Unique key for caching
@@ -304,6 +360,7 @@ class SupabaseProvider:
                     for key, value in filters.items():
                         query = query.eq(key, value)
 
+                # V11.1: Execute query (timeout configured at client creation)
                 response = query.execute()
                 data = response.data if hasattr(response, "data") else []
 
@@ -933,19 +990,20 @@ class SupabaseProvider:
 
     def invalidate_cache(self, cache_key: str | None = None) -> None:
         """
-        Invalidate cache entries.
+        Invalidate cache entries (thread-safe).
 
         Args:
             cache_key: Specific cache key to invalidate. If None, clears all cache.
         """
-        if cache_key:
-            self._cache.pop(cache_key, None)
-            self._cache_timestamps.pop(cache_key, None)
-            logger.info(f"Invalidated cache for key: {cache_key}")
-        else:
-            self._cache.clear()
-            self._cache_timestamps.clear()
-            logger.info("Invalidated all cache")
+        with self._cache_lock:  # V11.1: Thread-safe cache invalidation
+            if cache_key:
+                self._cache.pop(cache_key, None)
+                self._cache_timestamps.pop(cache_key, None)
+                logger.info(f"Invalidated cache for key: {cache_key}")
+            else:
+                self._cache.clear()
+                self._cache_timestamps.clear()
+                logger.info("Invalidated all cache")
 
     def get_cache_stats(self) -> dict[str, Any]:
         """

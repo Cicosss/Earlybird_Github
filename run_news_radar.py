@@ -29,6 +29,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Import settings for service control flags
+import config.settings as settings
 from src.services.news_radar import NewsRadarMonitor
 
 # Configure logging
@@ -78,9 +80,15 @@ def signal_handler(signum, frame):
     flush_all_handlers()
 
 
-async def main(config_file: str):
+async def main(config_file: str, use_supabase: bool = True):
     """
     Main entry point for News Radar Monitor.
+
+    V8.0: Added Supabase support for dynamic source fetching.
+
+    Args:
+        config_file: Path to config file (fallback if Supabase fails)
+        use_supabase: Whether to fetch sources from Supabase (default: True)
 
     Requirements: 10.1, 10.2
     """
@@ -93,16 +101,17 @@ async def main(config_file: str):
     logger.info("🔔 EarlyBird News Radar Monitor")
     logger.info("=" * 60)
     logger.info(f"Config file: {config_file}")
+    logger.info(f"Supabase integration: {'ENABLED' if use_supabase else 'DISABLED'}")
     logger.info("")
 
-    # Verify config file exists
-    if not Path(config_file).exists():
+    # Verify config file exists (only needed if Supabase is disabled)
+    if not use_supabase and not Path(config_file).exists():
         logger.error(f"❌ Configuration file not found: {config_file}")
         logger.error("Please create the config file or specify a valid path with --config")
         return 1
 
     # Create monitor
-    _monitor = NewsRadarMonitor(config_file=config_file)
+    _monitor = NewsRadarMonitor(config_file=config_file, use_supabase=use_supabase)
 
     # Start monitor
     if not await _monitor.start():
@@ -156,6 +165,7 @@ def parse_args():
 Examples:
     python run_news_radar.py
     python run_news_radar.py --config custom_sources.json
+    python run_news_radar.py --no-supabase  # Use config file only
         """,
     )
 
@@ -166,12 +176,31 @@ Examples:
         help="Path to configuration file (default: config/news_radar_sources.json)",
     )
 
+    parser.add_argument(
+        "--use-supabase",
+        action="store_true",
+        default=True,
+        help="Fetch sources from Supabase database (default: True)",
+    )
+
+    parser.add_argument(
+        "--no-supabase",
+        action="store_false",
+        dest="use_supabase",
+        help="Disable Supabase and use config file only",
+    )
+
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     # Parse arguments
     args = parse_args()
+
+    # Check if News Radar service is enabled
+    if not settings.NEWS_RADAR_ENABLED:
+        logger.info("⚠️ Service News Radar Disabled by config.")
+        sys.exit(0)
 
     # ✅ NEW: Pre-flight validation BEFORE starting news radar
     try:
@@ -188,7 +217,7 @@ if __name__ == "__main__":
 
     # Run
     try:
-        exit_code = asyncio.run(main(args.config))
+        exit_code = asyncio.run(main(args.config, args.use_supabase))
         flush_all_handlers()
         sys.exit(exit_code)
     except KeyboardInterrupt:

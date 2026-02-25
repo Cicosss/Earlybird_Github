@@ -1,0 +1,1313 @@
+[32mRunning system using Process Orchestrator...[0m
+[33mUsing entry point: src/entrypoints/launcher.py[0m
+2026-02-24 21:50:48,241 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-24 21:50:48,261 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-24 21:50:48,262 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-24 21:50:48,264 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-24 21:50:48,437 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-24 21:50:48,439 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-24 21:50:48,493 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-24 21:50:48,504 - src.processing.global_orchestrator - INFO - 📦 Global Orchestrator V11.1
+2026-02-24 21:50:48,507 - src.processing.global_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-24 21:50:48,507 - src.processing.global_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-24 21:50:48,586 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-24 21:50:48,586 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:50:48,588 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:50:48,596 - src.alerting.health_monitor - INFO - 📦 Health Monitor V11.1
+2026-02-24 21:50:48,607 - src.alerting.notifier - INFO - 📦 Notifier V11.1
+2026-02-24 21:50:48,612 - src.alerting.orchestration_metrics - INFO - 📦 Orchestration Metrics V11.1
+2026-02-24 21:50:48,613 - __main__ - INFO - 📦 Launcher V11.1
+2026-02-24 21:50:54,879 - __main__ - INFO - ============================================================
+2026-02-24 21:50:54,879 - __main__ - INFO - 🦅 EARLYBIRD V3.7 - ORCHESTRATOR AVVIATO
+2026-02-24 21:50:54,879 - __main__ - INFO - 📅 2026-02-24 21:50:54
+2026-02-24 21:50:54,879 - __main__ - INFO - ============================================================
+2026-02-24 21:50:54,879 - __main__ - INFO - 🔍 Ricerca script disponibili...
+2026-02-24 21:50:54,880 - __main__ - INFO - ✅ Trovato: Pipeline Principale -> src/main.py
+2026-02-24 21:50:54,880 - __main__ - INFO - ✅ Trovato: Telegram Bot (Comandi) -> src/entrypoints/run_bot.py
+2026-02-24 21:50:54,880 - __main__ - INFO - ✅ Trovato: Telegram Monitor (Scraper) -> run_telegram_monitor.py
+2026-02-24 21:50:54,880 - __main__ - INFO - ✅ Trovato: News Radar (Hunter Autonomo) -> run_news_radar.py
+2026-02-24 21:50:54,880 - __main__ - INFO - 📋 Processi da gestire: 4
+2026-02-24 21:50:54,880 - __main__ - INFO - 🚀 Avvio Pipeline Principale...
+2026-02-24 21:50:54,881 - __main__ - INFO - ✅ Pipeline Principale avviato (PID: 19100)
+2026-02-24 21:50:54,979 - src.core.analysis_engine - INFO - 📦 Analysis Engine V11.1
+2026-02-24 21:50:54,983 - config.settings - INFO - ✅ Loaded environment from .env file
+2026-02-24 21:50:55,971 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-24 21:50:55,989 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-24 21:50:55,989 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-24 21:50:55,991 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-24 21:50:56,170 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-24 21:50:56,171 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-24 21:50:56,220 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-24 21:50:56,227 - src.processing.global_orchestrator - INFO - 📦 Global Orchestrator V11.1
+2026-02-24 21:50:56,231 - src.processing.global_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-24 21:50:56,231 - src.processing.global_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-24 21:50:56,303 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-24 21:50:56,303 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:50:56,304 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:50:56,310 - __main__ - INFO - 📦 Main Pipeline V11.1
+2026-02-24 21:50:56,311 - __main__ - INFO - ✅ Supabase Provider module loaded
+2026-02-24 21:50:56,311 - __main__ - INFO - ✅ Intelligence Router module loaded
+2026-02-24 21:50:56,313 - __main__ - INFO - ✅ Intelligent Deduplication module loaded
+2026-02-24 21:50:56,313 - __main__ - INFO - ✅ Market Intelligence module loaded
+2026-02-24 21:50:56,313 - __main__ - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-02-24 21:50:56,313 - __main__ - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-02-24 21:50:56,317 - __main__ - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-02-24 21:50:56,325 - src.ingestion.deepseek_intel_provider - INFO - ✅ TwitterIntelCache available for DeepSeek Twitter extraction
+2026-02-24 21:50:56,325 - __main__ - INFO - ✅ Twitter Intel Cache loaded
+2026-02-24 21:50:56,330 - __main__ - INFO - ✅ Nitter Intel Cache module loaded
+2026-02-24 21:50:56,339 - src.alerting.health_monitor - INFO - 📦 Health Monitor V11.1
+2026-02-24 21:50:56,340 - src.alerting.notifier - INFO - 📦 Notifier V11.1
+
+======================================================================
+🌐 API CONNECTIVITY TESTS
+======================================================================
+✅  Odds API: 410ms | 52 used, 448 remaining
+2026-02-24 21:50:56,881 - __main__ - INFO - 🚀 Avvio Telegram Bot (Comandi)...
+2026-02-24 21:50:56,882 - __main__ - INFO - ✅ Telegram Bot (Comandi) avviato (PID: 19101)
+2026-02-24 21:50:58,883 - __main__ - INFO - 🚀 Avvio Telegram Monitor (Scraper)...
+2026-02-24 21:50:58,884 - __main__ - INFO - ✅ Telegram Monitor (Scraper) avviato (PID: 19125)
+2026-02-24 21:50:59,014 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-24 21:50:59,035 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-24 21:50:59,035 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-24 21:50:59,037 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-24 21:50:59,183 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-24 21:50:59,184 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-24 21:50:59,302 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-24 21:50:59,310 - src.processing.global_orchestrator - INFO - 📦 Global Orchestrator V11.1
+2026-02-24 21:50:59,314 - src.processing.global_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-24 21:50:59,314 - src.processing.global_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-24 21:50:59,389 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-24 21:50:59,389 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:50:59,391 - root - INFO - ✅ Supabase provider available for social sources
+✅  OpenRouter API: 3079ms
+2026-02-24 21:51:00,112 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-24 21:51:00,130 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-24 21:51:00,130 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-24 21:51:00,132 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-02-24 21:51:00,233 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-24 21:51:00,234 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-24 21:51:00,346 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-24 21:51:00,355 - src.processing.global_orchestrator - INFO - 📦 Global Orchestrator V11.1
+2026-02-24 21:51:00,358 - src.processing.global_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-24 21:51:00,358 - src.processing.global_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-24 21:51:00,431 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-24 21:51:00,431 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:51:00,432 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:51:00,885 - __main__ - INFO - 🚀 Avvio News Radar (Hunter Autonomo)...
+2026-02-24 21:51:00,886 - __main__ - INFO - ✅ News Radar (Hunter Autonomo) avviato (PID: 19136)
+✅  Brave API: 611ms | 3/3 keys working
+2026-02-24 21:51:01,844 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-02-24 21:51:01,862 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-02-24 21:51:01,863 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-02-24 21:51:01,865 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+✅  Supabase: 277ms
+
+======================================================================
+📁 CONFIGURATION FILES
+======================================================================
+✅  .env: 4172 bytes | Modified: 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | Modified: 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | Modified: 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | Modified: 2026-01-28 22:33:41
+
+======================================================================
+🦅 EARLYBIRD STARTUP VALIDATION - PRE-FLIGHT HANDSHAKE
+======================================================================
+📅 Timestamp: 2026-02-24 21:51:01
+
+✅ READY: All critical keys configured
+
+🔴 CRITICAL KEYS (Required for Operation):
+----------------------------------------------------------------------
+✅  ODDS_API_KEY: OK (Odds API (The-Odds-API.com))
+✅  OPENROUTER_API_KEY: OK (OpenRouter API (DeepSeek AI))
+✅  BRAVE_API_KEY: OK (Brave Search API)
+✅  TELEGRAM_BOT_TOKEN: OK (Telegram Bot Token)
+✅  TELEGRAM_CHAT_ID: OK (Telegram Chat ID (Admin))
+✅  SUPABASE_URL: OK (Supabase Database URL)
+✅  SUPABASE_KEY: OK (Supabase Database Key)
+
+🟡 OPTIONAL KEYS (Graceful Degradation):
+----------------------------------------------------------------------
+✅  TELEGRAM_API_ID: OK (Telegram API ID (Channel Monitoring))
+✅  TELEGRAM_API_HASH: OK (Telegram API Hash (Channel Monitoring))
+✅  PERPLEXITY_API_KEY: OK (Perplexity API (Fallback AI Search))
+✅  API_FOOTBALL_KEY: OK (API-Football (Player Intelligence))
+✅  TAVILY_API_KEY: OK (Tavily API (Match Enrichment))
+
+📊 API CONNECTIVITY SUMMARY:
+----------------------------------------------------------------------
+✅  Odds API: 410ms | 52 used, 448 remaining
+✅  OpenRouter API: 3079ms
+✅  Brave API: 611ms | 3/3 keys working
+✅  Supabase: 277ms
+
+📁 CONFIGURATION FILES SUMMARY:
+----------------------------------------------------------------------
+✅  .env: 4172 bytes | 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | 2026-01-28 22:33:41
+
+======================================================================
+
+✅ STARTUP VALIDATION PASSED: System ready to launch
+2026-02-24 21:51:01,959 - INFO - 🚨 Emergency cleanup triggered due to high disk usage.
+2026-02-24 21:51:01,984 - INFO -    🗑️ Cleared temp/ folder: 1 items deleted
+2026-02-24 21:51:01,984 - INFO - ✅ Emergency cleanup completed: 0 logs truncated, 1 temp files deleted
+2026-02-24 21:51:01,984 - INFO - 🦅 EARLYBIRD NEWS & ODDS MONITOR - 24/7 MODE ACTIVATED
+2026-02-24 21:51:01,984 - INFO - 🎯 ELITE QUALITY FILTERING - High Bar Configuration:
+2026-02-24 21:51:01,984 - INFO -    Standard Matches: Score >= 9.0 (was 8.6)
+2026-02-24 21:51:01,984 - INFO -    Radar Matches (Insider News): Score >= 7.5 (was 7.0)
+2026-02-24 21:51:01,984 - INFO - Health Monitor initialized
+2026-02-24 21:51:01,984 - INFO - 📝 No optimizer data found, starting fresh
+2026-02-24 21:51:01,984 - INFO - 📊 Optimizer V3.0 initialized with 0 historical bets
+2026-02-24 21:51:01,984 - INFO - 📊 OPTIMIZER V5.0 SUMMARY (Sample Size Guards + Sortino)
+Total bets: 0
+Overall ROI: 0.0%
+Last updated: None
+
+🔒 State Distribution:
+   FROZEN (<30 bets): 0 strategies
+   WARMING (30-50 bets): 0 strategies
+   ACTIVE (>50 bets): 0 strategies
+
+⏳ No active adjustments yet (need more data)
+2026-02-24 21:51:01,985 - INFO - 🌐 [BROWSER-MONITOR] V7.8 Created (Thread-safe state management)
+2026-02-24 21:51:01,985 - INFO - ✅ [BROWSER-MONITOR] Loaded 14 sources from config/browser_sources.json
+2026-02-24 21:51:01,986 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-24 21:51:01,986 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-24 21:51:01,986 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-24 21:51:01,986 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-24 21:51:01,986 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-24 21:51:01,986 - INFO - 📊 Tavily BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-24 21:51:01,986 - INFO - 🔍 [BROWSER-MONITOR] Tavily short content expansion enabled
+2026-02-24 21:51:01,986 - INFO - 🌐 [BROWSER-MONITOR] Launching Playwright...
+2026-02-24 21:51:02,050 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-02-24 21:51:02,052 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-02-24 21:51:02,141 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-02-24 21:51:02,157 - src.processing.global_orchestrator - INFO - 📦 Global Orchestrator V11.1
+2026-02-24 21:51:02,163 - src.processing.global_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-02-24 21:51:02,163 - src.processing.global_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-02-24 21:51:02,287 - src.database.supabase_provider - INFO - Supabase connection established successfully
+2026-02-24 21:51:02,287 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:51:02,290 - root - INFO - ✅ Supabase provider available for social sources
+2026-02-24 21:51:02,886 - __main__ - INFO - ✅ Tutti i processi avviati. Monitoraggio attivo...
+2026-02-24 21:51:02,887 - src.alerting.orchestration_metrics - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-02-24 21:51:02,888 - src.alerting.orchestration_metrics - INFO - ✅ Orchestration metrics collector started
+2026-02-24 21:51:02,888 - __main__ - INFO - ✅ Orchestration metrics collector started
+2026-02-24 21:51:03,566 - INFO - ✅ [BROWSER-MONITOR] Playwright initialized
+2026-02-24 21:51:03,566 - INFO - ✅ [BROWSER-MONITOR] Started with 14 sources
+2026-02-24 21:51:03,566 - INFO - 🔄 [BROWSER-MONITOR] Scan loop started
+2026-02-24 21:51:03,567 - INFO - 🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7
+2026-02-24 21:51:03,567 - INFO - 📦 [QUEUE] Global discovery queue initialized
+2026-02-24 21:51:03,567 - INFO - 📢 [QUEUE] High-priority callback registered (threshold=0.85, categories={'SUSPENSION', 'LINEUP', 'INJURY'})
+2026-02-24 21:51:03,567 - INFO - 📢 [QUEUE] High-priority callback registered for event-driven processing
+2026-02-24 21:51:03,575 - INFO - 🔗 [BROWSER-MONITOR] Paginated scan: BBC Sport Football...
+2026-02-24 21:51:03,936 - src.processing.global_orchestrator - INFO - Supabase provider initialized successfully
+2026-02-24 21:51:03,936 - src.processing.global_orchestrator - INFO - ✅ GlobalOrchestrator: Supabase connection available
+2026-02-24 21:51:03,936 - src.processing.global_orchestrator - INFO - 🌐 GLOBAL EYES ACTIVE: Monitoring ALL leagues at 20:00 UTC
+2026-02-24 21:51:03,936 - src.processing.global_orchestrator - INFO - 🌍 Active continental blocks: AFRICA, ASIA, LATAM (Global Mode)
+2026-02-24 21:51:03,950 - src.services.nitter_fallback_scraper - INFO - 🐦 [NITTER-FALLBACK] Initialized
+2026-02-24 21:51:03,951 - src.processing.global_orchestrator - INFO - 🐦 [NITTER-CYCLE] Starting GLOBAL intelligence cycle for 3 continents
+2026-02-24 21:51:03,951 - src.processing.global_orchestrator - INFO - 🌍 [NITTER-CYCLE] Processing continent: AFRICA
+2026-02-24 21:51:03,951 - src.services.nitter_fallback_scraper - INFO - 🐦 [NITTER-CYCLE] Starting cycle for continent: AFRICA
+
+======================================================================
+🌐 API CONNECTIVITY TESTS
+======================================================================
+✅  Odds API: 402ms | 52 used, 448 remaining
+✅  OpenRouter API: 2121ms
+✅  Brave API: 590ms | 3/3 keys working
+✅  Supabase: 285ms
+
+======================================================================
+📁 CONFIGURATION FILES
+======================================================================
+✅  .env: 4172 bytes | Modified: 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | Modified: 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | Modified: 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | Modified: 2026-01-28 22:33:41
+
+======================================================================
+🦅 EARLYBIRD STARTUP VALIDATION - PRE-FLIGHT HANDSHAKE
+======================================================================
+📅 Timestamp: 2026-02-24 21:51:03
+
+✅ READY: All critical keys configured
+
+🔴 CRITICAL KEYS (Required for Operation):
+----------------------------------------------------------------------
+✅  ODDS_API_KEY: OK (Odds API (The-Odds-API.com))
+✅  OPENROUTER_API_KEY: OK (OpenRouter API (DeepSeek AI))
+✅  BRAVE_API_KEY: OK (Brave Search API)
+✅  TELEGRAM_BOT_TOKEN: OK (Telegram Bot Token)
+✅  TELEGRAM_CHAT_ID: OK (Telegram Chat ID (Admin))
+✅  SUPABASE_URL: OK (Supabase Database URL)
+✅  SUPABASE_KEY: OK (Supabase Database Key)
+
+🟡 OPTIONAL KEYS (Graceful Degradation):
+----------------------------------------------------------------------
+✅  TELEGRAM_API_ID: OK (Telegram API ID (Channel Monitoring))
+✅  TELEGRAM_API_HASH: OK (Telegram API Hash (Channel Monitoring))
+✅  PERPLEXITY_API_KEY: OK (Perplexity API (Fallback AI Search))
+✅  API_FOOTBALL_KEY: OK (API-Football (Player Intelligence))
+✅  TAVILY_API_KEY: OK (Tavily API (Match Enrichment))
+
+📊 API CONNECTIVITY SUMMARY:
+----------------------------------------------------------------------
+✅  Odds API: 402ms | 52 used, 448 remaining
+✅  OpenRouter API: 2121ms
+✅  Brave API: 590ms | 3/3 keys working
+✅  Supabase: 285ms
+
+📁 CONFIGURATION FILES SUMMARY:
+----------------------------------------------------------------------
+✅  .env: 4172 bytes | 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | 2026-01-28 22:33:41
+
+======================================================================
+
+✅ STARTUP VALIDATION PASSED: System ready to launch
+2026-02-24 21:51:03,987 - INFO - ==================================================
+2026-02-24 21:51:03,988 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-02-24 21:51:03,988 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-24 21:51:03,988 - INFO - ==================================================
+2026-02-24 21:51:03,994 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-24 21:51:03,994 - INFO - ✅ Database initialized
+2026-02-24 21:51:03,996 - INFO - Status message sent to Telegram
+2026-02-24 21:51:03,996 - INFO - Heartbeat sent
+2026-02-24 21:51:04,002 - INFO - 
+⏰ CYCLE 1 START: 21:51:04
+2026-02-24 21:51:04,002 - INFO - 🔄 Refreshing Supabase mirror at start of cycle...
+2026-02-24 21:51:04,002 - INFO - 🔄 Refreshing local mirror at cycle start...
+2026-02-24 21:51:04,002 - INFO - 🔄 Creating local mirror with social_sources and news_sources metadata...
+2026-02-24 21:51:04,091 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+
+======================================================================
+🌐 API CONNECTIVITY TESTS
+======================================================================
+✅  Odds API: 571ms | 52 used, 448 remaining
+✅  OpenRouter API: 1630ms
+✅  Brave API: N/A | 3/3 keys working
+✅  Supabase: 238ms
+
+======================================================================
+📁 CONFIGURATION FILES
+======================================================================
+✅  .env: 4172 bytes | Modified: 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | Modified: 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | Modified: 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | Modified: 2026-01-28 22:33:41
+
+======================================================================
+🦅 EARLYBIRD STARTUP VALIDATION - PRE-FLIGHT HANDSHAKE
+======================================================================
+📅 Timestamp: 2026-02-24 21:51:04
+
+✅ READY: All critical keys configured
+
+🔴 CRITICAL KEYS (Required for Operation):
+----------------------------------------------------------------------
+✅  ODDS_API_KEY: OK (Odds API (The-Odds-API.com))
+✅  OPENROUTER_API_KEY: OK (OpenRouter API (DeepSeek AI))
+✅  BRAVE_API_KEY: OK (Brave Search API)
+✅  TELEGRAM_BOT_TOKEN: OK (Telegram Bot Token)
+✅  TELEGRAM_CHAT_ID: OK (Telegram Chat ID (Admin))
+✅  SUPABASE_URL: OK (Supabase Database URL)
+✅  SUPABASE_KEY: OK (Supabase Database Key)
+
+🟡 OPTIONAL KEYS (Graceful Degradation):
+----------------------------------------------------------------------
+✅  TELEGRAM_API_ID: OK (Telegram API ID (Channel Monitoring))
+✅  TELEGRAM_API_HASH: OK (Telegram API Hash (Channel Monitoring))
+✅  PERPLEXITY_API_KEY: OK (Perplexity API (Fallback AI Search))
+✅  API_FOOTBALL_KEY: OK (API-Football (Player Intelligence))
+✅  TAVILY_API_KEY: OK (Tavily API (Match Enrichment))
+
+📊 API CONNECTIVITY SUMMARY:
+----------------------------------------------------------------------
+✅  Odds API: 571ms | 52 used, 448 remaining
+✅  OpenRouter API: 1630ms
+✅  Brave API: N/A | 3/3 keys working
+✅  Supabase: 238ms
+
+📁 CONFIGURATION FILES SUMMARY:
+----------------------------------------------------------------------
+✅  .env: 4172 bytes | 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | 2026-01-28 22:33:41
+
+======================================================================
+
+✅ STARTUP VALIDATION PASSED: System ready to launch
+2026-02-24 21:51:04,634 - INFO - ==================================================
+2026-02-24 21:51:04,637 - INFO - 📡 EARLYBIRD TELEGRAM MONITOR STARTING...
+2026-02-24 21:51:04,637 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-24 21:51:04,637 - INFO - ==================================================
+2026-02-24 21:51:04,640 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-24 21:51:04,643 - INFO - ✅ Database initialized
+2026-02-24 21:51:04,645 - INFO - Connecting to 149.154.167.91:443/TcpFull...
+2026-02-24 21:51:04,682 - INFO - Connection to 149.154.167.91:443/TcpFull complete!
+2026-02-24 21:51:04,956 - INFO - ✅ Client Telegram connesso (User Session)
+2026-02-24 21:51:04,956 - INFO - 🦅 EARLYBIRD TELEGRAM SQUAD MONITOR - STARTING
+2026-02-24 21:51:04,956 - INFO - 📡 Monitoraggio canali Telegram per immagini formazioni...
+2026-02-24 21:51:04,956 - INFO - 
+⏰ Ciclo Monitor Telegram...
+2026-02-24 21:51:04,957 - INFO - ✅ Telegram tracking DB initialized
+2026-02-24 21:51:05,022 - INFO - 📡 Monitoring 31 Telegram channels...
+2026-02-24 21:51:05,079 - INFO - 📡 Checking channel: @sporhaberleriguncel
+2026-02-24 21:51:05,161 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:05,308 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771964734.jpg
+2026-02-24 21:51:05,713 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-24 21:51:06,075 - INFO - Phone migrated to 4
+2026-02-24 21:51:06,076 - INFO - Reconnecting to new data center 4
+2026-02-24 21:51:06,154 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-24 21:51:06,155 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-24 21:51:06,155 - INFO - Connecting to 149.154.167.91:443/TcpFull...
+2026-02-24 21:51:07,719 - INFO - Connection to 149.154.167.91:443/TcpFull complete!
+
+======================================================================
+🌐 API CONNECTIVITY TESTS
+======================================================================
+✅  Odds API: 376ms | 52 used, 448 remaining
+✅  OpenRouter API: 3020ms
+✅  Brave API: 636ms | 3/3 keys working
+✅  Supabase: 192ms
+
+======================================================================
+📁 CONFIGURATION FILES
+======================================================================
+✅  .env: 4172 bytes | Modified: 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | Modified: 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | Modified: 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | Modified: 2026-01-28 22:33:41
+
+======================================================================
+🦅 EARLYBIRD STARTUP VALIDATION - PRE-FLIGHT HANDSHAKE
+======================================================================
+📅 Timestamp: 2026-02-24 21:51:07
+
+✅ READY: All critical keys configured
+
+🔴 CRITICAL KEYS (Required for Operation):
+----------------------------------------------------------------------
+✅  ODDS_API_KEY: OK (Odds API (The-Odds-API.com))
+✅  OPENROUTER_API_KEY: OK (OpenRouter API (DeepSeek AI))
+✅  BRAVE_API_KEY: OK (Brave Search API)
+✅  TELEGRAM_BOT_TOKEN: OK (Telegram Bot Token)
+✅  TELEGRAM_CHAT_ID: OK (Telegram Chat ID (Admin))
+✅  SUPABASE_URL: OK (Supabase Database URL)
+✅  SUPABASE_KEY: OK (Supabase Database Key)
+
+🟡 OPTIONAL KEYS (Graceful Degradation):
+----------------------------------------------------------------------
+✅  TELEGRAM_API_ID: OK (Telegram API ID (Channel Monitoring))
+✅  TELEGRAM_API_HASH: OK (Telegram API Hash (Channel Monitoring))
+✅  PERPLEXITY_API_KEY: OK (Perplexity API (Fallback AI Search))
+✅  API_FOOTBALL_KEY: OK (API-Football (Player Intelligence))
+✅  TAVILY_API_KEY: OK (Tavily API (Match Enrichment))
+
+📊 API CONNECTIVITY SUMMARY:
+----------------------------------------------------------------------
+✅  Odds API: 376ms | 52 used, 448 remaining
+✅  OpenRouter API: 3020ms
+✅  Brave API: 636ms | 3/3 keys working
+✅  Supabase: 192ms
+
+📁 CONFIGURATION FILES SUMMARY:
+----------------------------------------------------------------------
+✅  .env: 4172 bytes | 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | 2026-01-28 22:33:41
+
+======================================================================
+
+✅ STARTUP VALIDATION PASSED: System ready to launch
+2026-02-24 21:51:07,815 - __main__ - INFO - ============================================================
+2026-02-24 21:51:07,816 - __main__ - INFO - 🔔 EarlyBird News Radar Monitor
+2026-02-24 21:51:07,816 - __main__ - INFO - ============================================================
+2026-02-24 21:51:07,816 - __main__ - INFO - Config file: config/news_radar_sources.json
+2026-02-24 21:51:07,817 - __main__ - INFO - Supabase integration: ENABLED
+2026-02-24 21:51:07,818 - __main__ - INFO - 
+2026-02-24 21:51:07,820 - src.services.news_radar - INFO - 🔔 [NEWS-RADAR] V2.0 Monitor created
+2026-02-24 21:51:07,820 - src.services.news_radar - INFO - 🔄 [NEWS-RADAR] Loading sources from Supabase...
+2026-02-24 21:51:08,046 - INFO - ✅ Command handlers registrati
+2026-02-24 21:51:08,047 - INFO - ✅ Bot connesso e in ascolto...
+2026-02-24 21:51:09,193 - INFO - 🔗 [BROWSER-MONITOR] Found 5 links on https://www.bbc.com/sport/football...
+2026-02-24 21:51:10,389 - INFO - 📝 OCR Raw: 55 characters
+2026-02-24 21:51:10,389 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:10,394 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:10,489 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771962467.jpg
+2026-02-24 21:51:11,314 - INFO - 📝 OCR Raw: 66 characters
+2026-02-24 21:51:11,314 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:11,319 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:11,399 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771961826.jpg
+2026-02-24 21:51:21,121 - INFO - 📝 OCR Raw: 516 characters
+2026-02-24 21:51:21,121 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:21,124 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:21,242 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771961581.jpg
+2026-02-24 21:51:22,185 - INFO - 📝 OCR Raw: 20 characters
+2026-02-24 21:51:22,185 - WARNING - 🗑️ OCR DISCARDED: Too short (20 chars < 50)
+2026-02-24 21:51:22,187 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:22,261 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771960451.jpg
+2026-02-24 21:51:23,101 - INFO - 📝 OCR Raw: 18 characters
+2026-02-24 21:51:23,101 - WARNING - 🗑️ OCR DISCARDED: Too short (18 chars < 50)
+2026-02-24 21:51:23,104 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:23,154 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771957781.jpg
+2026-02-24 21:51:23,676 - INFO - 📝 OCR Raw: 13 characters
+2026-02-24 21:51:23,677 - WARNING - 🗑️ OCR DISCARDED: Too short (13 chars < 50)
+2026-02-24 21:51:23,677 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:23,734 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771957781.jpg
+2026-02-24 21:51:24,999 - INFO - 📝 OCR Raw: 86 characters
+2026-02-24 21:51:24,999 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:25,004 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:25,093 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771957127.jpg
+2026-02-24 21:51:26,599 - INFO - 📝 OCR Raw: 124 characters
+2026-02-24 21:51:26,599 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:26,603 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:26,698 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771956157.jpg
+2026-02-24 21:51:32,109 - INFO - 📝 OCR Raw: 300 characters
+2026-02-24 21:51:32,109 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:32,112 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:32,239 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/sporhaberleriguncel_1771955753.jpg
+2026-02-24 21:51:33,484 - INFO - ✅ [BROWSER-MONITOR] Paginated extraction: 5/5 pages from https://www.bbc.com/sport/football...
+2026-02-24 21:51:33,488 - INFO - 🔍 [TAVILY] Searching: football soccer news www.bbc.com Football Scores & Fixtures ...
+2026-02-24 21:51:34,670 - INFO - 📝 OCR Raw: 183 characters
+2026-02-24 21:51:34,670 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:34,728 - INFO - 📡 Checking channel: @bgysportshaber
+2026-02-24 21:51:34,839 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:35,242 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/bgysportshaber_1771927228.jpg
+2026-02-24 21:51:36,303 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-24 21:51:36,304 - INFO - 🔍 [TAVILY] Found 3 results in 2.82s
+2026-02-24 21:51:36,304 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 154 → 723 chars
+2026-02-24 21:51:36,351 - INFO - 🔍 [TAVILY] Searching: football soccer news www.bbc.com Football Tables Skip to tab...
+2026-02-24 21:51:37,468 - INFO - 📝 OCR Raw: 235 characters
+2026-02-24 21:51:37,468 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:37,472 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:37,534 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/bgysportshaber_1771876287.jpg
+2026-02-24 21:51:38,340 - INFO - 📝 OCR Raw: 21 characters
+2026-02-24 21:51:38,341 - WARNING - 🗑️ OCR DISCARDED: Too short (21 chars < 50)
+2026-02-24 21:51:38,390 - INFO - 📡 Checking channel: @ErsinnSezer
+2026-02-24 21:51:38,677 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:38,855 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771946560.jpg
+2026-02-24 21:51:40,148 - INFO - 📝 OCR Raw: 83 characters
+2026-02-24 21:51:40,148 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:40,154 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:40,340 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771750540.jpg
+2026-02-24 21:51:42,063 - INFO - 📝 OCR Raw: 94 characters
+2026-02-24 21:51:42,063 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:42,063 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:42,356 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771431392.jpg
+2026-02-24 21:51:43,835 - INFO - HTTP Request: POST https://api.tavily.com/search "HTTP/2 200 OK"
+2026-02-24 21:51:43,836 - INFO - 🔍 [TAVILY] Found 2 results in 7.48s
+2026-02-24 21:51:43,836 - INFO - 🔍 [BROWSER-MONITOR] Tavily expanded content: 349 → 990 chars
+2026-02-24 21:51:43,912 - WARNING - ⏸️ [BROWSER-MONITOR] Paused: high memory (80.6%)
+2026-02-24 21:51:44,729 - INFO - 📝 OCR Raw: 47 characters
+2026-02-24 21:51:44,730 - WARNING - 🗑️ OCR DISCARDED: Too short (47 chars < 50)
+2026-02-24 21:51:44,730 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:44,878 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771341390.jpg
+2026-02-24 21:51:46,127 - INFO - 📝 OCR Raw: 136 characters
+2026-02-24 21:51:46,127 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:46,127 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:46,354 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771250514.jpg
+2026-02-24 21:51:47,427 - INFO - 📝 OCR Raw: 139 characters
+2026-02-24 21:51:47,427 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:47,427 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:47,699 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1771055822.jpg
+2026-02-24 21:51:48,729 - INFO - 📝 OCR Raw: 108 characters
+2026-02-24 21:51:48,729 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:48,729 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:49,041 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1770991376.jpg
+2026-02-24 21:51:49,696 - INFO - 📝 OCR Raw: 24 characters
+2026-02-24 21:51:49,696 - WARNING - 🗑️ OCR DISCARDED: Too short (24 chars < 50)
+2026-02-24 21:51:49,697 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:49,905 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1770736055.jpg
+2026-02-24 21:51:51,138 - INFO - 📝 OCR Raw: 142 characters
+2026-02-24 21:51:51,138 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:51,138 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:51,414 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1770645997.jpg
+2026-02-24 21:51:52,217 - INFO - 📝 OCR Raw: 89 characters
+2026-02-24 21:51:52,218 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:52,218 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:52,531 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/ErsinnSezer_1770541706.jpg
+2026-02-24 21:51:53,342 - INFO - 📝 OCR Raw: 75 characters
+2026-02-24 21:51:53,343 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:53,422 - INFO - 📡 Checking channel: @besiktashaberleri
+2026-02-24 21:51:53,661 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:53,756 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/besiktashaberleri_1679763108.jpg
+2026-02-24 21:51:54,604 - INFO - 📝 OCR Raw: 50 characters
+2026-02-24 21:51:54,604 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:51:54,604 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:54,661 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/besiktashaberleri_1679756749.jpg
+2026-02-24 21:51:57,484 - INFO - 📝 OCR Raw: 18 characters
+2026-02-24 21:51:57,484 - WARNING - 🗑️ OCR DISCARDED: Too short (18 chars < 50)
+2026-02-24 21:51:57,484 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:57,605 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/besiktashaberleri_1679749280.jpg
+2026-02-24 21:51:58,086 - INFO - 📝 OCR Raw: 21 characters
+2026-02-24 21:51:58,087 - WARNING - 🗑️ OCR DISCARDED: Too short (21 chars < 50)
+2026-02-24 21:51:58,205 - INFO - 📡 Checking channel: @spor_tr
+2026-02-24 21:51:58,307 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:51:58,676 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771959083.jpg
+2026-02-24 21:52:15,586 - INFO - 📝 OCR Raw: 1256 characters
+2026-02-24 21:52:15,586 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:15,590 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:15,691 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771920306.jpg
+2026-02-24 21:52:17,160 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:52:17,160 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:17,160 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:17,365 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771873980.jpg
+2026-02-24 21:52:25,026 - INFO - 📝 OCR Raw: 370 characters
+2026-02-24 21:52:25,026 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:25,026 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:25,251 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771833645.jpg
+2026-02-24 21:52:27,103 - INFO - 📝 OCR Raw: 202 characters
+2026-02-24 21:52:27,103 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:27,104 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:27,359 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771792554.jpg
+2026-02-24 21:52:28,948 - INFO - 📝 OCR Raw: 168 characters
+2026-02-24 21:52:28,949 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:28,949 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:29,083 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771747485.jpg
+2026-02-24 21:52:30,570 - INFO - 📝 OCR Raw: 88 characters
+2026-02-24 21:52:30,570 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:30,570 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:30,681 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771700396.jpg
+2026-02-24 21:52:31,596 - INFO - 📝 OCR Raw: 62 characters
+2026-02-24 21:52:31,596 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:31,596 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:31,855 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771661058.jpg
+2026-02-24 21:52:36,696 - INFO - 📝 OCR Raw: 161 characters
+2026-02-24 21:52:36,697 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:36,697 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:36,907 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/spor_tr_1771611841.jpg
+2026-02-24 21:52:41,639 - INFO - 📝 OCR Raw: 432 characters
+2026-02-24 21:52:41,640 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:41,702 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:52:41,772 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:41,942 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:52:44,904 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:52:44,904 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:52:44,934 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:45,129 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:52:55,199 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:52:55,200 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:52:55,200 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:55,390 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:52:58,301 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:52:58,301 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:52:58,301 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:52:58,490 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:53:04,604 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:53:04,604 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:53:04,604 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:04,825 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:53:10,470 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:53:10,470 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:10,471 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:10,569 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:53:11,511 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:53:11,511 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:11,511 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:11,951 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:53:23,280 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:53:23,280 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:53:23,351 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:53:23,459 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:23,724 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:53:28,264 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:53:28,265 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:28,269 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:28,454 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:53:30,436 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:53:30,436 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:30,440 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:30,574 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:53:32,521 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:53:32,522 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:53:32,532 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:32,779 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:53:36,781 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:53:36,781 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:36,782 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:36,862 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:53:38,246 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:53:38,246 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:53:38,247 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:38,447 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:53:40,332 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:53:40,332 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:40,332 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:40,490 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:53:42,771 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:53:42,771 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:42,771 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:42,850 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:53:44,276 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:53:44,277 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:53:44,277 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:44,433 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:53:44,998 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:53:44,998 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:53:44,998 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:45,113 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:53:46,439 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:53:46,439 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:46,564 - INFO - 📡 Checking channel: @GlasgowRangersUpdates
+2026-02-24 21:53:46,839 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:46,901 - INFO - File lives in another DC
+2026-02-24 21:53:46,974 - INFO - Connecting to 91.108.56.121:443/TcpFull...
+2026-02-24 21:53:48,728 - INFO - Connection to 91.108.56.121:443/TcpFull complete!
+2026-02-24 21:53:48,728 - INFO - Exporting auth for new borrowed sender in DcOption(id=5, ip_address='91.108.56.121', port=443, ipv6=False, media_only=False, tcpo_only=False, cdn=False, static=False, this_port_only=False, secret=None)
+2026-02-24 21:53:50,414 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/GlasgowRangersUpdates_1740727453.jpg
+2026-02-24 21:53:51,415 - INFO - 📝 OCR Raw: 126 characters
+2026-02-24 21:53:51,416 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:51,756 - INFO - 📡 Checking channel: @SportMedics
+2026-02-24 21:53:52,242 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:52,352 - INFO - File lives in another DC
+2026-02-24 21:53:52,352 - INFO - Connecting to 149.154.167.41:443/TcpFull...
+2026-02-24 21:53:53,546 - INFO - Connection to 149.154.167.41:443/TcpFull complete!
+2026-02-24 21:53:53,547 - INFO - Exporting auth for new borrowed sender in DcOption(id=2, ip_address='149.154.167.41', port=443, ipv6=False, media_only=False, tcpo_only=False, cdn=False, static=False, this_port_only=False, secret=None)
+2026-02-24 21:53:53,779 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/SportMedics_1719205552.jpg
+2026-02-24 21:53:54,591 - INFO - 📝 OCR Raw: 141 characters
+2026-02-24 21:53:54,591 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:54,592 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:54,790 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/SportMedics_1694857622.jpg
+2026-02-24 21:53:58,205 - INFO - 📝 OCR Raw: 581 characters
+2026-02-24 21:53:58,205 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:53:58,255 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:53:58,335 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:53:58,497 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:54:00,413 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:54:00,414 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:54:00,438 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:00,655 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:54:03,690 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:54:03,690 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:03,691 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:03,872 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:54:05,209 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:54:05,209 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:54:05,210 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:05,470 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:54:07,073 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:54:07,073 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:54:07,073 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:07,330 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:54:10,341 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:54:10,341 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:10,341 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:10,433 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:54:11,137 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:54:11,137 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:11,138 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:11,315 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:54:14,690 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:54:14,690 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:54:14,744 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:54:14,838 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:15,049 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:54:16,942 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:54:16,942 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:16,946 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:17,117 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:54:18,166 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:54:18,166 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:18,169 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:18,342 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:54:19,464 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:54:19,465 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:54:19,477 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:19,714 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:54:24,338 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:54:24,339 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:24,339 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:24,417 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:54:25,836 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:54:25,836 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:54:25,836 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:26,015 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:54:28,014 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:54:28,014 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:28,015 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:28,623 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:54:30,074 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:54:30,074 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:30,074 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:30,175 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:54:33,608 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:54:33,608 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:54:33,609 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:33,753 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:54:34,507 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:54:34,507 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:54:34,507 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:34,591 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:54:35,608 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:54:35,609 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:35,661 - WARNING - ⚠️ Error accessing @thkalogiros: ValueError: No user has "thkalogiros" as username
+2026-02-24 21:54:35,709 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:54:35,801 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:35,956 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:54:39,351 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:54:39,351 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:54:39,378 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:39,588 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:54:47,903 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:54:47,903 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:54:47,904 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:48,055 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:54:50,721 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:54:50,721 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:54:50,721 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:50,856 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:54:53,270 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:54:53,270 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:54:53,271 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:54:53,489 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:55:01,886 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:55:01,886 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:01,887 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:01,999 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:55:03,784 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:55:03,784 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:03,785 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:03,998 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:55:12,942 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:55:12,942 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:55:13,023 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:55:13,216 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:13,383 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:55:16,945 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:55:16,947 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:16,952 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:17,291 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:55:19,969 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:55:19,969 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:19,973 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:20,136 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:55:25,780 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:55:25,780 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:55:25,799 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:25,800 - INFO - Disconnecting borrowed sender for DC 5
+2026-02-24 21:55:25,801 - INFO - Disconnecting from 91.108.56.121:443/TcpFull...
+2026-02-24 21:55:25,802 - INFO - Disconnection from 91.108.56.121:443/TcpFull complete!
+2026-02-24 21:55:25,803 - INFO - Disconnecting borrowed sender for DC 2
+2026-02-24 21:55:25,803 - INFO - Disconnecting from 149.154.167.41:443/TcpFull...
+2026-02-24 21:55:25,803 - INFO - Disconnection from 149.154.167.41:443/TcpFull complete!
+2026-02-24 21:55:26,001 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:55:28,840 - INFO - 🔍 /debug da 8671309443
+2026-02-24 21:55:29,125 - INFO - ✅ Debug log inviato
+2026-02-24 21:55:36,349 - INFO - ✅ /ping da 8671309443
+2026-02-24 21:55:37,395 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:55:37,396 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:37,396 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:37,500 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:55:41,109 - INFO - 📊 /stat da 8671309443
+2026-02-24 21:55:41,475 - INFO - 🎨 Generating stats dashboard...
+/home/linux/Earlybird_Github/src/analysis/stats_drawer.py:163: UserWarning: Starting a Matplotlib GUI outside of the main thread will likely fail.
+  fig, ax = plt.subplots(figsize=(10, 8), facecolor=COLORS["background"])
+2026-02-24 21:55:44,837 - INFO - 📊 Stats dashboard saved to temp/stats_dashboard.png
+2026-02-24 21:55:44,839 - INFO - Uploading file of 76671 bytes in 1 chunks of 131072
+2026-02-24 21:55:45,371 - INFO - ✅ Dashboard inviata
+2026-02-24 21:55:45,372 - INFO - 🔄 /status da 8671309443
+2026-02-24 21:55:45,372 - INFO - ✅ TwitterIntelCache available for DeepSeek Twitter extraction
+2026-02-24 21:55:45,373 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
+2026-02-24 21:55:45,373 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
+2026-02-24 21:55:45,373 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-24 21:55:45,373 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-24 21:55:45,373 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
+2026-02-24 21:55:45,375 - INFO - 🔑 MediaStackKeyRotator V1.0 initialized with 4 keys
+2026-02-24 21:55:45,378 - INFO - 📊 MediaStack BudgetManager initialized: 0 calls/month, 1 components
+2026-02-24 21:55:45,378 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-24 21:55:45,378 - INFO - ✅ MediastackProvider V1.0 initialized with circuit breaker (with shared cache, HTTPS)
+2026-02-24 21:55:45,378 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
+2026-02-24 21:55:45,378 - INFO - 🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)
+2026-02-24 21:55:45,378 - INFO -    Model A (Standard): deepseek/deepseek-chat
+2026-02-24 21:55:45,378 - INFO -    Model B (Reasoner): deepseek/deepseek-r1-0528:free
+2026-02-24 21:55:45,378 - INFO - 🔮 Perplexity Provider initialized (Fallback)
+2026-02-24 21:55:45,379 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-24 21:55:45,379 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-24 21:55:45,379 - INFO - 📊 Tavily BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-24 21:55:45,379 - INFO - 🔀 IntelligenceRouter V7.0 initialized (DeepSeek primary, Tavily enabled, Perplexity fallback)
+2026-02-24 21:55:45,379 - INFO - 🌐 [BROWSER-MONITOR] V7.8 Created (Thread-safe state management)
+2026-02-24 21:55:45,511 - INFO - ✅ Status inviato
+2026-02-24 21:55:45,837 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:55:45,838 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:55:45,838 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:46,007 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:55:48,989 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:55:48,989 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:48,989 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:49,135 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:55:51,644 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:55:51,644 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:51,644 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:51,763 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:55:54,001 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:55:54,002 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:55:54,003 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:54,609 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:55:56,494 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:55:56,495 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:55:56,495 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:56,572 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:55:57,328 - INFO - 🔍 /debug da 8671309443
+2026-02-24 21:55:57,576 - INFO - ✅ Debug log inviato
+2026-02-24 21:55:57,659 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:55:57,659 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:57,758 - INFO - Got difference for account updates
+2026-02-24 21:55:57,760 - INFO - 📡 Checking channel: @infoboca
+2026-02-24 21:55:57,915 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:58,649 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/infoboca_1771861923.jpg
+2026-02-24 21:55:59,507 - INFO - 📝 OCR Raw: 58 characters
+2026-02-24 21:55:59,507 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:55:59,558 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:55:59,647 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:55:59,814 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:56:03,463 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:56:03,464 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:56:03,492 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:03,711 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:56:08,830 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:56:08,830 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:08,831 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:09,045 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:56:12,823 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:56:12,823 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:56:12,824 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:13,023 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:56:14,455 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:56:14,455 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:56:14,456 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:14,655 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:56:18,538 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:56:18,538 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:18,538 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:18,735 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:56:19,342 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:56:19,342 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:19,342 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:19,656 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:56:23,672 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:56:23,672 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:56:23,753 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:56:23,866 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:24,089 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:56:25,876 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:56:25,876 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:25,880 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:26,217 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:56:27,703 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:56:27,703 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:27,706 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:27,913 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:56:29,101 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:56:29,101 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:56:29,112 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:29,350 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:56:33,716 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:56:33,716 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:33,717 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:33,834 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:56:35,217 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:56:35,217 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:56:35,217 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:35,380 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:56:37,648 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:56:37,648 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:37,649 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:37,946 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:56:39,460 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:56:39,461 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:39,461 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:39,846 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:56:41,117 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:56:41,117 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:56:41,118 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:41,256 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:56:41,790 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:56:41,790 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:56:41,790 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:41,856 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:56:42,617 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:56:42,617 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:42,675 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:56:42,757 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:42,935 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:56:44,931 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:56:44,931 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:56:44,955 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:45,128 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:56:48,606 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:56:48,606 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:48,607 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:48,753 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:56:50,279 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:56:50,279 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:56:50,279 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:50,443 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:56:51,884 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:56:51,884 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:56:51,885 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:52,083 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:56:55,543 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:56:55,544 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:55,544 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:55,628 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:56:56,269 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:56:56,269 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:56:56,269 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:56:56,537 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:57:00,711 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:57:00,711 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:57:00,840 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:57:00,859 - INFO - Got difference for channel 1523566735 updates
+2026-02-24 21:57:00,988 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:01,139 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:57:03,051 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:57:03,051 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:03,055 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:03,579 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:57:04,602 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:57:04,602 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:04,605 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:04,784 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:57:05,931 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:57:05,931 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:57:05,941 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:06,228 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:57:10,502 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:57:10,502 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:10,502 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:10,627 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:57:11,953 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:57:11,954 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:57:11,954 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:12,117 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:57:14,043 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:57:14,044 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:14,044 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:14,236 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:57:16,139 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:57:16,139 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:16,139 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:16,226 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:57:17,626 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:57:17,626 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:57:17,627 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:17,808 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:57:18,400 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:57:18,400 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:57:18,401 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:18,483 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:57:19,180 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:57:19,180 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:19,269 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:57:19,358 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:19,531 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:57:21,501 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:57:21,502 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:57:21,527 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:21,853 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:57:25,617 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:57:25,617 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:25,618 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:25,768 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:57:27,332 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:57:27,332 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:57:27,332 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:27,648 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:57:29,273 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:57:29,273 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:57:29,274 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:29,490 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:57:33,080 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:57:33,080 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:33,081 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:33,162 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:57:33,811 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:57:33,811 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:33,811 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:33,995 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:57:37,944 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:57:37,944 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:57:37,991 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:57:38,097 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:38,266 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:57:40,054 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:57:40,054 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:40,058 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:40,223 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:57:41,339 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:57:41,339 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:41,343 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:41,501 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:57:42,676 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:57:42,676 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:57:42,687 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:42,973 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:57:47,280 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:57:47,280 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:47,281 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:47,364 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:57:48,884 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:57:48,884 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:57:48,884 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:49,099 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:57:50,922 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:57:50,923 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:50,923 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:51,105 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:57:52,684 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:57:52,685 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:52,686 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:52,762 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:57:54,295 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:57:54,295 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:57:54,295 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:54,515 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:57:55,152 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:57:55,152 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:57:55,153 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:55,228 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:57:56,262 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:57:56,262 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:57:56,354 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:57:56,521 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:56,779 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:57:59,258 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:57:59,258 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:57:59,284 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:57:59,496 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:58:03,077 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:58:03,077 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:03,078 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:03,288 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:58:04,896 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:58:04,896 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:58:04,897 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:05,266 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:58:06,595 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:58:06,596 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:58:06,596 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:06,992 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:58:10,400 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:58:10,400 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:10,400 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:10,520 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:58:11,200 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:58:11,200 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:11,201 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:11,389 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:58:19,499 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:58:19,500 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:58:19,563 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:58:19,637 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:19,814 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:58:23,509 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:58:23,510 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:23,515 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:23,680 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:58:27,135 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:58:27,135 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:27,139 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:27,469 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:58:29,187 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:58:29,187 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:58:29,199 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:29,458 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:58:35,851 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:58:35,851 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:35,851 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:35,979 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:58:37,937 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:58:37,938 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:58:37,938 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:38,089 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:58:41,262 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:58:41,262 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:41,263 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:41,556 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:58:47,355 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:58:47,355 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:47,356 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:47,439 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:58:49,448 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:58:49,448 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:58:49,448 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:49,632 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 21:58:50,451 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 21:58:50,452 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 21:58:50,452 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:50,541 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 21:58:52,161 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 21:58:52,162 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:58:52,243 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 21:58:52,314 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:52,484 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 21:58:57,075 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 21:58:57,076 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 21:58:57,142 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:58:57,301 - INFO - Got difference for account updates
+2026-02-24 21:58:57,410 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 21:59:04,848 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:59:04,848 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:04,849 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:05,009 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:59:07,697 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 21:59:07,697 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 21:59:07,698 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:07,853 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 21:59:10,005 - INFO - 📝 OCR Raw: 465 characters
+2026-02-24 21:59:10,005 - INFO - ✅ OCR VALID: Valid squad content (465 chars)
+2026-02-24 21:59:10,005 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:10,174 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771605444.jpg
+2026-02-24 21:59:17,064 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 21:59:17,065 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:17,065 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:17,154 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771597975.jpg
+2026-02-24 21:59:18,009 - INFO - 📝 OCR Raw: 106 characters
+2026-02-24 21:59:18,009 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:18,010 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:18,210 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771419640.jpg
+2026-02-24 21:59:28,530 - INFO - 📝 OCR Raw: 1172 characters
+2026-02-24 21:59:28,531 - INFO - ✅ OCR VALID: Valid squad content (1172 chars)
+2026-02-24 21:59:28,591 - INFO - 📡 Checking channel: @allfootballss
+2026-02-24 21:59:28,746 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:28,999 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771961146.jpg
+2026-02-24 21:59:32,014 - INFO - 📝 OCR Raw: 282 characters
+2026-02-24 21:59:32,014 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:32,019 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:32,196 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771934098.jpg
+2026-02-24 21:59:33,880 - INFO - 📝 OCR Raw: 165 characters
+2026-02-24 21:59:33,880 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:33,883 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:34,344 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771930239.jpg
+2026-02-24 21:59:37,908 - INFO - 📝 OCR Raw: 369 characters
+2026-02-24 21:59:37,908 - INFO - ✅ OCR VALID: Valid squad content (369 chars)
+2026-02-24 21:59:37,921 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:38,334 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771920758.jpg
+2026-02-24 21:59:46,567 - INFO - 📝 OCR Raw: 613 characters
+2026-02-24 21:59:46,567 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:46,567 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:46,655 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771915631.jpg
+2026-02-24 21:59:49,186 - INFO - 📝 OCR Raw: 349 characters
+2026-02-24 21:59:49,186 - INFO - ✅ OCR VALID: Valid squad content (349 chars)
+2026-02-24 21:59:49,186 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:49,379 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771884087.jpg
+2026-02-24 21:59:53,996 - INFO - 📝 OCR Raw: 276 characters
+2026-02-24 21:59:53,996 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:53,996 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:54,268 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771880536.jpg
+2026-02-24 21:59:56,510 - INFO - 📝 OCR Raw: 223 characters
+2026-02-24 21:59:56,510 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 21:59:56,510 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:56,583 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771873981.jpg
+2026-02-24 21:59:59,193 - INFO - 📝 OCR Raw: 368 characters
+2026-02-24 21:59:59,193 - INFO - ✅ OCR VALID: Valid squad content (368 chars)
+2026-02-24 21:59:59,193 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 21:59:59,369 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771871516.jpg
+2026-02-24 22:00:00,068 - INFO - 📝 OCR Raw: 38 characters
+2026-02-24 22:00:00,068 - WARNING - 🗑️ OCR DISCARDED: Too short (38 chars < 50)
+2026-02-24 22:00:00,068 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 22:00:00,168 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/allfootballss_1771867229.jpg
+2026-02-24 22:00:01,213 - INFO - 📝 OCR Raw: 101 characters
+2026-02-24 22:00:01,213 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 22:00:01,266 - INFO - 📡 Checking channel: @injuries_suspensions
+2026-02-24 22:00:01,344 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 22:00:01,515 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771931559.jpg
+2026-02-24 22:00:04,997 - __main__ - INFO - 
+🛑 Segnale di arresto ricevuto. Chiusura in corso...
+2026-02-24 22:00:07,643 - INFO - 📝 OCR Raw: 868 characters
+2026-02-24 22:00:07,644 - INFO - ✅ OCR VALID: Valid squad content (868 chars)
+2026-02-24 22:00:07,671 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 22:00:07,961 - __main__ - INFO - 🔄 Arresto di tutti i processi...
+2026-02-24 22:00:08,159 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771689713.jpg
+2026-02-24 22:00:12,966 - src.alerting.orchestration_metrics - INFO - ✅ Orchestration metrics collector stopped
+2026-02-24 22:00:12,966 - __main__ - INFO - ✅ Orchestration metrics collector stopped
+2026-02-24 22:00:12,966 - __main__ - INFO - 🛑 Arresto Pipeline Principale (PID: 19100)...
+2026-02-24 22:00:12,969 - INFO - 🛑 Received signal 15, cleaning up...
+2026-02-24 22:00:12,969 - INFO - ✅ Cleanup completed: requests session closed
+2026-02-24 22:00:13,362 - INFO - 📝 OCR Raw: 755 characters
+2026-02-24 22:00:13,362 - WARNING - 🗑️ OCR DISCARDED: No squad keywords found
+2026-02-24 22:00:13,363 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 22:00:13,505 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 22:00:17,683 - INFO - 📝 OCR Raw: 539 characters
+2026-02-24 22:00:17,684 - INFO - ✅ OCR VALID: Valid squad content (539 chars)
+2026-02-24 22:00:17,684 - INFO - Starting direct file download in chunks of 131072 at 0, stride 131072
+2026-02-24 22:00:17,830 - INFO - 📸 Processing squad image: file:///home/linux/Earlybird_Github/temp/injuries_suspensions_1771684289.jpg
+2026-02-24 22:00:17,968 - __main__ - WARNING - ⚠️ Pipeline Principale non risponde, kill forzato...
+2026-02-24 22:00:18,005 - __main__ - INFO - 🛑 Arresto Telegram Bot (Comandi) (PID: 19101)...
+2026-02-24 22:00:18,126 - __main__ - INFO - ✅ Telegram Bot (Comandi) terminato correttamente
+2026-02-24 22:00:18,134 - __main__ - INFO - 🛑 Arresto Telegram Monitor (Scraper) (PID: 19125)...
+2026-02-24 22:00:18,166 - __main__ - INFO - ✅ Telegram Monitor (Scraper) terminato correttamente
+2026-02-24 22:00:18,166 - __main__ - INFO - 🛑 Arresto News Radar (Hunter Autonomo) (PID: 19136)...
+2026-02-24 22:00:18,169 - __main__ - INFO - 🛑 [NEWS-RADAR] Received SIGTERM, initiating graceful shutdown...
+2026-02-24 22:00:23,167 - __main__ - WARNING - ⚠️ News Radar (Hunter Autonomo) non risponde, kill forzato...
+2026-02-24 22:00:23,182 - __main__ - INFO - ============================================================
+2026-02-24 22:00:23,183 - __main__ - INFO - 🦅 EARLYBIRD ORCHESTRATOR TERMINATO
+2026-02-24 22:00:23,183 - __main__ - INFO - ============================================================
+
+======================================================================
+🌐 API CONNECTIVITY TESTS
+======================================================================
+✅  Odds API: 481ms | 52 used, 448 remaining
+✅  OpenRouter API: 2870ms
+✅  Brave API: 634ms | 3/3 keys working
+✅  Supabase: 1002ms
+
+======================================================================
+📁 CONFIGURATION FILES
+======================================================================
+✅  .env: 4172 bytes | Modified: 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | Modified: 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | Modified: 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | Modified: 2026-01-28 22:33:41
+
+======================================================================
+🦅 EARLYBIRD STARTUP VALIDATION - PRE-FLIGHT HANDSHAKE
+======================================================================
+📅 Timestamp: 2026-02-24 21:50:54
+
+✅ READY: All critical keys configured
+
+🔴 CRITICAL KEYS (Required for Operation):
+----------------------------------------------------------------------
+✅  ODDS_API_KEY: OK (Odds API (The-Odds-API.com))
+✅  OPENROUTER_API_KEY: OK (OpenRouter API (DeepSeek AI))
+✅  BRAVE_API_KEY: OK (Brave Search API)
+✅  TELEGRAM_BOT_TOKEN: OK (Telegram Bot Token)
+✅  TELEGRAM_CHAT_ID: OK (Telegram Chat ID (Admin))
+✅  SUPABASE_URL: OK (Supabase Database URL)
+✅  SUPABASE_KEY: OK (Supabase Database Key)
+
+🟡 OPTIONAL KEYS (Graceful Degradation):
+----------------------------------------------------------------------
+✅  TELEGRAM_API_ID: OK (Telegram API ID (Channel Monitoring))
+✅  TELEGRAM_API_HASH: OK (Telegram API Hash (Channel Monitoring))
+✅  PERPLEXITY_API_KEY: OK (Perplexity API (Fallback AI Search))
+✅  API_FOOTBALL_KEY: OK (API-Football (Player Intelligence))
+✅  TAVILY_API_KEY: OK (Tavily API (Match Enrichment))
+
+📊 API CONNECTIVITY SUMMARY:
+----------------------------------------------------------------------
+✅  Odds API: 481ms | 52 used, 448 remaining
+✅  OpenRouter API: 2870ms
+✅  Brave API: 634ms | 3/3 keys working
+✅  Supabase: 1002ms
+
+📁 CONFIGURATION FILES SUMMARY:
+----------------------------------------------------------------------
+✅  .env: 4172 bytes | 2026-02-24 21:38:15
+✅  config/settings.py: 30207 bytes | 2026-02-21 00:52:42
+✅  config/news_radar_sources.json: 13330 bytes | 2026-02-06 22:09:20
+✅  config/browser_sources.json: 6171 bytes | 2026-01-28 22:33:41
+
+======================================================================
+
+✅ STARTUP VALIDATION PASSED: System ready to launch

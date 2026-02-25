@@ -37,7 +37,11 @@ sudo apt-get install -y \
     python3-pip \
     tesseract-ocr \
     tesseract-ocr-eng \
+    tesseract-ocr-tur \
+    tesseract-ocr-ita \
+    tesseract-ocr-pol \
     libtesseract-dev \
+    libxml2-dev \
     libxml2-dev \
     libxslt-dev \
     screen \
@@ -117,19 +121,53 @@ echo -e "${GREEN}🌐 [3c/6] Installing Playwright Browser Automation (V7.0)...$
 pip install playwright playwright-stealth trafilatura
 # Install Chromium browser for Playwright (headless) - V7.2: use python -m for reliability
 python -m playwright install chromium
-# Install system dependeies for Playwright
-python -m playwright install-deps chromium 2>/dev/null || echo -e "${YELLOW}   ⚠️ install-deps may require sudo on some systems${NC}"
+# Install system dependencies for Playwright
+# V11.2 FIX: Capture stderr to show errors only if command fails (Bug #2 fix)
+if ! install_output=$(python -m playwright install-deps chromium 2>&1); then
+    echo -e "${YELLOW}   ⚠️ install-deps failed (may require sudo on some systems)${NC}"
+    echo -e "${YELLOW}   Error output:${NC}"
+    echo -e "${YELLOW}   $install_output${NC}"
+    echo -e "${YELLOW}   Note: Playwright may still work if system dependencies are already installed${NC}"
+else
+    echo -e "${GREEN}   ✅ System dependencies installed${NC}"
+fi
 echo -e "${GREEN}   ✅ Playwright + Chromium + Stealth + Trafilatura installed${NC}"
 
 # Step 4: Permissions
 echo ""
 echo -e "${GREEN}🔑 [4/6] Setting Permissions...${NC}"
-chmod +x run_forever.sh
-chmod +x start_system.sh 2>/dev/null || true
-chmod +x run_tests_monitor.sh 2>/dev/null || true
-chmod +x start_api.sh 2>/dev/null || true
-chmod +x run_fullstack.sh 2>/dev/null || true
-chmod +x go_live.py 2>/dev/null || true
+
+# CRITICAL FILES: Must be executable for bot to work
+CRITICAL_FILES=("run_forever.sh" "start_system.sh" "go_live.py")
+for file in "${CRITICAL_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        if chmod +x "$file"; then
+            echo -e "${GREEN}   ✅ $file is now executable${NC}"
+        else
+            echo -e "${RED}   ❌ CRITICAL: Failed to set executable permission on $file${NC}"
+            echo -e "${RED}   ❌ Bot cannot start without this file${NC}"
+            exit 1
+        fi
+    else
+        echo -e "${RED}   ❌ CRITICAL: $file not found${NC}"
+        echo -e "${RED}   ❌ Bot cannot start without this file${NC}"
+        exit 1
+    fi
+done
+
+# OPTIONAL FILES: Nice to have but not critical
+OPTIONAL_FILES=("run_tests_monitor.sh" "start_api.sh" "run_fullstack.sh")
+for file in "${OPTIONAL_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        if chmod +x "$file"; then
+            echo -e "${GREEN}   ✅ $file is now executable${NC}"
+        else
+            echo -e "${YELLOW}   ⚠️ Warning: Failed to set executable permission on $file${NC}"
+        fi
+    else
+        echo -e "${YELLOW}   ⚠️ $file not found (skipping - optional)${NC}"
+    fi
+done
 
 # Step 5: Search Engine Info (SearXNG deprecated in V3.3, DDG is primary search)
 echo ""
@@ -205,6 +243,31 @@ else
     echo -e "${RED}   ❌ Tesseract OCR not found${NC}"
 fi
 
+# Verify required Tesseract language packs
+echo ""
+echo -e "${GREEN}🔍 [6b/6] Verifying Tesseract Language Packs...${NC}"
+REQUIRED_LANGS=("eng" "tur" "ita" "pol")
+MISSING_LANGS=()
+
+for lang in "${REQUIRED_LANGS[@]}"; do
+    if tesseract --list-langs 2>/dev/null | grep -q "^${lang}$"; then
+        echo -e "${GREEN}   ✅ Language pack '${lang}' installed${NC}"
+    else
+        echo -e "${RED}   ❌ Language pack '${lang}' NOT installed${NC}"
+        MISSING_LANGS+=("$lang")
+    fi
+done
+
+if [ ${#MISSING_LANGS[@]} -gt 0 ]; then
+    echo ""
+    echo -e "${RED}❌ CRITICAL: Missing required Tesseract language packs: ${MISSING_LANGS[*]}${NC}"
+    echo -e "${YELLOW}Install them with: sudo apt-get install tesseract-ocr-${MISSING_LANGS[0]} tesseract-ocr-${MISSING_LANGS[1]} tesseract-ocr-${MISSING_LANGS[2]} tesseract-ocr-${MISSING_LANGS[3]}${NC}"
+    echo -e "${RED}OCR functionality will be limited without these language packs!${NC}"
+    exit 1
+else
+    echo -e "${GREEN}   ✅ All required language packs installed${NC}"
+fi
+
 # Create data directory if needed
 mkdir -p data
 
@@ -243,4 +306,34 @@ echo "   • View logs:        tail -f earlybird.log"
 echo "   • View test logs:   tail -f test_monitor.log"
 echo "   • Check tmux:       tmux ls"
 echo "   • Stop system:      tmux kill-session -t earlybird"
+echo ""
+
+# Step 7: End-to-End Verification (Bug #7 fix)
+echo ""
+echo -e "${GREEN}🧪 [7/7] Running End-to-End Verification...${NC}"
+echo ""
+
+# Run the verification script
+if python scripts/verify_setup.py; then
+    echo ""
+    echo -e "${GREEN}   ✅ End-to-end verification PASSED${NC}"
+    echo -e "${GREEN}   ✅ Bot is ready to start!${NC}"
+else
+    exit_code=$?
+    echo ""
+    if [ $exit_code -eq 1 ]; then
+        echo -e "${RED}   ❌ CRITICAL: End-to-end verification FAILED${NC}"
+        echo -e "${RED}   ❌ Bot cannot start with critical failures${NC}"
+        echo -e "${YELLOW}   ⚠️  Please fix the issues above before starting the bot${NC}"
+        exit 1
+    elif [ $exit_code -eq 2 ]; then
+        echo -e "${YELLOW}   ⚠️  WARNING: End-to-end verification found non-critical issues${NC}"
+        echo -e "${YELLOW}   ⚠️  Bot can start but with reduced functionality${NC}"
+        echo -e "${YELLOW}   ⚠️  Please fix the issues above for full functionality${NC}"
+    else
+        echo -e "${RED}   ❌ UNKNOWN ERROR: End-to-end verification failed with exit code $exit_code${NC}"
+        exit 1
+    fi
+fi
+
 echo ""

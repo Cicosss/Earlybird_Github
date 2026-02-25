@@ -634,7 +634,7 @@ class IntelligenceRouter:
         """
         Extract recent tweets from specified accounts.
 
-        Uses DeepSeek + Brave Search.
+        Uses DeepSeek + TwitterIntelCache (V10.0).
 
         Args:
             handles: List of Twitter handles (with @)
@@ -644,7 +644,10 @@ class IntelligenceRouter:
             Dict with extracted tweets or None
         """
         try:
-            return self._primary_provider.extract_twitter_intel(handles, max_posts_per_account)
+            result = self._primary_provider.extract_twitter_intel(handles, max_posts_per_account)
+            if result is None:
+                logger.debug(f"🐦 [INTEL] No Twitter intel available for {len(handles)} handles")
+            return result
         except Exception as e:
             logger.warning(f"⚠️ [DEEPSEEK] Twitter intel extraction failed: {e}")
             return None

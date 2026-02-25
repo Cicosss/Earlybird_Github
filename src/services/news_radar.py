@@ -627,6 +627,110 @@ def load_config(config_file: str = DEFAULT_CONFIG_FILE) -> RadarConfig:
         return RadarConfig()
 
 
+def load_config_from_supabase() -> RadarConfig:
+    """
+    Load News Radar configuration from Supabase database.
+
+    Fetches news sources from the news_sources table and filters for
+    traditional web domains only (excluding social media handles).
+
+    Returns:
+        RadarConfig with web-only sources from Supabase
+    """
+    try:
+        from src.database.supabase_provider import SupabaseProvider
+
+        provider = SupabaseProvider()
+        all_sources = provider.fetch_all_news_sources()
+
+        if not all_sources:
+            logger.warning("⚠️ [NEWS-RADAR] No news sources found in Supabase")
+            return RadarConfig()
+
+        # Filter for web-only sources (exclude social media handles)
+        web_sources = []
+        social_domains = {
+            "twitter.com",
+            "x.com",
+            "t.me",
+            "telegram.org",
+            "telegram.me",
+            "facebook.com",
+            "instagram.com",
+            "linkedin.com",
+            "tiktok.com",
+            "youtube.com",
+            "reddit.com",
+            "threads.net",
+        }
+
+        for src_data in all_sources:
+            # V8.0: Handle both 'url' and 'domain' fields
+            # Supabase news_sources table uses 'domain' field
+            domain = src_data.get("domain", "")
+            url = src_data.get("url", "")
+
+            # If no URL but domain exists, construct URL from domain
+            if not url and domain:
+                # Add https:// prefix if not present
+                if not domain.startswith("http"):
+                    url = f"https://{domain}"
+                else:
+                    url = domain
+            elif not url and not domain:
+                logger.warning(f"⚠️ [NEWS-RADAR] Skipping source without URL/domain: {src_data}")
+                continue
+
+            # Parse URL to check if it's a social media domain
+            try:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(url)
+                domain = parsed.netloc.lower()
+
+                # Skip if it's a social media domain
+                if any(social_domain in domain for social_domain in social_domains):
+                    logger.debug(f"🚫 [NEWS-RADAR] Skipping social media source: {url}")
+                    continue
+
+                # Also skip if the URL contains social media handle patterns
+                if any(pattern in url.lower() for pattern in ["twitter.com/", "x.com/", "t.me/"]):
+                    logger.debug(f"🚫 [NEWS-RADAR] Skipping social media handle: {url}")
+                    continue
+
+            except Exception as e:
+                logger.debug(f"⚠️ [NEWS-RADAR] Failed to parse URL {url}: {e}")
+                continue
+
+            # Create RadarSource from Supabase data
+            source = RadarSource(
+                url=url,
+                name=src_data.get("name", url[:50]),
+                priority=src_data.get("priority", 1),
+                scan_interval_minutes=src_data.get(
+                    "scan_interval_minutes", DEFAULT_SCAN_INTERVAL_MINUTES
+                ),
+                navigation_mode=src_data.get("navigation_mode", "single"),
+                link_selector=src_data.get("link_selector"),
+                source_timezone=src_data.get("source_timezone"),
+            )
+            web_sources.append(source)
+
+        logger.info(
+            f"✅ [NEWS-RADAR] Loaded {len(web_sources)} web sources from Supabase (filtered from {len(all_sources)} total)"
+        )
+        return RadarConfig(sources=web_sources, global_settings=GlobalSettings())
+
+    except ImportError:
+        logger.error(
+            "❌ [NEWS-RADAR] SupabaseProvider not available - falling back to default config"
+        )
+        return RadarConfig()
+    except Exception as e:
+        logger.error(f"❌ [NEWS-RADAR] Failed to load config from Supabase: {e}")
+        return RadarConfig()
+
+
 # ============================================
 # CONTENT EXTRACTOR
 # ============================================
@@ -702,6 +806,15 @@ class ContentExtractor:
 
     async def shutdown(self) -> None:
         """Shutdown Playwright and release resources."""
+        # V9.0: Explicit cleanup of browser contexts if they exist
+        if hasattr(self, "_contexts") and self._contexts:
+            for context in self._contexts:
+                try:
+                    await context.close()
+                except Exception as e:
+                    logger.warning(f"⚠️ [NEWS-RADAR] Error closing browser context: {e}")
+            self._contexts.clear()
+
         if self._browser:
             try:
                 await self._browser.close()
@@ -1750,15 +1863,22 @@ class NewsRadarMonitor:
     Requirements: 1.1-1.4, 10.1-10.4
     """
 
-    def __init__(self, config_file: str = DEFAULT_CONFIG_FILE):
+    def __init__(self, config_file: str = DEFAULT_CONFIG_FILE, use_supabase: bool = True):
         """
         Initialize NewsRadarMonitor.
 
         V2.0: Simplified - uses singleton filters from modules.
+        V8.0: Added Supabase support for dynamic source fetching.
+        V9.0: Added Supabase polling for hot reload.
+
+        Args:
+            config_file: Path to config file (fallback if Supabase fails)
+            use_supabase: Whether to fetch sources from Supabase (default: True)
 
         Requirements: 1.1
         """
         self._config_file = config_file
+        self._use_supabase = use_supabase
         self._config: RadarConfig = RadarConfig()
         self._config_mtime: float = 0.0
 
@@ -1774,6 +1894,13 @@ class NewsRadarMonitor:
 
         # Circuit breakers per source
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
+
+        # V8.0: Lock for async-safe cache writing (prevents race conditions in concurrent scanning)
+        self._cache_lock: asyncio.Lock | None = None
+
+        # V9.0: Supabase hot reload polling
+        self._last_supabase_check = 0.0
+        self._supabase_check_interval = 300  # 5 minutes
 
         # State
         self._running = False
@@ -1801,8 +1928,19 @@ class NewsRadarMonitor:
 
         try:
             # Load configuration
-            self._config = load_config(self._config_file)
-            self._update_config_mtime()
+            if self._use_supabase:
+                logger.info("🔄 [NEWS-RADAR] Loading sources from Supabase...")
+                self._config = load_config_from_supabase()
+                # Fallback to file if Supabase returns no sources
+                if not self._config.sources:
+                    logger.warning(
+                        "⚠️ [NEWS-RADAR] No sources from Supabase, falling back to config file"
+                    )
+                    self._config = load_config(self._config_file)
+                    self._update_config_mtime()
+            else:
+                self._config = load_config(self._config_file)
+                self._update_config_mtime()
 
             if not self._config.sources:
                 logger.warning("⚠️ [NEWS-RADAR] No sources configured")
@@ -1839,6 +1977,9 @@ class NewsRadarMonitor:
                 self._tavily_budget = None
                 logger.debug("⚠️ [NEWS-RADAR] Tavily not available")
 
+            # V8.0: Initialize cache lock for async-safe concurrent scanning
+            self._cache_lock = asyncio.Lock()
+
             # Start scan loop
             self._running = True
             self._stop_event.clear()
@@ -1847,6 +1988,9 @@ class NewsRadarMonitor:
             logger.info(f"✅ [NEWS-RADAR] V2.0 Started with {len(self._config.sources)} sources")
             logger.info("   High-value signal detection: ENABLED")
             logger.info("   Quality gate: ENABLED (team required, impact >= MEDIUM)")
+            logger.info("   Concurrent processing: ENABLED (adaptive chunking)")
+            if self._use_supabase:
+                logger.info("   Supabase hot reload: ENABLED (polling every 5 minutes)")
             return True
 
         except Exception as e:
@@ -1904,13 +2048,26 @@ class NewsRadarMonitor:
 
     def reload_sources(self) -> None:
         """
-        Reload sources from config file (hot reload).
+        Reload sources from config file or Supabase (hot reload).
+
+        V8.0: Added Supabase support for dynamic source reloading.
 
         Requirements: 8.2
         """
         old_count = len(self._config.sources)
-        self._config = load_config(self._config_file)
-        self._update_config_mtime()
+        if self._use_supabase:
+            logger.info("🔄 [NEWS-RADAR] Reloading sources from Supabase...")
+            self._config = load_config_from_supabase()
+            # Fallback to file if Supabase returns no sources
+            if not self._config.sources:
+                logger.warning(
+                    "⚠️ [NEWS-RADAR] No sources from Supabase, falling back to config file"
+                )
+                self._config = load_config(self._config_file)
+                self._update_config_mtime()
+        else:
+            self._config = load_config(self._config_file)
+            self._update_config_mtime()
 
         new_count = len(self._config.sources)
         logger.info(f"🔄 [NEWS-RADAR] Reloaded config: {old_count} → {new_count} sources")
@@ -1920,6 +2077,17 @@ class NewsRadarMonitor:
         if url not in self._circuit_breakers:
             self._circuit_breakers[url] = CircuitBreaker()
         return self._circuit_breakers[url]
+
+    def _check_supabase_changed(self) -> bool:
+        """
+        V9.0: Check if Supabase sources should be reloaded based on polling interval.
+
+        Returns True if it's time to check Supabase for updates.
+        """
+        if not self._use_supabase:
+            return False
+        now = time.time()
+        return now - self._last_supabase_check > self._supabase_check_interval
 
     async def _scan_loop(self) -> None:
         """
@@ -1931,9 +2099,15 @@ class NewsRadarMonitor:
 
         while self._running and not self._stop_event.is_set():
             try:
-                # Check for config hot reload
+                # Check for config hot reload (file-based)
                 if self._check_config_changed():
                     self.reload_sources()
+
+                # V9.0: Check for Supabase hot reload (polling-based)
+                if self._check_supabase_changed():
+                    logger.info("🔄 [NEWS-RADAR] Checking Supabase for source updates...")
+                    self.reload_sources()
+                    self._last_supabase_check = time.time()
 
                 # Run scan cycle
                 alerts_sent = await self.scan_cycle()
@@ -2018,6 +2192,11 @@ class NewsRadarMonitor:
                         alert = await self._process_content(content, source, source.url)
 
                         if alert:
+                            # CROSS-PROCESS HANDOFF: High-confidence alerts to Main Pipeline
+                            if alert.confidence >= ALERT_CONFIDENCE_THRESHOLD:
+                                await self._handoff_to_main_pipeline(alert, content)
+
+                            # Send Telegram alert
                             if self._alerter and await self._alerter.send_alert(alert):
                                 alerts_sent += 1
                                 self._alerts_sent += 1
@@ -2027,30 +2206,130 @@ class NewsRadarMonitor:
                     # Update last scanned time
                     source.last_scanned = datetime.now(timezone.utc)
 
-        # Process paginated sources sequentially (require browser navigation)
-        for source in paginated_sources:
-            if not self._running or self._stop_event.is_set():
-                break
-
-            # Scan source
-            alert = await self.scan_source(source)
-            urls_scanned += 1
-
-            # Update counter immediately to avoid loss on interruption
-            self._urls_scanned = urls_scanned
-
-            if alert:
-                # Send alert
-                if self._alerter and await self._alerter.send_alert(alert):
-                    alerts_sent += 1
-                    self._alerts_sent += 1
-
-            # Update last scanned time
-            source.last_scanned = datetime.now(timezone.utc)
+        # V8.0: Process paginated sources concurrently using 3 browser contexts (tabs)
+        if paginated_sources:
+            alerts_sent, urls_scanned = await self._scan_paginated_sources_concurrent(
+                paginated_sources, alerts_sent, urls_scanned
+            )
 
         # Final assignment (in case loop completes normally)
         self._urls_scanned = urls_scanned
         return alerts_sent
+
+    async def _scan_paginated_sources_concurrent(
+        self, paginated_sources: list[RadarSource], alerts_sent: int, urls_scanned: int
+    ) -> tuple[int, int]:
+        """
+        V8.0: Scan paginated sources concurrently using 3 browser contexts (tabs).
+
+        Splits sources into 3 chunks and processes them in parallel using asyncio.gather.
+        Uses async-safe cache writing with locks to prevent race conditions.
+
+        Args:
+            paginated_sources: List of paginated sources to scan
+            alerts_sent: Current alert count (will be incremented)
+            urls_scanned: Current URL scan count (will be incremented)
+
+        Returns:
+            Tuple of (alerts_sent, urls_scanned) after concurrent processing
+        """
+        if not paginated_sources:
+            return alerts_sent, urls_scanned
+
+        # V9.0: Adaptive chunk size - use min(3, len(sources)) for efficiency
+        num_chunks = min(3, len(paginated_sources))
+        chunk_size = max(1, len(paginated_sources) // num_chunks) if num_chunks > 0 else 0
+        chunks = [paginated_sources[i::num_chunks] for i in range(num_chunks)]
+
+        logger.info(
+            f"🚀 [NEWS-RADAR] Concurrent processing: {len(paginated_sources)} paginated sources in {num_chunks} chunk(s)"
+        )
+        for i, chunk in enumerate(chunks):
+            logger.info(f"   Chunk {i + 1}: {len(chunk)} sources")
+
+        # Define async task for scanning a chunk with retry logic
+        async def scan_chunk(chunk: list[RadarSource], chunk_id: int) -> tuple[int, int]:
+            """Scan a chunk of sources and return (alerts_sent, urls_scanned)."""
+            chunk_alerts = 0
+            chunk_scanned = 0
+
+            for source in chunk:
+                if not self._running or self._stop_event.is_set():
+                    break
+
+                # V9.0: Retry logic for failed source scans
+                max_retries = 2
+                for retry in range(max_retries):
+                    try:
+                        # Scan source
+                        alert = await self.scan_source(source)
+                        chunk_scanned += 1
+
+                        # V8.0: Async-safe cache writing with lock
+                        # V9.0: Added timeout to prevent deadlock
+                        if alert:
+                            try:
+                                if self._cache_lock is None:
+                                    self._cache_lock = asyncio.Lock()
+
+                                async with asyncio.wait_for(
+                                    self._cache_lock.acquire(), timeout=5.0
+                                ):
+                                    try:
+                                        if self._alerter and await asyncio.wait_for(
+                                            self._alerter.send_alert(alert), timeout=10.0
+                                        ):
+                                            chunk_alerts += 1
+                                            self._alerts_sent += 1
+                                    finally:
+                                        self._cache_lock.release()
+                            except asyncio.TimeoutError:
+                                logger.warning(
+                                    f"⚠️ [NEWS-RADAR] Chunk {chunk_id + 1} alert send timeout (possible deadlock)"
+                                )
+
+                        # Update last scanned time
+                        source.last_scanned = datetime.now(timezone.utc)
+
+                        # Success - break retry loop
+                        break
+
+                    except Exception as e:
+                        if retry < max_retries - 1:
+                            logger.warning(
+                                f"⚠️ [NEWS-RADAR] Chunk {chunk_id + 1} retry {retry + 1}/{max_retries} for {source.name}: {e}"
+                            )
+                            await asyncio.sleep(1.0)  # Brief delay before retry
+                        else:
+                            logger.error(
+                                f"❌ [NEWS-RADAR] Chunk {chunk_id + 1} failed after {max_retries} retries for {source.name}: {e}"
+                            )
+
+            return chunk_alerts, chunk_scanned
+
+        # Run all chunks in parallel using asyncio.gather
+        try:
+            results = await asyncio.gather(
+                *[scan_chunk(chunks[i], i) for i in range(num_chunks)],
+                return_exceptions=True,
+            )
+
+            # Aggregate results
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"❌ [NEWS-RADAR] Chunk {i + 1} failed: {result}")
+                else:
+                    chunk_alerts, chunk_scanned = result
+                    alerts_sent += chunk_alerts
+                    urls_scanned += chunk_scanned
+                    logger.info(
+                        f"✅ [NEWS-RADAR] Tab {i + 1} complete: {chunk_scanned} sources, {chunk_alerts} alerts"
+                    )
+
+        except Exception as e:
+            logger.error(f"❌ [NEWS-RADAR] Concurrent scanning failed: {e}")
+
+        return alerts_sent, urls_scanned
 
     async def scan_source(self, source: RadarSource) -> RadarAlert | None:
         """
@@ -2080,6 +2359,9 @@ class NewsRadarMonitor:
                     alert = await self._process_content(content, source, page_url)
                     if alert:
                         breaker.record_success()
+                        # CROSS-PROCESS HANDOFF: High-confidence alerts to Main Pipeline
+                        if alert.confidence >= ALERT_CONFIDENCE_THRESHOLD:
+                            await self._handoff_to_main_pipeline(alert, content)
                         return alert
 
                 if not results:
@@ -2096,7 +2378,13 @@ class NewsRadarMonitor:
                     return None
 
                 breaker.record_success()
-                return await self._process_content(content, source, source.url)
+                alert = await self._process_content(content, source, source.url)
+
+                # CROSS-PROCESS HANDOFF: High-confidence alerts to Main Pipeline
+                if alert and alert.confidence >= ALERT_CONFIDENCE_THRESHOLD:
+                    await self._handoff_to_main_pipeline(alert, content)
+
+                return alert
 
         except Exception as e:
             logger.error(f"❌ [NEWS-RADAR] Error scanning {source.name}: {e}")
@@ -2478,6 +2766,66 @@ class NewsRadarMonitor:
 
         return min(score, 1.0)
 
+    async def _handoff_to_main_pipeline(self, alert: RadarAlert, content: str) -> None:
+        """
+        CROSS-PROCESS HANDOFF: Drop high-confidence news in shared DB inbox.
+
+        When confidence >= 0.7, instead of just sending Telegram alert,
+        also save trigger to NewsLog table for Main Pipeline to process.
+
+        This enables full AI triangulation analysis on high-confidence radar alerts.
+
+        Args:
+            alert: RadarAlert with enrichment_context
+            content: Original news content (for forced narrative)
+        """
+        if not alert.enrichment_context or not alert.enrichment_context.has_match():
+            logger.debug("⏭️ [NEWS-RADAR] Skipping handoff - no match found")
+            return
+
+        try:
+            from src.database.models import NewsLog, SessionLocal
+
+            db = SessionLocal()
+            try:
+                # Create NewsLog entry with PENDING_RADAR_TRIGGER status
+                news_log = NewsLog(
+                    match_id=alert.enrichment_context.match_id,
+                    url=alert.source_url,
+                    summary=f"RADAR HANDOFF: {alert.summary}",
+                    score=int(alert.confidence * 10),  # Convert 0.7-1.0 to 7-10
+                    category=alert.category,
+                    affected_team=alert.affected_team,
+                    status="PENDING_RADAR_TRIGGER",  # Special status for cross-process handoff
+                    sent=False,
+                    source="news_radar",
+                    source_confidence=alert.confidence,
+                    # Store original content as forced narrative
+                    # Use verification_reason to store the full content
+                    verification_reason=content[:10000],  # Limit to 10KB
+                )
+
+                db.add(news_log)
+                db.commit()
+
+                logger.info(
+                    f"✅ [NEWS-RADAR] CROSS-PROCESS HANDOFF: "
+                    f"Match {alert.enrichment_context.match_id} "
+                    f"({alert.enrichment_context.home_team} vs {alert.enrichment_context.away_team}) "
+                    f"queued for full AI analysis"
+                )
+
+            except Exception as e:
+                logger.error(f"❌ [NEWS-RADAR] Failed to save handoff to DB: {e}")
+                db.rollback()
+            finally:
+                db.close()
+
+        except ImportError:
+            logger.warning("⚠️ [NEWS-RADAR] Database models not available for handoff")
+        except Exception as e:
+            logger.error(f"❌ [NEWS-RADAR] Handoff failed: {e}")
+
     async def _enrich_alert(self, alert: RadarAlert) -> RadarAlert:
         """
         V1.3: Enrich alert with database context (classifica, biscotto).
@@ -2598,3 +2946,582 @@ class NewsRadarMonitor:
             "extractor_stats": self._extractor.get_stats() if self._extractor else {},
             "alerter_stats": self._alerter.get_stats() if self._alerter else {},
         }
+
+
+# ============================================
+# V11.0: GLOBAL PARALLEL RADAR (4-TAB ARCHITECTURE)
+# ============================================
+
+
+class GlobalRadarMonitor:
+    """
+    V11.0: Global Parallel Radar with 4-Tab Architecture.
+
+    Implements GLOBAL EYES: monitors ALL active leagues simultaneously using
+    4 parallel async contexts (LATAM, ASIA, AFRICA, GLOBAL).
+
+    Architecture:
+    - 1 Playwright Browser with 4 Async Contexts
+    - Each context scans assigned sources/leagues
+    - Parallel discovery via asyncio.gather()
+    - Intelligence Queue for serialized processing (safety valve)
+
+    Flow:
+    1. Initialize 1 Playwright Browser
+    2. Create 4 Async Contexts: LATAM, ASIA, AFRICA, GLOBAL
+    3. Assign sources to contexts based on continent
+    4. Run 4 scanning loops concurrently using asyncio.gather()
+    5. Discovered signals -> Queue.put()
+    6. Main loop -> Queue.get() -> DeepSeek -> DB
+
+    Safety:
+    - Prevents DB locks by serializing heavy lifting
+    - Prevents API rate limits by controlling queue consumption
+    - Budget checks for Tavily and Brave APIs
+    """
+
+    # Continent mappings for source assignment
+    CONTINENT_CONTEXTS = ["LATAM", "ASIA", "AFRICA", "GLOBAL"]
+
+    def __init__(self, config_file: str = DEFAULT_CONFIG_FILE):
+        """
+        Initialize GlobalRadarMonitor.
+
+        Args:
+            config_file: Path to news radar sources config
+        """
+        self._config_file = config_file
+        self._config: RadarConfig = RadarConfig()
+
+        # Browser and contexts
+        self._playwright = None
+        self._browser = None
+        self._contexts: dict[str, Any] = {}  # context_name -> BrowserContext
+
+        # Components
+        self._content_cache: ContentCache | None = None
+        self._deepseek: DeepSeekFallback | None = None
+        self._alerter: TelegramAlerter | None = None
+
+        # Intelligence Queue (safety valve)
+        self._discovery_queue: DiscoveryQueue | None = None
+
+        # Budget managers
+        self._tavily = None
+        self._tavily_budget = None
+        self._brave = None
+        self._brave_budget = None
+
+        # Circuit breakers per source
+        self._circuit_breakers: dict[str, CircuitBreaker] = {}
+
+        # State
+        self._running = False
+        self._stop_event = asyncio.Event()
+        self._scan_tasks: list[asyncio.Task] = []
+
+        # Stats
+        self._urls_scanned = 0
+        self._alerts_sent = 0
+        self._last_cycle_time: datetime | None = None
+
+        logger.info("🌐 [GLOBAL-RADAR] V11.0 Monitor created")
+
+    async def start(self) -> bool:
+        """
+        Start GlobalRadarMonitor with 4-tab parallel architecture.
+
+        Returns True if started successfully.
+        """
+        if self._running:
+            logger.warning("⚠️ [GLOBAL-RADAR] Already running")
+            return True
+
+        try:
+            # Load configuration
+            self._config = load_config(self._config_file)
+
+            if not self._config.sources:
+                logger.warning("⚠️ [GLOBAL-RADAR] No sources configured")
+
+            # Initialize Intelligence Queue
+            from src.utils.discovery_queue import DiscoveryQueue
+
+            self._discovery_queue = DiscoveryQueue(max_entries=1000, ttl_hours=24)
+            logger.info("✅ [GLOBAL-RADAR] Intelligence Queue initialized")
+
+            # Initialize components
+            self._content_cache = ContentCache(
+                max_entries=DEFAULT_CACHE_MAX_ENTRIES,
+                ttl_hours=self._config.global_settings.cache_ttl_hours,
+            )
+
+            # Initialize DeepSeek and alerter
+            self._deepseek = DeepSeekFallback()
+            self._alerter = TelegramAlerter()
+
+            # Initialize Tavily and Brave budget managers
+            try:
+                from src.ingestion.tavily_budget import get_budget_manager as get_tavily_budget
+                from src.ingestion.tavily_provider import get_tavily_provider
+
+                self._tavily = get_tavily_provider()
+                self._tavily_budget = get_tavily_budget()
+                tavily_status = "enabled" if self._tavily.is_available() else "disabled"
+                logger.info(f"🔍 [GLOBAL-RADAR] Tavily {tavily_status}")
+            except ImportError:
+                self._tavily = None
+                self._tavily_budget = None
+                logger.debug("⚠️ [GLOBAL-RADAR] Tavily not available")
+
+            try:
+                from src.ingestion.brave_budget import get_budget_manager as get_brave_budget
+                from src.ingestion.brave_provider import get_brave_provider
+
+                self._brave = get_brave_provider()
+                self._brave_budget = get_brave_budget()
+                brave_status = "enabled" if self._brave.is_available() else "disabled"
+                logger.info(f"🔍 [GLOBAL-RADAR] Brave {brave_status}")
+            except ImportError:
+                self._brave = None
+                self._brave_budget = None
+                logger.debug("⚠️ [GLOBAL-RADAR] Brave not available")
+
+            # Initialize Playwright Browser
+            if not await self._initialize_browser():
+                logger.error("❌ [GLOBAL-RADAR] Failed to initialize browser")
+                return False
+
+            # Create 4 async contexts
+            await self._create_contexts()
+
+            # Start scan loops for all 4 contexts
+            self._running = True
+            self._stop_event.clear()
+
+            # Start 4 parallel scan tasks
+            for context_name in self.CONTINENT_CONTEXTS:
+                task = asyncio.create_task(self._context_scan_loop(context_name))
+                self._scan_tasks.append(task)
+
+            logger.info("✅ [GLOBAL-RADAR] V11.0 Started with 4 parallel contexts")
+            logger.info(f"   Contexts: {', '.join(self.CONTINENT_CONTEXTS)}")
+            logger.info(f"   Sources: {len(self._config.sources)}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ [GLOBAL-RADAR] Failed to start: {e}")
+            return False
+
+    async def stop(self) -> bool:
+        """
+        Stop GlobalRadarMonitor gracefully.
+        """
+        if not self._running:
+            return True
+
+        logger.info("🛑 [GLOBAL-RADAR] Stopping...")
+
+        self._running = False
+        self._stop_event.set()
+
+        # Cancel all scan tasks
+        for task in self._scan_tasks:
+            if not task.done():
+                task.cancel()
+
+        # Wait for tasks to complete
+        if self._scan_tasks:
+            await asyncio.gather(*self._scan_tasks, return_exceptions=True)
+
+        self._scan_tasks = []
+
+        # Close all contexts
+        for context_name, context in self._contexts.items():
+            try:
+                await context.close()
+                logger.debug(f"✅ [GLOBAL-RADAR] Closed context: {context_name}")
+            except Exception as e:
+                logger.warning(f"⚠️ [GLOBAL-RADAR] Error closing {context_name}: {e}")
+
+        # Close browser
+        if self._browser:
+            await self._browser.close()
+
+        if self._playwright:
+            await self._playwright.stop()
+
+        logger.info("✅ [GLOBAL-RADAR] Stopped")
+        return True
+
+    async def _initialize_browser(self) -> bool:
+        """
+        Initialize Playwright browser with stealth mode.
+        """
+        try:
+            from playwright.async_api import async_playwright
+
+            logger.info("🌐 [GLOBAL-RADAR] Launching Playwright...")
+            self._playwright = await async_playwright().start()
+
+            self._browser = await self._playwright.chromium.launch(
+                headless=True,
+                args=[
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage",
+                    "--disable-setuid-sandbox",
+                    "--no-sandbox",
+                    "--disable-extensions",
+                ],
+            )
+
+            logger.info("✅ [GLOBAL-RADAR] Playwright initialized")
+            return True
+
+        except ImportError:
+            logger.error("❌ [GLOBAL-RADAR] Playwright not installed")
+            return False
+        except Exception as e:
+            logger.error(f"❌ [GLOBAL-RADAR] Failed to initialize Playwright: {e}")
+            return False
+
+    async def _create_contexts(self) -> None:
+        """
+        Create 4 async contexts: LATAM, ASIA, AFRICA, GLOBAL.
+
+        Each context gets its own browser context for isolated scanning.
+        """
+        for context_name in self.CONTINENT_CONTEXTS:
+            try:
+                context = await self._browser.new_context(
+                    user_agent=f"EarlyBird-Radar-{context_name}/11.0"
+                )
+                self._contexts[context_name] = context
+                logger.info(f"✅ [GLOBAL-RADAR] Created context: {context_name}")
+            except Exception as e:
+                logger.error(f"❌ [GLOBAL-RADAR] Failed to create {context_name}: {e}")
+
+    def _assign_sources_to_contexts(self) -> dict[str, list[RadarSource]]:
+        """
+        Assign sources to contexts based on continent.
+
+        Returns:
+            Dict mapping context_name -> list of sources
+        """
+        context_sources = {ctx: [] for ctx in self.CONTINENT_CONTEXTS}
+
+        for source in self._config.sources:
+            # Determine which context this source belongs to
+            assigned_context = self._determine_context_for_source(source)
+            context_sources[assigned_context].append(source)
+
+        # Log assignment
+        for context_name, sources in context_sources.items():
+            logger.info(f"📋 [GLOBAL-RADAR] {context_name}: {len(sources)} sources assigned")
+
+        return context_sources
+
+    def _determine_context_for_source(self, source: RadarSource) -> str:
+        """
+        Determine which context a source should be assigned to.
+
+        This is a simplified implementation. In production, you'd use:
+        - Source URL analysis
+        - League mapping
+        - Continent metadata
+
+        Args:
+            source: RadarSource to assign
+
+        Returns:
+            Context name (LATAM, ASIA, AFRICA, or GLOBAL)
+        """
+        # Simple heuristic based on source name or URL
+        source_lower = source.name.lower() if source.name else ""
+        url_lower = source.url.lower()
+
+        # Check for LATAM indicators
+        latam_keywords = ["brazil", "argentina", "mexico", "colombia", "chile", "peru"]
+        if any(kw in source_lower or kw in url_lower for kw in latam_keywords):
+            return "LATAM"
+
+        # Check for ASIA indicators
+        asia_keywords = ["japan", "korea", "china", "india", "thailand", "vietnam"]
+        if any(kw in source_lower or kw in url_lower for kw in asia_keywords):
+            return "ASIA"
+
+        # Check for AFRICA indicators
+        africa_keywords = ["south africa", "nigeria", "egypt", "morocco", "ghana"]
+        if any(kw in source_lower or kw in url_lower for kw in africa_keywords):
+            return "AFRICA"
+
+        # Default to GLOBAL
+        return "GLOBAL"
+
+    async def _context_scan_loop(self, context_name: str) -> None:
+        """
+        Scan loop for a specific context.
+
+        Each context runs its own scan loop independently.
+        """
+        logger.info(f"🔄 [GLOBAL-RADAR] {context_name} scan loop started")
+
+        while self._running and not self._stop_event.is_set():
+            try:
+                # Get sources assigned to this context
+                context_sources = self._assign_sources_to_contexts()
+                assigned_sources = context_sources.get(context_name, [])
+
+                if not assigned_sources:
+                    await asyncio.sleep(60)
+                    continue
+
+                # Scan sources for this context
+                await self._scan_context_sources(context_name, assigned_sources)
+
+                # Wait before next cycle
+                interval = self._config.global_settings.default_scan_interval_minutes * 60
+                try:
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
+                    break
+                except asyncio.TimeoutError:
+                    pass
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"❌ [GLOBAL-RADAR] {context_name} scan error: {e}")
+                await asyncio.sleep(60)
+
+        logger.info(f"🛑 [GLOBAL-RADAR] {context_name} scan loop stopped")
+
+    async def _scan_context_sources(self, context_name: str, sources: list[RadarSource]) -> int:
+        """
+        Scan all sources assigned to a context.
+
+        Args:
+            context_name: Name of context
+            sources: List of sources to scan
+
+        Returns:
+            Number of signals discovered
+        """
+        signals_discovered = 0
+        context = self._contexts.get(context_name)
+
+        if not context:
+            logger.warning(f"⚠️ [GLOBAL-RADAR] Context not found: {context_name}")
+            return 0
+
+        # Filter sources due for scanning
+        due_sources = [s for s in sources if s.is_due_for_scan()]
+        due_sources.sort(key=lambda s: s.priority)
+
+        if not due_sources:
+            return 0
+
+        logger.info(f"⚡ [GLOBAL-RADAR] {context_name}: Scanning {len(due_sources)} sources")
+
+        for source in due_sources:
+            try:
+                # Check circuit breaker
+                breaker = self._get_circuit_breaker(source.url)
+                if not breaker.can_execute():
+                    logger.debug(f"🔴 [GLOBAL-RADAR] Skipping {source.name} (circuit OPEN)")
+                    continue
+
+                # Extract content
+                content = await self._extract_content_from_source(context, source)
+
+                if not content:
+                    breaker.record_failure()
+                    continue
+
+                breaker.record_success()
+
+                # Process content
+                signal = await self._process_content(source, content)
+
+                if signal:
+                    # Push to intelligence queue
+                    # V11.0 FIX: Use "GLOBAL" as league key so items can be retrieved during match analysis
+                    # The pop_for_match() method now includes GLOBAL items for all matches
+                    self._discovery_queue.push(
+                        data=signal,
+                        league_key="GLOBAL",  # Use GLOBAL key for cross-league discoveries
+                        team=signal.get("team", "Unknown"),
+                        title=signal.get("title", ""),
+                        snippet=signal.get("snippet", ""),
+                        url=signal.get("url", source.url),
+                        source_name=source.name,
+                        category=signal.get("category", "OTHER"),
+                        confidence=signal.get("confidence", 0.0),
+                    )
+                    signals_discovered += 1
+                    logger.info(
+                        f"📥 [GLOBAL-RADAR] {context_name}: Signal queued - "
+                        f"{signal.get('team', 'Unknown')} ({signal.get('category', 'OTHER')})"
+                    )
+
+            except Exception as e:
+                logger.error(f"❌ [GLOBAL-RADAR] Error scanning {source.name}: {e}")
+                breaker.record_failure()
+
+        return signals_discovered
+
+    async def _extract_content_from_source(self, context: Any, source: RadarSource) -> str | None:
+        """
+        Extract content from a source using given context.
+
+        Args:
+            context: Playwright BrowserContext
+            source: RadarSource to extract from
+
+        Returns:
+            Extracted content or None
+        """
+        try:
+            # Use HTTP extraction first (faster)
+            if source.navigation_mode == "single":
+                content = await self._extract_http(source.url)
+                if content:
+                    return content
+
+            # Fallback to Playwright
+            page = await context.new_page()
+            try:
+                await page.goto(source.url, timeout=30000)
+                await page.wait_for_load_state("networkidle", timeout=15000)
+                content = await page.inner_text("body")
+                return content
+            finally:
+                await page.close()
+
+        except Exception as e:
+            logger.debug(f"⚠️ [GLOBAL-RADAR] Extraction failed for {source.url}: {e}")
+            return None
+
+    async def _extract_http(self, url: str) -> str | None:
+        """
+        HTTP-based content extraction (faster than Playwright).
+
+        Args:
+            url: URL to extract from
+
+        Returns:
+            Extracted content or None
+        """
+        try:
+            response = await asyncio.to_thread(
+                requests.get,
+                url,
+                timeout=15,
+                headers={"User-Agent": "EarlyBird-Radar/11.0"},
+            )
+
+            if response.status_code == 200:
+                content = response.text
+                if len(content) >= HTTP_MIN_CONTENT_LENGTH:
+                    return content
+
+            return None
+
+        except Exception as e:
+            logger.debug(f"⚠️ [GLOBAL-RADAR] HTTP extraction failed: {e}")
+            return None
+
+    async def _process_content(self, source: RadarSource, content: str) -> dict[str, Any] | None:
+        """
+        Process extracted content to detect betting-relevant signals.
+
+        Args:
+            source: Source that provided content
+            content: Extracted content
+
+        Returns:
+            Signal dict or None
+        """
+        # Check cache
+        if self._content_cache.is_cached(content):
+            return None
+
+        # Apply exclusion filter
+        exclusion_filter = get_exclusion_filter()
+        if exclusion_filter.is_excluded(content):
+            logger.debug(f"🚫 [GLOBAL-RADAR] Content excluded: {source.name}")
+            return None
+
+        # Analyze relevance
+        analysis = self._analyze_relevance(source, content)
+
+        if (
+            not analysis
+            or analysis.confidence < self._config.global_settings.alert_confidence_threshold
+        ):
+            return None
+
+        # Add to cache
+        self._content_cache.add(content)
+
+        return {
+            "team": analysis.team,
+            "title": analysis.title,
+            "snippet": analysis.snippet,
+            "url": source.url,
+            "category": analysis.category,
+            "confidence": analysis.confidence,
+            "betting_impact": analysis.betting_impact,
+        }
+
+    def _analyze_relevance(self, source: RadarSource, content: str) -> AnalysisResult | None:
+        """
+        Analyze content relevance for betting signals.
+
+        Args:
+            source: Source that provided content
+            content: Extracted content
+
+        Returns:
+            AnalysisResult or None
+        """
+        try:
+            # Use shared content analysis utilities
+            from src.utils.content_analysis import analyze_content
+
+            return analyze_content(content)
+
+        except Exception as e:
+            logger.error(f"❌ [GLOBAL-RADAR] Analysis failed: {e}")
+            return None
+
+    def _get_circuit_breaker(self, url: str) -> CircuitBreaker:
+        """Get or create circuit breaker for a URL."""
+        if url not in self._circuit_breakers:
+            self._circuit_breakers[url] = CircuitBreaker()
+        return self._circuit_breakers[url]
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get monitor statistics."""
+        return {
+            "running": self._running,
+            "contexts": list(self._contexts.keys()),
+            "sources_count": len(self._config.sources),
+            "urls_scanned": self._urls_scanned,
+            "alerts_sent": self._alerts_sent,
+            "queue_size": self._discovery_queue.size() if self._discovery_queue else 0,
+            "last_cycle_time": self._last_cycle_time.isoformat() if self._last_cycle_time else None,
+        }
+
+
+# Convenience function for easy access
+def get_global_radar_monitor(config_file: str = DEFAULT_CONFIG_FILE) -> GlobalRadarMonitor:
+    """
+    Get a GlobalRadarMonitor instance.
+
+    Args:
+        config_file: Path to news radar sources config
+
+    Returns:
+        GlobalRadarMonitor instance
+    """
+    return GlobalRadarMonitor(config_file)

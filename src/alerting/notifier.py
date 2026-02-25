@@ -7,15 +7,17 @@ Handles all Telegram alert notifications with:
 - Odds movement analysis
 - Multi-source intelligence display
 
-V8.2: Production-ready with comprehensive error handling
+Historical Version: V8.2
 
 Phase 1 Critical Fix: Added Unicode normalization and safe UTF-8 truncation
+Updated: 2026-02-23 (Centralized Version Tracking)
 """
 
 import html
 import logging
 import os
 import re
+import threading
 import time
 import unicodedata
 from datetime import timezone
@@ -27,6 +29,13 @@ import requests
 import requests.exceptions
 from dotenv import load_dotenv
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+# Import centralized version tracking
+from src.version import get_version_with_module
+
+# Log version on import
+logger = logging.getLogger(__name__)
+logger.info(f"📦 {get_version_with_module('Notifier')}")
 
 
 def normalize_unicode(text: str) -> str:
@@ -89,6 +98,89 @@ if TELEGRAM_TOKEN:
     logging.debug("Telegram token caricato da variabile ambiente")
 if TELEGRAM_CHAT_ID:
     logging.debug("Telegram chat ID caricato da variabile ambiente")
+
+# ============================================
+# COVE FIX: Telegram Credentials Validation
+# ============================================
+
+_AUTH_FAILURE_COUNT = 0
+_AUTH_FAILURE_ALERT_THRESHOLD = 3
+_RATE_LIMIT_EVENTS = []
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_RATE_LIMIT_THRESHOLD = 3
+_AUTH_LOCK = threading.Lock()  # Thread safety lock for global variables
+
+
+def validate_telegram_credentials() -> bool:
+    """
+    Validate Telegram bot token and chat ID before starting system.
+
+    Tests the Telegram API with a simple getMe request to ensure
+    credentials are valid and bot can send messages.
+
+    Returns:
+        True if credentials are valid, False otherwise
+
+    Raises:
+        ValueError: If credentials are missing or invalid
+    """
+    if not TELEGRAM_TOKEN:
+        raise ValueError("TELEGRAM_TOKEN or TELEGRAM_BOT_TOKEN not configured in environment")
+
+    if not TELEGRAM_CHAT_ID:
+        raise ValueError("TELEGRAM_CHAT_ID not configured in environment")
+
+    try:
+        # Test API with a simple getMe request
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getMe"
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("ok"):
+                bot_info = data.get("result", {})
+                bot_username = bot_info.get("username", "unknown")
+                logging.info(f"✅ Telegram credentials validated - Bot: @{bot_username}")
+                return True
+            else:
+                error_desc = data.get("description", "Unknown error")
+                raise ValueError(f"Telegram API error: {error_desc}")
+        elif response.status_code == 401:
+            raise ValueError("Invalid Telegram bot token (401 Unauthorized)")
+        else:
+            raise ValueError(
+                f"Telegram API returned status {response.status_code}: {response.text}"
+            )
+    except requests.exceptions.Timeout:
+        raise ValueError("Telegram API timeout during validation - check network connectivity")
+    except requests.exceptions.ConnectionError as e:
+        raise ValueError(f"Telegram API connection error during validation: {e}")
+    except Exception as e:
+        raise ValueError(f"Unexpected error during Telegram validation: {e}")
+
+
+def validate_telegram_chat_id() -> bool:
+    """
+    Validate that the configured chat ID can receive messages.
+
+    This is a lightweight check that doesn't actually send a message,
+    but validates the chat ID format.
+
+    Returns:
+        True if chat ID format is valid, False otherwise
+    """
+    if not TELEGRAM_CHAT_ID:
+        return False
+
+    try:
+        # Chat ID should be a number (can be negative for groups)
+        chat_id_int = int(TELEGRAM_CHAT_ID)
+        logging.debug(f"✅ Telegram chat ID validated: {chat_id_int}")
+        return True
+    except ValueError:
+        logging.error(f"❌ Invalid TELEGRAM_CHAT_ID format: {TELEGRAM_CHAT_ID}")
+        return False
+
 
 # ============================================
 # CONSTANTS
@@ -192,7 +284,87 @@ def _send_telegram_request(
         requests.exceptions.Timeout: On timeout (will be retried by tenacity)
         requests.exceptions.ConnectionError: On connection error (will be retried by tenacity)
     """
+    global _AUTH_FAILURE_COUNT, _RATE_LIMIT_EVENTS, _AUTH_LOCK
+
     response = requests.post(url, data=payload, timeout=timeout)
+
+    # COVE FIX: Track authentication failures (THREAD-SAFE)
+    with _AUTH_LOCK:
+        if response.status_code == 401:
+            _AUTH_FAILURE_COUNT += 1
+            logging.error(
+                f"❌ Telegram authentication failed (401 Unauthorized) - Attempt {_AUTH_FAILURE_COUNT}/{_AUTH_FAILURE_ALERT_THRESHOLD}"
+            )
+            if _AUTH_FAILURE_COUNT >= _AUTH_FAILURE_ALERT_THRESHOLD:
+                logging.critical(
+                    "🚨 CRITICAL: Telegram authentication failed multiple times! Check bot token."
+                )
+            # Don't retry on 401 - token is likely invalid
+            raise requests.exceptions.ConnectionError("Authentication failed (401) - not retrying")
+
+        # Handle rate limiting with custom backoff and tracking (THREAD-SAFE)
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 5))
+            logging.warning(f"Telegram rate limit (429), attesa {retry_after}s...")
+
+            # COVE FIX: Track rate limit events (THREAD-SAFE)
+            current_time = time.time()
+            _RATE_LIMIT_EVENTS.append(current_time)
+            # Clean old events outside the window
+            _RATE_LIMIT_EVENTS = [
+                t for t in _RATE_LIMIT_EVENTS if current_time - t < _RATE_LIMIT_WINDOW_SECONDS
+            ]
+
+            if len(_RATE_LIMIT_EVENTS) >= _RATE_LIMIT_THRESHOLD:
+                logging.warning(
+                    f"⚠️ Telegram rate limit hit {len(_RATE_LIMIT_EVENTS)} times in last {_RATE_LIMIT_WINDOW_SECONDS}s"
+                )
+
+            time.sleep(retry_after)
+            raise requests.exceptions.ConnectionError("Rate limited - triggering retry")
+
+        # Handle server errors (5xx) - trigger retry
+        if response.status_code >= 500:
+            logging.warning(f"Telegram server error ({response.status_code}), triggering retry...")
+            raise requests.exceptions.ConnectionError(f"Server error {response.status_code}")
+
+        # COVE FIX: Track successful requests (reset auth failure counter) (THREAD-SAFE)
+        if response.status_code == 200:
+            _AUTH_FAILURE_COUNT = 0
+
+    return response
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(
+        (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
+    ),
+)
+def _send_telegram_document_request(
+    url: str, files: dict[str, Any], data: dict[str, Any], timeout: int = TELEGRAM_DOCUMENT_TIMEOUT
+) -> requests.Response:
+    """
+    Internal function to send Telegram document request with tenacity retry.
+
+    Retries on Timeout and ConnectionError only.
+    Does NOT retry on 4xx client errors (except 429 rate limit handled separately).
+
+    Args:
+        url: Telegram API endpoint
+        files: Files to upload
+        data: Request data
+        timeout: Request timeout in seconds
+
+    Returns:
+        Response object
+
+    Raises:
+        requests.exceptions.Timeout: On timeout (will be retried by tenacity)
+        requests.exceptions.ConnectionError: On connection error (will be retried by tenacity)
+    """
+    response = requests.post(url, files=files, data=data, timeout=timeout)
 
     # Handle rate limiting with custom backoff
     if response.status_code == 429:
@@ -547,6 +719,65 @@ def _build_verification_section(verification_info: dict[str, Any] | None) -> str
     return verification_section
 
 
+def _build_final_verification_section(final_verification_info: dict[str, Any] | None) -> str:
+    """
+    Build the final verification section (FinalAlertVerifier results).
+
+    Displays the final verification status from the Perplexity API fact-checking
+    that happens right before sending alerts to Telegram.
+
+    Args:
+        final_verification_info: Dict with status, confidence, reasoning from final verifier
+
+    Returns:
+        Formatted final verification section string
+    """
+    final_section = ""
+
+    if not final_verification_info or not isinstance(final_verification_info, dict):
+        return final_section
+
+    status = final_verification_info.get("status", "")
+    confidence = final_verification_info.get("confidence", "")
+    reasoning = final_verification_info.get("reasoning", "")
+    is_final_verifier = final_verification_info.get("final_verifier", False)
+
+    # Only show if this is actually from the final verifier
+    if not is_final_verifier:
+        return final_section
+
+    # Status emoji and label
+    if status == "confirmed":
+        status_emoji = "✅"
+        status_label = "CONFERMATO"
+    elif status == "rejected":
+        status_emoji = "❌"
+        status_label = "RIFIUTATO"
+    elif status == "disabled":
+        status_emoji = "⚪"
+        status_label = "DISABILITATO"
+    elif status == "error":
+        status_emoji = "⚠️"
+        status_label = "ERRORE"
+    else:
+        status_emoji = "❓"
+        status_label = status.upper() if status else "UNKNOWN"
+
+    # Confidence emoji
+    conf_emoji = {"HIGH": "🟢", "MEDIUM": "🟡", "LOW": "🔴"}.get(confidence, "⚪")
+
+    final_section = (
+        f"🔬 <b>VERIFICA FINALE:</b> {status_emoji} {status_label} {conf_emoji} ({confidence})\n"
+    )
+
+    # Show reasoning (truncated)
+    if reasoning:
+        reasoning_clean = html.escape(reasoning[:150])
+        final_section += f"   <i>{reasoning_clean}...</i>\n"
+
+    return final_section
+
+
 def _build_convergence_section(
     is_convergent: bool, convergence_sources: dict[str, Any] | None
 ) -> str:
@@ -696,8 +927,9 @@ def _truncate_message_if_needed(
     referee_section: str,
     twitter_section: str,
     verification_section: str,
-    news_summary_clean: str,
-    news_link: str,
+    final_verification_section: str = "",  # BUG #2 FIX: Add final verification section parameter
+    news_summary_clean: str = "",  # BUG #2 FIX: Add default value
+    news_link: str = "",  # BUG #2 FIX: Add default value
     convergence_section: str = "",
 ) -> str:
     """Truncate message if it exceeds Telegram limits."""
@@ -722,7 +954,8 @@ def _truncate_message_if_needed(
             f"{injury_section}"
             f"{referee_section}"
             f"{twitter_section}"
-            f"{verification_section}\n"
+            f"{verification_section}"
+            f"{final_verification_section}\n"  # BUG #2 FIX: Add final verification section to truncated message
             f"📝 <i>{news_summary_truncated}</i>"
             f"{news_link}"
         )
@@ -761,6 +994,8 @@ def send_alert_wrapper(**kwargs) -> None:
         - verification_result -> verification_info
         - is_convergent -> is_convergent (V9.5)
         - convergence_sources -> convergence_sources (V9.5)
+        - analysis_result -> NewsLog object to update with odds_at_alert (V8.3)
+        - db_session -> Database session for updating NewsLog (V8.3)
     """
     # Extract and convert keyword arguments
     match_obj = kwargs.get("match")
@@ -785,12 +1020,122 @@ def send_alert_wrapper(**kwargs) -> None:
     validated_home_team = kwargs.get("validated_home_team")
     validated_away_team = kwargs.get("validated_away_team")
     verification_info = kwargs.get("verification_result")
+    final_verification_info = kwargs.get(
+        "final_verification_info"
+    )  # BUG #2 FIX: Extract final verification info
     injury_intel = kwargs.get("injury_impact_home") or kwargs.get("injury_impact_away")
     confidence_breakdown = kwargs.get("confidence_breakdown")
 
     # V9.5: Extract convergence parameters
     is_convergent = kwargs.get("is_convergent", False)
     convergence_sources = kwargs.get("convergence_sources")
+
+    # V8.3: Extract NewsLog update parameters
+    analysis_result = kwargs.get("analysis_result")
+    db_session = kwargs.get("db_session")
+
+    # V8.3 FIX: Save odds_at_alert and alert_sent_at to NewsLog
+    if analysis_result and db_session and match_obj:
+        try:
+            from datetime import datetime, timezone
+
+            # Determine which odds to save based on recommended market
+            odds_to_save = None
+            if recommended_market:
+                market_lower = recommended_market.lower()
+                if "home" in market_lower and "win" in market_lower:
+                    odds_to_save = getattr(match_obj, "current_home_odd", None)
+                elif "away" in market_lower and "win" in market_lower:
+                    odds_to_save = getattr(match_obj, "current_away_odd", None)
+                elif "draw" in market_lower:
+                    odds_to_save = getattr(match_obj, "current_draw_odd", None)
+                elif "over" in market_lower:
+                    odds_to_save = getattr(match_obj, "current_over_2_5", None)
+                elif "under" in market_lower:
+                    odds_to_save = getattr(match_obj, "current_under_2_5", None)
+                # V8.3 COVE FIX: Add support for BTTS (Both Teams to Score)
+                elif "btts" in market_lower:
+                    # BTTS doesn't have a dedicated odds field, use average of home/away as fallback
+                    home_odd = getattr(match_obj, "current_home_odd", None)
+                    away_odd = getattr(match_obj, "current_away_odd", None)
+                    if home_odd and away_odd:
+                        odds_to_save = (home_odd + away_odd) / 2
+                        logging.info(
+                            f"📊 V8.3: BTTS market detected, using average of home/away odds: {odds_to_save:.2f} "
+                            f"(home: {home_odd:.2f}, away: {away_odd:.2f})"
+                        )
+
+            # Update NewsLog with V8.3 fields
+            if odds_to_save and odds_to_save > 1.0:
+                # COVE FIX: Use explicit SQL update for transaction safety
+                from sqlalchemy import text
+
+                try:
+                    db_session.execute(
+                        text("""
+                            UPDATE news_logs
+                            SET odds_at_alert = :odds,
+                                alert_sent_at = :sent_at,
+                                sent = 1,
+                                status = 'sent'
+                            WHERE id = :id
+                        """),
+                        {
+                            "odds": odds_to_save,
+                            "sent_at": datetime.now(timezone.utc),
+                            "id": analysis_result.id,
+                        },
+                    )
+                    db_session.commit()  # Explicit commit
+
+                    logging.info(
+                        f"📊 V8.3: Saved odds_at_alert={odds_to_save:.2f} for NewsLog ID {analysis_result.id} "
+                        f"(market: {recommended_market})"
+                    )
+                except Exception as commit_error:
+                    db_session.rollback()  # Explicit rollback on error
+                    raise commit_error
+            else:
+                # V8.3 COVE FIX: Improve warning message with more details
+                logging.warning(
+                    f"⚠️ V8.3: Could not determine odds for market '{recommended_market}'. "
+                    f"NewsLog ID: {analysis_result.id}, Match: {match_obj.home_team} vs {match_obj.away_team}. "
+                    f"Available odds - home: {getattr(match_obj, 'current_home_odd', None)}, "
+                    f"away: {getattr(match_obj, 'current_away_odd', None)}, "
+                    f"draw: {getattr(match_obj, 'current_draw_odd', None)}, "
+                    f"over_2.5: {getattr(match_obj, 'current_over_2_5', None)}, "
+                    f"under_2.5: {getattr(match_obj, 'current_under_2_5', None)}"
+                )
+        except Exception as e:
+            # V8.3 COVE FIX: Improve error handling with more details and explicit rollback
+            import traceback
+
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "news_log_id": getattr(analysis_result, "id", "unknown"),
+                "match": f"{match_obj.home_team} vs {match_obj.away_team}",
+                "market": recommended_market,
+                "traceback": traceback.format_exc()
+                if logging.getLogger().level <= logging.DEBUG
+                else "disabled (set DEBUG level to see)",
+            }
+
+            # COVE FIX: Explicit rollback on error
+            try:
+                db_session.rollback()
+            except Exception:
+                pass  # Ignore rollback errors
+
+            logging.error(
+                f"❌ V8.3: Failed to save odds_at_alert for NewsLog ID {error_details['news_log_id']}. "
+                f"Match: {error_details['match']}, Market: {error_details['market']}. "
+                f"Error: {error_details['error_type']}: {error_details['error_message']}"
+            )
+            logging.info(
+                "ℹ️ V8.3: Alert will still be sent to Telegram despite odds_at_alert save failure. "
+                "ROI/CLV calculations will use fallback odds."
+            )
 
     # Call the actual send_alert function with positional arguments
     send_alert(
@@ -811,6 +1156,7 @@ def send_alert_wrapper(**kwargs) -> None:
         validated_home_team=validated_home_team,
         validated_away_team=validated_away_team,
         verification_info=verification_info,
+        final_verification_info=final_verification_info,  # BUG #2 FIX: Pass final verification info
         injury_intel=injury_intel,
         confidence_breakdown=confidence_breakdown,
         is_convergent=is_convergent,
@@ -841,6 +1187,7 @@ def send_alert(
     validated_home_team: str | None = None,
     validated_away_team: str | None = None,
     verification_info: dict[str, Any] | None = None,
+    final_verification_info: dict[str, Any] | None = None,  # BUG #2 FIX: Final verifier results
     injury_intel: dict[str, Any] | None = None,
     confidence_breakdown: dict[str, Any] | None = None,
     is_convergent: bool = False,
@@ -867,6 +1214,7 @@ def send_alert(
         validated_home_team: Corrected home team name if FotMob detected inversion (optional)
         validated_away_team: Corrected away team name if FotMob detected inversion (optional)
         verification_info: Verification Layer result (optional)
+        final_verification_info: Final Alert Verifier result from Perplexity API (optional)
         injury_intel: Injury impact analysis (optional)
         confidence_breakdown: Confidence score breakdown (optional)
         is_convergent: V9.5 - True if signal confirmed by both Web and Social sources (optional)
@@ -922,6 +1270,9 @@ def send_alert(
     twitter_section = _build_twitter_section(twitter_intel)
     injury_section = _build_injury_section(injury_intel, home_team, away_team)
     verification_section = _build_verification_section(verification_info)
+    final_verification_section = _build_final_verification_section(
+        final_verification_info
+    )  # BUG #2 FIX: Build final verification section
     breakdown_section = _build_confidence_breakdown_section(confidence_breakdown)
     date_line = _build_date_line(match_obj)
     convergence_section = _build_convergence_section(is_convergent, convergence_sources)
@@ -979,7 +1330,8 @@ def send_alert(
         f"{injury_section}"
         f"{referee_section}"
         f"{twitter_section}"
-        f"{verification_section}\n"
+        f"{verification_section}"
+        f"{final_verification_section}\n"  # BUG #2 FIX: Add final verification section
         f"📝 <i>{news_summary_clean}</i>"
         f"{news_link}"
     )
@@ -1000,6 +1352,7 @@ def send_alert(
         referee_section,
         twitter_section,
         verification_section,
+        final_verification_section,  # BUG #2 FIX: Include final verification section in truncation
         news_summary_clean,
         news_link,
         convergence_section,  # V9.5: Include convergence section in truncation
@@ -1127,6 +1480,7 @@ def send_biscotto_alert(
     news_url: str | None = None,
     league: str | None = None,
     financial_risk: str | None = None,
+    final_verification_info: dict[str, Any] | None = None,
 ) -> None:
     """
     Send a specialized alert for Biscotto (mutual draw benefit) detection.
@@ -1140,6 +1494,7 @@ def send_biscotto_alert(
         news_url: Source URL for the news (optional)
         league: League name (optional)
         financial_risk: B-Team risk level from Financial Intelligence (optional)
+        final_verification_info: Final Alert Verifier result from Perplexity API (optional)
     """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping biscotto alert.")
@@ -1187,6 +1542,9 @@ def send_biscotto_alert(
     # Build date/time line
     date_line = _build_date_line(match_obj)
 
+    # Build final verification section (FinalAlertVerifier results)
+    final_verification_section = _build_final_verification_section(final_verification_info)
+
     # Build news link safely - only if URL is valid, with HTML escape
     news_link = ""
     if news_url and isinstance(news_url, str) and news_url.startswith("http"):
@@ -1203,6 +1561,7 @@ def send_biscotto_alert(
         f"{odds_section}"
         f"{reasoning_section}"
         f"{risk_section}"
+        f"{final_verification_section}"
         f"{news_link}"
     )
 
@@ -1220,7 +1579,7 @@ def send_biscotto_alert(
         if response.status_code == 200:
             link_status = "con link" if news_link else "senza link"
             logging.info(
-                f"Biscotto Alert sent for {match_str} | Severity: {severity} | {link_status}"
+                f"Biscotto Alert sent for {match_str} | Severity: {severity_normalized} | {link_status}"
             )
         else:
             # HTML parsing failed - fallback to plain text
@@ -1266,7 +1625,7 @@ def send_document(file_path: str, caption: str = "") -> bool:
             files = {"document": doc}
             data = {"chat_id": TELEGRAM_CHAT_ID, "caption": caption, "parse_mode": "HTML"}
 
-            response = requests.post(url, files=files, data=data, timeout=TELEGRAM_DOCUMENT_TIMEOUT)
+            response = _send_telegram_document_request(url, files, data)
 
             if response.status_code == 200:
                 logging.info(f"Document sent: {path.name}")
@@ -1275,6 +1634,12 @@ def send_document(file_path: str, caption: str = "") -> bool:
                 logging.error(f"Failed to send document: {response.text}")
                 return False
 
+    except requests.exceptions.Timeout:
+        logging.error("Telegram timeout dopo 3 tentativi")
+        return False
+    except requests.exceptions.ConnectionError as e:
+        logging.error(f"Telegram errore connessione: {e}")
+        return False
     except Exception as e:
         logging.error(f"Error sending document: {e}")
         return False

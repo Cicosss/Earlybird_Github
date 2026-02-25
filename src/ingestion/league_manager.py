@@ -20,7 +20,7 @@ from typing import Any
 
 import requests
 
-from config.settings import ODDS_API_KEY
+from config.settings import ODDS_API_KEY, ODDS_API_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,70 @@ _session_lock: threading.Lock = threading.Lock()
 
 # Maximum leagues to process per run (API quota management)
 MAX_LEAGUES_PER_RUN = 12
+
+# ============================================
+# ODDS API KEY ROTATION SYSTEM (BUG 5 FIX)
+# ============================================
+# Thread-safe key rotation for automatic failover
+_current_odds_key_index: int = 0
+_odds_key_lock: threading.Lock = threading.Lock()
+
+
+def _get_current_odds_key() -> str:
+    """
+    Get the current Odds API key with automatic rotation.
+
+    Returns:
+        Current API key string
+    """
+    global _current_odds_key_index
+    with _odds_key_lock:
+        # Filter out empty keys
+        valid_keys = [key for key in ODDS_API_KEYS if key and key != ""]
+
+        if not valid_keys:
+            # Fallback to single key if no rotation keys available
+            return ODDS_API_KEY
+
+        # Ensure index is within bounds
+        if _current_odds_key_index >= len(valid_keys):
+            _current_odds_key_index = 0  # Loop back to first key
+
+        current_key = valid_keys[_current_odds_key_index]
+        return current_key
+
+
+def _rotate_odds_key() -> str:
+    """
+    Rotate to the next Odds API key.
+
+    Returns:
+        Next API key string
+    """
+    global _current_odds_key_index
+    with _odds_key_lock:
+        valid_keys = [key for key in ODDS_API_KEYS if key and key != ""]
+
+        if not valid_keys:
+            return ODDS_API_KEY
+
+        # Move to next key
+        _current_odds_key_index = (_current_odds_key_index + 1) % len(valid_keys)
+
+        next_key = valid_keys[_current_odds_key_index]
+        logger.info(f"🔄 Rotated to Odds API Key {_current_odds_key_index + 1}/{len(valid_keys)}")
+
+        return next_key
+
+
+def _reset_odds_key_rotation():
+    """
+    Reset the Odds API key rotation to the first key.
+    """
+    global _current_odds_key_index
+    with _odds_key_lock:
+        _current_odds_key_index = 0
+        logger.info("🔄 Reset Odds API key rotation to Key 1")
 
 
 def _get_session() -> requests.Session:
@@ -451,13 +515,15 @@ def fetch_all_sports() -> list[dict[str, Any]]:
     Returns:
         List of sports/leagues dictionaries
     """
-    if not ODDS_API_KEY or ODDS_API_KEY == "YOUR_ODDS_API_KEY":
+    # BUG 5 FIX: Use key rotation system instead of single key
+    current_key = _get_current_odds_key()
+    if not current_key or current_key == "YOUR_ODDS_API_KEY":
         logger.warning("⚠️ ODDS_API_KEY not configured")
         return []
 
     try:
         url = f"{BASE_URL}/sports"
-        params = {"apiKey": ODDS_API_KEY}
+        params = {"apiKey": current_key}
         response = _get_session().get(url, params=params, timeout=10)
 
         if response.status_code != 200:
@@ -486,9 +552,10 @@ def get_quota_status() -> dict[str, Any]:
     Returns:
         Dict with requests_used and requests_remaining
     """
+    # BUG 5 FIX: Use key rotation system instead of single key
     try:
         url = f"{BASE_URL}/sports"
-        params = {"apiKey": ODDS_API_KEY}
+        params = {"apiKey": _get_current_odds_key()}
         response = _get_session().get(url, params=params, timeout=10)
 
         if response.status_code != 200:

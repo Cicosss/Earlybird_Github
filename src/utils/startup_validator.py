@@ -105,11 +105,12 @@ class StartupValidator:
             "validation": lambda v: v and v != "YOUR_BRAVE_API_KEY",
             "error_msg": "Brave API key is missing or invalid",
         },
-        "SERPER_API_KEY": {
-            "description": "Serper Search API",
-            "validation": lambda v: v and v != "YOUR_SERPER_API_KEY",
-            "error_msg": "Serper API key is missing or invalid",
-        },
+        # SERPER_API_KEY removed - migrating to Brave
+        # "SERPER_API_KEY": {
+        #     "description": "Serper Search API",
+        #     "validation": lambda v: v and v != "YOUR_SERPER_API_KEY",
+        #     "error_msg": "Serper API key is missing or invalid",
+        # },
         "TELEGRAM_BOT_TOKEN": {
             "description": "Telegram Bot Token",
             "validation": lambda v: v and v != "YOUR_TELEGRAM_BOT_TOKEN",

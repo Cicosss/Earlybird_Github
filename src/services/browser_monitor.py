@@ -167,8 +167,13 @@ except ImportError:
     TRAFILATURA_AVAILABLE = False
     _central_extract = None
     _extract_with_fallback = None
-    is_valid_html = lambda x: True  # type: ignore
-    record_extraction = lambda x, y: None  # type: ignore
+
+    def is_valid_html(x: Any) -> bool:
+        return True
+
+    def record_extraction(x: Any, y: Any) -> None:
+        return None
+
     logger.warning(
         "⚠️ [BROWSER-MONITOR] trafilatura_extractor not available, using raw text extraction"
     )
@@ -439,12 +444,13 @@ class ContentCache:
     def compute_hash(self, content: str) -> str:
         """Compute hash from first 1000 chars of content.
 
-        Phase 1 Critical Fix: Changed errors='ignore' to errors='replace' to preserve
-        special characters. Added Unicode normalization before hashing.
+        Phase 1 Critical Fix: Changed errors='ignore' to errors='replace' to
+        preserve special characters. Added Unicode normalization before hashing.
         """
         # Use first 1000 chars for hash
         content_prefix = content[:1000] if len(content) > 1000 else content
-        # Phase 1 Critical Fix: Use errors='replace' instead of 'ignore' to preserve special characters
+        # Phase 1 Critical Fix: Use errors='replace' instead of 'ignore'
+        # to preserve special characters
         # Phase 1 Critical Fix: Add Unicode normalization before hashing
         return hashlib.sha256(content_prefix.encode("utf-8", errors="replace")).hexdigest()[:16]
 
@@ -668,6 +674,11 @@ class BrowserMonitor:
         self._paused = False
         self._stop_event = asyncio.Event()
 
+        # V7.9: Event for signaling startup completion to main thread
+        # This eliminates the race condition where main thread checks is_running()
+        # before Playwright initialization completes
+        self._startup_event = threading.Event()
+
         # Configuration
         self._config: MonitorConfig = MonitorConfig()
         self._config_mtime: float = 0.0
@@ -792,12 +803,19 @@ class BrowserMonitor:
             self._running = True
             self._stop_event.clear()
             self._scan_task = asyncio.create_task(self._scan_loop())
+            
+            # V7.9: Signal to main thread that startup is complete
+            # This eliminates the race condition where main thread checks is_running()
+            # before Playwright initialization completes
+            self._startup_event.set()
 
             logger.info(f"✅ [BROWSER-MONITOR] Started with {len(self._config.sources)} sources")
             return True
 
         except Exception as e:
             logger.error(f"❌ [BROWSER-MONITOR] Failed to start: {e}")
+            # V7.9: Set event even on failure to unblock main thread
+            self._startup_event.set()
             return False
 
     async def stop(self) -> bool:
@@ -838,6 +856,35 @@ class BrowserMonitor:
     def is_running(self) -> bool:
         """Check if monitor is running."""
         return self._running
+
+    def wait_for_startup(self, timeout: float = 10.0) -> bool:
+        """
+        V7.9: Wait for startup to complete, with timeout.
+        
+        This method blocks until the browser monitor has completed startup
+        (either successfully or with failure), or the timeout is reached.
+        
+        This eliminates the race condition where main thread checks is_running()
+        before Playwright initialization completes.
+        
+        Args:
+            timeout: Maximum time to wait for startup (in seconds)
+        
+        Returns:
+            True if startup completed within timeout, False if timeout was reached
+        
+        Example:
+            # In main thread:
+            browser_monitor_thread.start()
+            if browser_monitor_instance.wait_for_startup(timeout=10.0):
+                if browser_monitor_instance.is_running():
+                    print("Started successfully")
+                else:
+                    print("Failed to start")
+            else:
+                print("Startup timeout")
+        """
+        return self._startup_event.wait(timeout=timeout)
 
     def is_paused(self) -> bool:
         """Check if monitor is paused (due to rate limit or memory)."""
@@ -1092,7 +1139,7 @@ class BrowserMonitor:
             # 2. Gradual scrolling (2-4 scroll steps with delays)
             num_scrolls = random.randint(*BEHAVIOR_SCROLL_STEPS)
 
-            for i in range(num_scrolls):
+            for _ in range(num_scrolls):
                 # Calculate scroll amount (30-50% of viewport per scroll)
                 scroll_percent = random.uniform(0.3, 0.5)
                 scroll_amount = int(viewport_height * scroll_percent)
@@ -1286,7 +1333,8 @@ class BrowserMonitor:
                     error_msg = str(e).lower()
                     if "closed" in error_msg or "target" in error_msg:
                         logger.warning(
-                            f"⚠️ [BROWSER-MONITOR] Browser crashed (attempt {attempt + 1}/{max_retries}): {e}"
+                            f"⚠️ [BROWSER-MONITOR] Browser crashed "
+                            f"(attempt {attempt + 1}/{max_retries}): {e}"
                         )
                         # Mark browser as needing recreation
                         self._browser = None
@@ -1295,7 +1343,8 @@ class BrowserMonitor:
                             continue
                         else:
                             logger.error(
-                                f"❌ [BROWSER-MONITOR] Browser crash recovery failed after {max_retries} attempts"
+                                f"❌ [BROWSER-MONITOR] Browser crash recovery "
+                                f"failed after {max_retries} attempts"
                             )
                             return None
                     else:
@@ -1448,12 +1497,14 @@ class BrowserMonitor:
         Returns:
             List of (article_url, content) tuples
 
-        Requirements: V7.4 - Paginated navigation for Elite 7 and Tier 2 sources
+        Requirements: V7.4 - Paginated navigation for Elite 7 and Tier 2
+        sources
         """
         # V7.6: Ensure browser is connected, recreate if needed
         if not await self._ensure_browser_connected():
             logger.error(
-                "❌ [BROWSER-MONITOR] Browser not available for navigation and could not be recreated"
+                "❌ [BROWSER-MONITOR] Browser not available for navigation "
+                "and could not be recreated"
             )
             return []
 
@@ -1489,10 +1540,13 @@ class BrowserMonitor:
 
                     # V7.5: Wait for network idle with timeout (not all pages reach networkidle)
                     try:
-                        await page.wait_for_load_state('networkidle', timeout=5000)
+                        await page.wait_for_load_state("networkidle", timeout=5000)
                     except Exception:
                         # Some pages never reach networkidle (polling, websockets)
-                        logger.debug(f"⏱️ [BROWSER-MONITOR] Network idle timeout for {url[:40]}..., proceeding anyway")
+                        logger.debug(
+                            f"⏱️ [BROWSER-MONITOR] Network idle timeout for "
+                            f"{url[:40]}..., proceeding anyway"
+                        )
 
                     # V7.2: Simulate human behavior
                     await self._simulate_human_behavior(page)
@@ -1501,27 +1555,34 @@ class BrowserMonitor:
                     try:
                         await page.wait_for_selector(link_selector, timeout=3000)
                     except Exception:
-                        logger.debug(f"⚠️ [BROWSER-MONITOR] Selector '{link_selector}' not found, attempting extraction anyway")
+                        logger.debug(
+                            f"⚠️ [BROWSER-MONITOR] Selector '{link_selector}' not "
+                            f"found, attempting extraction anyway"
+                        )
 
                     # Extract links using CSS selector
                     try:
                         links = await page.eval_on_selector_all(
                             link_selector,
-                            "elements => elements.map(e => e.href).filter(h => h && h.startsWith('http'))",
+                            "elements => elements.map(e => e.href).filter(h => "
+                            "h && h.startsWith('http'))",
                         )
                     except Exception as e:
                         error_msg = str(e)
-                        
+
                         # V7.5: Check if this is a retryable error
-                        is_retryable = any([
-                            "Execution context was destroyed" in error_msg,
-                            "Target closed" in error_msg,
-                            "Session closed" in error_msg,
-                        ])
-                        
+                        is_retryable = any(
+                            [
+                                "Execution context was destroyed" in error_msg,
+                                "Target closed" in error_msg,
+                                "Session closed" in error_msg,
+                            ]
+                        )
+
                         if is_retryable and attempt < max_retries - 1:
                             logger.warning(
-                                f"⚠️ [BROWSER-MONITOR] Retryable error (attempt {attempt + 1}/{max_retries}): {e}"
+                                f"⚠️ [BROWSER-MONITOR] Retryable error "
+                                f"(attempt {attempt + 1}/{max_retries}): {e}"
                             )
                             # Close page and retry
                             try:
@@ -1531,10 +1592,11 @@ class BrowserMonitor:
                             page = None
                             await asyncio.sleep(2)  # Wait before retry
                             continue
-                        
+
                         # Non-retryable error or max retries reached
                         logger.warning(
-                            f"⚠️ [BROWSER-MONITOR] Failed to extract links with selector '{link_selector}': {e}"
+                            f"⚠️ [BROWSER-MONITOR] Failed to extract links with "
+                            f"selector '{link_selector}': {e}"
                         )
                         links = []
 
@@ -1548,7 +1610,8 @@ class BrowserMonitor:
 
                     if not unique_links:
                         logger.debug(
-                            f"📄 [BROWSER-MONITOR] No links found on {url[:40]}... with selector '{link_selector}'"
+                            f"📄 [BROWSER-MONITOR] No links found on {url[:40]}... "
+                            f"with selector '{link_selector}'"
                         )
                         return []
 
@@ -1575,15 +1638,19 @@ class BrowserMonitor:
                             if content and len(content) > 100:
                                 results.append((link_url, content))
                                 logger.debug(
-                                    f"📄 [BROWSER-MONITOR] Extracted {len(content)} chars from {link_url[:40]}..."
+                                    f"📄 [BROWSER-MONITOR] Extracted {len(content)} "
+                                    f"chars from {link_url[:40]}..."
                                 )
 
                         except Exception as e:
-                            logger.debug(f"⚠️ [BROWSER-MONITOR] Failed to extract {link_url[:40]}: {e}")
+                            logger.debug(
+                                f"⚠️ [BROWSER-MONITOR] Failed to extract {link_url[:40]}: {e}"
+                            )
                             continue
 
                     logger.info(
-                        f"✅ [BROWSER-MONITOR] Paginated extraction: {len(results)}/{len(unique_links)} pages from {url[:40]}..."
+                        f"✅ [BROWSER-MONITOR] Paginated extraction: "
+                        f"{len(results)}/{len(unique_links)} pages from {url[:40]}..."
                     )
                     return results  # Success!
 
@@ -1736,10 +1803,12 @@ class BrowserMonitor:
                 if attempt < MAX_RETRIES:
                     # Calculate delay with exponential backoff + jitter
                     delay = min(
-                        RETRY_BASE_DELAY * (2**attempt) + random.uniform(0, 1), RETRY_MAX_DELAY
+                        RETRY_BASE_DELAY * (2**attempt) + random.uniform(0, 1),
+                        RETRY_MAX_DELAY,
                     )
                     logger.debug(
-                        f"🔄 [BROWSER-MONITOR] Retry {attempt + 1}/{MAX_RETRIES} in {delay:.1f}s (network error): {url[:40]}..."
+                        f"🔄 [BROWSER-MONITOR] Retry {attempt + 1}/{MAX_RETRIES} "
+                        f"in {delay:.1f}s (network error): {url[:40]}..."
                     )
                     await asyncio.sleep(delay)
 
@@ -1811,7 +1880,8 @@ class BrowserMonitor:
 
                 self._last_cycle_time = datetime.now(timezone.utc)
                 logger.info(
-                    f"🌐 [BROWSER-MONITOR] Cycle complete: {self._urls_scanned} URLs, {news_found} relevant items"
+                    f"🌐 [BROWSER-MONITOR] Cycle complete: {self._urls_scanned} "
+                    f"URLs, {news_found} relevant items"
                 )
 
                 # Wait before next cycle
@@ -2029,7 +2099,8 @@ class BrowserMonitor:
         if not local_result.is_relevant or local_result.confidence < DEEPSEEK_CONFIDENCE_THRESHOLD:
             # Low confidence (< 0.5) → SKIP without API call
             logger.debug(
-                f"⏭️ [BROWSER-MONITOR] Skipped (low confidence {local_result.confidence:.2f}): {article_url[:50]}..."
+                f"⏭️ [BROWSER-MONITOR] Skipped (low confidence "
+                f"{local_result.confidence:.2f}): {article_url[:50]}..."
             )
             self._skipped_low_confidence += 1
             return None
@@ -2038,7 +2109,8 @@ class BrowserMonitor:
         if local_result.confidence >= ALERT_CONFIDENCE_THRESHOLD:
             # High confidence (>= 0.7) → ALERT DIRECT without API call
             logger.debug(
-                f"✅ [BROWSER-MONITOR] Direct alert (confidence {local_result.confidence:.2f}): {article_url[:50]}..."
+                f"✅ [BROWSER-MONITOR] Direct alert (confidence "
+                f"{local_result.confidence:.2f}): {article_url[:50]}..."
             )
             self._direct_alerts += 1
 
@@ -2052,7 +2124,8 @@ class BrowserMonitor:
         else:
             # Medium confidence (0.5 - 0.7) → DeepSeek FALLBACK
             logger.debug(
-                f"🤖 [BROWSER-MONITOR] DeepSeek fallback (confidence {local_result.confidence:.2f}): {article_url[:50]}..."
+                f"🤖 [BROWSER-MONITOR] DeepSeek fallback (confidence "
+                f"{local_result.confidence:.2f}): {article_url[:50]}..."
             )
             self._deepseek_fallbacks += 1
 
@@ -2074,7 +2147,9 @@ class BrowserMonitor:
 
             if not is_relevant or confidence < RELEVANCE_CONFIDENCE_THRESHOLD:
                 logger.debug(
-                    f"⏭️ [BROWSER-MONITOR] DeepSeek rejected (relevant={is_relevant}, conf={confidence:.2f}): {article_url[:50]}..."
+                    f"⏭️ [BROWSER-MONITOR] DeepSeek rejected "
+                    f"(relevant={is_relevant}, conf={confidence:.2f}): "
+                    f"{article_url[:50]}..."
                 )
                 return None
 
@@ -2100,7 +2175,7 @@ class BrowserMonitor:
 
         news = DiscoveredNews(
             url=article_url,  # V7.4: Use article URL, not source URL
-            title=summary[:200] if summary else f"News from {source.name or article_url[:30]}",
+            title=(summary[:200] if summary else f"News from {source.name or article_url[:30]}"),
             snippet=summary or f"Relevant news discovered from {article_url}",
             category=category,
             affected_team=affected_team,
@@ -2123,7 +2198,8 @@ class BrowserMonitor:
             (news.title[:50] + "...") if len(news.title) > 50 else (news.title or "[No Title]")
         )
         logger.info(
-            f"🌐 [BROWSER-MONITOR] Discovered: {title_preview} for {affected_team} (confidence: {confidence:.2f})"
+            f"🌐 [BROWSER-MONITOR] Discovered: {title_preview} for "
+            f"{affected_team} (confidence: {confidence:.2f})"
         )
 
         return news
@@ -2189,7 +2265,8 @@ class BrowserMonitor:
                 if merged_parts:
                     merged_content = "\n".join(merged_parts)
                     logger.info(
-                        f"🔍 [BROWSER-MONITOR] Tavily expanded content: {len(content)} → {len(merged_content)} chars"
+                        f"🔍 [BROWSER-MONITOR] Tavily expanded content: "
+                        f"{len(content)} → {len(merged_content)} chars"
                     )
                     return merged_content
 
@@ -2325,7 +2402,8 @@ class BrowserMonitor:
 
                 if response.status_code != 200:
                     logger.error(
-                        f"❌ [BROWSER-MONITOR] DeepSeek HTTP error: {response.status_code} - {response.text[:200]}"
+                        f"❌ [BROWSER-MONITOR] DeepSeek HTTP error: "
+                        f"{response.status_code} - {response.text[:200]}"
                     )
                     last_error = ValueError(f"HTTP {response.status_code}")
                     if retry_count < max_retries:
@@ -2343,7 +2421,8 @@ class BrowserMonitor:
                     data = response.json()
                 except json.JSONDecodeError as e:
                     logger.error(
-                        f"❌ [BROWSER-MONITOR] DeepSeek returned invalid JSON: {e} - Response: {response.text[:200]}"
+                        f"❌ [BROWSER-MONITOR] DeepSeek returned invalid JSON: "
+                        f"{e} - Response: {response.text[:200]}"
                     )
                     last_error = e
                     if retry_count < max_retries:
@@ -2410,14 +2489,16 @@ class BrowserMonitor:
                 # V7.4 FIX: Enhanced empty response handling with detailed logging
                 if not response_text or not response_text.strip():
                     logger.warning(
-                        f"⚠️ [BROWSER-MONITOR] DeepSeek returned empty response (attempt {retry_count + 1}/{max_retries + 1})"
+                        f"⚠️ [BROWSER-MONITOR] DeepSeek returned empty "
+                        f"response (attempt {retry_count + 1}/{max_retries + 1})"
                     )
 
                     # Log raw response details for debugging
                     try:
                         logger.debug(f"🔍 [DEBUG] Raw response data: {data}")
                         logger.debug(
-                            f"🔍 [DEBUG] Response text: '{response_text}' (len={len(response_text)})"
+                            f"🔍 [DEBUG] Response text: '{response_text}' "
+                            f"(len={len(response_text)})"
                         )
                     except Exception as debug_e:
                         logger.debug(f"🔍 [DEBUG] Could not log raw response: {debug_e}")
@@ -2428,7 +2509,8 @@ class BrowserMonitor:
                         jitter = random.uniform(0, 0.5)
                         backoff_time = base_backoff + jitter
                         logger.warning(
-                            f"⏳ Retrying in {backoff_time:.2f}s with exponential backoff + jitter..."
+                            f"⏳ Retrying in {backoff_time:.2f}s with "
+                            f"exponential backoff + jitter..."
                         )
                         await asyncio.sleep(backoff_time)
                         retry_count += 1
@@ -2437,14 +2519,16 @@ class BrowserMonitor:
 
                 self._deepseek_calls += 1
                 logger.debug(
-                    f"🤖 [BROWSER-MONITOR] DeepSeek analysis complete (call #{self._deepseek_calls})"
+                    f"🤖 [BROWSER-MONITOR] DeepSeek analysis complete "
+                    f"(call #{self._deepseek_calls})"
                 )
 
                 return self._parse_relevance_response(response_text)
 
             except requests.Timeout:
                 logger.warning(
-                    f"⚠️ [BROWSER-MONITOR] DeepSeek timeout after {timeout}s (attempt {retry_count + 1}/{max_retries + 1})"
+                    f"⚠️ [BROWSER-MONITOR] DeepSeek timeout after {timeout}s "
+                    f"(attempt {retry_count + 1}/{max_retries + 1})"
                 )
                 last_error = TimeoutError(f"Timeout after {timeout}s")
                 if retry_count < max_retries:
@@ -2460,7 +2544,8 @@ class BrowserMonitor:
                 return None
             except requests.RequestException as e:
                 logger.error(
-                    f"❌ [BROWSER-MONITOR] DeepSeek network error: {e} (attempt {retry_count + 1}/{max_retries + 1})"
+                    f"❌ [BROWSER-MONITOR] DeepSeek network error: {e} "
+                    f"(attempt {retry_count + 1}/{max_retries + 1})"
                 )
                 last_error = e
                 if retry_count < max_retries:
@@ -2483,7 +2568,8 @@ class BrowserMonitor:
 
         # All retries exhausted
         logger.error(
-            f"❌ [BROWSER-MONITOR] DeepSeek analysis failed after {max_retries + 1} attempts: {last_error}"
+            f"❌ [BROWSER-MONITOR] DeepSeek analysis failed after "
+            f"{max_retries + 1} attempts: {last_error}"
         )
         return None
 
@@ -2508,11 +2594,12 @@ class BrowserMonitor:
         if len(content) > max_content:
             content = content[:max_content]
 
-        return f"""Analyze this sports news article and determine if it contains betting-relevant information for MEN'S FOOTBALL (Soccer).
+        return f"""Analyze this sports news article and determine if it
+        contains betting-relevant information for MEN'S FOOTBALL (Soccer).
 
 ⚠️ CRITICAL FILTERS - AUTOMATICALLY MARK AS NOT RELEVANT:
 - Basketball / NBA / Euroleague / ACB news → is_relevant: false
-- Women's team / Ladies / Femminile news → is_relevant: false  
+- Women's team / Ladies / Femminile news → is_relevant: false
 - NFL / American Football / Rugby news → is_relevant: false
 - Any sport other than Men's Football (Soccer) → is_relevant: false
 
@@ -2520,8 +2607,11 @@ class BrowserMonitor:
 - Injuries to first team players
 - Suspensions / Red cards
 - National team call-ups affecting club availability
-- Youth/Primavera/U19/U21 players called up to first team (VERY RELEVANT for betting!)
-  Examples in multiple languages: giovanili, juvenil, młodzież, gençler, altyapı, jugend, nachwuchs, jeunes, νέοι, молодёжь, ungdom, jeugd, beloften
+- Youth/Primavera/U19/U21 players called up to first team (VERY
+  RELEVANT for betting!)
+  Examples in multiple languages: giovanili, juvenil, młodzież,
+  gençler, altyapı, jugend, nachwuchs, jeunes, νέοι, молодёжь,
+  ungdom, jeugd, beloften
 - Rotation / Rest for cup matches
 - Transfer news affecting squad
 - Tactical changes / Formation news
@@ -2535,7 +2625,8 @@ LEAGUE: {league_key}
 Respond in JSON format ONLY (no markdown, no explanation):
 {{
   "is_relevant": true/false,
-  "category": "INJURY" | "LINEUP" | "SUSPENSION" | "TRANSFER" | "TACTICAL" | "YOUTH_CALLUP" | "OTHER",
+  "category": "INJURY" | "LINEUP" | "SUSPENSION" | "TRANSFER" |
+    "TACTICAL" | "YOUTH_CALLUP" | "OTHER",
   "affected_team": "team name or null",
   "confidence": 0.0-1.0,
   "summary": "brief summary of the news (max 200 chars)"
@@ -2544,7 +2635,9 @@ Respond in JSON format ONLY (no markdown, no explanation):
 RULES:
 - is_relevant=true if the news could affect first team match outcomes
 - is_relevant=false for Basketball, Women's team, NFL, or any non-football news
-- YOUTH_CALLUP category: when youth/primavera/giovanili/juvenil/młodzież/gençler players are promoted to first team - THIS IS VERY RELEVANT
+- YOUTH_CALLUP category: when youth/primavera/giovanili/juvenil/
+  młodzież/gençler players are promoted to first team - THIS IS VERY
+  RELEVANT
 - confidence >= 0.7 for clear betting-relevant news
 - category must be one of the specified values
 - affected_team should be the team most impacted

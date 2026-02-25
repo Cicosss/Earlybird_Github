@@ -4,9 +4,12 @@ EarlyBird Health Monitor
 Tracks system health and sends periodic heartbeat reports.
 Includes spam protection for error alerts and self-diagnosis capabilities.
 
-V3.7: Production-ready with comprehensive system diagnostics
+Historical Version: V3.7
+
+Production-ready with comprehensive system diagnostics
 - System diagnostics (disk, database, APIs)
 - 6-hour cooldown per issue type to prevent spam
+Updated: 2026-02-23 (Centralized Version Tracking)
 """
 
 import logging
@@ -19,6 +22,13 @@ import psutil
 import requests
 import requests.exceptions
 from sqlalchemy import text
+
+# Import centralized version tracking
+from src.version import get_version_with_module
+
+# Log version on import
+logger = logging.getLogger(__name__)
+logger.info(f"📦 {get_version_with_module('Health Monitor')}")
 
 # Try to import database models, but don't fail if not available
 # (allows health monitor to work even if DB is down)

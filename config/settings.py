@@ -39,13 +39,14 @@ def _inject_default_env_vars():
     directly (instead of using this settings module) will have access
     to the default values when .env is missing or incomplete.
     """
-    # BRAVE API Keys (hardcoded defaults)
+    # BRAVE API Keys (no defaults - user must provide real keys)
+    # Security: Removed hardcoded API keys to prevent quota exhaustion and security risks
     if not os.getenv("BRAVE_API_KEY_1"):
-        os.environ["BRAVE_API_KEY_1"] = "BSA8GEZcqohA9G8L3-p6FJbzin4D-OF"
+        os.environ["BRAVE_API_KEY_1"] = ""
     if not os.getenv("BRAVE_API_KEY_2"):
-        os.environ["BRAVE_API_KEY_2"] = "BSAr_BZ95Sa2w1mqPnHtGZ2YeEGLo0x"
+        os.environ["BRAVE_API_KEY_2"] = ""
     if not os.getenv("BRAVE_API_KEY_3"):
-        os.environ["BRAVE_API_KEY_3"] = "BSADXYY9dy2id0ftdIERVlFRJHSpmO-"
+        os.environ["BRAVE_API_KEY_3"] = ""
 
     # Also set BRAVE_API_KEY to first key if not set
     if not os.getenv("BRAVE_API_KEY"):
@@ -115,7 +116,66 @@ NATIVE_KEYWORDS: dict[str, list[str]] = {
 # API CONFIGURATION
 # ========================================
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+# SERPER_API_KEY removed - migrating to Brave
+# SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
+
+# ========================================
+# ODDS API CONFIGURATION (V1.0 - Rotation Support)
+# ========================================
+# Odds API - 2 API keys with 500 calls each = 1000 calls/month
+# Keys rotate automatically: when Key 1 exhausts (429), switches to Key 2, then loops back to Key 1
+# https://the-odds-api.com/ - Live odds for betting analysis
+
+# Existing (keep unchanged for backward compatibility)
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
+
+# NEW: API Keys for rotation (loaded in order)
+# SECURITY FIX: Removed hardcoded API keys - use only environment variables
+_ODDS_API_KEYS_RAW = [
+    os.getenv("ODDS_API_KEY_1", ""),
+    os.getenv("ODDS_API_KEY_2", ""),
+]
+
+# BUG FIX: Deduplicate API keys to prevent [Key1, Key1] scenario
+# This happens when ODDS_API_KEY_1 equals ODDS_API_KEY in .env
+_ODDS_API_KEYS_DEDUPED = list(
+    dict.fromkeys(_ODDS_API_KEYS_RAW)
+)  # Preserve order while deduplicating
+if len(_ODDS_API_KEYS_DEDUPED) != len(_ODDS_API_KEYS_RAW):
+    logger.warning(
+        f"⚠️ Removed {len(_ODDS_API_KEYS_RAW) - len(_ODDS_API_KEYS_DEDUPED)} duplicate Odds API keys. "
+        f"Original: {len(_ODDS_API_KEYS_RAW)}, Deduplicated: {len(_ODDS_API_KEYS_DEDUPED)}"
+    )
+ODDS_API_KEYS = _ODDS_API_KEYS_DEDUPED
+
+# NEW: Total monthly budget (2 keys × 500 calls)
+ODDS_MONTHLY_BUDGET = 1000
+
+# NEW: Threshold percentages for degraded/disabled modes
+ODDS_DEGRADED_THRESHOLD = 0.90  # 90% - Non-critical calls throttled
+ODDS_DISABLED_THRESHOLD = 0.95  # 95% - Only critical calls allowed
+
+# ========================================
+# ODDS API SMART FREQUENCY STRATEGY (V1.1)
+# ========================================
+# Smart Frequency Strategy controls when to update leagues based on match proximity
+# - Match < 24h: HIGH ALERT - update every 1 hour
+# - Match > 24h: MAINTENANCE - update every 6 hours
+# - DISABLED: Always update leagues on every run (recommended for testing/debugging)
+
+# Enable/disable Smart Frequency Strategy (default: True for production)
+ODDS_SMART_FREQUENCY_ENABLED = os.getenv("ODDS_SMART_FREQUENCY_ENABLED", "true").lower() == "true"
+
+# ========================================
+# BACKGROUND SERVICES CONTROL (V1.0)
+# ========================================
+# Runtime control for background services to manage VPS resources
+# All services are enabled by default unless explicitly disabled
+
+BROWSER_MONITOR_ENABLED = os.getenv("BROWSER_MONITOR_ENABLED", "True").lower() == "true"
+NEWS_RADAR_ENABLED = os.getenv("NEWS_RADAR_ENABLED", "True").lower() == "true"
+HEALTH_MONITOR_ENABLED = os.getenv("HEALTH_MONITOR_ENABLED", "True").lower() == "true"
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
 MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")
@@ -131,11 +191,24 @@ MEDIASTACK_API_KEY = os.getenv("MEDIASTACK_API_KEY", "")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
 
 # NEW: API Keys for rotation (loaded in order)
-BRAVE_API_KEYS = [
-    os.getenv("BRAVE_API_KEY_1", "BSA8GEZcqohA9G8L3-p6FJbzin4D-OF"),
-    os.getenv("BRAVE_API_KEY_2", "BSAr_BZ95Sa2w1mqPnHtGZ2YeEGLo0x"),
-    os.getenv("BRAVE_API_KEY_3", "BSADXYY9dy2id0ftdIERVlFRJHSpmO-"),
+# Security: Removed hardcoded API keys - user must provide real keys in .env
+_BRAVE_API_KEYS_RAW = [
+    os.getenv("BRAVE_API_KEY_1", ""),
+    os.getenv("BRAVE_API_KEY_2", ""),
+    os.getenv("BRAVE_API_KEY_3", ""),
 ]
+
+# BUG FIX: Deduplicate API keys to prevent [Key1, Key1, Key2] scenario
+# This happens when BRAVE_API_KEY_1 equals BRAVE_API_KEY in .env
+_BRAVE_API_KEYS_DEDUPED = list(
+    dict.fromkeys(_BRAVE_API_KEYS_RAW)
+)  # Preserve order while deduplicating
+if len(_BRAVE_API_KEYS_DEDUPED) != len(_BRAVE_API_KEYS_RAW):
+    logger.warning(
+        f"⚠️ Removed {len(_BRAVE_API_KEYS_RAW) - len(_BRAVE_API_KEYS_DEDUPED)} duplicate Brave API keys. "
+        f"Original: {len(_BRAVE_API_KEYS_RAW)}, Deduplicated: {len(_BRAVE_API_KEYS_DEDUPED)}"
+    )
+BRAVE_API_KEYS = _BRAVE_API_KEYS_DEDUPED
 
 # NEW: Budget allocation per component (calls/month)
 BRAVE_BUDGET_ALLOCATION = {
@@ -165,12 +238,24 @@ MEDIASTACK_API_URL = os.getenv("MEDIASTACK_API_URL", "https://api.mediastack.com
 MEDIASTACK_USE_HTTPS = os.getenv("MEDIASTACK_USE_HTTPS", "true").lower() == "true"
 
 # 4 API Keys (FREE unlimited tier, 4 different accounts)
-MEDIASTACK_API_KEYS = [
+_MEDIASTACK_API_KEYS_RAW = [
     os.getenv("MEDIASTACK_API_KEY_1", ""),
     os.getenv("MEDIASTACK_API_KEY_2", ""),
     os.getenv("MEDIASTACK_API_KEY_3", ""),
     os.getenv("MEDIASTACK_API_KEY_4", ""),
 ]
+
+# BUG FIX: Deduplicate API keys to prevent [Key1, Key1, Key2] scenario
+# This happens when MEDIASTACK_API_KEY_1 equals MEDIASTACK_API_KEY in .env
+_MEDIASTACK_API_KEYS_DEDUPED = list(
+    dict.fromkeys(_MEDIASTACK_API_KEYS_RAW)
+)  # Preserve order while deduplicating
+if len(_MEDIASTACK_API_KEYS_DEDUPED) != len(_MEDIASTACK_API_KEYS_RAW):
+    logger.warning(
+        f"⚠️ Removed {len(_MEDIASTACK_API_KEYS_RAW) - len(_MEDIASTACK_API_KEYS_DEDUPED)} duplicate MediaStack API keys. "
+        f"Original: {len(_MEDIASTACK_API_KEYS_RAW)}, Deduplicated: {len(_MEDIASTACK_API_KEYS_DEDUPED)}"
+    )
+MEDIASTACK_API_KEYS = _MEDIASTACK_API_KEYS_DEDUPED
 
 # Rate limiting
 MEDIASTACK_RATE_LIMIT_SECONDS = 1.0
@@ -488,7 +573,7 @@ NEWS_SNIPPET_MAX_CHARS = 3000
 TAVILY_ENABLED = os.getenv("TAVILY_ENABLED", "true").lower() == "true"
 
 # API Keys (loaded in order for rotation)
-TAVILY_API_KEYS = [
+_TAVILY_API_KEYS_RAW = [
     os.getenv("TAVILY_API_KEY_1", ""),
     os.getenv("TAVILY_API_KEY_2", ""),
     os.getenv("TAVILY_API_KEY_3", ""),
@@ -497,6 +582,18 @@ TAVILY_API_KEYS = [
     os.getenv("TAVILY_API_KEY_6", ""),
     os.getenv("TAVILY_API_KEY_7", ""),
 ]
+
+# BUG FIX: Deduplicate API keys to prevent [Key1, Key1, Key2] scenario
+# This happens when TAVILY_API_KEY_1 equals TAVILY_API_KEY in .env
+_TAVILY_API_KEYS_DEDUPED = list(
+    dict.fromkeys(_TAVILY_API_KEYS_RAW)
+)  # Preserve order while deduplicating
+if len(_TAVILY_API_KEYS_DEDUPED) != len(_TAVILY_API_KEYS_RAW):
+    logger.warning(
+        f"⚠️ Removed {len(_TAVILY_API_KEYS_RAW) - len(_TAVILY_API_KEYS_DEDUPED)} duplicate Tavily API keys. "
+        f"Original: {len(_TAVILY_API_KEYS_RAW)}, Deduplicated: {len(_TAVILY_API_KEYS_DEDUPED)}"
+    )
+TAVILY_API_KEYS = _TAVILY_API_KEYS_DEDUPED
 
 # Rate limiting: 1 request per second (Tavily API limit)
 TAVILY_RATE_LIMIT_SECONDS = 1.0
@@ -639,7 +736,6 @@ __all__ = [
     "LOGS_DIR",
     # API Keys
     "ODDS_API_KEY",
-    "SERPER_API_KEY",
     "GEMINI_API_KEY",
     "BRAVE_API_KEY",
     "MEDIASTACK_API_KEY",

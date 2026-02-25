@@ -15,9 +15,6 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-# Initialize logger for this module
-logger = logging.getLogger(__name__)
-
 from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.errors import ChannelInvalidError, ChannelPrivateError, UsernameNotOccupiedError
@@ -26,7 +23,11 @@ from src.analysis.image_ocr import process_squad_image
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.database.models import Match, TeamAlias
 from src.processing.sources_config import get_all_telegram_channels
+from src.utils.content_analysis import RelevanceAnalyzer
 from src.utils.validators import safe_dict_get
+
+# Initialize logger for this module
+logger = logging.getLogger(__name__)
 
 # ============================================
 # TRUST SCORE INTEGRATION (V4.3)
@@ -34,9 +35,7 @@ from src.utils.validators import safe_dict_get
 try:
     from src.analysis.telegram_trust_score import (
         ChannelMetrics,
-        TrustLevel,
         _get_text_hash,
-        detect_red_flags,
         get_first_odds_drop_time,
         track_odds_correlation,  # V4.3: Odds correlation tracking
         validate_telegram_message,
@@ -171,32 +170,8 @@ MAX_MESSAGE_AGE_HOURS = 12  # Drop messages older than this
 MATCH_LOOKAHEAD_HOURS = 48  # Only process if match in next N hours
 MIN_MATCH_TIME_HOURS = 1  # Ignore if match already started
 
-# Squad-related keywords (multi-language)
-SQUAD_KEYWORDS = [
-    "XI",
-    "11",
-    "KADRO",
-    "ESCALAÇÃO",
-    "LINEUP",
-    "START",
-    "FORMAZIONE",
-    "SKŁAD",
-    "CONVOCADOS",
-    "SQUAD",
-    "STARTING",
-    "LINE UP",
-    "İLK 11",
-    "KADROSU",
-    "SAKAT",
-    "SAKATLIK",
-    "INJURY",
-    "INJURED",
-    "OUT",
-    "EKSIK",
-    "MISSING",
-    "RULED OUT",
-    "DOUBTFUL",
-]
+# Squad-related keywords (multi-language) - centralized from RelevanceAnalyzer
+SQUAD_KEYWORDS = RelevanceAnalyzer.SQUAD_KEYWORDS
 
 # Team name patterns for extraction (common suffixes to remove)
 TEAM_SUFFIXES = ["FC", "SK", "AS", "AC", "FK", "SC", "CF", "CD", "SD", "UD", "RCD", "CA"]
@@ -264,7 +239,10 @@ def extract_team_names_from_text(text: str) -> list[str]:
 
     # Pattern 1: Words starting with capital letter (potential team names)
     # Match 2+ consecutive capitalized words
-    pattern = r"\b([A-Z][a-zğüşıöçİĞÜŞÖÇ]+(?:\s+[A-Z][a-zğüşıöçİĞÜŞÖÇ]+)*)\b"
+    pattern = (
+        r"\b([A-Z][a-zğüşıöçİĞÜŞÖÇ]+"
+        r"(?:\s+[A-Z][a-zğüşıöçİĞÜŞÖÇ]+)*)\b"
+    )
     matches = re.findall(pattern, text)
 
     for match in matches:
@@ -338,7 +316,8 @@ def has_upcoming_match(
                         continue
 
                     logger.debug(
-                        f"🏆 [TELEGRAM] Found upcoming match: {match.home_team} vs {match.away_team}"
+                        f"🏆 [TELEGRAM] Found upcoming match: {match.home_team} vs "
+                        f"{match.away_team}"
                     )
                     return True, match
 
@@ -592,7 +571,10 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                             logging.debug(f"📥 Downloaded image: {image_path}")
 
                             # Extract text via OCR (use local file path)
-                            ocr_text = process_squad_image(f"file://{os.path.abspath(image_path)}")
+                            # V5.0: Pass channel_info for contextual trust bypass
+                            ocr_text = process_squad_image(
+                                f"file://{os.path.abspath(image_path)}", channel_info=channel_info
+                            )
 
                             if ocr_text:
                                 # APPEND OCR text to full_text for analysis
@@ -621,8 +603,8 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                         continue
 
                     # Step 4: Check for squad keywords in COMBINED text
-                    full_text_upper = full_text.upper()
-                    has_keyword = any(keyword in full_text_upper for keyword in SQUAD_KEYWORDS)
+                    full_text_lower = full_text.lower()
+                    has_keyword = any(keyword in full_text_lower for keyword in SQUAD_KEYWORDS)
 
                     # Must have either keyword OR image with OCR content
                     if not has_keyword and not (msg.photo and ocr_text):
@@ -650,8 +632,9 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
 
                     if _TRUST_SCORE_AVAILABLE:
                         try:
-                            # Get or create channel record
-                            channel_record = get_or_create_channel(channel, channel)
+                            # Get or create channel record (side effect:
+                            # creates/updates channel in DB)
+                            get_or_create_channel(channel, channel)
 
                             # Check if channel is blacklisted
                             blacklisted = get_blacklisted_channels()
@@ -701,19 +684,23 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                             # Log validation result
                             if validation.is_valid:
                                 logging.info(
-                                    f"   🔐 Trust: {trust_multiplier:.2f} | {trust_validation_reason}"
+                                    f"   🔐 Trust: {trust_multiplier:.2f} | "
+                                    f"{trust_validation_reason}"
                                 )
                             else:
                                 logging.warning(
-                                    f"   ⚠️ Low Trust: {trust_multiplier:.2f} | {trust_validation_reason}"
+                                    f"   ⚠️ Low Trust: {trust_multiplier:.2f} | "
+                                    f"{trust_validation_reason}"
                                 )
 
                             # Update channel metrics
                             update_channel_metrics(
                                 channel_id=channel,
                                 is_insider_hit=is_insider_hit,
-                                is_late=validation.timestamp_lag_minutes
-                                and validation.timestamp_lag_minutes > 30,
+                                is_late=(
+                                    validation.timestamp_lag_minutes
+                                    and validation.timestamp_lag_minutes > 30
+                                ),
                                 is_echo=validation.is_echo,
                                 red_flags=validation.red_flags,
                                 timestamp_lag=validation.timestamp_lag_minutes,
@@ -745,15 +732,18 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                     if lag_minutes is not None:
                                         if lag_minutes < 0:
                                             logging.info(
-                                                f"   📊 INSIDER: Message {abs(lag_minutes):.0f}min BEFORE odds drop"
+                                                f"   📊 INSIDER: Message {abs(lag_minutes):.0f}min "
+                                                f"BEFORE odds drop"
                                             )
                                         elif lag_minutes <= 5:
                                             logging.debug(
-                                                f"   📊 FAST: Message {lag_minutes:.0f}min after odds drop"
+                                                f"   📊 FAST: Message {lag_minutes:.0f}min "
+                                                f"after odds drop"
                                             )
                                         else:
                                             logging.debug(
-                                                f"   📊 LATE: Message {lag_minutes:.0f}min after odds drop"
+                                                f"   📊 LATE: Message {lag_minutes:.0f}min "
+                                                f"after odds drop"
                                             )
                                 except Exception as corr_err:
                                     logging.debug(f"   Odds correlation tracking error: {corr_err}")
@@ -761,9 +751,16 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                             # Skip messages with very low trust
                             if trust_multiplier < 0.15:
                                 logging.info(
-                                    f"   ⏭️ Skipping low-trust message (multiplier: {trust_multiplier:.2f})"
+                                    f"   ⏭️ Skipping low-trust message "
+                                    f"(multiplier: {trust_multiplier:.2f})"
                                 )
                                 continue
+
+                            # Determine team info BEFORE using it in Tavily verification
+                            team_name = channel_info.get(
+                                "team", match.home_team if match else "Unknown"
+                            )
+                            search_name = channel_info.get("search_name", team_name)
 
                             # V7.0: Tavily verification for medium-trust channels (0.4-0.7)
                             if 0.4 <= trust_multiplier <= 0.7:
@@ -774,24 +771,22 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                         trust_multiplier = min(1.0, trust_multiplier + 0.2)
                                         trust_validation_reason += " | Tavily CONFIRMED (+0.2)"
                                         logging.info(
-                                            f"   🔍 Tavily confirmed intel, trust boosted to {trust_multiplier:.2f}"
+                                            f"   🔍 Tavily confirmed intel, "
+                                            f"trust boosted to {trust_multiplier:.2f}"
                                         )
                                     elif tavily_result.get("contradicted"):
                                         # Tavily contradicts - reduce trust by 0.1
                                         trust_multiplier = max(0.0, trust_multiplier - 0.1)
                                         trust_validation_reason += " | Tavily CONTRADICTED (-0.1)"
                                         logging.warning(
-                                            f"   ⚠️ Tavily contradicted intel, trust reduced to {trust_multiplier:.2f}"
+                                            f"   ⚠️ Tavily contradicted intel, "
+                                            f"trust reduced to {trust_multiplier:.2f}"
                                         )
                                     # else: inconclusive - keep original trust
 
                         except Exception as trust_err:
                             logging.warning(f"   ⚠️ Trust validation error: {trust_err}")
                             trust_multiplier = 0.5  # Default to neutral on error
-
-                    # Determine team info
-                    team_name = channel_info.get("team", match.home_team if match else "Unknown")
-                    search_name = channel_info.get("search_name", team_name)
 
                     results.append(
                         {
@@ -824,11 +819,15 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
         # Log stats
         logging.info("📊 Telegram Monitor Stats:")
         logging.info(
-            f"   Channels: {stats['channels_checked']} checked, {stats['channels_failed']} failed, {stats['channels_blacklisted']} blacklisted"
+            f"   Channels: {stats['channels_checked']} checked, "
+            f"{stats['channels_failed']} failed, "
+            f"{stats['channels_blacklisted']} blacklisted"
         )
         logging.info(f"   Messages: {stats['messages_checked']} checked")
         logging.info(
-            f"   Dropped: {stats['messages_dropped_old']} old, {stats['messages_dropped_no_match']} no match, {stats['messages_dropped_low_trust']} low trust"
+            f"   Dropped: {stats['messages_dropped_old']} old, "
+            f"{stats['messages_dropped_no_match']} no match, "
+            f"{stats['messages_dropped_low_trust']} low trust"
         )
         logging.info(
             f"   Processed: {stats['messages_processed']} | Insider Hits: {stats['insider_hits']}"
@@ -863,11 +862,6 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
     alerts = []
 
     for squad in squad_images:
-        # Get combined text for analysis
-        # Use safe_dict_get to prevent crashes if squad is not a dict
-        full_text = safe_dict_get(squad, "full_text", default="") or safe_dict_get(
-            squad, "caption", default=""
-        )
         has_image = safe_dict_get(squad, "has_image", default=False)
         ocr_text = safe_dict_get(squad, "ocr_text", default=None)
 
@@ -900,7 +894,10 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
 
                 alerts.append(
                     {
-                        "summary": f"📋 Squad list detected from @{squad['channel']}: {caption_preview or ocr_preview}",
+                        "summary": (
+                            f"📋 Squad list detected from @{squad['channel']}: "
+                            f"{caption_preview or ocr_preview}"
+                        ),
                         "score": 5,  # Informational
                         "url": f"https://t.me/{squad['channel']}",
                         "source": "TELEGRAM_CHANNEL",
@@ -945,6 +942,15 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
                         "mode": "TEXT_ONLY",
                     }
                 )
+
+        # Cleanup temp image after processing (Bug 2 fix)
+        image_path = squad.get("image_path")
+        if image_path and os.path.exists(image_path):
+            try:
+                os.remove(image_path)
+                logging.debug(f"🗑️ Cleaned up temp image: {image_path}")
+            except Exception as cleanup_err:
+                logging.warning(f"Could not remove temp image {image_path}: {cleanup_err}")
 
     # Log summary
     image_alerts = len([a for a in alerts if a.get("mode") == "IMAGE_OCR"])

@@ -282,7 +282,5 @@ def get_enhanced_final_verifier() -> EnhancedFinalVerifier:
 
     # Create enhanced verifier wrapping the base one
     enhanced = EnhancedFinalVerifier()
-    enhanced._perplexity = base_verifier._perplexity
-    enhanced._enabled = base_verifier._enabled
 
     return enhanced

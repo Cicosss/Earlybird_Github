@@ -32,6 +32,7 @@ Requirements: 8.1, 8.2, 8.3, 8.4
 import json
 import logging
 import os
+import pickle
 
 # Import configurazione account
 import sys
@@ -52,6 +53,26 @@ from config.twitter_intel_accounts import (
     get_twitter_intel_accounts,
 )
 
+# V10.5: Import TweetRelevanceFilter for precision gating
+_tweet_relevance_filter = None
+
+
+def _get_tweet_relevance_filter():
+    """Lazy import of TweetRelevanceFilter to avoid circular dependencies."""
+    global _tweet_relevance_filter
+    if _tweet_relevance_filter is None:
+        try:
+            from src.services.tweet_relevance_filter import (
+                get_tweet_relevance_filter as _get_filter,
+            )
+
+            _tweet_relevance_filter = _get_filter()
+            logging.info("🐦 [FILTER] TweetRelevanceFilter loaded successfully")
+        except ImportError as e:
+            logging.warning(f"🐦 [FILTER] TweetRelevanceFilter not available: {e}")
+    return _tweet_relevance_filter
+
+
 # V7.0: Tavily integration for Twitter recovery
 _TAVILY_AVAILABLE = False
 _TavilyProvider = None
@@ -60,7 +81,7 @@ _get_budget_manager = None
 
 try:
     from src.ingestion.tavily_budget import get_budget_manager
-    from src.ingestion.tavily_provider import TavilyProvider, get_tavily_provider
+    from src.ingestion.tavily_provider import TavilyProvider
     from src.ingestion.tavily_query_builder import TavilyQueryBuilder
 
     _TAVILY_AVAILABLE = True
@@ -245,6 +266,89 @@ class TwitterIntelCache:
 
             # Mark as initialized AFTER all initialization is complete
             self._initialized = True
+
+            # V10.5: Load cache from disk on initialization
+            self._cache_file_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "data",
+                "twitter_cache.pkl",
+            )
+            self._load_from_disk()
+
+    def _load_from_disk(self) -> None:
+        """
+        V10.5: Load cached tweets from disk using pickle.
+
+        Wraps disk operations in try/except to prevent crashes on corrupted files.
+        Loads CachedTweet objects from data/twitter_cache.pkl.
+        """
+        try:
+            if not os.path.exists(self._cache_file_path):
+                logging.debug("🐦 [PERSISTENCE] No cache file found, starting fresh")
+                return
+
+            with open(self._cache_file_path, "rb") as f:
+                loaded_cache = pickle.load(f)
+
+            # Validate loaded data structure
+            if not isinstance(loaded_cache, dict):
+                logging.warning("🐦 [PERSISTENCE] Invalid cache structure, starting fresh")
+                return
+
+            # Restore cache entries
+            with self._cache_lock:
+                self._cache = loaded_cache
+
+            # Update last refresh time from file modification time
+            file_mtime = os.path.getmtime(self._cache_file_path)
+            self._last_full_refresh = datetime.fromtimestamp(file_mtime, tz=timezone.utc)
+
+            total_tweets = sum(len(e.tweets) for e in self._cache.values())
+            file_size_kb = os.path.getsize(self._cache_file_path) / 1024
+            logging.info(
+                f"🐦 [PERSISTENCE] Loaded {len(self._cache)} accounts, "
+                f"{total_tweets} tweets from disk ({file_size_kb:.1f} KB)"
+            )
+
+        except pickle.PickleError as e:
+            logging.error(f"🐦 [PERSISTENCE] Failed to unpickle cache file: {e}")
+            logging.info("🐦 [PERSISTENCE] Starting with empty cache")
+        except (OSError, IOError) as e:
+            logging.error(f"🐦 [PERSISTENCE] Failed to read cache file: {e}")
+            logging.info("🐦 [PERSISTENCE] Starting with empty cache")
+        except Exception as e:
+            logging.error(f"🐦 [PERSISTENCE] Unexpected error loading cache: {e}")
+            logging.info("🐦 [PERSISTENCE] Starting with empty cache")
+
+    def _save_to_disk(self) -> None:
+        """
+        V10.5: Save cached tweets to disk using pickle.
+
+        Wraps disk operations in try/except to prevent crashes on write errors.
+        Saves CachedTweet objects to data/twitter_cache.pkl.
+        """
+        try:
+            # Ensure data directory exists
+            os.makedirs(os.path.dirname(self._cache_file_path), exist_ok=True)
+
+            # Save cache to disk
+            with self._cache_lock:
+                with open(self._cache_file_path, "wb") as f:
+                    pickle.dump(self._cache, f)
+
+            total_tweets = sum(len(e.tweets) for e in self._cache.values())
+            file_size_kb = os.path.getsize(self._cache_file_path) / 1024
+            logging.info(
+                f"🐦 [PERSISTENCE] Saved {len(self._cache)} accounts, "
+                f"{total_tweets} tweets to disk ({file_size_kb:.1f} KB)"
+            )
+
+        except (OSError, IOError) as e:
+            logging.error(f"🐦 [PERSISTENCE] Failed to write cache file: {e}")
+        except pickle.PickleError as e:
+            logging.error(f"🐦 [PERSISTENCE] Failed to pickle cache: {e}")
+        except Exception as e:
+            logging.error(f"🐦 [PERSISTENCE] Unexpected error saving cache: {e}")
 
     @property
     def is_fresh(self) -> bool:
@@ -438,6 +542,9 @@ class TwitterIntelCache:
             f"{stats['total_tweets_cached']} tweets cached "
             f"({stats['duration_seconds']:.1f}s)"
         )
+
+        # V10.5: Save cache to disk after refresh
+        self._save_to_disk()
 
         return stats
 
@@ -1024,6 +1131,138 @@ class TwitterIntelCache:
                 f"🐦 [TAVILY] Recovery complete: {stats['recovered']} accounts, "
                 f"{stats['tweets_recovered']} tweets recovered"
             )
+
+        # V10.5: Try NitterPool as third-tier fallback if Tavily also fails
+        if stats["recovered"] == 0 and stats["failed"] > 0:
+            nitter_stats = self._nitter_recover_tweets_batch(failed_handles, keywords)
+            stats["recovered"] += nitter_stats.get("recovered", 0)
+            stats["tweets_recovered"] += nitter_stats.get("tweets_recovered", 0)
+
+        return stats
+
+    def _nitter_recover_tweets_batch(
+        self, handles: list[str], keywords: list[str] | None = None, max_results: int = 5
+    ) -> dict[str, Any]:
+        """
+        V10.5: Batch recover tweets via NitterPool when Gemini/Tavily fail.
+
+        Uses NitterPool to fetch tweets directly from Nitter instances.
+        This is the third-tier fallback after Gemini (primary) and Tavily (secondary).
+
+        V10.5: Applies TweetRelevanceFilter for precision gating - only caches
+        tweets that are relevant (injuries, suspensions) and filters out
+        positive news (recoveries) and excluded sports.
+
+        Args:
+            handles: List of Twitter handles to recover
+            keywords: Optional keywords to filter results
+            max_results: Maximum number of tweets to recover per handle
+
+        Returns:
+            Dict with recovery statistics
+        """
+        try:
+            from src.services.nitter_pool import get_nitter_pool
+
+            pool = get_nitter_pool()
+            stats = {"recovered": 0, "failed": 0, "tweets_recovered": 0}
+
+            logging.info(f"🐦 [NITTER] Attempting recovery for {len(handles)} handles...")
+
+            for handle in handles:
+                try:
+                    # V10.5 FIX: Use nest_asyncio to avoid event loop conflict
+                    # when called from within an already-running asyncio.run() in main.py
+                    import asyncio
+
+                    import nest_asyncio
+
+                    # Apply nest_asyncio to allow nested event loops
+                    nest_asyncio.apply()
+                    tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
+
+                    if tweets_data:
+                        # V10.5: Apply TweetRelevanceFilter for precision gating
+                        filter_instance = _get_tweet_relevance_filter()
+
+                        # Convert to CachedTweet format and filter
+                        cached_tweets = []
+                        for tweet in tweets_data[:max_results]:
+                            content = tweet.get("content", "")
+
+                            # Apply relevance filter if available
+                            if filter_instance:
+                                relevance_result = filter_instance.analyze(content)
+
+                                # Only process/cache tweets where is_relevant is True
+                                if not relevance_result["is_relevant"]:
+                                    logging.debug(
+                                        f"🐦 [FILTER] Skipped irrelevant tweet: {content[:50]}... "
+                                        f"(score: {relevance_result['score']})"
+                                    )
+                                    continue
+
+                                # Update topics from filter analysis
+                                topics = relevance_result["topics"] or tweet.get("topics", [])
+                            else:
+                                # Fallback: use original topics if filter unavailable
+                                topics = tweet.get("topics", [])
+
+                            cached_tweets.append(
+                                CachedTweet(
+                                    handle=f"@{handle.lstrip('@')}",
+                                    date=tweet.get("published_at", ""),
+                                    content=content,
+                                    topics=topics,
+                                    raw_data={"source": "nitter", "url": tweet.get("url", "")},
+                                )
+                            )
+
+                        # Find account info
+                        account_info = self._find_account_info(handle)
+
+                        # Create/update cache entry
+                        entry = TwitterIntelCacheEntry(
+                            handle=handle,
+                            account_name=account_info.name if account_info else handle,
+                            league_focus=account_info.focus if account_info else "unknown",
+                            tweets=cached_tweets,
+                            last_refresh=datetime.now(timezone.utc),
+                            extraction_success=True,
+                            error_message=None,
+                        )
+
+                        with self._cache_lock:
+                            handle_key = self._normalize_handle(handle)
+                            self._cache[handle_key] = entry
+
+                        stats["recovered"] += 1
+                        stats["tweets_recovered"] += len(cached_tweets)
+                        logging.debug(
+                            f"✅ [NITTER] Recovered {len(cached_tweets)} tweets for @{handle}"
+                        )
+                    else:
+                        stats["failed"] += 1
+                        logging.debug(f"⚠️ [NITTER] No tweets found for @{handle}")
+
+                except Exception as e:
+                    stats["failed"] += 1
+                    logging.error(f"❌ [NITTER] Recovery failed for @{handle}: {e}")
+
+            if stats["recovered"] > 0:
+                logging.info(
+                    f"🐦 [NITTER] Recovery complete: {stats['recovered']} accounts, "
+                    f"{stats['tweets_recovered']} tweets recovered"
+                )
+
+            return stats
+
+        except ImportError:
+            logging.warning("⚠️ [NITTER] NitterPool not available - skipping Nitter recovery")
+            return {"recovered": 0, "failed": len(handles), "tweets_recovered": 0}
+        except Exception as e:
+            logging.error(f"❌ [NITTER] Batch recovery failed: {e}")
+            return {"recovered": 0, "failed": len(handles), "tweets_recovered": 0}
 
         return stats
 

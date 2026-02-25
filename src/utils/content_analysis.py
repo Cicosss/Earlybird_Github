@@ -965,6 +965,77 @@ class RelevanceAnalyzer:
         "eliminó",
     ]
 
+    # SQUAD/LINEUP KEYWORDS - V1.10: Centralized from image_ocr.py, telegram_listener.py, squad_analyzer.py
+    # These keywords indicate squad lists, lineups, or team announcements
+    # All keywords are lowercase for consistent matching
+    SQUAD_KEYWORDS = [
+        # English
+        "squad",
+        "lineup",
+        "team",
+        "starting",
+        "bench",
+        "absent",
+        "injured",
+        "suspended",
+        "out",
+        "missing",
+        "available",
+        "list",
+        "xi",
+        "formation",
+        "line up",
+        "start",
+        "starting xi",
+        "injury",
+        "injured",
+        "ruled out",
+        "doubtful",
+        "11",
+        # Italian
+        "formazione",
+        "titolari",
+        "panchina",
+        "assenti",
+        "indisponibili",
+        "convocati",
+        # Turkish
+        "kadro",
+        "ilk",
+        "yedek",
+        "sakat",
+        "cezali",
+        "eksik",
+        "ilk 11",
+        "kadrosu",
+        "sakatlik",
+        # Portuguese
+        "escalacao",
+        "titulares",
+        "reservas",
+        "desfalques",
+        "relacionados",
+        # Spanish
+        "alineacion",
+        "titulares",
+        "suplentes",
+        "bajas",
+        "convocados",
+        # Polish
+        "sklad",
+        "podstawowy",
+        "rezerwowi",
+        "kontuzjowani",
+        # Romanian
+        "echipa",
+        "titulari",
+        "rezerve",
+        "absenti",
+        "convocati",
+        "convocados",
+        "skład",
+    ]
+
     def __init__(self):
         """Initialize with compiled regex patterns for efficiency."""
         self._injury_pattern = self._compile_pattern(self.INJURY_KEYWORDS)
@@ -973,6 +1044,7 @@ class RelevanceAnalyzer:
         self._cup_pattern = self._compile_pattern(self.CUP_ABSENCE_KEYWORDS)
         self._youth_pattern = self._compile_pattern(self.YOUTH_CALLUP_KEYWORDS)
         self._general_sports_pattern = self._compile_pattern(self.GENERAL_SPORTS_KEYWORDS)
+        self._squad_pattern = self._compile_pattern(self.SQUAD_KEYWORDS)
 
     def _compile_pattern(self, keywords: list[str]) -> re.Pattern:
         """

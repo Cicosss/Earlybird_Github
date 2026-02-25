@@ -793,6 +793,7 @@ class SearchProvider:
 
         V4.5: Removed Serper from chain (HTTP 400 due to long queries with
         sport exclusions + site dorking exceeding Serper's ~2048 char limit).
+        V10.0: Added warning for Twitter/X queries (Twitter blocks indexing).
 
         Rate limiting is handled by centralized HTTP client.
         Fingerprint rotation on 403/429 errors.
@@ -801,6 +802,13 @@ class SearchProvider:
         if not query or len(query.strip()) < 3:
             logger.warning(f"⚠️ Empty or too short query skipped: '{query}'")
             return []
+
+        # V10.0: Warn about Twitter/X queries (will fail)
+        if "site:twitter.com" in query or "site:x.com" in query:
+            logger.warning(
+                "⚠️ Twitter/X site: queries will fail (Twitter blocks indexing since mid-2023). "
+                "Use TwitterIntelCache instead for Twitter data."
+            )
 
         # Layer 0: Brave Search (Primary - Quality + Stability)
         try:
@@ -862,21 +870,8 @@ class SearchProvider:
 
         return self.search(news_query, num_results)
 
-    def search_twitter(self, query: str, num_results: int = 5) -> list[dict]:
-        """Search Twitter/X content.
-
-        DEPRECATED V7.0: This method returns 0 results because Twitter/X
-        blocked search engine indexing in mid-2023. Use TwitterIntelCache
-        instead for Twitter data.
-
-        Kept for backward compatibility but will always return empty results.
-        """
-        logger.warning(
-            "⚠️ search_twitter() is DEPRECATED - Twitter blocks indexing. "
-            "Use TwitterIntelCache instead."
-        )
-        twitter_query = f"{query} site:twitter.com OR site:x.com"
-        return self.search(twitter_query, num_results)
+    # V10.0: search_twitter() removed - Twitter blocks search engine indexing since mid-2023.
+    # Use TwitterIntelCache instead for Twitter data.
 
     def search_local_news(
         self,

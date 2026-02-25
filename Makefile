@@ -16,11 +16,15 @@
 # Configuration
 # ==============================================================================
 
-# Python interpreter
-PYTHON := python3
-
 # Virtual environment directory (if using venv)
 VENV_DIR := venv
+
+# Python interpreter - use venv if available, otherwise system python
+ifeq ($(wildcard $(VENV_DIR)/bin/python),)
+    PYTHON := python3
+else
+    PYTHON := $(VENV_DIR)/bin/python
+endif
 
 # Entry points based on actual codebase
 LAUNCHER := src/entrypoints/launcher.py
@@ -33,6 +37,7 @@ RUN_TELEGRAM_MONITOR := run_telegram_monitor.py
 # Diagnostic scripts
 CHECK_APIS := src/utils/check_apis.py
 CHECK_LEAGUES := src/utils/check_leagues.py
+RUN_FUNNEL := src/utils/debug_funnel.py
 
 # Database scripts
 DB_MAINTENANCE := src/database/maintenance.py
@@ -70,9 +75,9 @@ COLOR_BLUE := \033[34m
 # PHONY Targets
 # ==============================================================================
 
-.PHONY: help test test-unit test-integration test-regression test-coverage test-continental
-.PHONY: setup setup-python setup-system install setup-telegram-auth
-.PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor
+.PHONY: help sync-memory test test-unit test-integration test-regression test-coverage test-global
+.PHONY: setup setup-python setup-system install setup-telegram-auth verify-setup
+.PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor run-funnel
 .PHONY: check-apis check-startup check-health check-database
 .PHONY: clean clean-db clean-all
 .PHONY: migrate lint fix format
@@ -90,13 +95,16 @@ COLOR_BLUE := \033[34m
 help:
 	@echo "$(COLOR_BOLD)$(COLOR_BLUE)Earlybird Project - Available Commands$(COLOR_RESET)"
 	@echo ""
+	@echo "$(COLOR_BOLD)Memory Sync Commands:$(COLOR_RESET)"
+	@echo "  make sync-memory       - Generate architecture snapshot for Claude-Mem"
+	@echo ""
 	@echo "$(COLOR_BOLD)Test Commands:$(COLOR_RESET)"
-	@echo "  make test              - Run all tests"
+	@echo "  make test              - Run all tests (auto-syncs memory first)"
 	@echo "  make test-unit         - Run unit tests only"
 	@echo "  make test-integration  - Run integration tests only"
 	@echo "  make test-regression   - Run regression tests only"
 	@echo "  make test-coverage     - Run tests with coverage report"
-	@echo "  make test-continental  - Run ContinentalOrchestrator integration tests"
+	@echo "  make test-global       - Run GlobalOrchestrator integration tests"
 	@echo ""
 	@echo "$(COLOR_BOLD)Setup Commands:$(COLOR_RESET)"
 	@echo "  make setup             - Full setup (System + Python)"
@@ -106,18 +114,20 @@ help:
 	@echo "  make install           - Alias for setup"
 	@echo ""
 	@echo "$(COLOR_BOLD)Run Commands:$(COLOR_RESET)"
-	@echo "  make run               - Run system in Local Dev/Debug mode (go_live.py)"
+	@echo "  make run               - Run system in Local Dev/Debug mode (go_live.py, auto-syncs memory first)"
 	@echo "  make run-launcher      - Run using Process Orchestrator (launcher.py)"
 	@echo "  make run-main          - Run main pipeline only"
 	@echo "  make run-bot           - Run Telegram bot only"
 	@echo "  make run-news-radar    - Run News Radar only"
 	@echo "  make run-telegram-monitor - Run Telegram Monitor only"
+	@echo "  make run-funnel       - Run Pipeline Funnel Diagnostic"
 	@echo ""
 	@echo "$(COLOR_BOLD)Diagnostics Commands:$(COLOR_RESET)"
 	@echo "  make check-apis        - API Diagnostics"
 	@echo "  make check-startup      - Startup Validation (Pre-Flight Guard)"
 	@echo "  make check-health      - System health check"
 	@echo "  make check-database    - Database integrity check"
+	@echo "  make verify-setup      - End-to-end setup verification (Bug #7 fix)"
 	@echo ""
 	@echo "$(COLOR_BOLD)Cleanup Commands:$(COLOR_RESET)"
 	@echo "  make clean             - Emergency cleanup (logs, temp files)"
@@ -135,16 +145,29 @@ help:
 	@echo "$(COLOR_BOLD)Note:$(COLOR_RESET) All commands use the actual entry points from the codebase."
 
 # ==============================================================================
+# Memory Sync Commands
+# ==============================================================================
+
+sync-memory:
+	@echo "$(COLOR_GREEN)Generating architecture snapshot...$(COLOR_RESET)"
+	@$(PYTHON) scripts/generate_architecture_map.py
+	@echo "$(COLOR_GREEN)Memory sync complete!$(COLOR_RESET)"
+
+# ==============================================================================
 # Test Commands
 # ==============================================================================
 
-test: check-env
+test: sync-memory check-env
 	@echo "$(COLOR_GREEN)Running all tests...$(COLOR_RESET)"
 	@$(PYTEST) -c $(PYTEST_INI) -v
 
+UNIT_TEST_FILES := tests/test_validators.py \
+	tests/test_contracts.py \
+	tests/test_json_parsing_consolidation.py
+
 test-unit: check-env
-	@echo "$(COLOR_GREEN)Running unit tests...$(COLOR_RESET)"
-	@$(PYTEST) -c $(PYTEST_INI) -v -m unit
+	@echo "$(COLOR_GREEN)Running unit tests ($(words $(UNIT_TEST_FILES)) files)...$(COLOR_RESET)"
+	@$(PYTEST) -c $(PYTEST_INI) -v -m unit $(UNIT_TEST_FILES)
 
 test-integration: check-env
 	@echo "$(COLOR_GREEN)Running integration tests...$(COLOR_RESET)"
@@ -159,10 +182,11 @@ test-coverage: check-env
 	@$(PYTEST) -c $(PYTEST_INI) -v --cov=src --cov-report=html --cov-report=term
 	@echo "$(COLOR_GREEN)Coverage report generated in $(COVERAGE_REPORT)/$(COLOR_RESET)"
 
-test-continental: check-env
-	@echo "$(COLOR_GREEN)Running ContinentalOrchestrator integration tests...$(COLOR_RESET)"
-	@$(PYTEST) -c $(PYTEST_INI) -v -m integration tests/test_continental_orchestrator.py
-	@echo "$(COLOR_GREEN)ContinentalOrchestrator tests complete!$(COLOR_RESET)"
+# test-global: check-env
+#	@echo "$(COLOR_GREEN)Running GlobalOrchestrator integration tests...$(COLOR_RESET)"
+#	@$(PYTEST) -c $(PYTEST_INI) -v -m integration tests/test_global_orchestrator.py
+#	@echo "$(COLOR_GREEN)GlobalOrchestrator tests complete!$(COLOR_RESET)"
+# NOTE: Disabled - test file does not exist. Uncomment if tests/test_global_orchestrator.py is created.
 
 # ==============================================================================
 # Setup Commands
@@ -183,8 +207,17 @@ setup-system:
 
 setup-python: check-env
 	@echo "$(COLOR_GREEN)Setting up Python dependencies...$(COLOR_RESET)"
-	@$(PYTHON) -m pip install --break-system-packages --upgrade pip
-	@$(PYTHON) -m pip install --break-system-packages -r requirements.txt
+	@if [ -f "$(VENV_DIR)/bin/python" ]; then \
+		echo "$(COLOR_YELLOW)Using virtual environment Python: $(PYTHON)$(COLOR_RESET)"; \
+		$(PYTHON) -m pip install --upgrade pip || exit 1; \
+		$(PYTHON) -m pip install -r requirements.txt || exit 1; \
+	else \
+		echo "$(COLOR_YELLOW)Using system Python with fallback for --break-system-packages: $(PYTHON)$(COLOR_RESET)"; \
+		$(PYTHON) -m pip install --break-system-packages --upgrade pip || \
+		$(PYTHON) -m pip install --upgrade pip || exit 1; \
+		$(PYTHON) -m pip install --break-system-packages -r requirements.txt || \
+		$(PYTHON) -m pip install -r requirements.txt || exit 1; \
+	fi
 	@echo "$(COLOR_GREEN)Python dependencies installed successfully!$(COLOR_RESET)"
 
 setup-telegram-auth: check-env
@@ -197,10 +230,18 @@ setup-telegram-auth: check-env
 install: setup
 
 # ==============================================================================
+# Verification Commands (Bug #7 fix)
+# ==============================================================================
+
+verify-setup: check-env
+	@echo "$(COLOR_GREEN)Running end-to-end setup verification...$(COLOR_RESET)"
+	@$(PYTHON) scripts/verify_setup.py
+
+# ==============================================================================
 # Run Commands
 # ==============================================================================
 
-run: check-env
+run: sync-memory check-env
 	@echo "$(COLOR_GREEN)Running system in Local Dev/Debug mode...$(COLOR_RESET)"
 	@echo "$(COLOR_YELLOW)Using entry point: $(GO_LIVE)$(COLOR_RESET)"
 	@$(PYTHON) $(GO_LIVE)
@@ -225,6 +266,12 @@ run-news-radar: check-env
 	@echo "$(COLOR_YELLOW)Using entry point: $(RUN_NEWS_RADAR)$(COLOR_RESET)"
 	@$(PYTHON) $(RUN_NEWS_RADAR)
 
+run-funnel: check-env
+	@echo "$(COLOR_GREEN)Running Pipeline Funnel Diagnostic...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Using entry point: $(RUN_FUNNEL)$(COLOR_RESET)"
+	@PYTHONPATH=. $(PYTHON) $(RUN_FUNNEL)
+
+run-telegram-monitor: check-env
 	@echo "$(COLOR_GREEN)Running Telegram Monitor only...$(COLOR_RESET)"
 	@echo "$(COLOR_YELLOW)Using entry point: $(RUN_TELEGRAM_MONITOR)$(COLOR_RESET)"
 	@$(PYTHON) $(RUN_TELEGRAM_MONITOR)

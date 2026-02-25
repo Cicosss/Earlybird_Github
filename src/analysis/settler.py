@@ -793,6 +793,13 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
                 # Priority 2: Use closing_odds (legacy fallback)
                 elif match_data.get("closing_odds") and match_data["closing_odds"] > 1.0:
                     bet_odds = match_data["closing_odds"]
+                    # V8.3 COVE FIX: Log warning when odds_at_alert is NULL but alert was sent
+                    if match_data.get("sent") and not match_data.get("odds_at_alert"):
+                        logger.warning(
+                            f"⚠️ V8.3: odds_at_alert is NULL for sent alert (ID: {match_data.get('news_log_id')}). "
+                            f"Using legacy closing_odds for ROI: {bet_odds:.2f}. "
+                            f"Market: {match_data.get('recommended_market')}"
+                        )
                     logger.debug(f"📊 V8.3: Using closing_odds (legacy) for ROI: {bet_odds:.2f}")
                 # Priority 3: Use current odds (fallback)
                 else:
@@ -819,6 +826,17 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
                         )
 
                     if bet_odds:
+                        # V8.3 COVE FIX: Log warning when odds_at_alert is NULL but alert was sent
+                        if (
+                            match_data.get("sent")
+                            and not match_data.get("odds_at_alert")
+                            and not match_data.get("closing_odds")
+                        ):
+                            logger.warning(
+                                f"⚠️ V8.3: odds_at_alert and closing_odds are NULL for sent alert (ID: {match_data.get('news_log_id')}). "
+                                f"Using current odds fallback for ROI: {bet_odds:.2f}. "
+                                f"Market: {match_data.get('recommended_market')}"
+                            )
                         logger.debug(
                             f"📊 V8.3: Using current odds (fallback) for ROI: {bet_odds:.2f}"
                         )
@@ -826,9 +844,18 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
                 # Final fallback to default
                 if bet_odds is None:
                     bet_odds = DEFAULT_ODDS_GOALS
-                    logger.warning(
-                        f"⚠️ Odds not available for {match_data['home_team']} vs {match_data['away_team']}. Using default {DEFAULT_ODDS_GOALS}"
-                    )
+                    # V8.3 COVE FIX: Log warning when using default odds for sent alert
+                    if match_data.get("sent"):
+                        logger.warning(
+                            f"⚠️ V8.3: All odds sources NULL for sent alert (ID: {match_data.get('news_log_id')}). "
+                            f"Using default odds {DEFAULT_ODDS_GOALS} for ROI. "
+                            f"Market: {match_data.get('recommended_market')}, "
+                            f"Match: {match_data['home_team']} vs {match_data['away_team']}"
+                        )
+                    else:
+                        logger.warning(
+                            f"⚠️ Odds not available for {match_data['home_team']} vs {match_data['away_team']}. Using default {DEFAULT_ODDS_GOALS}"
+                        )
 
                 if outcome == RESULT_WIN:
                     stats["wins"] += 1

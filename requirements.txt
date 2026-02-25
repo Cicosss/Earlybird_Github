@@ -1,17 +1,17 @@
 # EarlyBird V6.0 - Headless Mode Dependencies
 # Core (pinned for stability)
 requests==2.32.3
-orjson>=3.9.0  # Rust-based JSON parser (3-10x faster than stdlib)
-uvloop>=0.19.0; sys_platform != 'win32'  # Rust-based event loop (Linux/macOS only)
+orjson>=3.11.7  # Rust-based JSON parser (3-10x faster than stdlib) - Updated for Scrapling (V11.0)
+uvloop==0.22.1; sys_platform != 'win32'  # Rust-based event loop (Linux/macOS only)
 python-dotenv==1.0.1
 sqlalchemy==2.0.36
 tenacity==9.0.0
-pydantic>=2.0.0
+pydantic==2.12.5
 python-dateutil==2.9.0  # For robust datetime parsing (timezone handling)
 thefuzz[speedup]==0.22.1  # Fuzzy string matching for team names (token_set_ratio)
 
 # AI/LLM
-openai>=1.0.0  # Used by Perplexity fallback (OpenAI-compatible API)
+openai==2.16.0  # Used by Perplexity fallback (OpenAI-compatible API)
 
 # Telegram
 telethon==1.37.0
@@ -21,47 +21,54 @@ pytesseract
 Pillow
 
 # Web Scraping
-beautifulsoup4
-lxml  # Fast C-based HTML parser (10x faster than html.parser)
+beautifulsoup4==4.12.3
+lxml>=6.0.2  # Fast C-based HTML parser (10x faster than html.parser) - Updated for Scrapling (V11.0)
 
 # HTTP Client (HTTPX - async/sync with connection pooling)
-httpx[http2]>=0.27.0  # HTTP/2 support, connection pooling, async
+httpx[http2]==0.28.1  # HTTP/2 support, connection pooling, async
+# aiohttp==3.10.11  # Async HTTP client for Nitter scraper (V10.5) - REPLACED with Scrapling for stealth
+
+# Anti-Bot Stealth Scraping (V11.0 - Scrapling Integration)
+scrapling==0.4  # Advanced web scraping with TLS fingerprint spoofing to bypass WAFs
+curl_cffi==0.14.0  # Underlying engine for TLS fingerprint impersonation
+browserforge==1.2.4  # Browser fingerprinting for stealth headers
 
 # Testing (Property-Based Testing)
-hypothesis>=6.0.0  # PBT for correctness properties
-pytest>=8.0.0  # Test framework (required for test monitor)
-pytest-asyncio>=1.3.0  # For running async tests
+hypothesis==6.151.4  # PBT for correctness properties
+pytest==9.0.2  # Test framework (required for test monitor)
+pytest-asyncio==1.3.0  # For running async tests
 
 # Code Quality (Ruff - Rust-powered linter/formatter)
-ruff>=0.1.0  # Fast Python linter and formatter (10-100x faster than alternatives)
+ruff==0.15.1  # Fast Python linter and formatter (10-100x faster than alternatives)
 
 # System Monitoring
-psutil
+psutil==6.0.0
 
 # Browser Automation (V7.0 - Stealth + Trafilatura)
-playwright>=1.40.0
-playwright-stealth>=1.0.6  # Anti-detection for Playwright (installed: 2.0.0)
-trafilatura>=1.6.0  # Clean article extraction (88-92% accuracy, installed: 2.0.0)
+playwright==1.48.0
+playwright-stealth==1.0.6  # Anti-detection for Playwright (installed: 2.0.0)
+trafilatura==1.12.0  # Clean article extraction (88-92% accuracy, installed: 2.0.0)
+htmldate==1.9.4  # Updated to support lxml>=5.3.0 (compatible with lxml>=6.0.2 for Scrapling V11.0)
 
 # Stats Dashboard
-matplotlib>=3.8.0
+matplotlib==3.10.8
 
 # Search (DuckDuckGo primary, Serper fallback)
-ddgs>=6.0
+ddgs==9.10.0
 
 # Google Gemini API (DEPRECATED - kept for backward compatibility)
-google-genai>=1.0.0
+google-genai==1.61.0
 
 # Timezone handling (Europe/Rome for alerts)
-pytz
+pytz==2024.1
 
-# V6.2: Optional async compatibility (for nested event loops)
-nest_asyncio>=1.5.0  # Allows nested asyncio.run() calls (used by Nitter fallback)
+# V6.2: Async compatibility (for nested event loops)
+nest_asyncio==1.6.0  # Allows nested asyncio.run() calls (used by Nitter fallback)
 
 # V8.2: Hybrid Verifier System Dependencies
 dataclasses>=0.6; python_version < '3.7'  # For dataclasses (Python 3.7+ has built-in)
-typing-extensions>=4.0.0  # Extended typing support
+typing-extensions==4.12.2  # Extended typing support
 
 # V9.0: Supabase Database Integration (New Intelligence Source)
-supabase>=2.0.0  # Official Supabase Python client
-postgrest>=0.10.0  # PostgREST client for Supabase
+supabase==2.27.3  # Official Supabase Python client
+postgrest==2.27.3  # PostgREST client for Supabase

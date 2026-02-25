@@ -208,6 +208,112 @@ def emergency_cleanup() -> dict:
     return stats
 
 
+def cleanup_stale_radar_triggers(timeout_minutes: int = 10, send_alert: bool = True) -> dict:
+    """
+    Cleanup stale radar triggers that have been in PENDING_RADAR_TRIGGER state for too long.
+
+    This prevents triggers from getting stuck if the Main Pipeline crashes during processing.
+
+    Args:
+        timeout_minutes: Maximum age in minutes before a trigger is considered stale (default: 10)
+        send_alert: Whether to send Telegram alert when stale triggers are found (default: True)
+
+    Returns:
+        Dict with cleanup stats: {'triggers_cleaned': X, 'triggers_failed': Y}
+    """
+    logger.info(f"🧹 Checking for stale radar triggers (timeout: {timeout_minutes} minutes)...")
+
+    stats = {"triggers_cleaned": 0, "triggers_failed": 0, "error": None}
+
+    db = SessionLocal()
+
+    try:
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+        logger.info(f"   📅 Cutoff time: {cutoff_time.strftime('%Y-%m-%d %H:%M')} UTC")
+
+        # Find stale triggers
+        stale_triggers = (
+            db.query(NewsLog)
+            .filter(NewsLog.status == "PENDING_RADAR_TRIGGER")
+            .filter(NewsLog.created_at < cutoff_time)
+            .all()
+        )
+
+        if not stale_triggers:
+            logger.info("   ✅ No stale radar triggers found.")
+            return stats
+
+        logger.info(f"   🔍 Found {len(stale_triggers)} stale trigger(s)...")
+
+        # Update each stale trigger
+        for trigger in stale_triggers:
+            try:
+                # Get match for logging
+                match = db.query(Match).filter(Match.id == trigger.match_id).first()
+                match_info = (
+                    f"{match.home_team} vs {match.away_team}"
+                    if match
+                    else f"Match ID {trigger.match_id}"
+                )
+
+                # Update trigger status to FAILED
+                trigger.status = "FAILED"
+                trigger.summary = (
+                    f"{trigger.summary} [STALE: Not processed within {timeout_minutes} minutes]"
+                )
+
+                logger.warning(
+                    f"   ⚠️ Stale radar trigger marked as FAILED: {match_info} "
+                    f"(age: {(datetime.now(timezone.utc) - trigger.created_at).total_seconds() / 60:.1f} minutes)"
+                )
+
+                stats["triggers_cleaned"] += 1
+
+            except Exception as e:
+                logger.error(f"   ❌ Failed to update stale trigger {trigger.id}: {e}")
+                stats["triggers_failed"] += 1
+
+        # Commit transaction
+        db.commit()
+
+        logger.info(
+            f"🧹 Stale radar triggers cleaned: {stats['triggers_cleaned']} marked as FAILED, "
+            f"{stats['triggers_failed']} errors"
+        )
+
+        # Send alert if stale triggers were found
+        if send_alert and stats["triggers_cleaned"] > 0:
+            try:
+                from src.alerting.notifier import send_status_message
+
+                alert_message = (
+                    f"🚨 <b>STALE RADAR TRIGGERS DETECTED</b>\n\n"
+                    f"• Cleaned: {stats['triggers_cleaned']} stale trigger(s)\n"
+                    f"• Timeout: {timeout_minutes} minutes\n"
+                    f"• Failed updates: {stats['triggers_failed']}\n\n"
+                    f"⚠️ This may indicate Main Pipeline crashes or performance issues."
+                )
+                send_status_message(alert_message)
+                logger.info("   📢 Alert sent to Telegram about stale radar triggers")
+            except ImportError:
+                logger.warning("   ⚠️ Could not import send_status_message for alerting")
+            except Exception as e:
+                logger.error(f"   ❌ Failed to send alert: {e}")
+
+    except Exception as e:
+        logger.error(f"❌ Error during stale radar trigger cleanup: {e}")
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            logger.error(f"❌ Rollback failed: {rollback_error}")
+        stats["error"] = str(e)
+
+    finally:
+        db.close()
+
+    return stats
+
+
 if __name__ == "__main__":
     # Test maintenance directly
     logging.basicConfig(level=logging.INFO, format="%(message)s")

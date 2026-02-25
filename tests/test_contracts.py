@@ -23,6 +23,9 @@ from typing import Any
 
 import pytest
 
+# Mark all tests in this file as unit tests
+pytestmark = pytest.mark.unit
+
 from src.utils.contracts import (
     ALERT_PAYLOAD_CONTRACT,
     ALL_CONTRACTS,
@@ -624,7 +627,3 @@ class TestContractEdgeCases:
         valid_analysis_result["score"] = 8
         is_valid, errors = ANALYSIS_RESULT_CONTRACT.validate(valid_analysis_result)
         assert is_valid, f"Score int causa errore: {errors}"
-
-
-# Marker per test di contratto
-pytestmark = pytest.mark.contract

@@ -1,6 +1,6 @@
 """
-EarlyBird Analysis Engine (V1.0)
-=================================
+EarlyBird Analysis Engine
+========================
 
 This module acts as the "brain" of the EarlyBird system, orchestrating
 all match-level analysis and AI triangulation logic.
@@ -9,13 +9,23 @@ Extracted from src/main.py as part of the modular refactoring initiative.
 This module understands match context and coordinates intelligence gathering
 from multiple sources.
 
+Historical Version: V1.0
+
 Author: Refactored by Lead Architect
 Date: 2026-02-09
+Updated: 2026-02-23 (Centralized Version Tracking)
 """
 
 import logging
 from datetime import datetime, timezone
 from typing import Any
+
+# Import centralized version tracking
+from src.version import get_version_with_module
+
+# Log version on import
+logger = logging.getLogger(__name__)
+logger.info(f"📦 {get_version_with_module('Analysis Engine')}")
 
 # Configuration
 from config.settings import (
@@ -36,6 +46,11 @@ from src.analysis.verification_layer import (
     create_verification_request_from_match,
     should_verify_alert,
     verify_alert,
+)
+from src.analysis.verifier_integration import (
+    build_alert_data_for_verifier,
+    build_context_data_for_verifier,
+    verify_alert_before_telegram,
 )
 
 # Database
@@ -761,7 +776,9 @@ class AnalysisEngine:
             label = f"[{context_label}] " if context_label else ""
 
             # Check if verification is needed for this alert
-            if not should_verify_alert(analysis.score, analysis.recommended_market):
+            # COVE FIX: should_verify_alert() only accepts 1 argument (preliminary_score: float)
+            # Removed analysis.recommended_market parameter to fix TypeError
+            if not should_verify_alert(analysis.score):
                 return True, analysis.score, analysis.recommended_market, None
 
             # Create verification request
@@ -804,7 +821,14 @@ class AnalysisEngine:
     # ============================================
 
     def analyze_match(
-        self, match: Match, fotmob, now_utc: datetime, db_session, context_label: str = "TIER1"
+        self,
+        match: Match,
+        fotmob,
+        now_utc: datetime,
+        db_session,
+        context_label: str = "TIER1",
+        nitter_intel: str | None = None,
+        forced_narrative: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform complete match analysis with AI triangulation.
@@ -817,11 +841,16 @@ class AnalysisEngine:
         5. Performs fatigue analysis
         6. Detects biscotto scenarios
         7. Analyzes market intelligence
-        8. Hunts for news articles
+        8. Hunts for news articles (SKIP if forced_narrative present)
         9. Gathers Twitter intel
         10. Runs AI triangulation analysis
         11. Verifies alert before sending
         12. Sends alert if threshold met
+
+        BYPASS RULE (RADAR TRIGGER):
+        - If forced_narrative is present: SKIP Tavily/Brave searches
+        - Trust the Radar's intel and use forced_narrative as primary news source
+        - This saves API quota and prevents redundant searches
 
         Args:
             match: Match database object
@@ -829,6 +858,8 @@ class AnalysisEngine:
             now_utc: Current UTC time
             db_session: Database session for updates
             context_label: Label for logging (e.g., "TIER1", "TIER2", "RADAR")
+            nitter_intel: Optional Nitter intel string
+            forced_narrative: Optional forced narrative from News Radar (bypasses news hunting)
 
         Returns:
             Dict with analysis results including:
@@ -969,13 +1000,21 @@ class AnalysisEngine:
 
             # --- STEP 6: NEWS HUNTING (V4.0) ---
             # Search for relevant news articles
-
+            # BYPASS RULE: Skip if forced_narrative is present (Radar Trigger)
             news_articles = []
-            try:
-                news_articles = run_hunter_for_match(match=match, include_insiders=True)
-                self.logger.info(f"   📰 Found {len(news_articles)} relevant news articles")
-            except Exception as e:
-                self.logger.warning(f"⚠️ News hunting failed: {e}")
+            if forced_narrative:
+                # Use forced narrative from Radar instead of hunting
+                news_articles = [{"title": "RADAR INTEL", "snippet": forced_narrative, "url": None}]
+                self.logger.info(
+                    "   📰 Using forced narrative from News Radar (bypassing news hunting)"
+                )
+            else:
+                # Normal news hunting
+                try:
+                    news_articles = run_hunter_for_match(match=match, include_insiders=True)
+                    self.logger.info(f"   📰 Found {len(news_articles)} relevant news articles")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ News hunting failed: {e}")
 
             # --- STEP 7: TWITTER INTEL (V4.5) ---
             # Get Twitter intelligence
@@ -995,9 +1034,14 @@ class AnalysisEngine:
                 )
 
                 # Format Twitter intel for AI
+                # V10.5: Add Nitter intel to narrative if available
+                narrative_parts = []
+                if nitter_intel:
+                    narrative_parts.append(f"{nitter_intel}\n")
+                narrative_parts.append(f"Home: {home_injury_str}\nAway: {away_injury_str}")
                 twitter_intel_str = self.get_twitter_intel_for_ai(
                     match,
-                    official_data=f"Home: {home_injury_str}\nAway: {away_injury_str}",
+                    official_data="".join(narrative_parts),
                     context_label=context_label,
                 )
 
@@ -1019,6 +1063,19 @@ class AnalysisEngine:
                     referee_info=referee_info,
                 )
 
+                # --- V8.3 FIX: Save analysis_result to database BEFORE sending alert ---
+                # This creates the NewsLog record with all analysis data
+                if analysis_result:
+                    try:
+                        db_session.add(analysis_result)
+                        db_session.flush()  # Get the ID without committing yet
+                        self.logger.debug(
+                            f"✅ V8.3: Saved analysis_result to database (ID: {analysis_result.id})"
+                        )
+                    except Exception as e:
+                        self.logger.error(f"❌ V8.3: Failed to save analysis_result: {e}")
+                        # Continue anyway - don't block alert sending
+
                 # --- STEP 9: VERIFICATION LAYER (V7.0) ---
                 # Verify alert before sending
 
@@ -1034,7 +1091,56 @@ class AnalysisEngine:
                     )
                 )
 
-                # --- STEP 10: SEND ALERT (if threshold met) ---
+                # --- STEP 9.5: FINAL ALERT VERIFIER (EnhancedFinalVerifier) ---
+                # Final verification before sending to Telegram
+                final_verification_info = None
+                if should_send and analysis_result:
+                    try:
+                        # Build alert data for the final verifier
+                        alert_data = build_alert_data_for_verifier(
+                            match=match,
+                            analysis=analysis_result,
+                            news_summary=analysis_result.summary or "",
+                            news_url=analysis_result.url or "",
+                            score=final_score,
+                            recommended_market=final_market,
+                            combo_suggestion=analysis_result.combo_suggestion,
+                            reasoning=analysis_result.summary,  # Use summary as reasoning (NewsLog doesn't have separate reasoning field)
+                        )
+
+                        # Build context data with verification layer results
+                        context_data = build_context_data_for_verifier(
+                            verification_info=verification_result.to_dict()
+                            if verification_result
+                            else None,
+                        )
+
+                        # Run final verification
+                        should_send_final, final_verification_info = verify_alert_before_telegram(
+                            match=match,
+                            analysis=analysis_result,
+                            alert_data=alert_data,
+                            context_data=context_data,
+                        )
+
+                        # Update should_send based on final verifier result
+                        if not should_send_final:
+                            self.logger.warning(
+                                f"❌ Alert blocked by Final Verifier: {final_verification_info.get('reason', 'Unknown reason')}"
+                            )
+                            should_send = False
+                        else:
+                            self.logger.info(
+                                f"✅ Alert passed Final Verifier (status: {final_verification_info.get('status', 'unknown')})"
+                            )
+
+                    except Exception as e:
+                        self.logger.error(f"❌ Final Verifier error: {e}")
+                        # Fail-safe: allow alert to proceed if verifier fails
+                        should_send = should_send  # Keep original decision
+                        final_verification_info = {"status": "error", "reason": str(e)}
+
+                # --- STEP 10: SEND ALERT (if threshold met AND verification passed) ---
                 if should_send and final_score >= ALERT_THRESHOLD_HIGH:
                     self.logger.info(f"🚨 ALERT: {final_score:.1f}/10 - {final_market}")
 
@@ -1046,6 +1152,7 @@ class AnalysisEngine:
                         is_convergent = getattr(analysis_result, "is_convergent", False)
                         convergence_sources = getattr(analysis_result, "convergence_sources", None)
 
+                        # V8.3 FIX: Pass analysis_result to send_alert_wrapper so it can update with odds_at_alert
                         send_alert_wrapper(
                             match=match,
                             score=final_score,
@@ -1062,8 +1169,11 @@ class AnalysisEngine:
                             biscotto_result=biscotto_result,
                             market_intel=market_intel,
                             verification_result=verification_result,
+                            final_verification_info=final_verification_info,  # BUG #1 FIX: Pass final verifier results
                             is_convergent=is_convergent,
                             convergence_sources=convergence_sources,
+                            analysis_result=analysis_result,  # V8.3: Pass NewsLog object for updating
+                            db_session=db_session,  # V8.3: Pass db_session for updating
                         )
 
                         result["alert_sent"] = True

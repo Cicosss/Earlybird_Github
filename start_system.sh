@@ -68,6 +68,19 @@ fi
 echo ""
 
 # ============================================
+# STEP 1.5: Memory Sync Pre-Flight Check
+# ============================================
+echo -e "${YELLOW}🧠 [1.5/4] Syncing AI Memory with Codebase...${NC}"
+if make sync-memory > /dev/null 2>&1; then
+    echo -e "${GREEN}   ✅ AI Memory Synced Successfully${NC}"
+else
+    echo -e "${RED}❌ Memory sync failed!${NC}"
+    echo -e "${YELLOW}   Esegui 'make sync-memory' per dettagli.${NC}"
+    exit 1
+fi
+echo ""
+
+# ============================================
 # STEP 2: Gestione Sessione
 # ============================================
 echo -e "${YELLOW}🔄 [2/4] Preparazione Tmux Dashboard...${NC}"

@@ -1,6 +1,7 @@
 import logging
 
 from src.analysis.image_ocr import extract_player_names, process_squad_image
+from src.utils.content_analysis import RelevanceAnalyzer
 
 
 def get_top_key_players(team_name: str, count: int = 3) -> list[dict]:
@@ -40,29 +41,26 @@ def analyze_squad_list(image_url: str, team_name: str, match_id: str) -> dict | 
     Returns:
         Alert dict if critical player missing, None otherwise
     """
-    # Keywords that indicate an official squad list
-    SQUAD_KEYWORDS = [
-        "KADRO",  # Turkish
-        "SQUAD",  # English
-        "FORMAZIONE",  # Italian
-        "SKŁAD",  # Polish
-        "CONVOCAȚI",  # Romanian
-        "CONVOCADOS",  # Spanish
-        "LINEUP",
-        "STARTING XI",
-        "11",
-    ]
+    # Keywords that indicate an official squad list - centralized from RelevanceAnalyzer
+    SQUAD_KEYWORDS = RelevanceAnalyzer.SQUAD_KEYWORDS
 
     try:
         # Step 1: Extract text from image
-        ocr_text = process_squad_image(image_url)
+        # V5.0: Construct channel_info for contextual trust bypass
+        # Since we know the team_name, create a synthetic channel_info
+        channel_info = {
+            "type": "team",
+            "team": team_name,
+        }
+        ocr_text = process_squad_image(image_url, channel_info=channel_info)
 
         if not ocr_text:
             logging.warning("No text extracted from squad image")
             return None
 
         # Step 2: Check if it's actually a squad list
-        is_squad_list = any(keyword in ocr_text for keyword in SQUAD_KEYWORDS)
+        ocr_text_lower = ocr_text.lower()
+        is_squad_list = any(keyword in ocr_text_lower for keyword in SQUAD_KEYWORDS)
 
         if not is_squad_list:
             logging.info("Image doesn't appear to be a squad list")
@@ -104,8 +102,8 @@ def analyze_squad_list(image_url: str, team_name: str, match_id: str) -> dict | 
         missing_players = []
 
         for key_player in key_players:
-            # Check if player's surname appears in the OCR text
-            if key_player not in ocr_text:
+            # Check if player's surname appears in the OCR text (case-insensitive)
+            if key_player.lower() not in ocr_text_lower:
                 missing_players.append(key_player)
                 logging.warning(f"🚨 KEY PLAYER MISSING: {key_player}")
 

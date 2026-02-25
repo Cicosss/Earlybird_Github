@@ -1,16 +1,48 @@
-2026-02-16 13:10:40,509 - INFO - ==================================================
-2026-02-16 13:10:40,509 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
-2026-02-16 13:10:40,509 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
-2026-02-16 13:10:40,510 - INFO - ==================================================
-2026-02-16 13:10:40,518 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
-2026-02-16 13:10:40,518 - INFO - ✅ Database initialized
-2026-02-16 13:10:40,589 - INFO - Connecting to 149.154.167.51:443/TcpFull...
-2026-02-16 13:10:42,300 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
-2026-02-16 13:10:43,381 - INFO - Phone migrated to 4
-2026-02-16 13:10:43,381 - INFO - Reconnecting to new data center 4
-2026-02-16 13:10:43,555 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
-2026-02-16 13:10:43,558 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
-2026-02-16 13:10:43,558 - INFO - Connecting to 149.154.167.92:443/TcpFull...
-2026-02-16 13:10:45,404 - INFO - Connection to 149.154.167.92:443/TcpFull complete!
-2026-02-16 13:10:47,437 - INFO - ✅ Command handlers registrati
-2026-02-16 13:10:47,437 - INFO - ✅ Bot connesso e in ascolto...
+2026-02-24 21:51:03,987 - INFO - ==================================================
+2026-02-24 21:51:03,988 - INFO - 🤖 EARLYBIRD TELEGRAM BOT STARTING...
+2026-02-24 21:51:03,988 - INFO - ⚡ uvloop enabled (Rust-powered event loop)
+2026-02-24 21:51:03,988 - INFO - ==================================================
+2026-02-24 21:51:03,994 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-02-24 21:51:03,994 - INFO - ✅ Database initialized
+2026-02-24 21:51:04,091 - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2026-02-24 21:51:05,713 - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2026-02-24 21:51:06,075 - INFO - Phone migrated to 4
+2026-02-24 21:51:06,076 - INFO - Reconnecting to new data center 4
+2026-02-24 21:51:06,154 - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2026-02-24 21:51:06,155 - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2026-02-24 21:51:06,155 - INFO - Connecting to 149.154.167.91:443/TcpFull...
+2026-02-24 21:51:07,719 - INFO - Connection to 149.154.167.91:443/TcpFull complete!
+2026-02-24 21:51:08,046 - INFO - ✅ Command handlers registrati
+2026-02-24 21:51:08,047 - INFO - ✅ Bot connesso e in ascolto...
+2026-02-24 21:55:28,840 - INFO - 🔍 /debug da 8671309443
+2026-02-24 21:55:29,125 - INFO - ✅ Debug log inviato
+2026-02-24 21:55:36,349 - INFO - ✅ /ping da 8671309443
+2026-02-24 21:55:41,109 - INFO - 📊 /stat da 8671309443
+2026-02-24 21:55:41,475 - INFO - 🎨 Generating stats dashboard...
+2026-02-24 21:55:44,837 - INFO - 📊 Stats dashboard saved to temp/stats_dashboard.png
+2026-02-24 21:55:44,839 - INFO - Uploading file of 76671 bytes in 1 chunks of 131072
+2026-02-24 21:55:45,371 - INFO - ✅ Dashboard inviata
+2026-02-24 21:55:45,372 - INFO - 🔄 /status da 8671309443
+2026-02-24 21:55:45,372 - INFO - ✅ TwitterIntelCache available for DeepSeek Twitter extraction
+2026-02-24 21:55:45,373 - INFO - 🔑 BraveKeyRotator V1.0 initialized with 3 keys
+2026-02-24 21:55:45,373 - INFO - 📊 Brave BudgetManager initialized: 6000 calls/month, 6 components
+2026-02-24 21:55:45,373 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-02-24 21:55:45,373 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-02-24 21:55:45,373 - INFO - ✅ Brave Search API V4.0 initialized with key rotation and budget management
+2026-02-24 21:55:45,375 - INFO - 🔑 MediaStackKeyRotator V1.0 initialized with 4 keys
+2026-02-24 21:55:45,378 - INFO - 📊 MediaStack BudgetManager initialized: 0 calls/month, 1 components
+2026-02-24 21:55:45,378 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-02-24 21:55:45,378 - INFO - ✅ MediastackProvider V1.0 initialized with circuit breaker (with shared cache, HTTPS)
+2026-02-24 21:55:45,378 - INFO - 🔍 SearchProvider initialized (Brave Primary + DDG/Serper/Mediastack Fallback)
+2026-02-24 21:55:45,378 - INFO - 🤖 DeepSeek Intel Provider initialized (OpenRouter + DDG/Brave Search)
+2026-02-24 21:55:45,378 - INFO -    Model A (Standard): deepseek/deepseek-chat
+2026-02-24 21:55:45,378 - INFO -    Model B (Reasoner): deepseek/deepseek-r1-0528:free
+2026-02-24 21:55:45,378 - INFO - 🔮 Perplexity Provider initialized (Fallback)
+2026-02-24 21:55:45,379 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-02-24 21:55:45,379 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-02-24 21:55:45,379 - INFO - 📊 Tavily BudgetManager initialized: 7000 calls/month, 6 components
+2026-02-24 21:55:45,379 - INFO - 🔀 IntelligenceRouter V7.0 initialized (DeepSeek primary, Tavily enabled, Perplexity fallback)
+2026-02-24 21:55:45,379 - INFO - 🌐 [BROWSER-MONITOR] V7.8 Created (Thread-safe state management)
+2026-02-24 21:55:45,511 - INFO - ✅ Status inviato
+2026-02-24 21:55:57,328 - INFO - 🔍 /debug da 8671309443
+2026-02-24 21:55:57,576 - INFO - ✅ Debug log inviato

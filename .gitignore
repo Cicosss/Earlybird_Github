@@ -17,3 +17,7 @@ build/
 *.egg-info/
 .vscode/
 .idea/
+
+# Telegram Session Files
+*.session
+*.session-journal

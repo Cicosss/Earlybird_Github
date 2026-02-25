@@ -4421,6 +4421,14 @@ This section documents the configuration and settings management for EarlyBird V
 
 ---
 
+### 15.1.4 Architecture Memory Synchronization
+
+**Note**: Architecture memory is automatically synchronized from VXplain during [`make run`](Makefile), [`make test`](Makefile), and [`./start_system.sh`](start_system.sh) operations.
+
+This ensures that the system architecture documentation and configuration remain consistent with the VXplain knowledge base before any system execution.
+
+---
+
 ### 15.2 Environment Variables
 
 **Implementation**: `.env` file

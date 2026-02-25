@@ -160,9 +160,18 @@ Questo significa che anche senza la sessione utente, il monitor funziona al 50% 
 
 Per il deploy su VPS:
 
+**Metodo 1: Setup locale e copia sessione (raccomandato)**
 1. Esegui `make setup-telegram-auth` localmente per creare la sessione
 2. Copia il file `data/earlybird_monitor.session` sulla VPS
 3. Assicurati che le credenziali TELEGRAM_API_ID e TELEGRAM_API_HASH siano nel file `.env` della VPS
+
+**Metodo 2: Setup diretto su VPS**
+1. Deploya il codice sulla VPS
+2. Esegui `python3 setup_telegram_auth.py` sulla VPS
+3. Inserisci il codice OTP ricevuto su Telegram quando richiesto
+4. Il file `data/earlybird_monitor.session` verrà creato automaticamente
+
+⚠️ **IMPORTANTE**: La sessione Telegram è OBBLIGATORIA per il funzionamento del Telegram Monitor. Senza la sessione, il monitor Telegram non funzionerà e perderai la funzionalità di insider intel dai canali privati.
 
 Per dettagli completi, vedi [`TELEGRAM_SESSION_SETUP.md`](TELEGRAM_SESSION_SETUP.md:1).
 
@@ -872,9 +881,12 @@ python3 setup_telegram_auth.py
 
 Questo comando (V8.3):
 1. Esegue **Pre-Flight Checks** (`make check-env`, `make test-unit`)
-2. Apre tmux con due pannelli affiancati:
+2. Sincronizza automaticamente l'architettura della memoria da VXplain
+3. Apre tmux con due pannelli affiancati:
    - **Sinistra**: Process Orchestrator (`make run-launcher`)
    - **Destra**: Health Monitor (`make run-monitor`)
+
+> **Nota**: L'architettura della memoria viene sincronizzata automaticamente da VXplain durante le operazioni `make run`, `make test` e `./start_system.sh`.
 
 ```
 ┌─────────────────────────────┬─────────────────────────────┐

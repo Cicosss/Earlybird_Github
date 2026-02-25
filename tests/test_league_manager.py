@@ -13,6 +13,9 @@ import sys
 
 import pytest
 
+# Mark all tests in this file as unit tests
+pytestmark = pytest.mark.unit
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.ingestion.league_manager import (

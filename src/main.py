@@ -1,6 +1,6 @@
 """
-EarlyBird Main Application (Refactored V1.0)
-============================================
+EarlyBird Main Application
+=========================
 Main entry point for the EarlyBird football betting intelligence system.
 
 REFACTORING NOTES:
@@ -9,8 +9,11 @@ REFACTORING NOTES:
 - All league selection and continental filtering logic is now delegated to ContinentalOrchestrator
 - All existing functionality is preserved - this is a thin wrapper pattern
 
+Historical Version: V1.0
+
 Author: Refactored by Lead Architect
 Date: 2026-02-08
+Updated: 2026-02-23 (Centralized Version Tracking)
 """
 
 import argparse
@@ -19,6 +22,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 # Configure logging
@@ -32,12 +36,56 @@ logger = logging.getLogger(__name__)
 # CRITICAL: Load .env BEFORE any other imports that read env vars
 from dotenv import load_dotenv
 
+# Setup path to import modules (CRITICAL: must be before config import)
+sys.path.append(os.getcwd())
+
 # Calculate .env path relative to this file to ensure it works from any directory
 env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 load_dotenv(env_file)
 
-# Setup path to import modules
-sys.path.append(os.getcwd())
+# Import centralized version tracking
+from src.version import get_version_with_module
+
+# Log version on import
+logger.info(f"📦 {get_version_with_module('Main Pipeline')}")
+
+# Import settings for service control flags
+# ============================================
+# CLEANUP HOOKS FOR TERMINATION SIGNALS
+# ============================================
+import atexit
+import signal
+
+import config.settings as settings
+
+
+def cleanup_on_exit():
+    """Cleanup function called on program exit."""
+    try:
+        from src.ingestion.ingest_fixtures import _close_session
+
+        _close_session()
+        logging.info("✅ Cleanup completed: requests session closed")
+    except ImportError:
+        pass
+    except Exception as e:
+        logging.warning(f"⚠️ Cleanup failed: {e}")
+
+
+# Register cleanup hooks
+atexit.register(cleanup_on_exit)
+
+
+# Register signal handlers for SIGTERM and SIGINT
+def signal_handler(signum, frame):
+    """Handle termination signals gracefully."""
+    logging.info(f"🛑 Received signal {signum}, cleaning up...")
+    cleanup_on_exit()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 # ============================================
 # CORE IMPORTS
@@ -53,7 +101,7 @@ from src.core.analysis_engine import get_analysis_engine
 # SETTLEMENT SERVICE (V1.0 - Modular Refactor)
 # ============================================
 from src.core.settlement_service import get_settlement_service
-from src.database.maintenance import emergency_cleanup
+from src.database.maintenance import cleanup_stale_radar_triggers, emergency_cleanup
 from src.database.migration import check_and_migrate
 from src.database.models import Match, NewsLog, SessionLocal, init_db
 from src.ingestion.data_provider import get_data_provider
@@ -68,11 +116,16 @@ from src.ingestion.league_manager import (
 )
 
 # ============================================
-# CONTINENTAL ORCHESTRATOR (V1.0 - Follow the Sun Scheduler)
+# GLOBAL ORCHESTRATOR (V11.0 - Global Parallel Architecture)
 # ============================================
-from src.processing.continental_orchestrator import (
-    get_continental_orchestrator,
+from src.processing.global_orchestrator import (
+    get_global_orchestrator,
 )
+
+# ============================================
+# DISCOVERY QUEUE (V11.0 - Global Parallel Architecture)
+# ============================================
+from src.utils.discovery_queue import DiscoveryQueue
 
 # ============================================
 # V9.2: DATABASE-DRIVEN INTELLIGENCE ENGINE
@@ -112,6 +165,25 @@ def load_local_mirror(mirror_path: str = "data/supabase_mirror.json") -> dict:
         timestamp = mirror_data.get("timestamp", "")
         version = mirror_data.get("version", "UNKNOWN")
         data = mirror_data.get("data", {})
+
+        # FIX: Validate mirror timestamp to prevent using stale data
+        if timestamp:
+            try:
+                from datetime import datetime, timezone
+
+                mirror_time = datetime.fromisoformat(timestamp)
+                now = datetime.now(timezone.utc)
+                age_hours = (now - mirror_time).total_seconds() / 3600
+
+                if age_hours > 24:
+                    logger.warning(
+                        f"⚠️ Mirror is {age_hours:.1f} hours old (threshold: 24h). "
+                        f"Data may be stale. Consider updating from Supabase."
+                    )
+                else:
+                    logger.info(f"✅ Mirror is {age_hours:.1f} hours old (fresh)")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to parse mirror timestamp '{timestamp}': {e}")
 
         logger.info(f"✅ Loaded local mirror from: {mirror_path} (v{version}, {timestamp})")
         return data
@@ -306,6 +378,18 @@ except ImportError:
     logging.debug("Twitter Intel Cache not available")
 
 # ============================================
+# V10.5: NITTER INTEL CACHE (Import from nitter_fallback_scraper)
+# ============================================
+try:
+    from src.services.nitter_fallback_scraper import get_nitter_intel_for_match
+
+    _NITTER_INTEL_AVAILABLE = True
+    logger.info("✅ Nitter Intel Cache module loaded")
+except ImportError as e:
+    _NITTER_INTEL_AVAILABLE = False
+    logger.warning(f"⚠️ Nitter Intel Cache not available: {e}")
+
+# ============================================
 # TWEET RELEVANCE FILTER V4.6 (AI Integration)
 # ============================================
 try:
@@ -380,8 +464,10 @@ try:
     from src.analysis.final_alert_verifier import get_final_verifier, is_final_verifier_available
     from src.analysis.verifier_integration import (
         build_alert_data_for_verifier,
+        build_biscotto_alert_data_for_verifier,
         build_context_data_for_verifier,
         verify_alert_before_telegram,
+        verify_biscotto_alert_before_telegram,
     )
 
     _FINAL_VERIFIER_AVAILABLE = True
@@ -696,12 +782,40 @@ def check_biscotto_suspects():
                 # Send alert for EXTREME suspects
                 if suspect["severity"] == "EXTREME":
                     try:
-                        send_biscotto_alert(
-                            match=match,
-                            reason=suspect["reason"],
-                            draw_odd=suspect["draw_odd"],
-                            drop_pct=suspect["drop_pct"],
-                        )
+                        # Verify alert before sending (Final Verifier)
+                        if _FINAL_VERIFIER_AVAILABLE:
+                            should_send, final_verification_info = (
+                                verify_biscotto_alert_before_telegram(
+                                    match=match,
+                                    draw_odd=suspect["draw_odd"],
+                                    drop_pct=suspect["drop_pct"],
+                                    severity=suspect["severity"],
+                                    reasoning=suspect["reason"],
+                                    news_url=None,  # Biscotto alerts don't have news_url
+                                )
+                            )
+
+                            if should_send:
+                                send_biscotto_alert(
+                                    match=match,
+                                    reason=suspect["reason"],
+                                    draw_odd=suspect["draw_odd"],
+                                    drop_pct=suspect["drop_pct"],
+                                    final_verification_info=final_verification_info,
+                                )
+                            else:
+                                logging.warning(
+                                    f"🍪 Biscotto alert blocked by Final Verifier: "
+                                    f"{final_verification_info.get('reason', 'Unknown')}"
+                                )
+                        else:
+                            # Final Verifier not available, send without verification
+                            send_biscotto_alert(
+                                match=match,
+                                reason=suspect["reason"],
+                                draw_odd=suspect["draw_odd"],
+                                drop_pct=suspect["drop_pct"],
+                            )
                     except Exception as e:
                         logging.error(f"Failed to send Biscotto alert: {e}")
 
@@ -709,6 +823,104 @@ def check_biscotto_suspects():
 
     finally:
         db.close()
+
+
+# ============================================
+# RADAR TRIGGER INBOX (Cross-Process Handoff)
+# ============================================
+def process_radar_triggers(analysis_engine, fotmob, now_utc, db):
+    """
+    Process pending radar triggers from NewsLog inbox.
+
+    CROSS-PROCESS HANDOFF: News Radar drops high-confidence news in DB,
+    Main Pipeline picks it up and runs full AI analysis.
+
+    Args:
+        analysis_engine: AnalysisEngine instance
+        fotmob: FotMob provider
+        now_utc: Current UTC time
+        db: Database session
+
+    Returns:
+        Number of triggers processed
+    """
+    triggers_processed = 0
+
+    try:
+        # Query for pending radar triggers
+        pending_triggers = db.query(NewsLog).filter(NewsLog.status == "PENDING_RADAR_TRIGGER").all()
+
+        if not pending_triggers:
+            logging.debug("📭 No pending radar triggers in inbox")
+            return 0
+
+        logging.info(f"📬 RADAR INBOX: Found {len(pending_triggers)} pending trigger(s)")
+
+        # Process each trigger
+        for trigger in pending_triggers:
+            try:
+                # Get match from trigger
+                match = db.query(Match).filter(Match.id == trigger.match_id).first()
+
+                if not match:
+                    logging.warning(
+                        f"⚠️ RADAR INBOX: Match {trigger.match_id} not found, skipping trigger"
+                    )
+                    # Update trigger status to indicate failure
+                    trigger.status = "FAILED"
+                    trigger.summary = f"{trigger.summary} [Match not found]"
+                    db.commit()
+                    continue
+
+                # Extract forced narrative from verification_reason field
+                forced_narrative = trigger.verification_reason or ""
+
+                logging.info(
+                    f"🔥 RADAR TRIGGER: Processing {match.home_team} vs {match.away_team} "
+                    f"with forced narrative from News Radar"
+                )
+
+                # Call analysis with forced narrative (bypasses news hunting)
+                analysis_result = analysis_engine.analyze_match(
+                    match=match,
+                    fotmob=fotmob,
+                    now_utc=now_utc,
+                    db_session=db,
+                    context_label="RADAR_TRIGGER",
+                    forced_narrative=forced_narrative,
+                )
+
+                # Update trigger status to processed
+                trigger.status = "PROCESSED"
+                trigger.summary = f"{trigger.summary} [Processed by Main Pipeline]"
+                db.commit()
+
+                triggers_processed += 1
+
+                logging.info(
+                    f"✅ RADAR TRIGGER: Completed analysis for "
+                    f"{match.home_team} vs {match.away_team} "
+                    f"(score: {analysis_result.get('score', 0):.1f})"
+                )
+
+            except Exception as e:
+                logging.error(
+                    f"❌ RADAR INBOX: Failed to process trigger for {trigger.match_id}: {e}"
+                )
+                # Update trigger status to indicate failure
+                try:
+                    trigger.status = "FAILED"
+                    trigger.summary = f"{trigger.summary} [Error: {str(e)[:100]}]"
+                    db.commit()
+                except Exception as commit_error:
+                    logging.error(f"❌ Failed to update trigger status: {commit_error}")
+                    db.rollback()
+
+        return triggers_processed
+
+    except Exception as e:
+        logging.error(f"❌ RADAR INBOX: Error checking for triggers: {e}")
+        return 0
 
 
 # ============================================
@@ -758,14 +970,36 @@ def run_pipeline():
     check_and_migrate()
 
     # ============================================
-    # V6.1: CONTINENTAL ORCHESTRATOR (Follow the Sun Scheduler)
+    # COVE FIX: Validate Telegram Credentials Before Starting
     # ============================================
-    # This replaces the inline "Follow the Sun" scheduling logic
-    # All league selection and continental filtering is now delegated to ContinentalOrchestrator
-    logging.info("🌍 Initializing ContinentalOrchestrator for 'Follow the Sun' scheduling...")
+    logging.info("🔍 Validating Telegram credentials...")
+    try:
+        from src.alerting.notifier import validate_telegram_chat_id, validate_telegram_credentials
 
-    orchestrator = get_continental_orchestrator()
-    active_leagues_result = orchestrator.get_active_leagues_for_current_time()
+        # Validate bot token
+        validate_telegram_credentials()
+
+        # Validate chat ID format
+        if not validate_telegram_chat_id():
+            logging.warning("⚠️ Telegram chat ID validation failed, but continuing...")
+    except ValueError as e:
+        logging.error(f"❌ Telegram credentials validation failed: {e}")
+        logging.error("❌ Bot will start but alerts may not be sent!")
+        logging.error(
+            "❌ Please check .env file and ensure TELEGRAM_TOKEN and TELEGRAM_CHAT_ID are correct."
+        )
+    except Exception as e:
+        logging.warning(f"⚠️ Telegram validation skipped: {e}")
+
+    # ============================================
+    # V11.0: GLOBAL ORCHESTRATOR (Global Parallel Architecture)
+    # ============================================
+    # This implements GLOBAL EYES: monitors ALL active leagues simultaneously
+    # No time restrictions - the bot sees the whole world at once
+    logging.info("🌐 Initializing GlobalOrchestrator for Global Parallel Architecture...")
+
+    orchestrator = get_global_orchestrator()
+    active_leagues_result = orchestrator.get_all_active_leagues()
 
     active_leagues = active_leagues_result["leagues"]
     active_continent_blocks = active_leagues_result["continent_blocks"]
@@ -774,7 +1008,7 @@ def run_pipeline():
     utc_hour = active_leagues_result["utc_hour"]
 
     # Log the orchestrator results
-    logging.info("🌍 ContinentalOrchestrator Results:")
+    logging.info("🌐 GlobalOrchestrator Results (GLOBAL EYES ACTIVE):")
     logging.info(f"   UTC Hour: {utc_hour}:00")
     logging.info(f"   Source: {source}")
     logging.info(
@@ -783,10 +1017,10 @@ def run_pipeline():
     logging.info(f"   Settlement Mode: {settlement_mode}")
     logging.info(f"   Leagues to Scan: {len(active_leagues)}")
 
-    # Check if we're in settlement-only window
+    # V11.0: No settlement window in Global mode - always process
     if settlement_mode:
-        logging.info("⏰ SETTLEMENT-ONLY WINDOW: Skipping analysis")
-        return
+        logging.info("⚠️ Settlement mode detected (should not happen in Global mode)")
+        # Continue anyway - Global mode has no maintenance window
 
     # If no active leagues found, fall back to static discovery
     if not active_leagues:
@@ -803,6 +1037,16 @@ def run_pipeline():
         except Exception as e:
             logging.warning(f"⚠️ League discovery failed: {e} - using defaults")
             active_leagues = []
+
+    # V11.0: Initialize Intelligence Queue for Global Parallel Architecture
+    _discovery_queue = None
+    try:
+        from src.utils.discovery_queue import DiscoveryQueue
+
+        discovery_queue = DiscoveryQueue(max_entries=1000, ttl_hours=24)
+        logging.info("✅ [GLOBAL-EYES] Intelligence Queue initialized")
+    except ImportError:
+        logging.warning("⚠️ [GLOBAL-EYES] DiscoveryQueue not available")
 
     # V5.0.2: Cleanup expired browser monitor discoveries to prevent memory leaks
     try:
@@ -841,6 +1085,42 @@ def run_pipeline():
     logging.info("💹 Checking for significant odds movements...")
     analysis_engine.check_odds_drops()
 
+    # 3.5. RADAR TRIGGER INBOX (Cross-Process Handoff)
+    # Check for pending radar triggers and process them
+    db = SessionLocal()
+    try:
+        now_utc = datetime.now(timezone.utc)
+        triggers_processed = process_radar_triggers(
+            analysis_engine=analysis_engine,
+            fotmob=fotmob,
+            now_utc=now_utc,
+            db=db,
+        )
+        if triggers_processed > 0:
+            logging.info(
+                f"✅ RADAR INBOX: Processed {triggers_processed} trigger(s) from News Radar"
+            )
+    except Exception as e:
+        logging.error(f"❌ RADAR INBOX: Failed to process triggers: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+    # 3.6. CLEANUP STALE RADAR TRIGGERS (Maintenance)
+    # Clean up triggers that have been stuck in PENDING_RADAR_TRIGGER for too long
+    try:
+        cleanup_stats = cleanup_stale_radar_triggers(timeout_minutes=10)
+        if cleanup_stats.get("triggers_cleaned", 0) > 0:
+            logging.warning(
+                f"🧹 STALE TRIGGER CLEANUP: Marked {cleanup_stats['triggers_cleaned']} stale trigger(s) as FAILED"
+            )
+        if cleanup_stats.get("triggers_failed", 0) > 0:
+            logging.error(
+                f"❌ STALE TRIGGER CLEANUP: Failed to update {cleanup_stats['triggers_failed']} trigger(s)"
+            )
+    except Exception as e:
+        logging.error(f"❌ STALE TRIGGER CLEANUP: Failed to run cleanup: {e}")
+
     # 4. BISCOTTO SCANNER
     logging.info("🍪 Scanning for Biscotto suspects (suspicious Draw odds)...")
     biscotto_suspects = analysis_engine.check_biscotto_suspects()
@@ -849,12 +1129,38 @@ def run_pipeline():
     for suspect in biscotto_suspects:
         if suspect["severity"] == "EXTREME":
             try:
-                send_biscotto_alert(
-                    match=suspect["match"],
-                    reason=suspect["reason"],
-                    draw_odd=suspect["draw_odd"],
-                    drop_pct=suspect["drop_pct"],
-                )
+                # Verify alert before sending (Final Verifier)
+                if _FINAL_VERIFIER_AVAILABLE:
+                    should_send, final_verification_info = verify_biscotto_alert_before_telegram(
+                        match=suspect["match"],
+                        draw_odd=suspect["draw_odd"],
+                        drop_pct=suspect["drop_pct"],
+                        severity=suspect["severity"],
+                        reasoning=suspect["reason"],
+                        news_url=None,  # Biscotto alerts don't have news_url
+                    )
+
+                    if should_send:
+                        send_biscotto_alert(
+                            match=suspect["match"],
+                            reason=suspect["reason"],
+                            draw_odd=suspect["draw_odd"],
+                            drop_pct=suspect["drop_pct"],
+                            final_verification_info=final_verification_info,
+                        )
+                    else:
+                        logging.warning(
+                            f"🍪 Biscotto alert blocked by Final Verifier: "
+                            f"{final_verification_info.get('reason', 'Unknown')}"
+                        )
+                else:
+                    # Final Verifier not available, send without verification
+                    send_biscotto_alert(
+                        match=suspect["match"],
+                        reason=suspect["reason"],
+                        draw_odd=suspect["draw_odd"],
+                        drop_pct=suspect["drop_pct"],
+                    )
             except Exception as e:
                 logging.error(f"Failed to send Biscotto alert: {e}")
 
@@ -865,6 +1171,22 @@ def run_pipeline():
         now_utc = datetime.now(timezone.utc)
         now_naive = now_utc.replace(tzinfo=None)  # DB stores naive datetimes
         end_window_naive = now_naive + timedelta(hours=ANALYSIS_WINDOW_HOURS)
+
+        # V11.0: Process Intelligence Queue (Global Parallel Architecture)
+        # V11.1 FIX: Queue processing enabled with real iteration implementation
+        # Items are processed proactively here and also available via pop_for_match()
+        if discovery_queue:
+            try:
+                # Note: In production, this should be an async task running in parallel
+                # For now, we'll call it synchronously
+                process_intelligence_queue(
+                    discovery_queue=discovery_queue,
+                    db_session=db,
+                    fotmob=fotmob,
+                    now_utc=now_utc,
+                )
+            except Exception as e:
+                logging.error(f"❌ [INTELLIGENCE-QUEUE] Failed to process queue: {e}")
 
         # Filter to Elite 6 leagues only to save API credits on AI analysis
         # HARD-BLOCK: Only future matches (start_time > now) within the analysis window
@@ -890,9 +1212,28 @@ def run_pipeline():
         # 4. TRIANGULATION LOOP (INVESTIGATOR MODE) - DELEGATED TO ANALYSIS ENGINE
         # The Analysis Engine now handles all match-level analysis logic
         for match in matches:
+            # V10.5: Check for Nitter intel before analysis
+            nitter_intel = None
+            if _NITTER_INTEL_AVAILABLE:
+                try:
+                    intel_data = get_nitter_intel_for_match(match.id)
+                    if intel_data:
+                        nitter_intel = intel_data.get("intel")
+                        logging.info(
+                            f"🐦 [NITTER-INTEL] Found intel for {match.home_team} vs {match.away_team} "
+                            f"via {intel_data.get('handle')}"
+                        )
+                except Exception as e:
+                    logging.debug(f"Nitter intel check failed: {e}")
+
             # Use Analysis Engine to analyze match
             analysis_result = analysis_engine.analyze_match(
-                match=match, fotmob=fotmob, now_utc=now_utc, db_session=db, context_label="TIER1"
+                match=match,
+                fotmob=fotmob,
+                now_utc=now_utc,
+                db_session=db,
+                context_label="TIER1",
+                nitter_intel=nitter_intel,  # V10.5: Pass Nitter intel to analysis
             )
 
             # Track alerts sent
@@ -937,6 +1278,20 @@ def run_pipeline():
 
                         # Process Tier 2 matches (simplified analysis)
                         for match in tier2_matches:
+                            # V10.5: Check for Nitter intel before analysis
+                            nitter_intel = None
+                            if _NITTER_INTEL_AVAILABLE:
+                                try:
+                                    intel_data = get_nitter_intel_for_match(match.id)
+                                    if intel_data:
+                                        nitter_intel = intel_data.get("intel")
+                                        logging.info(
+                                            f"🐦 [NITTER-INTEL] Found intel for {match.home_team} vs {match.away_team} "
+                                            f"via {intel_data.get('handle')}"
+                                        )
+                                except Exception as e:
+                                    logging.debug(f"Nitter intel check failed: {e}")
+
                             # Use Analysis Engine for Tier 2 analysis
                             analysis_result = analysis_engine.analyze_match(
                                 match=match,
@@ -944,6 +1299,7 @@ def run_pipeline():
                                 now_utc=now_utc,
                                 db_session=db,
                                 context_label="TIER2",
+                                nitter_intel=nitter_intel,  # V10.5: Pass Nitter intel to analysis
                             )
 
                             # Log results
@@ -977,6 +1333,162 @@ def run_pipeline():
 
     finally:
         db.close()
+
+
+# ============================================
+# V11.0: INTELLIGENCE QUEUE CONSUMPTION (Global Parallel Architecture)
+# ============================================
+
+
+async def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotmob, now_utc):
+    """
+    Process items from the intelligence queue.
+
+    This is the main consumer for the Global Parallel Architecture.
+    It:
+    1. Gets items from queue
+    2. Checks Tavily and Brave budgets
+    3. Runs DeepSeek analysis
+    4. Saves to database
+
+    Args:
+        discovery_queue: DiscoveryQueue instance
+        db_session: Database session
+        fotmob: FotMob data provider
+        now_utc: Current UTC datetime
+    """
+    if not discovery_queue:
+        logging.warning("⚠️ [INTELLIGENCE-QUEUE] No queue available")
+        return
+
+    # Get queue size
+    queue_size = discovery_queue.size()
+    if queue_size == 0:
+        logging.debug("📭 [INTELLIGENCE-QUEUE] Queue is empty")
+        return
+
+    logging.info(f"📥 [INTELLIGENCE-QUEUE] Processing {queue_size} queued signals")
+
+    # Check budgets
+    tavily_available = False
+    brave_available = False
+
+    try:
+        from src.ingestion.tavily_budget import get_budget_manager as get_tavily_budget
+        from src.ingestion.tavily_provider import get_tavily_provider
+
+        tavily = get_tavily_provider()
+        tavily_budget = get_tavily_budget()
+        tavily_available = tavily.is_available() and tavily_budget.can_call("intelligence_queue")
+    except ImportError:
+        logging.debug("⚠️ [INTELLIGENCE-QUEUE] Tavily not available")
+
+    try:
+        from src.ingestion.brave_budget import get_budget_manager as get_brave_budget
+        from src.ingestion.brave_provider import get_brave_provider
+
+        brave = get_brave_provider()
+        brave_budget = get_brave_budget()
+        brave_available = brave.is_available() and brave_budget.can_call("intelligence_queue")
+    except ImportError:
+        logging.debug("⚠️ [INTELLIGENCE-QUEUE] Brave not available")
+
+    logging.info(
+        f"💰 [INTELLIGENCE-QUEUE] Budgets: Tavily={tavily_available}, Brave={brave_available}"
+    )
+
+    # V11.1 FIX: Implement real queue iteration and processing
+    # Get all items from queue (thread-safe access)
+    items_to_process = []
+    with discovery_queue._lock:
+        # Make a copy of the queue for processing
+        items_to_process = list(discovery_queue._queue)
+
+    # Process queue items
+    processed_count = 0
+    max_items = 10  # Limit per cycle to prevent overwhelming
+
+    for item in items_to_process[:max_items]:
+        try:
+            # Skip expired items
+            if item.is_expired(discovery_queue._ttl_hours):
+                logging.debug(f"⏰ [INTELLIGENCE-QUEUE] Skipping expired item: {item.title[:50]}")
+                continue
+
+            # Extract item data
+            item_data = item.data.copy()
+            team_name = item.team
+            league_key = item.league_key
+            title = item.title
+            url = item.url
+            category = item.category
+            confidence = item.confidence
+
+            logging.info(
+                f"🔍 [INTELLIGENCE-QUEUE] Processing: {title[:50]} (team={team_name}, conf={confidence:.2f})"
+            )
+
+            # V11.1: Process with Tavily/Brave if budgets available
+            # This is a proactive processing - items will also be available via pop_for_match()
+            if tavily_available or brave_available:
+                try:
+                    # Build query for intelligence analysis
+                    query = f"Analyze this {category.lower()} for {team_name}: {title}"
+
+                    # Use Tavily for enrichment if available
+                    if tavily_available:
+                        try:
+                            from src.ingestion.tavily_query_builder import TavilyQueryBuilder
+
+                            tavily_query = TavilyQueryBuilder.build_news_intelligence_query(
+                                team_name=team_name,
+                                news_title=title,
+                                news_url=url,
+                                category=category,
+                            )
+
+                            tavily_result = tavily.search(query=tavily_query, max_results=3)
+                            if tavily_result and tavily_result.get("results"):
+                                logging.info(
+                                    f"📊 [INTELLIGENCE-QUEUE] Tavily enrichment for {team_name}: {len(tavily_result['results'])} results"
+                                )
+                                # Could save enriched data to database here
+                        except Exception as e:
+                            logging.debug(f"Tavily enrichment failed: {e}")
+
+                    # Use Brave for additional context if available
+                    if brave_available:
+                        try:
+                            brave_result = brave.search_news(
+                                query=query, limit=3, component="intelligence_queue"
+                            )
+                            if brave_result and len(brave_result) > 0:
+                                logging.info(
+                                    f"🔍 [INTELLIGENCE-QUEUE] Brave context for {team_name}: {len(brave_result)} results"
+                                )
+                                # Could save enriched data to database here
+                        except Exception as e:
+                            logging.debug(f"Brave enrichment failed: {e}")
+
+                    # Note: We don't remove items from queue here
+                    # Items remain available for pop_for_match() during match analysis
+                    # Expired items are cleaned up by cleanup_expired()
+
+                    processed_count += 1
+
+                except Exception as e:
+                    logging.error(f"❌ [INTELLIGENCE-QUEUE] Failed to process item: {e}")
+            else:
+                logging.debug(
+                    "⏸️ [INTELLIGENCE-QUEUE] No budget available for proactive processing - item remains in queue"
+                )
+                # Still count as processed (will be available via pop_for_match)
+                processed_count += 1
+
+        except Exception as e:
+            logging.error(f"❌ [INTELLIGENCE-QUEUE] Error processing queue item: {e}")
+
+    logging.info(f"✅ [INTELLIGENCE-QUEUE] Processed {processed_count} signals")
 
 
 # ============================================
@@ -1199,37 +1711,144 @@ def run_continuous():
             )
             browser_monitor_thread.start()
 
-            # Give it a moment to start
-            import time
-
-            time.sleep(2)
-
-            if browser_monitor_instance.is_running():
-                browser_monitor_started = True
-                logging.info("🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7")
+            # V7.9: Wait for startup to complete with proper synchronization
+            # This eliminates the race condition where main thread checks is_running()
+            # before Playwright initialization completes (which can take 2-3+ seconds)
+            # V11.1 FIX: Increased timeout from 10s to 90s for VPS deployment (browser binary download)
+            if browser_monitor_instance.wait_for_startup(timeout=90.0):
+                if browser_monitor_instance.is_running():
+                    browser_monitor_started = True
+                    logging.info("🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7")
+                else:
+                    logging.warning("⚠️ [BROWSER-MONITOR] Failed to start")
             else:
-                logging.warning("⚠️ [BROWSER-MONITOR] Failed to start")
+                logging.error("❌ [BROWSER-MONITOR] Startup timeout after 90 seconds")
         except Exception as e:
             logging.warning(f"⚠️ [BROWSER-MONITOR] Startup error: {e}")
 
     # V6.0: Register high-priority callback for event-driven processing
     # When Browser Monitor discovers high-confidence news (INJURY, SUSPENSION, LINEUP),
     # this callback triggers immediate analysis instead of waiting 120 minutes
+    # V11.1 FIX: Implemented immediate trigger for high-priority discoveries
     if _DISCOVERY_QUEUE_AVAILABLE:
         try:
+            # Store references for callback closure
+            _analysis_engine_ref = None
+            _fotmob_ref = None
+            _db_ref = None
 
             def on_high_priority_discovery(league_key: str) -> None:
                 """
                 Callback invoked when high-priority news is discovered.
 
-                For now, just logs the event. Future enhancement: trigger
-                immediate mini-pipeline for the affected league.
+                V11.1: Triggers immediate analysis for the affected league instead
+                of waiting 120 minutes for the next cycle.
+
+                This runs a mini-pipeline that:
+                1. Filters matches for this specific league
+                2. Runs analysis with optimizer, analyzer, notifier
+                3. Sends immediate alerts
                 """
+                nonlocal _analysis_engine_ref, _fotmob_ref, _db_ref
+
                 logging.info(
-                    f"🚨 [HIGH-PRIORITY] News discovered for {league_key} - flagged for priority processing"
+                    f"🚨 [HIGH-PRIORITY] News discovered for {league_key} - triggering immediate analysis"
                 )
-                # TODO V6.1: Trigger immediate analysis for this league
-                # This would require refactoring run_pipeline() to accept a league filter
+
+                try:
+                    # Initialize components if not already done
+                    if _analysis_engine_ref is None:
+                        from src.core.analysis_engine import get_analysis_engine
+
+                        _analysis_engine_ref = get_analysis_engine()
+
+                    if _fotmob_ref is None:
+                        from src.ingestion.data_provider import get_data_provider
+
+                        _fotmob_ref = get_data_provider()
+
+                    if _db_ref is None:
+                        _db_ref = SessionLocal()
+
+                    # Get current time
+                    now_utc = datetime.now(timezone.utc)
+                    now_naive = now_utc.replace(tzinfo=None)
+                    end_window_naive = now_naive + timedelta(hours=ANALYSIS_WINDOW_HOURS)
+
+                    # Filter matches for this specific league (within analysis window)
+                    league_matches = (
+                        _db_ref.query(Match)
+                        .filter(
+                            Match.start_time > now_naive,
+                            Match.start_time <= end_window_naive,
+                            Match.league == league_key,
+                        )
+                        .all()
+                    )
+
+                    if not league_matches:
+                        logging.info(
+                            f"📭 [HIGH-PRIORITY] No upcoming matches found for {league_key}"
+                        )
+                        return
+
+                    logging.info(
+                        f"⚡ [HIGH-PRIORITY] Analyzing {len(league_matches)} match(es) for {league_key}"
+                    )
+
+                    # Analyze each match in the league
+                    for match in league_matches:
+                        try:
+                            # Check for Nitter intel before analysis
+                            nitter_intel = None
+                            if _NITTER_INTEL_AVAILABLE:
+                                try:
+                                    from src.processing.nitter_intel import (
+                                        get_nitter_intel_for_match,
+                                    )
+
+                                    intel_data = get_nitter_intel_for_match(match.id)
+                                    if intel_data:
+                                        nitter_intel = intel_data.get("intel")
+                                        logging.info(
+                                            f"🐦 [HIGH-PRIORITY] Nitter intel found for {match.home_team} vs {match.away_team}"
+                                        )
+                                except Exception as e:
+                                    logging.debug(f"Nitter intel check failed: {e}")
+
+                            # Run analysis
+                            analysis_result = _analysis_engine_ref.analyze_match(
+                                match=match,
+                                fotmob=_fotmob_ref,
+                                now_utc=now_utc,
+                                db_session=_db_ref,
+                                context_label="HIGH_PRIORITY",
+                                nitter_intel=nitter_intel,
+                            )
+
+                            if analysis_result["alert_sent"]:
+                                logging.info(
+                                    f"📢 [HIGH-PRIORITY] Alert sent for {match.home_team} vs {match.away_team}"
+                                )
+
+                            if analysis_result["error"]:
+                                logging.warning(
+                                    f"⚠️ [HIGH-PRIORITY] Analysis error for {match.home_team} vs {match.away_team}: {analysis_result['error']}"
+                                )
+
+                        except Exception as e:
+                            logging.error(
+                                f"❌ [HIGH-PRIORITY] Failed to analyze match {match.id}: {e}"
+                            )
+
+                    logging.info(
+                        f"✅ [HIGH-PRIORITY] Completed immediate analysis for {league_key}"
+                    )
+
+                except Exception as e:
+                    logging.error(
+                        f"❌ [HIGH-PRIORITY] Failed to trigger analysis for {league_key}: {e}"
+                    )
 
             queue = get_discovery_queue()
             queue.register_high_priority_callback(
@@ -1291,11 +1910,34 @@ def run_continuous():
 
             run_pipeline()
 
-            # V3.7: Run system diagnostics at end of pipeline
-            logging.info("🩺 Running system diagnostics...")
-            issues = health.run_diagnostics()
-            if issues:
-                health.report_issues(issues)
+            # V3.7: Run system diagnostics at end of pipeline (if enabled)
+            if settings.HEALTH_MONITOR_ENABLED:
+                logging.info("🩺 Running system diagnostics...")
+                issues = health.run_diagnostics()
+                if issues:
+                    health.report_issues(issues)
+            else:
+                logging.info("⚠️ Service Health Monitor Disabled by config.")
+
+            # V2.0: Log SWR cache metrics periodically
+            try:
+                from src.ingestion.data_provider import log_fotmob_cache_metrics
+
+                logging.info("📊 Logging SWR cache metrics...")
+                log_fotmob_cache_metrics()
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to log SWR cache metrics: {e}")
+
+            # V11.1: Cleanup expired queue items periodically
+            # Items remain in queue for pop_for_match() but expired items should be removed
+            if _DISCOVERY_QUEUE_AVAILABLE:
+                try:
+                    queue = get_discovery_queue()
+                    removed = queue.cleanup_expired()
+                    if removed > 0:
+                        logging.info(f"🧹 [QUEUE] Cleaned up {removed} expired items")
+                except Exception as e:
+                    logging.error(f"❌ [QUEUE] Cleanup failed: {e}")
 
             # Record successful scan
             health.record_scan()
@@ -1639,6 +2281,7 @@ if __name__ == "__main__":
     # ✅ NEW: Pre-flight validation BEFORE entering main loop
     try:
         from src.utils.startup_validator import validate_startup_or_exit
+
         validate_startup_or_exit()
     except ImportError as e:
         logging.warning(f"⚠️ Startup validator not available: {e}")

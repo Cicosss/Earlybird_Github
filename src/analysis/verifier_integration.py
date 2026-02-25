@@ -41,7 +41,11 @@ def verify_alert_before_telegram(
 
     if not is_final_verifier_available():
         logger.debug("Final verifier not available, proceeding with alert")
-        return True, {"status": "disabled", "reason": "Final verifier unavailable"}
+        return True, {
+            "status": "disabled",
+            "reason": "Final verifier unavailable",
+            "final_verifier": True,
+        }
 
     try:
         verifier = get_final_verifier()
@@ -305,3 +309,133 @@ def build_news_source_verification(
     )
 
     return verification_data
+
+
+# ============================================
+# BISCOTTO ALERT VERIFICATION
+# ============================================
+
+
+def build_biscotto_alert_data_for_verifier(
+    match: Match,
+    draw_odd: float,
+    drop_pct: float,
+    severity: str,
+    reasoning: str,
+    news_url: str | None = None,
+) -> dict:
+    """
+    Build alert data structure for Biscotto alerts verification.
+
+    Creates a compatible alert_data dictionary for the Final Verifier
+    using Biscotto detection data (suspicious Draw odds).
+
+    Args:
+        match: Match database object
+        draw_odd: Current draw odd value
+        drop_pct: Drop percentage from opening
+        severity: Severity level (LOW, MEDIUM, HIGH, EXTREME)
+        reasoning: Reason for biscotto suspicion
+        news_url: Optional news URL (may be None for biscotto alerts)
+
+    Returns:
+        Complete alert data dictionary compatible with Final Verifier
+    """
+    # Calculate score based on severity
+    if severity == "EXTREME":
+        score = 10
+    elif severity == "HIGH":
+        score = 8
+    elif severity == "MEDIUM":
+        score = 6
+    else:
+        score = 4
+
+    alert_data = {
+        "news_summary": reasoning,
+        "news_url": news_url or "",
+        "score": score,
+        "recommended_market": "DRAW",
+        "combo_suggestion": None,
+        "reasoning": reasoning,
+        "biscotto_data": {
+            "draw_odd": draw_odd,
+            "drop_pct": drop_pct,
+            "severity": severity,
+        },
+        "match": {
+            "home_team": match.home_team,
+            "away_team": match.away_team,
+            "league": match.league,
+            "start_time": match.start_time.isoformat() if match.start_time else None,
+            "opening_draw_odd": match.opening_draw_odd,
+            "current_draw_odd": match.current_draw_odd,
+        },
+        "analysis": {
+            "id": None,  # No NewsLog for biscotto alerts
+            "summary": reasoning,
+            "url": news_url or "",
+        },
+    }
+    return alert_data
+
+
+def verify_biscotto_alert_before_telegram(
+    match: Match,
+    draw_odd: float,
+    drop_pct: float,
+    severity: str,
+    reasoning: str,
+    news_url: str | None = None,
+) -> tuple[bool, dict]:
+    """
+    Verify Biscotto alert before sending to Telegram.
+
+    This function wraps the standard verify_alert_before_telegram()
+    to provide Final Verifier integration for Biscotto alerts.
+
+    Args:
+        match: Match database object
+        draw_odd: Current draw odd value
+        drop_pct: Drop percentage from opening
+        severity: Severity level
+        reasoning: Reason for biscotto suspicion
+        news_url: Optional news URL (may be None for biscotto alerts)
+
+    Returns:
+        Tuple of (should_send, final_verification_info)
+        - should_send: True if alert should be sent to Telegram
+        - final_verification_info: Verification result for logging/reporting
+    """
+    # Create dummy NewsLog object for compatibility with verify_alert_before_telegram()
+    # Note: This is a lightweight object, not saved to database
+    dummy_analysis = NewsLog(
+        match_id=match.id,
+        summary=reasoning,
+        url=news_url or "",
+        score=10 if severity == "EXTREME" else 8,
+        recommended_market="DRAW",
+    )
+
+    # Build alert data for verifier
+    alert_data = build_biscotto_alert_data_for_verifier(
+        match=match,
+        draw_odd=draw_odd,
+        drop_pct=drop_pct,
+        severity=severity,
+        reasoning=reasoning,
+        news_url=news_url,
+    )
+
+    # Build context data (empty for biscotto alerts)
+    context_data = {}
+
+    # Call the standard verifier
+    should_send, verification_info = verify_alert_before_telegram(
+        match=match,
+        analysis=dummy_analysis,
+        alert_data=alert_data,
+        context_data=context_data,
+    )
+
+    return should_send, verification_info

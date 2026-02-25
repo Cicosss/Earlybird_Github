@@ -17,15 +17,12 @@ VPS Compatibility:
 
 import logging
 import os
-import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Any
 
-import requests
-
-from config.settings import NATIVE_KEYWORDS, SERPER_API_KEY
+from config.settings import NATIVE_KEYWORDS  # SERPER_API_KEY removed - migrating to Brave
 from src.database.models import Match as MatchModel
 from src.database.models import SessionLocal, TeamAlias
 from src.processing.sources_config import (
@@ -41,9 +38,7 @@ from src.utils.validators import safe_dict_get
 # V10.0: Import Multi-Level Intelligence Gate
 try:
     from src.utils.intelligence_gate import (
-        apply_intelligence_gate,
         level_1_keyword_check,
-        level_2_translate_and_classify,
     )
 
     _INTELLIGENCE_GATE_AVAILABLE = True
@@ -174,7 +169,9 @@ def get_social_sources_from_supabase(league_key: str) -> list[str]:
                             handles.append(handle)
 
                     logging.info(
-                        f"📡 [SUPABASE] Fetched {len(handles)} social sources from Supabase for {league_key}"
+                        f"📡 [SUPABASE] Fetched {len(handles)}"
+                        f" social sources from Supabase"
+                        f" for {league_key}"
                     )
                     return handles
 
@@ -234,7 +231,9 @@ def get_news_sources_from_supabase(league_key: str) -> list[str]:
 
                 if domains:
                     logging.info(
-                        f"📡 [SUPABASE] Fetched {len(domains)} news sources from Supabase for {league_key}"
+                        f"📡 [SUPABASE] Fetched {len(domains)}"
+                        f" news sources from Supabase"
+                        f" for {league_key}"
                     )
                     return domains
                 else:
@@ -297,7 +296,9 @@ def get_beat_writers_from_supabase(league_key: str) -> list[BeatWriter]:
 
                 if beat_writers:
                     logging.info(
-                        f"📡 [SUPABASE] Fetched {len(beat_writers)} beat writers from Supabase for {league_key}"
+                        f"📡 [SUPABASE] Fetched"
+                        f" {len(beat_writers)} beat writers"
+                        f" from Supabase for {league_key}"
                     )
                     return beat_writers
 
@@ -331,16 +332,6 @@ _browser_monitor_lock = Lock()
 _BROWSER_MONITOR_TTL_HOURS = 24
 
 # ============================================
-# SERPER API CONFIGURATION (V7.1 - Centralized)
-# ============================================
-# Timeout and rate limiting constants for all Serper API calls.
-# Centralizing these allows easy tuning for network conditions.
-
-SERPER_REQUEST_TIMEOUT = 30  # Seconds - timeout for HTTP requests
-SERPER_RATE_LIMIT_DELAY = 0.3  # Seconds - delay between API calls (rate limiting)
-SERPER_RATE_LIMIT_DELAY_SLOW = 0.5  # Seconds - slower delay for generic search (less aggressive)
-
-# ============================================
 # FRESHNESS TAG (V7.0 - Centralized Module)
 # ============================================
 # Now uses src/utils/freshness.py as single source of truth
@@ -350,7 +341,6 @@ try:
     from src.utils.freshness import (
         FRESHNESS_AGING_THRESHOLD_MIN,
         FRESHNESS_FRESH_THRESHOLD_MIN,
-        calculate_minutes_old,
         get_freshness_tag,
     )
 
@@ -701,12 +691,6 @@ def get_browser_monitor_stats() -> dict:
         }
 
 
-SERPER_URL = "https://google.serper.dev/search"
-SERPER_NEWS_URL = "https://google.serper.dev/news"
-
-# Global flag to disable Serper when credits are exhausted
-_SERPER_CREDITS_EXHAUSTED = False
-
 # ============================================
 # DEEP DIVE ON DEMAND (V8.1)
 # ============================================
@@ -770,74 +754,16 @@ DEEP_DIVE_TRIGGERS = [
 ]
 
 
-def _check_serper_response(response, query: str = None) -> bool:
-    """
-    Check Serper response and set exhausted flag if needed.
-
-    V6.3: Enhanced logging for HTTP 400 errors to diagnose query issues.
-
-    Args:
-        response: requests.Response object
-        query: Optional query string for diagnostic logging
-
-    Returns:
-        True if response is OK (200), False otherwise
-    """
-    global _SERPER_CREDITS_EXHAUSTED
-
-    if response.status_code == 200:
-        return True
-
-    # V6.3: Enhanced error logging for diagnostics
+def _is_brave_available() -> bool:
+    """Check if Brave API is available."""
     try:
-        error_data = response.json()
-        error_message = error_data.get("message", "No message")
+        from src.ingestion.brave_provider import get_brave_provider
 
-        # Credit exhaustion
-        if "Not enough credits" in error_message:
-            if not _SERPER_CREDITS_EXHAUSTED:
-                logging.warning("⚠️ SERPER API: Credits exhausted! Switching to DDG if available.")
-                _SERPER_CREDITS_EXHAUSTED = True
-            return False
-
-        # V6.3: HTTP 400 - Bad Request (query issue)
-        if response.status_code == 400:
-            query_preview = (
-                (query[:100] + "...") if query and len(query) > 100 else (query or "N/A")
-            )
-            logging.warning(
-                f"⚠️ SERPER HTTP 400 (Bad Request): {error_message} | "
-                f"Query length: {len(query) if query else 0} | "
-                f"Query preview: {query_preview}"
-            )
-            return False
-
-        # V6.3: HTTP 429 - Rate limit
-        if response.status_code == 429:
-            logging.warning(f"⚠️ SERPER HTTP 429 (Rate Limit): {error_message}")
-            return False
-
-        # Other errors with message
-        logging.error(f"❌ SERPER HTTP {response.status_code}: {error_message}")
-
+        provider = get_brave_provider()
+        return provider.is_available()
     except Exception as e:
-        # V6.3: Log raw response text for non-JSON errors
-        response_preview = response.text[:200] if response.text else "Empty response"
-        logging.error(
-            f"❌ SERPER HTTP {response.status_code} (non-JSON): {response_preview} | "
-            f"Parse error: {e}"
-        )
-
-    return False
-
-
-def _is_serper_available() -> bool:
-    """Check if Serper API is available."""
-    if _SERPER_CREDITS_EXHAUSTED:
+        logging.debug(f"Brave availability check failed: {e}")
         return False
-    if not SERPER_API_KEY or "YOUR_SERPER_API_KEY" in SERPER_API_KEY:
-        return False
-    return True
 
 
 def _is_ddg_available() -> bool:
@@ -855,15 +781,15 @@ def _is_ddg_available() -> bool:
 def _get_search_backend() -> str:
     """Determine which search backend to use.
 
-    Returns: 'ddg', 'serper', or 'none'
+    Returns: 'brave', 'ddg', or 'none'
     """
-    # Priority 1: DuckDuckGo (free, native)
+    # Priority 1: Brave (high quality, stable, free)
+    if _is_brave_available():
+        return "brave"
+
+    # Priority 2: DuckDuckGo (free, native)
     if _is_ddg_available():
         return "ddg"
-
-    # Priority 2: Serper (paid, limited)
-    if _is_serper_available():
-        return "serper"
 
     return "none"
 
@@ -1049,7 +975,9 @@ EXOTIC_SEARCH_STRATEGIES = {
         "strategies": [
             {
                 "name": "nikkansports",
-                "template": "site:nikkansports.com {team_name} (injury OR lineup OR 怪我 OR スタメン)",
+                "template": (
+                    "site:nikkansports.com {team_name} (injury OR lineup OR 怪我 OR スタメン)"
+                ),
                 "search_type": "news",
                 "description": "Nikkan Sports - official + tabloid",
                 "priority": 1,
@@ -1320,7 +1248,7 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> l
     Automatically detects country from league key and searches
     country-specific domains with native + English keywords.
 
-    V6.1: Now supports DDG backend with Serper fallback.
+    V10.0: Now supports Brave backend with DDG fallback. Serper deprecated.
 
     Args:
         team_alias: Team name to search
@@ -1334,10 +1262,45 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> l
     query, country_code = build_dynamic_search_query(team_alias, league_key)
 
     # ============================================
-    # DDG BACKEND (PRIMARY - FREE)
+    # BRAVE BACKEND (HIGH QUALITY, STABLE)
     # ============================================
     backend = _get_search_backend()
 
+    if backend == "brave":
+        try:
+            from src.ingestion.brave_provider import get_brave_provider
+
+            provider = get_brave_provider()
+            brave_results = provider.search_news(
+                query=query, limit=5, component="news_hunter_dynamic"
+            )
+
+            for item in brave_results:
+                results.append(
+                    {
+                        "match_id": match_id,
+                        "team": team_alias,
+                        "keyword": f"dynamic_{country_code}",
+                        "title": item.get("title", ""),
+                        "snippet": item.get("snippet", ""),
+                        "link": item.get("link", ""),
+                        "date": None,
+                        "source": item.get("source", "Brave"),
+                        "search_type": "dynamic_country",
+                    }
+                )
+
+            if results:
+                logging.info(f"   🌍 [Brave] Dynamic search found {len(results)} results")
+            return results
+
+        except Exception as e:
+            logging.error(f"Brave dynamic search failed: {e}")
+            # Fall through to DDG
+
+    # ============================================
+    # DDG BACKEND (FALLBACK - FREE)
+    # ============================================
     if backend == "ddg":
         try:
             provider = get_search_provider()
@@ -1368,53 +1331,8 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> l
             logging.warning(f"DDG dynamic search failed: {e}")
             # Fall through to Serper
 
-    # ============================================
-    # SERPER BACKEND (FALLBACK - PAID)
-    # ============================================
-    if not _is_serper_available():
-        return results
-
-    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-
-    post_data = {
-        "q": query,
-        "tbs": "qdr:d",  # Last 24 hours
-        "num": 5,
-        "gl": country_code,
-    }
-
-    try:
-        time.sleep(SERPER_RATE_LIMIT_DELAY)
-        response = requests.post(
-            SERPER_URL, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            if "organic" in data:
-                for item in data["organic"]:
-                    results.append(
-                        {
-                            "match_id": match_id,
-                            "team": team_alias,
-                            "keyword": f"dynamic_{country_code}",
-                            "title": safe_dict_get(item, "title", default=""),
-                            "snippet": safe_dict_get(item, "snippet", default=""),
-                            "link": safe_dict_get(item, "link", default=""),
-                            "date": safe_dict_get(item, "date", default=None),
-                            "source": safe_dict_get(
-                                item, "source", default=f"Dynamic ({country_code})"
-                            ),
-                            "search_type": "dynamic_country",
-                        }
-                    )
-            logging.info(f"   🌍 [Serper] Dynamic search found {len(results)} results")
-        else:
-            _check_serper_response(response, query=query)
-
-    except Exception as e:
-        logging.error(f"Error in dynamic search: {e}")
-
+    # DEPRECATED: Serper backend removed - migrating to Brave
+    # Fallback to DDG if Brave fails is handled in the Brave block above
     return results
 
 
@@ -1427,7 +1345,7 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> lis
     - Japan: Nikkan Sports + official club releases (web search)
     - Brazil B: Lance! ticker + Globo Esporte
 
-    V6.1: Now supports DDG backend with Serper fallback.
+    V10.0: Now supports Brave backend with DDG fallback. Serper deprecated.
 
     Args:
         team_alias: Team name to search
@@ -1460,7 +1378,45 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> lis
         logging.info(f"   🔍 [{strat['name']}] {search_type}: {query[:60]}...")
 
         # ============================================
-        # DDG BACKEND (PRIMARY - FREE)
+        # BRAVE BACKEND (HIGH QUALITY, STABLE)
+        # ============================================
+        if backend == "brave":
+            try:
+                from src.ingestion.brave_provider import get_brave_provider
+
+                provider = get_brave_provider()
+                brave_results = provider.search_news(
+                    query=query, limit=5, component="news_hunter_exotic"
+                )
+
+                for item in brave_results:
+                    results.append(
+                        {
+                            "match_id": match_id,
+                            "team": team_alias,
+                            "keyword": strat["name"],
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "link": item.get("link", ""),
+                            "date": None,
+                            "source": item.get("source", "Brave"),
+                            "search_type": f"exotic_{strat['name']}",
+                            "strategy": strategy["name"],
+                        }
+                    )
+
+                if brave_results:
+                    logging.info(
+                        f"   ✅ [{strat['name']}] [Brave] Found {len(brave_results)} results"
+                    )
+                continue  # Move to next strategy
+
+            except Exception as e:
+                logging.error(f"Brave exotic search failed for {strat['name']}: {e}")
+                # Fall through to DDG
+
+        # ============================================
+        # DDG BACKEND (FALLBACK - FREE)
         # ============================================
         if backend == "ddg":
             try:
@@ -1492,60 +1448,9 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> lis
                 logging.warning(f"DDG exotic search failed for {strat['name']}: {e}")
                 # Fall through to Serper for this strategy
 
-        # ============================================
-        # SERPER BACKEND (FALLBACK - PAID)
-        # ============================================
-        if not _is_serper_available():
-            continue
-
-        headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-
-        url = SERPER_NEWS_URL if search_type == "news" else SERPER_URL
-
-        post_data = {
-            "q": query,
-            "num": 5,
-        }
-
-        # Add time filter for freshness
-        if search_type == "search":
-            post_data["tbs"] = "qdr:d"  # Last 24 hours
-
-        try:
-            time.sleep(SERPER_RATE_LIMIT_DELAY)
-            response = requests.post(
-                url, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-
-                # Handle both news and organic results
-                items = data.get("news", data.get("organic", []))
-
-                for item in items:
-                    results.append(
-                        {
-                            "match_id": match_id,
-                            "team": team_alias,
-                            "keyword": strat["name"],
-                            "title": safe_dict_get(item, "title", default=""),
-                            "snippet": safe_dict_get(item, "snippet", default="")
-                            or safe_dict_get(item, "description", default=""),
-                            "link": safe_dict_get(item, "link", default=""),
-                            "date": safe_dict_get(item, "date", default=None),
-                            "source": safe_dict_get(item, "source", default=strat["name"]),
-                            "search_type": f"exotic_{strat['name']}",
-                            "strategy": strategy["name"],
-                        }
-                    )
-
-                logging.info(f"   ✅ [{strat['name']}] [Serper] Found {len(items)} results")
-            else:
-                _check_serper_response(response, query=query)
-
-        except Exception as e:
-            logging.error(f"   ❌ Error in exotic search ({strat['name']}): {e}")
+        # DEPRECATED: Serper backend removed - migrating to Brave
+        # Fallback to DDG if Brave fails is handled in the Brave block above
+        # No Serper code needed
 
     return results
 
@@ -1647,7 +1552,9 @@ def search_twitter_rumors(team_alias: str, league_key: str, match_id: str) -> li
 
         if results:
             logging.info(
-                f"🐦 [CACHE] Found {len(results)} Twitter intel for {team_alias} (cache age: {cache.cache_age_minutes}m)"
+                f"🐦 [CACHE] Found {len(results)} Twitter"
+                f" intel for {team_alias}"
+                f" (cache age: {cache.cache_age_minutes}m)"
             )
 
     except Exception as e:
@@ -1713,9 +1620,59 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> list[d
         else:
             logging.info("   🌏 Exotic search empty - falling back to standard")
 
-    # V6.2: Flag to track if we should use Serper (either as primary or fallback)
-    use_serper = backend == "serper"
     ddg_succeeded = False
+
+    # ============================================
+    # BRAVE BACKEND (HIGH QUALITY, STABLE)
+    # ============================================
+    if backend == "brave":
+        logging.info(f"🔍 [Brave] Local search for {team_alias}...")
+        try:
+            from src.ingestion.brave_provider import get_brave_provider
+
+            provider = get_brave_provider()
+
+            # Build query with team name and keywords
+            kw_string = (
+                " OR ".join(keywords[:2])
+                if len(keywords) >= 2
+                else keywords[0]
+                if keywords
+                else "injury"
+            )
+            query = f'"{team_alias}" ({kw_string})'
+
+            brave_results = provider.search_news(query=query, limit=5, component="news_hunter")
+
+            for item in brave_results:
+                results.append(
+                    {
+                        "match_id": match_id,
+                        "team": team_alias,
+                        "keyword": "local_news",
+                        "title": item.get("title", ""),
+                        "snippet": item.get("snippet", ""),
+                        "link": item.get("link", ""),
+                        "date": None,
+                        "source": item.get("source", "Brave"),
+                        "search_type": "brave_local",
+                    }
+                )
+
+            logging.info(f"   📰 [Brave] Found {len(brave_results)} local news results")
+
+            # V7.0: Use Twitter Intel Cache instead of broken Brave Twitter search
+            # (site:twitter.com returns 0 results since Twitter blocked indexing)
+            twitter_cache_results = search_twitter_rumors(team_alias, league_key, match_id)
+            results.extend(twitter_cache_results)
+
+            ddg_succeeded = True
+
+        except Exception as e:
+            logging.error(f"Brave search failed: {e}")
+            # Fall through to DDG
+            if _is_ddg_available():
+                backend = "ddg"
 
     # ============================================
     # DDG BACKEND (FREE, NATIVE)
@@ -1758,93 +1715,90 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> list[d
 
         except Exception as e:
             logging.error(f"DDG search failed: {e}")
-            # V6.2: Set flag to fall through to Serper
-            if _is_serper_available():
-                use_serper = True
-                logging.info("   ⚠️ Falling back to Serper...")
 
-    # V6.2: Return early only if DDG succeeded
+    # V6.2: Return early only if DDG or Brave succeeded
     if ddg_succeeded:
         return results
 
     # ============================================
-    # SERPER BACKEND (PAID, FALLBACK)
+    # SERPER BACKEND (PAID, FALLBACK) - DEPRECATED
     # V6.2: Now properly reached when DDG fails
+    # MIGRATION: Serper is being replaced by Brave
     # ============================================
-    if not use_serper:
-        # Neither DDG nor Serper available
-        return results
-
-    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-
-    # Country code mapping for Serper
-    gl_map = {
-        "argentina": "ar",
-        "mexico": "mx",
-        "greece": "gr",
-        "turkey": "tr",
-        "scotland": "uk",
-        "china": "cn",
-        "japan": "jp",
-        "brazil_b": "br",
-    }
-    country_code = gl_map.get(country, "us")
-
-    # ============================================
-    # STRATEGY 1: Site-dorked local news query
-    # Uses top 3 domains + native keywords for comprehensive coverage
-    # ============================================
-    if sources:
-        # Use top 3 domains for good coverage
-        site_dork = " OR ".join([f"site:{domain}" for domain in sources[:3]])
-        # Use top 2 keywords (native + English fallback)
-        kw_string = (
-            " OR ".join(keywords[:2])
-            if len(keywords) >= 2
-            else keywords[0]
-            if keywords
-            else "injury"
-        )
-
-        query = f'"{team_alias}" ({kw_string}) ({site_dork})'
-        logging.info(f"🔍 [Serper] Local search: {query[:70]}...")
-
-        post_data = {
-            "q": query,
-            "tbs": "qdr:d",  # Last 24 hours
-            "num": 5,
-            "gl": country_code,
-        }
-
-        try:
-            time.sleep(SERPER_RATE_LIMIT_DELAY)
-            response = requests.post(
-                SERPER_URL, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if "organic" in data:
-                    for item in data["organic"]:
-                        results.append(
-                            {
-                                "match_id": match_id,
-                                "team": team_alias,
-                                "keyword": kw_string[:30],
-                                "title": safe_dict_get(item, "title", default=""),
-                                "snippet": safe_dict_get(item, "snippet", default=""),
-                                "link": safe_dict_get(item, "link", default=""),
-                                "date": safe_dict_get(item, "date", default=None),
-                                "source": safe_dict_get(item, "source", default=""),
-                                "search_type": "local_site_dork",
-                            }
-                        )
-                logging.info(f"   📰 Found {len(results)} local news results")
-            else:
-                _check_serper_response(response, query=query)
-
-        except Exception as e:
-            logging.error(f"Error in local search: {e}")
+    # if not use_serper:
+    #     # Neither DDG nor Serper available
+    #     return results
+    #
+    # headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+    #
+    # # Country code mapping for Serper
+    # gl_map = {
+    #     "argentina": "ar",
+    #     "mexico": "mx",
+    #     "greece": "gr",
+    #     "turkey": "tr",
+    #     "scotland": "uk",
+    #     "china": "cn",
+    #     "japan": "jp",
+    #     "brazil_b": "br",
+    # }
+    # country_code = gl_map.get(country, "us")
+    #
+    # # ============================================
+    # # STRATEGY 1: Site-dorked local news query
+    # # Uses top 3 domains + native keywords for comprehensive coverage
+    # # ============================================
+    # if sources:
+    #     # Use top 3 domains for good coverage
+    #     site_dork = " OR ".join([f"site:{domain}" for domain in sources[:3]])
+    #     # Use top 2 keywords (native + English fallback)
+    #     kw_string = (
+    #         " OR ".join(keywords[:2])
+    #         if len(keywords) >= 2
+    #         else keywords[0]
+    #         if keywords
+    #         else "injury"
+    #     )
+    #
+    #     query = f'"{team_alias}" ({kw_string}) ({site_dork})'
+    #     logging.info(f"🔍 [Serper] Local search: {query[:70]}...")
+    #
+    #     post_data = {
+    #         "q": query,
+    #         "tbs": "qdr:d",  # Last 24 hours
+    #         "num": 5,
+    #         "gl": country_code,
+    #     }
+    #
+    #     try:
+    #         time.sleep(SERPER_RATE_LIMIT_DELAY)
+    #         response = requests.post(
+    #             SERPER_URL, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
+    #         )
+    #
+    #         if response.status_code == 200:
+    #             data = response.json()
+    #             if "organic" in data:
+    #                 for item in data["organic"]:
+    #                     results.append(
+    #                         {
+    #                             "match_id": match_id,
+    #                             "team": team_alias,
+    #                             "keyword": kw_string[:30],
+    #                             "title": safe_dict_get(item, "title", default=""),
+    #                             "snippet": safe_dict_get(item, "snippet", default=""),
+    #                             "link": safe_dict_get(item, "link", default=""),
+    #                             "date": safe_dict_get(item, "date", default=None),
+    #                             "source": safe_dict_get(item, "source", default=""),
+    #                             "search_type": "local_site_dork",
+    #                         }
+    #                     )
+    #             logging.info(f"   📰 Found {len(results)} local news results")
+    #         else:
+    #             _check_serper_response(response, query=query)
+    #
+    #     except Exception as e:
+    #         logging.error(f"Error in local search: {e}")
 
     # ============================================
     # STRATEGY 2: Twitter/X hack for real-time rumors
@@ -1866,6 +1820,18 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> list[d
     # ============================================
     if not results:
         logging.info(f"🔍 Fallback to generic search for {team_alias}")
+        # Map country to country code for Brave/Serper compatibility
+        gl_map = {
+            "argentina": "ar",
+            "mexico": "mx",
+            "greece": "gr",
+            "turkey": "tr",
+            "scotland": "uk",
+            "china": "cn",
+            "japan": "jp",
+            "brazil_b": "br",
+        }
+        country_code = gl_map.get(country, "us")
         results = search_news_generic(
             team_alias, keywords if keywords else ["injury", "lineup"], country_code, match_id
         )
@@ -1878,51 +1844,78 @@ def search_news_generic(
 ) -> list[dict]:
     """
     Generic news search without site-dorking (fallback).
+
+    MIGRATION: Now uses Brave instead of Serper.
     """
-    if not _is_serper_available():
-        return []
-
-    results = []
-    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-
-    # Use top 2 keywords
-    target_keywords = keywords[:2] if keywords else ["injury", "lineup"]
-
-    for keyword in target_keywords:
-        query = f'"{team_alias}" {keyword}'
-
-        post_data = {"q": query, "tbs": "qdr:d", "num": 3, "gl": country_code}
-
+    # Try Brave first
+    if _is_brave_available():
+        results = []
         try:
-            time.sleep(SERPER_RATE_LIMIT_DELAY_SLOW)
-            response = requests.post(
-                SERPER_URL, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
-            )
+            from src.ingestion.brave_provider import get_brave_provider
 
-            if response.status_code == 200:
-                data = response.json()
-                if "organic" in data:
-                    for item in data["organic"]:
-                        results.append(
-                            {
-                                "match_id": match_id,
-                                "team": team_alias,
-                                "keyword": keyword,
-                                "title": safe_dict_get(item, "title", default=""),
-                                "snippet": safe_dict_get(item, "snippet", default=""),
-                                "link": safe_dict_get(item, "link", default=""),
-                                "date": safe_dict_get(item, "date", default=None),
-                                "source": safe_dict_get(item, "source", default=""),
-                                "search_type": "generic",
-                            }
-                        )
-            else:
-                _check_serper_response(response, query=query)
+            provider = get_brave_provider()
+
+            # Use top 2 keywords
+            target_keywords = keywords[:2] if keywords else ["injury", "lineup"]
+
+            for keyword in target_keywords:
+                query = f'"{team_alias}" {keyword}'
+
+                brave_results = provider.search_news(query=query, limit=3, component="news_hunter")
+
+                for item in brave_results:
+                    results.append(
+                        {
+                            "match_id": match_id,
+                            "team": team_alias,
+                            "keyword": keyword,
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "link": item.get("link", ""),
+                            "date": None,
+                            "source": item.get("source", "Brave"),
+                            "search_type": "generic",
+                        }
+                    )
 
         except Exception as e:
-            logging.error(f"Error in generic search: {e}")
+            logging.error(f"Brave generic search failed: {e}")
 
-    return results
+        return results
+
+    # DEPRECATED: Serper fallback removed - migrating to Brave
+    # Fallback to DDG is handled in the Brave block above
+    #         time.sleep(SERPER_RATE_LIMIT_DELAY_SLOW)
+    #         response = requests.post(
+    #             SERPER_URL, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
+    #         )
+    #
+    #         if response.status_code == 200:
+    #             data = response.json()
+    #             if "organic" in data:
+    #                 for item in data["organic"]:
+    #                     results.append(
+    #                         {
+    #                             "match_id": match_id,
+    #                             "team": team_alias,
+    #                             "keyword": keyword,
+    #                             "title": safe_dict_get(item, "title", default=""),
+    #                             "snippet": safe_dict_get(item, "snippet", default=""),
+    #                             "link": safe_dict_get(item, "link", default=""),
+    #                             "date": safe_dict_get(item, "date", default=None),
+    #                             "source": safe_dict_get(item, "source", default=""),
+    #                             "search_type": "generic",
+    #                         }
+    #                     )
+    #         else:
+    #             _check_serper_response(response, query=query)
+    #
+    #     except Exception as e:
+    #         logging.error(f"Error in generic search: {e}")
+    #
+    # return results
+
+    return []
 
 
 def search_news(
@@ -1974,9 +1967,7 @@ __all__ = [
     "clear_browser_monitor_discoveries",
     "cleanup_expired_browser_monitor_discoveries",
     "get_browser_monitor_stats",
-    "SERPER_REQUEST_TIMEOUT",
-    "SERPER_RATE_LIMIT_DELAY",
-    "_SERPER_CREDITS_EXHAUSTED",
+    # DEEP_DIVE exports kept for backward compatibility
     "DEEP_DIVE_ENABLED",
     "DEEP_DIVE_MAX_ARTICLES",
     "DEEP_DIVE_TIMEOUT",
@@ -2025,69 +2016,10 @@ def search_beat_writers(team_alias: str, league_key: str, match_id: str) -> list
         f"This function is no longer used - beat writers are in TIER 0.5."
     )
 
-    # Still execute for backward compatibility, but prefer search_beat_writers_priority
-    if not _is_serper_available():
-        return []
-
-    insider_handles = get_insider_handles(league_key)
-    if not insider_handles:
-        return []
-
-    results = []
-    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-
-    # Build query with top 3 insider handles
-    handles_query = " OR ".join([f'"{h}"' for h in insider_handles[:3]])
-    query = f'site:twitter.com ({handles_query}) "{team_alias}"'
-
-    logging.info(f"🎯 Beat Writer search: {query[:70]}...")
-
-    post_data = {
-        "q": query,
-        "tbs": "qdr:d",  # Last 24 hours
-        "num": 5,
-    }
-
-    try:
-        time.sleep(SERPER_RATE_LIMIT_DELAY)
-        response = requests.post(
-            SERPER_URL, headers=headers, json=post_data, timeout=SERPER_REQUEST_TIMEOUT
-        )
-
-        if response.status_code == 200:
-            data = response.json()
-            if "organic" in data:
-                for item in data["organic"]:
-                    # Try to identify which insider posted
-                    source_handle = "Unknown Insider"
-                    link = safe_dict_get(item, "link", default="").lower()
-                    for handle in insider_handles:
-                        if handle.lower().replace("@", "") in link:
-                            source_handle = handle
-                            break
-
-                    results.append(
-                        {
-                            "match_id": match_id,
-                            "team": team_alias,
-                            "keyword": "beat_writer",
-                            "title": safe_dict_get(item, "title", default=""),
-                            "snippet": safe_dict_get(item, "snippet", default=""),
-                            "link": safe_dict_get(item, "link", default=""),
-                            "date": safe_dict_get(item, "date", default=None),
-                            "source": source_handle,
-                            "search_type": "insider_beat_writer",
-                            "confidence": "HIGH",  # Beat writers are reliable
-                        }
-                    )
-            logging.info(f"   🎯 Found {len(results)} beat writer results")
-        else:
-            _check_serper_response(response, query=query)
-
-    except Exception as e:
-        logging.error(f"Error in beat writer search: {e}")
-
-    return results
+    # DEPRECATED: This function is no longer used - beat writers are in TIER 0.5
+    # Serper backend removed - migrating to Brave
+    # Return empty results for backward compatibility
+    return []
 
 
 # ============================================
@@ -2176,7 +2108,9 @@ def _apply_intelligence_gate_to_news(news_items: list[dict[str, Any]]) -> list[d
                 # Discard immediately - no API cost
                 level_1_discarded += 1
                 logging.debug(
-                    f"🚪 [INTEL-GATE-L1] DISCARDED - No native keywords in: {item.get('title', '')[:50]}..."
+                    f"🚪 [INTEL-GATE-L1] DISCARDED - No"
+                    f" native keywords in:"
+                    f" {item.get('title', '')[:50]}..."
                 )
                 continue
 
@@ -2320,7 +2254,9 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
 
                 if browser_monitor_count > 0:
                     logging.info(
-                        f"   🌐 Browser Monitor added {browser_monitor_count} HIGH confidence discoveries"
+                        f"   🌐 Browser Monitor added"
+                        f" {browser_monitor_count}"
+                        f" HIGH confidence discoveries"
                     )
             except Exception as e:
                 logging.warning(f"Browser Monitor error: {e}")
@@ -2344,7 +2280,10 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
                     aleague_count = len(home_aleague_news) + len(away_aleague_news)
                     if aleague_count > 0:
                         logging.info(
-                            f"   🦘 A-League scraper added {aleague_count} VERY_HIGH confidence articles"
+                            f"   🦘 A-League scraper added"
+                            f" {aleague_count}"
+                            f" VERY_HIGH confidence"
+                            f" articles"
                         )
                 else:
                     logging.debug("A-League scraper: aleagues.com.au not reachable")
@@ -2418,7 +2357,7 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
                     timeout=DEEP_DIVE_TIMEOUT,
                 )
 
-                deep_dive_count = len([n for n in all_news if n.get("deep_dive") == True])
+                deep_dive_count = len([n for n in all_news if n.get("deep_dive")])
                 if deep_dive_count > 0:
                     logging.info(
                         f"   ✅ [DEEP-DIVE] Upgraded {deep_dive_count} articles to full content"
@@ -2438,9 +2377,12 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
             filtered_count = len(all_news)
 
             if original_count > filtered_count:
+                removed = original_count - filtered_count
+                pct = removed / original_count * 100
                 logging.info(
-                    f"🚪 [INTEL-GATE] Filtered {original_count - filtered_count}/{original_count} items "
-                    f"({((original_count - filtered_count) / original_count * 100):.1f}% reduction)"
+                    f"🚪 [INTEL-GATE] Filtered"
+                    f" {removed}/{original_count}"
+                    f" items ({pct:.1f}% reduction)"
                 )
 
         # ============================================
@@ -2477,7 +2419,11 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         )
 
         logging.info(
-            f"📰 News Hunter total: {browser_monitor_total} BrowserMonitor + {aleague_total} A-League + {beat_writer_total} BeatWriters + {tier1_count} Tier1"
+            f"📰 News Hunter total:"
+            f" {browser_monitor_total} BrowserMonitor"
+            f" + {aleague_total} A-League"
+            f" + {beat_writer_total} BeatWriters"
+            f" + {tier1_count} Tier1"
         )
 
         # ============================================

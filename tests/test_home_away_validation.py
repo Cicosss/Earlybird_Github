@@ -10,6 +10,11 @@ match was "Santa Clara vs FC Porto" (Santa Clara playing at home).
 
 from unittest.mock import Mock, patch
 
+import pytest
+
+# Mark all tests in this file as unit tests
+pytestmark = pytest.mark.unit
+
 
 class TestValidateHomeAwayOrder:
     """Tests for FotMobProvider.validate_home_away_order()"""

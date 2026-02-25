@@ -1,14 +1,16 @@
 import logging
 import os
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
 from requests.exceptions import RequestException, Timeout
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
-from config.settings import ODDS_API_KEY
+from config.settings import ODDS_API_KEY, ODDS_API_KEYS, ODDS_SMART_FREQUENCY_ENABLED
 from src.database.models import Match as MatchModel
 from src.database.models import SessionLocal, TeamAlias
 from src.ingestion.league_manager import (
@@ -28,6 +30,88 @@ except ImportError:
     logging.debug("Market Intelligence module not available - snapshots disabled")
 
 BASE_URL = "https://api.the-odds-api.com/v4/sports"
+
+
+def _ensure_utc_aware(dt: datetime) -> datetime:
+    """
+    Ensure datetime is timezone-aware (UTC).
+
+    Args:
+        dt: Datetime object (naive or aware)
+
+    Returns:
+        Timezone-aware datetime in UTC
+    """
+    if dt.tzinfo is None:
+        logging.warning(f"⚠️ Converting naive datetime to UTC assuming it's in UTC timezone: {dt}")
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+# ============================================
+# ODDS API KEY ROTATION SYSTEM
+# ============================================
+# Thread-safe key rotation for automatic failover
+_current_odds_key_index: int = 0
+_odds_key_lock: threading.Lock = threading.Lock()
+
+
+def _get_current_odds_key() -> str:
+    """
+    Get the current Odds API key with automatic rotation.
+
+    Returns:
+        Current API key string
+    """
+    global _current_odds_key_index
+    with _odds_key_lock:
+        # Filter out empty keys
+        valid_keys = [key for key in ODDS_API_KEYS if key and key != ""]
+
+        if not valid_keys:
+            # Fallback to single key if no rotation keys available
+            return ODDS_API_KEY
+
+        # Ensure index is within bounds
+        if _current_odds_key_index >= len(valid_keys):
+            _current_odds_key_index = 0  # Loop back to first key
+
+        current_key = valid_keys[_current_odds_key_index]
+        return current_key
+
+
+def _rotate_odds_key() -> str:
+    """
+    Rotate to the next Odds API key.
+
+    Returns:
+        Next API key string
+    """
+    global _current_odds_key_index
+    with _odds_key_lock:
+        valid_keys = [key for key in ODDS_API_KEYS if key and key != ""]
+
+        if not valid_keys:
+            return ODDS_API_KEY
+
+        # Move to next key
+        _current_odds_key_index = (_current_odds_key_index + 1) % len(valid_keys)
+
+        next_key = valid_keys[_current_odds_key_index]
+        logging.info(f"🔄 Rotated to Odds API Key {_current_odds_key_index + 1}/{len(valid_keys)}")
+
+        return next_key
+
+
+def _reset_odds_key_rotation():
+    """
+    Reset the Odds API key rotation to the first key.
+    """
+    global _current_odds_key_index
+    with _odds_key_lock:
+        _current_odds_key_index = 0
+        logging.info("🔄 Reset Odds API key rotation to Key 1")
+
 
 # Reusable session for connection pooling (faster API calls)
 _session: requests.Session | None = None
@@ -81,8 +165,13 @@ LEAGUE_REGIONS: dict[str, str] = {
 }
 
 # Frequency thresholds (hours)
-HIGH_ALERT_THRESHOLD = 24  # Match within 24h -> update every 1h
-MAINTENANCE_FREQUENCY = 6  # Match > 24h away -> update every 6h
+# FIX: Make temporal constants configurable via environment variables
+HIGH_ALERT_THRESHOLD = int(
+    os.getenv("HIGH_ALERT_THRESHOLD", "24")
+)  # Match within 24h -> update every 1h
+MAINTENANCE_FREQUENCY = int(
+    os.getenv("MAINTENANCE_FREQUENCY", "6")
+)  # Match > 24h away -> update every 6h
 
 
 def get_optimized_regions(sport_key: str) -> str:
@@ -103,6 +192,7 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
     - No matches: SKIP
 
     V6.1: Robust timezone handling - all comparisons done in UTC-aware datetimes.
+    V7.0: Smart Frequency can be disabled via ODDS_SMART_FREQUENCY_ENABLED setting.
 
     Args:
         db: Database session
@@ -111,6 +201,10 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
     Returns:
         Tuple of (should_update, reason, hours_to_next_match)
     """
+    # V7.0: Check if Smart Frequency is disabled
+    if not ODDS_SMART_FREQUENCY_ENABLED:
+        return True, "SMART_FREQUENCY_DISABLED", None
+
     now = datetime.now(timezone.utc)
 
     # Find the soonest upcoming match for this league
@@ -125,10 +219,7 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
     # Filter to future matches with proper timezone handling
     next_match = None
     for match in all_matches:
-        match_time = match.start_time
-        # Ensure timezone-aware for comparison
-        if match_time.tzinfo is None:
-            match_time = match_time.replace(tzinfo=timezone.utc)
+        match_time = _ensure_utc_aware(match.start_time)
         if match_time > now:
             next_match = match
             break
@@ -138,9 +229,7 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
         return True, "NO_MATCHES_DISCOVERY", None
 
     # Ensure both datetimes are comparable (handle naive vs aware)
-    match_time = next_match.start_time
-    if match_time.tzinfo is None:
-        match_time = match_time.replace(tzinfo=timezone.utc)
+    match_time = _ensure_utc_aware(next_match.start_time)
     hours_to_match = (match_time - now).total_seconds() / 3600
 
     # Check last update time for this league
@@ -152,12 +241,11 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
         return True, "FIRST_FETCH", hours_to_match
 
     # Ensure last_updated is timezone-aware for comparison
-    if last_updated.tzinfo is None:
-        last_updated = last_updated.replace(tzinfo=timezone.utc)
+    last_updated = _ensure_utc_aware(last_updated)
     hours_since_update = (now - last_updated).total_seconds() / 3600
 
-    # HIGH ALERT: Match within 24h
-    if hours_to_match < HIGH_ALERT_THRESHOLD:
+    # HIGH ALERT: Match within 24h (including exactly 24h)
+    if hours_to_match <= HIGH_ALERT_THRESHOLD:
         if hours_since_update >= 1:
             return True, f"HIGH_ALERT ({hours_to_match:.1f}h to match)", hours_to_match
         else:
@@ -232,23 +320,38 @@ def extract_h2h_odds(
                 if home_odd is None or away_odd is None:
                     if len(outcomes) >= 3:
                         # 3-way market: Home, Draw, Away
-                        home_odd = (
-                            float(outcomes[0].get("price", 0)) if outcomes[0].get("price") else None
-                        )
-                        draw_odd = (
-                            float(outcomes[1].get("price", 0)) if outcomes[1].get("price") else None
-                        )
-                        away_odd = (
-                            float(outcomes[2].get("price", 0)) if outcomes[2].get("price") else None
-                        )
+                        if home_odd is None:
+                            home_odd = (
+                                float(outcomes[0].get("price", 0))
+                                if outcomes[0].get("price")
+                                else None
+                            )
+                        if draw_odd is None:
+                            draw_odd = (
+                                float(outcomes[1].get("price", 0))
+                                if outcomes[1].get("price")
+                                else None
+                            )
+                        if away_odd is None:
+                            away_odd = (
+                                float(outcomes[2].get("price", 0))
+                                if outcomes[2].get("price")
+                                else None
+                            )
                     elif len(outcomes) >= 2:
                         # 2-way market (no draw)
-                        home_odd = (
-                            float(outcomes[0].get("price", 0)) if outcomes[0].get("price") else None
-                        )
-                        away_odd = (
-                            float(outcomes[1].get("price", 0)) if outcomes[1].get("price") else None
-                        )
+                        if home_odd is None:
+                            home_odd = (
+                                float(outcomes[0].get("price", 0))
+                                if outcomes[0].get("price")
+                                else None
+                            )
+                        if away_odd is None:
+                            away_odd = (
+                                float(outcomes[1].get("price", 0))
+                                if outcomes[1].get("price")
+                                else None
+                            )
 
                 return home_odd, draw_odd, away_odd
 
@@ -378,9 +481,12 @@ def extract_sharp_odds_analysis(
 
             # Fallback by position
             if (h_odd is None or a_odd is None) and len(outcomes) >= 3:
-                h_odd = float(outcomes[0].get("price", 0)) if outcomes[0].get("price") else None
-                d_odd = float(outcomes[1].get("price", 0)) if outcomes[1].get("price") else None
-                a_odd = float(outcomes[2].get("price", 0)) if outcomes[2].get("price") else None
+                if h_odd is None:
+                    h_odd = float(outcomes[0].get("price", 0)) if outcomes[0].get("price") else None
+                if d_odd is None:
+                    d_odd = float(outcomes[1].get("price", 0)) if outcomes[1].get("price") else None
+                if a_odd is None:
+                    a_odd = float(outcomes[2].get("price", 0)) if outcomes[2].get("price") else None
 
             # Collect for averaging
             if h_odd:
@@ -502,8 +608,8 @@ def check_quota_status() -> dict[str, Any]:
         Dict with remaining, used, and emergency_mode flags
     """
     try:
-        url = f"{BASE_URL.replace('/sports', '')}/sports"
-        params = {"apiKey": ODDS_API_KEY}
+        url = BASE_URL
+        params = {"apiKey": _get_current_odds_key()}
         response = _get_session().get(url, params=params, timeout=10)
 
         remaining = response.headers.get("x-requests-remaining", "500")
@@ -538,6 +644,7 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
     - Match < 24h: HIGH ALERT - update every 1 hour
     - Match > 24h: MAINTENANCE - update every 6 hours
     - Region optimization per league to save API credits
+    - Can be disabled via ODDS_SMART_FREQUENCY_ENABLED setting (default: true)
 
     CRITICAL LOGIC:
     - NEW Match: Save odds to BOTH opening_* AND current_*
@@ -549,7 +656,12 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
     """
     logging.info("🚀 Starting Fixture Ingestion - Smart Frequency Strategy...")
 
-    if ODDS_API_KEY == "YOUR_ODDS_API_KEY" or not ODDS_API_KEY:
+    # BUG 2 FIX: Reset key rotation at the start of each ingestion run
+    _reset_odds_key_rotation()
+
+    # Check if we have valid API keys
+    current_key = _get_current_odds_key()
+    if not current_key or current_key == "YOUR_ODDS_API_KEY":
         if os.getenv("USE_MOCK_DATA") == "true":
             logging.warning("Odds API Key not set (or MOCK flag). Using MOCK data.")
             logging.warning("Mock mode enabled but odds tracking requires real API.")
@@ -574,6 +686,17 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
         leagues_to_process = ELITE_LEAGUES[:MAX_LEAGUES_PER_RUN]
         logging.info(f"📋 Using Elite leagues fallback: {len(leagues_to_process)}")
 
+    # BUG 6 FIX: Deduplicate leagues to prevent double fetch
+    # Convert to set and back to list to remove duplicates
+    original_count = len(leagues_to_process)
+    leagues_to_process = list(
+        dict.fromkeys(leagues_to_process)
+    )  # Preserve order while deduplicating
+    if len(leagues_to_process) != original_count:
+        logging.warning(
+            f"⚠️ Removed {original_count - len(leagues_to_process)} duplicate leagues from processing list"
+        )
+
     if not leagues_to_process:
         logging.warning("⚠️ No leagues to process!")
         return
@@ -587,6 +710,14 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
     leagues_processed = 0
     leagues_skipped = 0
     processed_teams = set()
+
+    # Track processed match IDs to prevent duplicates within the same transaction
+    # FIX: Prevents UNIQUE constraint violation when same match is processed twice
+    processed_match_ids = set()
+
+    # Track processed leagues to prevent duplicate league processing
+    # FIX: Prevents UNIQUE constraint violation when same league is processed twice
+    processed_leagues = set()
 
     try:
         for sport_key in leagues_to_process:
@@ -603,6 +734,12 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
 
                 logging.info(f"📊 {sport_key}: {reason}")
 
+            # FIX: Check if league has already been processed to prevent duplicate processing
+            # Prevents UNIQUE constraint violation when same league is processed twice
+            if sport_key in processed_leagues:
+                logging.warning(f"⚠️ Skipping duplicate league in same transaction: {sport_key}")
+                continue
+
             try:
                 url = f"{BASE_URL}/{sport_key}/odds"
 
@@ -610,184 +747,251 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                 regions = get_optimized_regions(sport_key)
                 logging.info(f"🌎 Fetching {sport_key} with regions={regions}")
 
-                params = {
-                    "apiKey": ODDS_API_KEY,
-                    "regions": regions,
-                    "markets": "h2h,totals",  # Now fetching totals for Over/Under
-                    "dateFormat": "iso",
-                    "oddsFormat": "decimal",
-                }
+                # Try with current key, rotate on 429 (quota exceeded)
+                valid_keys = [key for key in ODDS_API_KEYS if key and key != ""]
+                max_retries = len(valid_keys) if valid_keys else 1
+                for attempt in range(max_retries):
+                    params = {
+                        "apiKey": _get_current_odds_key(),
+                        "regions": regions,
+                        "markets": "h2h,totals",  # Now fetching totals for Over/Under
+                        "dateFormat": "iso",
+                        "oddsFormat": "decimal",
+                    }
 
-                response = _get_session().get(url, params=params, timeout=30)
-                if response.status_code != 200:
-                    logging.error(f"API Error {response.status_code}: {response.text}")
-                    continue
+                    response = _get_session().get(url, params=params, timeout=30)
 
-                data = response.json()
-
-                # Verbose logging for raw API response
-                logging.debug(f"League {sport_key} returned {len(data)} raw matches from API.")
-
-                for event in data:
-                    # SAFETY: Skip malformed events (missing required fields)
-                    if not all(
-                        k in event for k in ("id", "commence_time", "home_team", "away_team")
-                    ):
+                    # Check for quota exceeded (429)
+                    if response.status_code == 429:
+                        # BUG 3 FIX: Use actual key index instead of attempt index
                         logging.warning(
-                            f"⚠️ Skipping malformed event in {sport_key}: missing required fields"
+                            f"⚠️ Odds API quota exceeded (429) for Key {_current_odds_key_index + 1}/{len(ODDS_API_KEYS) if ODDS_API_KEYS else 1}"
                         )
-                        continue
+                        if attempt < max_retries - 1:
+                            # Rotate to next key
+                            next_key = _rotate_odds_key()
+                            logging.info(f"🔄 Rotating to next key: {next_key[:10]}...")
+                            # BUG 4 FIX: Add exponential backoff (2^attempt seconds, max 8 seconds)
+                            backoff_time = min(2**attempt, 8)
+                            logging.info(
+                                f"⏳ Waiting {backoff_time}s before retry (exponential backoff)..."
+                            )
+                            time.sleep(backoff_time)
+                            continue
+                        else:
+                            logging.error("❌ All Odds API keys exhausted!")
+                            # BUG 1 & 2 FIX: Reset key index after exhaustion
+                            _reset_odds_key_rotation()
+                            continue  # Skip to next league
 
-                    # Parse commence_time and ensure it's timezone-aware (UTC)
-                    commence_time_str = event["commence_time"]
-                    if commence_time_str.endswith("Z"):
-                        commence_time_str = commence_time_str.replace("Z", "+00:00")
-                    commence_time = datetime.fromisoformat(commence_time_str)
-                    # Ensure timezone-aware for comparison
-                    if commence_time.tzinfo is None:
-                        commence_time = commence_time.replace(tzinfo=timezone.utc)
+                    # Check for other errors
+                    if response.status_code != 200:
+                        logging.error(f"API Error {response.status_code}: {response.text}")
+                        continue  # Skip to next league
 
-                    # HARD-BLOCK: Skip historical matches (Ghost Match Prevention)
-                    if commence_time < now:
-                        logging.debug(
-                            f"Skipping past match: {event.get('home_team')} vs {event.get('away_team')} (started {commence_time})"
+                    # Success - process data
+                    data = response.json()
+
+                    # Verbose logging for raw API response
+                    logging.debug(f"League {sport_key} returned {len(data)} raw matches from API.")
+
+                    # Process events
+                    for event in data:
+                        # SAFETY: Skip malformed events (missing required fields)
+                        if not all(
+                            k in event for k in ("id", "commence_time", "home_team", "away_team")
+                        ):
+                            logging.warning(
+                                f"⚠️ Skipping malformed event in {sport_key}: missing required fields"
+                            )
+                            continue
+
+                        # Parse commence_time and ensure it's timezone-aware (UTC)
+                        commence_time_str = event["commence_time"]
+                        if commence_time_str.endswith("Z"):
+                            commence_time_str = commence_time_str.replace("Z", "+00:00")
+                        commence_time = _ensure_utc_aware(datetime.fromisoformat(commence_time_str))
+
+                        # HARD-BLOCK: Skip historical matches (Ghost Match Prevention)
+                        if commence_time < now:
+                            logging.debug(
+                                f"Skipping past match: {event.get('home_team')} vs {event.get('away_team')} (started {commence_time})"
+                            )
+                            continue
+
+                        # Filter by time window (both are now timezone-aware)
+                        if not (min_time <= commence_time <= max_time):
+                            continue
+
+                        match_id = event["id"]
+                        home_team = event["home_team"]
+                        away_team = event["away_team"]
+
+                        # FIX: Skip duplicate matches within the same transaction
+                        # Prevents UNIQUE constraint violation when same match is processed twice
+                        if match_id in processed_match_ids:
+                            logging.warning(
+                                f"⚠️ Skipping duplicate match in same transaction: {match_id} ({home_team} vs {away_team})"
+                            )
+                            continue
+
+                        # Convert to naive datetime for DB storage (remove timezone)
+                        commence_time_naive = commence_time.replace(tzinfo=None)
+
+                        # Extract odds (H2H + Totals)
+                        bookmakers = event.get("bookmakers", [])
+                        home_odd, draw_odd, away_odd = extract_h2h_odds(
+                            bookmakers, home_team, away_team
                         )
-                        continue
+                        over_2_5, under_2_5 = extract_totals_odds(bookmakers)
 
-                    # Filter by time window (both are now timezone-aware)
-                    if not (min_time <= commence_time <= max_time):
-                        continue
-
-                    match_id = event["id"]
-                    home_team = event["home_team"]
-                    away_team = event["away_team"]
-
-                    # Convert to naive datetime for DB storage (remove timezone)
-                    commence_time_naive = commence_time.replace(tzinfo=None)
-
-                    # Extract odds (H2H + Totals)
-                    bookmakers = event.get("bookmakers", [])
-                    home_odd, draw_odd, away_odd = extract_h2h_odds(
-                        bookmakers, home_team, away_team
-                    )
-                    over_2_5, under_2_5 = extract_totals_odds(bookmakers)
-
-                    # LAYER 3: Sharp odds analysis
-                    sharp_analysis = extract_sharp_odds_analysis(bookmakers, home_team, away_team)
-
-                    if sharp_analysis.get("is_sharp_drop"):
-                        logging.info(
-                            f"🎯 {sharp_analysis['analysis']} for {home_team} vs {away_team}"
+                        # LAYER 3: Sharp odds analysis
+                        sharp_analysis = extract_sharp_odds_analysis(
+                            bookmakers, home_team, away_team
                         )
 
-                    # Check if match exists
-                    existing = db.query(MatchModel).filter(MatchModel.id == match_id).first()
+                        if sharp_analysis.get("is_sharp_drop"):
+                            logging.info(
+                                f"🎯 {sharp_analysis['analysis']} for {home_team} vs {away_team}"
+                            )
 
-                    if existing:
-                        # UPDATE: Only update current odds, preserve opening
-                        if home_odd is not None:
-                            existing.current_home_odd = home_odd
-                        if draw_odd is not None:
-                            existing.current_draw_odd = draw_odd
-                        if away_odd is not None:
-                            existing.current_away_odd = away_odd
+                        # Check if match exists
+                        existing = db.query(MatchModel).filter(MatchModel.id == match_id).first()
 
-                        # Update totals (current only)
-                        if over_2_5 is not None:
-                            existing.current_over_2_5 = over_2_5
-                        if under_2_5 is not None:
-                            existing.current_under_2_5 = under_2_5
+                        if existing:
+                            # FIX: Log that match already exists and will be updated
+                            logging.debug(
+                                f"🔄 Updating existing match: {match_id} ({home_team} vs {away_team})"
+                            )
+                            # UPDATE: Only update current odds, preserve opening
+                            if home_odd is not None:
+                                existing.current_home_odd = home_odd
+                            if draw_odd is not None:
+                                existing.current_draw_odd = draw_odd
+                            if away_odd is not None:
+                                existing.current_away_odd = away_odd
 
-                        # Update sharp odds analysis
-                        existing.sharp_bookie = sharp_analysis.get("sharp_bookie")
-                        existing.sharp_home_odd = sharp_analysis.get("sharp_home")
-                        existing.sharp_draw_odd = sharp_analysis.get("sharp_draw")
-                        existing.sharp_away_odd = sharp_analysis.get("sharp_away")
-                        existing.avg_home_odd = sharp_analysis.get("avg_home")
-                        existing.avg_draw_odd = sharp_analysis.get("avg_draw")
-                        existing.avg_away_odd = sharp_analysis.get("avg_away")
-                        existing.is_sharp_drop = sharp_analysis.get("is_sharp_drop", False)
-                        existing.sharp_signal = sharp_analysis.get("analysis")
+                            # Update totals (current only)
+                            if over_2_5 is not None:
+                                existing.current_over_2_5 = over_2_5
+                            if under_2_5 is not None:
+                                existing.current_under_2_5 = under_2_5
 
-                        existing.last_updated = datetime.now(timezone.utc)
+                            # Update sharp odds analysis
+                            existing.sharp_bookie = sharp_analysis.get("sharp_bookie")
+                            existing.sharp_home_odd = sharp_analysis.get("sharp_home")
+                            existing.sharp_draw_odd = sharp_analysis.get("sharp_draw")
+                            existing.sharp_away_odd = sharp_analysis.get("sharp_away")
+                            existing.avg_home_odd = sharp_analysis.get("avg_home")
+                            existing.avg_draw_odd = sharp_analysis.get("avg_draw")
+                            existing.avg_away_odd = sharp_analysis.get("avg_away")
+                            existing.is_sharp_drop = sharp_analysis.get("is_sharp_drop", False)
+                            existing.sharp_signal = sharp_analysis.get("analysis")
 
-                        # MARKET INTELLIGENCE: Save odds snapshot for time-based analysis
-                        if _MARKET_INTEL_AVAILABLE:
-                            save_odds_snapshot(
-                                match_id=match_id,
-                                home_odd=home_odd,
-                                draw_odd=draw_odd,
-                                away_odd=away_odd,
+                            existing.last_updated = datetime.now(timezone.utc)
+
+                            # FIX: Mark match as processed to prevent duplicates in same transaction
+                            processed_match_ids.add(match_id)
+
+                            # MARKET INTELLIGENCE: Save odds snapshot for time-based analysis
+                            if _MARKET_INTEL_AVAILABLE:
+                                save_odds_snapshot(
+                                    match_id=match_id,
+                                    home_odd=home_odd,
+                                    draw_odd=draw_odd,
+                                    away_odd=away_odd,
+                                    sharp_home_odd=sharp_analysis.get("sharp_home"),
+                                    sharp_draw_odd=sharp_analysis.get("sharp_draw"),
+                                    sharp_away_odd=sharp_analysis.get("sharp_away"),
+                                    sharp_bookie=sharp_analysis.get("sharp_bookie"),
+                                )
+
+                            logging.debug(
+                                f"Updated: {home_team} vs {away_team} | O/U: {over_2_5}/{under_2_5}"
+                            )
+                        else:
+                            # NEW MATCH: Set BOTH opening and current odds
+                            new_match = MatchModel(
+                                id=match_id,
+                                league=sport_key,
+                                home_team=home_team,
+                                away_team=away_team,
+                                start_time=commence_time_naive,
+                                # H2H Opening
+                                opening_home_odd=home_odd,
+                                opening_away_odd=away_odd,
+                                opening_draw_odd=draw_odd,
+                                # H2H Current
+                                current_home_odd=home_odd,
+                                current_away_odd=away_odd,
+                                current_draw_odd=draw_odd,
+                                # Totals Opening
+                                opening_over_2_5=over_2_5,
+                                opening_under_2_5=under_2_5,
+                                # Totals Current
+                                current_over_2_5=over_2_5,
+                                current_under_2_5=under_2_5,
+                                # LAYER 3: Sharp odds
+                                sharp_bookie=sharp_analysis.get("sharp_bookie"),
                                 sharp_home_odd=sharp_analysis.get("sharp_home"),
                                 sharp_draw_odd=sharp_analysis.get("sharp_draw"),
                                 sharp_away_odd=sharp_analysis.get("sharp_away"),
-                                sharp_bookie=sharp_analysis.get("sharp_bookie"),
+                                avg_home_odd=sharp_analysis.get("avg_home"),
+                                avg_draw_odd=sharp_analysis.get("avg_draw"),
+                                avg_away_odd=sharp_analysis.get("avg_away"),
+                                is_sharp_drop=sharp_analysis.get("is_sharp_drop", False),
+                                sharp_signal=sharp_analysis.get("analysis"),
+                                last_updated=datetime.now(timezone.utc),
+                            )
+                            db.add(new_match)
+
+                            # FIX: Mark match as processed to prevent duplicates in same transaction
+                            processed_match_ids.add(match_id)
+
+                            logging.info(
+                                f"New: {home_team} vs {away_team} | H{home_odd}/X{draw_odd}/A{away_odd} | O{over_2_5}/U{under_2_5}"
                             )
 
-                        logging.debug(
-                            f"Updated: {home_team} vs {away_team} | O/U: {over_2_5}/{under_2_5}"
-                        )
-                    else:
-                        # NEW MATCH: Set BOTH opening and current odds
-                        new_match = MatchModel(
-                            id=match_id,
-                            league=sport_key,
-                            home_team=home_team,
-                            away_team=away_team,
-                            start_time=commence_time_naive,
-                            # H2H Opening
-                            opening_home_odd=home_odd,
-                            opening_away_odd=away_odd,
-                            opening_draw_odd=draw_odd,
-                            # H2H Current
-                            current_home_odd=home_odd,
-                            current_away_odd=away_odd,
-                            current_draw_odd=draw_odd,
-                            # Totals Opening
-                            opening_over_2_5=over_2_5,
-                            opening_under_2_5=under_2_5,
-                            # Totals Current
-                            current_over_2_5=over_2_5,
-                            current_under_2_5=under_2_5,
-                            # LAYER 3: Sharp odds
-                            sharp_bookie=sharp_analysis.get("sharp_bookie"),
-                            sharp_home_odd=sharp_analysis.get("sharp_home"),
-                            sharp_draw_odd=sharp_analysis.get("sharp_draw"),
-                            sharp_away_odd=sharp_analysis.get("sharp_away"),
-                            avg_home_odd=sharp_analysis.get("avg_home"),
-                            avg_draw_odd=sharp_analysis.get("avg_draw"),
-                            avg_away_odd=sharp_analysis.get("avg_away"),
-                            is_sharp_drop=sharp_analysis.get("is_sharp_drop", False),
-                            sharp_signal=sharp_analysis.get("analysis"),
-                            last_updated=datetime.now(timezone.utc),
-                        )
-                        db.add(new_match)
-                        logging.info(
-                            f"New: {home_team} vs {away_team} | H{home_odd}/X{draw_odd}/A{away_odd} | O{over_2_5}/U{under_2_5}"
-                        )
+                            # Create aliases
+                            for team_name in [home_team, away_team]:
+                                if team_name not in processed_teams:
+                                    if (
+                                        not db.query(TeamAlias)
+                                        .filter(TeamAlias.api_name == team_name)
+                                        .first()
+                                    ):
+                                        clean_name = clean_team_name(team_name)
+                                        alias = TeamAlias(
+                                            api_name=team_name, search_name=clean_name
+                                        )
+                                        db.add(alias)
+                                    processed_teams.add(team_name)
 
-                        # Create aliases
-                        for team_name in [home_team, away_team]:
-                            if team_name not in processed_teams:
-                                if (
-                                    not db.query(TeamAlias)
-                                    .filter(TeamAlias.api_name == team_name)
-                                    .first()
-                                ):
-                                    clean_name = clean_team_name(team_name)
-                                    alias = TeamAlias(api_name=team_name, search_name=clean_name)
-                                    db.add(alias)
-                                processed_teams.add(team_name)
+                        matches_processed += 1
 
-                    matches_processed += 1
+                    leagues_processed += 1
+                    logging.info(f"✅ {sport_key}: {matches_processed} matches")
 
-                leagues_processed += 1
-                logging.info(f"✅ {sport_key}: {matches_processed} matches")
+                    # FIX: Mark league as processed to prevent duplicates in same transaction
+                    # Prevents UNIQUE constraint violation when same league is processed twice
+                    processed_leagues.add(sport_key)
+
+                    # FIX: Exit retry loop on success to prevent duplicate league processing
+                    # Prevents UNIQUE constraint violation when same league is fetched twice
+                    break
 
             except Exception as e:
                 logging.error(f"Error fetching data for {sport_key}: {e}")
 
-        db.commit()
+        # FIX: Add error handling for ALL IntegrityError types
+        try:
+            db.commit()
+        except IntegrityError as e:
+            # Rollback for ALL IntegrityError types to maintain data integrity
+            logging.warning(f"⚠️ IntegrityError detected during commit: {e}")
+            logging.warning("⚠️ Rolling back transaction to maintain data integrity")
+            db.rollback()
+
         logging.info(
             f"🏁 Ingestion complete: {matches_processed} matches | {leagues_processed} fetched | {leagues_skipped} skipped (fresh)"
         )

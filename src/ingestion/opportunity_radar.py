@@ -16,9 +16,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import requests
-
-from config.settings import SERPER_API_KEY
+# SERPER_API_KEY removed - migrating to Brave
 from src.utils.validators import safe_get
 
 # Try to import search provider (DuckDuckGo)
@@ -278,9 +276,11 @@ class OpportunityRadar:
 
     Scans high-authority local domains for B-Team/Crisis narratives
     and triggers betting analysis for affected teams.
+
+    V10.0: Uses Brave as primary backend with DDG fallback. Serper deprecated.
     """
 
-    SERPER_URL = "https://google.serper.dev/search"
+    # SERPER_URL = "https://google.serper.dev/search"  # DEPRECATED
 
     def __init__(self):
         self.processed_urls = self._load_processed_urls()
@@ -378,60 +378,86 @@ class OpportunityRadar:
                     logger.info(f"🔍 [{region.upper()}] Found {len(results)} results via DDG")
                     return results
             except Exception as e:
-                logger.warning(f"DDG failed for {region}: {e}, falling back to Serper")
+                logger.warning(f"DDG failed for {region}: {e}, falling back to Brave")
 
-        if not SERPER_API_KEY or SERPER_API_KEY == "YOUR_SERPER_API_KEY":
-            logger.warning("No search backend available")
-            return []
-
-        # Check if Serper credits are exhausted
-        serper_credits_exhausted = False
+        # Try Brave
         try:
-            from src.processing.news_hunter import _SERPER_CREDITS_EXHAUSTED
+            from src.ingestion.brave_provider import get_brave_provider
 
-            serper_credits_exhausted = _SERPER_CREDITS_EXHAUSTED
-        except ImportError as e:
-            logger.debug(f"Could not import _SERPER_CREDITS_EXHAUSTED: {e}")
+            provider = get_brave_provider()
 
-        if serper_credits_exhausted:
-            logger.warning("Serper credits exhausted, skipping search")
-            return []
+            if not provider.is_available():
+                logger.warning("Brave not available")
+                return []
 
-        query = self._build_search_query(region, config)
+            query = self._build_search_query(region, config)
 
-        headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+            results = provider.search_news(query=query, limit=5, component="opportunity_radar")
 
-        payload = {
-            "q": query,
-            "tbs": "qdr:d",
-            "num": 5,
-            "gl": config["language"][:2] if len(config["language"]) >= 2 else "us",
-        }
+            # Add region and language to results
+            for item in results:
+                item["region"] = region
+                item["language"] = config["language"]
 
-        try:
-            response = requests.post(self.SERPER_URL, headers=headers, json=payload, timeout=15)
-            response.raise_for_status()
-            data = response.json()
-
-            results = []
-            for item in data.get("organic", []):
-                results.append(
-                    {
-                        "title": item.get("title", ""),
-                        "snippet": item.get("snippet", ""),
-                        "link": item.get("link", ""),
-                        "source": item.get("source", ""),
-                        "region": region,
-                        "language": config["language"],
-                    }
-                )
-
-            logger.info(f"🔍 [{region.upper()}] Found {len(results)} results")
+            logger.info(f"🔍 [{region.upper()}] Found {len(results)} results via Brave")
             return results
 
         except Exception as e:
-            logger.error(f"Search error for {region}: {e}")
+            logger.error(f"Brave search error for {region}: {e}")
             return []
+
+        # DEPRECATED: Serper fallback (will be removed)
+        # if not SERPER_API_KEY or SERPER_API_KEY == "YOUR_SERPER_API_KEY":
+        #     logger.warning("No search backend available")
+        #     return []
+        #
+        # # Check if Serper credits are exhausted
+        # serper_credits_exhausted = False
+        # try:
+        #     from src.processing.news_hunter import _SERPER_CREDITS_EXHAUSTED
+        #     serper_credits_exhausted = _SERPER_CREDITS_EXHAUSTED
+        # except ImportError as e:
+        #     logger.debug(f"Could not import _SERPER_CREDITS_EXHAUSTED: {e}")
+        #
+        # if serper_credits_exhausted:
+        #     logger.warning("Serper credits exhausted, skipping search")
+        #     return []
+        #
+        # query = self._build_search_query(region, config)
+        #
+        # headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+        #
+        # payload = {
+        #     "q": query,
+        #     "tbs": "qdr:d",
+        #     "num": 5,
+        #     "gl": config["language"][:2] if len(config["language"]) >= 2 else "us",
+        # }
+        #
+        # try:
+        #     response = requests.post(self.SERPER_URL, headers=headers, json=payload, timeout=15)
+        #     response.raise_for_status()
+        #     data = response.json()
+        #
+        #     results = []
+        #     for item in data.get("organic", []):
+        #         results.append(
+        #             {
+        #                 "title": item.get("title", ""),
+        #                 "snippet": item.get("snippet", ""),
+        #                 "link": item.get("link", ""),
+        #                 "source": item.get("source", ""),
+        #                 "region": region,
+        #                 "language": config["language"],
+        #             }
+        #         )
+        #
+        #     logger.info(f"🔍 [{region.upper()}] Found {len(results)} results")
+        #     return results
+        #
+        # except Exception as e:
+        #     logger.error(f"Search error for {region}: {e}")
+        #     return []
 
     def _extract_narrative_with_ai(self, title: str, snippet: str) -> dict | None:
         """Use DeepSeek to extract team name and narrative type from news."""
@@ -465,7 +491,11 @@ RULES:
             messages = [
                 {
                     "role": "system",
-                    "content": "You extract football team names and narrative types from news. Output only JSON.",
+                    "content": (
+                        "You extract football team names and"
+                        " narrative types from news."
+                        " Output only JSON."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ]

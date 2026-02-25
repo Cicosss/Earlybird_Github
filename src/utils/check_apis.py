@@ -128,64 +128,65 @@ def test_odds_api():
         return False
 
 
-def test_serper_api():
-    """Test Serper API authentication."""
-    print("\n" + "=" * 60)
-    print("🔍 SERPER API - Test Autenticazione")
-    print("=" * 60)
-
-    api_key = os.getenv("SERPER_API_KEY", "")
-
-    if not api_key or "YOUR_" in api_key:
-        print_err("SERPER_API_KEY non configurata in .env")
-        return False
-
-    print(f"   Chiave: {api_key[:8]}...{api_key[-4:]}")
-
-    try:
-        url = "https://google.serper.dev/search"
-        headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
-        payload = {"q": "test football news", "num": 3}
-
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-
-        if response.status_code == 401:
-            print_err("Chiave API non valida (401 Unauthorized)")
-            return False
-
-        if response.status_code == 400:
-            # Check for credit exhaustion
-            try:
-                data = response.json()
-                if "credits" in str(data).lower():
-                    print_err("Crediti Serper esauriti")
-                else:
-                    print_err(f"Bad Request: {data}")
-            except:
-                print_err("Bad Request (400)")
-            return False
-
-        if response.status_code != 200:
-            print_err(f"Errore HTTP: {response.status_code}")
-            return False
-
-        data = response.json()
-        results = data.get("organic", [])
-
-        print_ok(f"Autenticazione OK | Risultati test: {len(results)}")
-
-        if results:
-            print("\n   Esempio risultato:")
-            print(f"   └─ {results[0].get('title', 'N/A')[:60]}...")
-
-        return True
-
-    except requests.exceptions.Timeout:
-        print_err("Timeout connessione")
-        return False
-    except Exception as e:
-        print_err(f"Errore: {e}")
-        return False
+# DEPRECATED: Serper API test - migrating to Brave
+# def test_serper_api():
+#     """Test Serper API authentication."""
+#     print("\n" + "=" * 60)
+#     print("🔍 SERPER API - Test Autenticazione")
+#     print("=" * 60)
+#
+#     api_key = os.getenv("SERPER_API_KEY", "")
+#
+#     if not api_key or "YOUR_" in api_key:
+#         print_err("SERPER_API_KEY non configurata in .env")
+#         return False
+#
+#     print(f"   Chiave: {api_key[:8]}...{api_key[-4:]}")
+#
+#     try:
+#         url = "https://google.serper.dev/search"
+#         headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
+#         payload = {"q": "test football news", "num": 3}
+#
+#         response = requests.post(url, headers=headers, json=payload, timeout=15)
+#
+#         if response.status_code == 401:
+#             print_err("Chiave API non valida (401 Unauthorized)")
+#             return False
+#
+#         if response.status_code == 400:
+#             # Check for credit exhaustion
+#             try:
+#                 data = response.json()
+#                 if "credits" in str(data).lower():
+#                     print_err("Crediti Serper esauriti")
+#                 else:
+#                     print_err(f"Bad Request: {data}")
+#             except:
+#                 print_err("Bad Request (400)")
+#             return False
+#
+#         if response.status_code != 200:
+#             print_err(f"Errore HTTP: {response.status_code}")
+#             return False
+#
+#         data = response.json()
+#         results = data.get("organic", [])
+#
+#         print_ok(f"Autenticazione OK | Risultati test: {len(results)}")
+#
+#         if results:
+#             print("\n   Esempio risultato:")
+#             print(f"   └─ {results[0].get('title', 'N/A')[:60]}...")
+#
+#         return True
+#
+#     except requests.exceptions.Timeout:
+#         print_err("Timeout connessione")
+#         return False
+#     except Exception as e:
+#         print_err(f"Errore: {e}")
+#         return False
 
 
 def test_openrouter_api():
@@ -639,7 +640,7 @@ def main():
 
     # Test APIs
     results["odds"] = test_odds_api()
-    results["serper"] = test_serper_api()
+    # results["serper"] = test_serper_api()  # DEPRECATED: migrating to Brave
     results["openrouter"] = test_openrouter_api()
     results["brave"] = test_brave_api()
     results["perplexity"] = test_perplexity_api()

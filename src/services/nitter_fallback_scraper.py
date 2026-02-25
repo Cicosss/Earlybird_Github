@@ -33,6 +33,7 @@ import os
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -62,11 +63,13 @@ try:
     _INTELLIGENCE_GATE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_GATE_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+if not _INTELLIGENCE_GATE_AVAILABLE:
     logger.warning(
         "⚠️ [INTEL-GATE] Intelligence gate module not available, using legacy implementation"
     )
-
-logger = logging.getLogger(__name__)
 
 # ============================================
 # CONFIGURATION
@@ -1141,6 +1144,402 @@ class NitterFallbackScraper:
                 for url, h in self._instance_health.items()
             },
         }
+
+    # ============================================
+    # V10.5: INTELLIGENCE-DRIVEN MATCH TRIGGERING
+    # ============================================
+
+    async def run_cycle(self, continent: str | None = None) -> dict[str, Any]:
+        """
+        Run a complete Nitter intelligence cycle.
+
+        This method:
+        1. Fetches handles from Supabase (social_sources table)
+        2. Scrapes tweets via NitterPool
+        3. Filters via TweetRelevanceFilter
+        4. Links relevant tweets to upcoming matches
+        5. Triggers analysis if 90% confident
+
+        Args:
+            continent: Optional continent name (LATAM, ASIA, AFRICA) to filter sources
+
+        Returns:
+            Dict with cycle results including:
+            - handles_processed: Number of handles scraped
+            - tweets_found: Total tweets found
+            - relevant_tweets: Tweets with relevance > 0.7
+            - matches_triggered: Number of matches triggered for analysis
+            - errors: List of errors encountered
+        """
+        result = {
+            "handles_processed": 0,
+            "tweets_found": 0,
+            "relevant_tweets": 0,
+            "matches_triggered": 0,
+            "errors": [],
+        }
+
+        try:
+            # V10.5 FIX: Clear expired intel cache at start of each cycle
+            clear_nitter_intel_cache()
+
+            # Step 1: Fetch handles from Supabase
+            logger.info(f"🐦 [NITTER-CYCLE] Starting cycle for continent: {continent or 'ALL'}")
+            handles_data = await self._get_handles_from_supabase(continent)
+
+            if not handles_data:
+                logger.warning("⚠️ [NITTER-CYCLE] No handles found in Supabase")
+                return result
+
+            # Extract handles with their league_id mapping
+            handles_with_league = {}
+            for source in handles_data:
+                handle = source.get("identifier", "")
+                league_id = source.get("league_id", "")
+                if handle and league_id:
+                    handles_with_league[f"@{handle}"] = {
+                        "league_id": league_id,
+                        "description": source.get("description", ""),
+                    }
+
+            logger.info(f"📋 [NITTER-CYCLE] Found {len(handles_with_league)} handles to scrape")
+
+            # Step 2: Scrape tweets via NitterPool
+            handles_list = list(handles_with_league.keys())
+            scrape_result = await self.scrape_accounts(handles_list)
+
+            if not scrape_result:
+                logger.warning("⚠️ [NITTER-CYCLE] No tweets scraped")
+                return result
+
+            result["handles_processed"] = len(handles_list)
+            accounts_data = scrape_result.get("accounts", [])
+
+            # Step 3: Filter via TweetRelevanceFilter
+            relevant_tweets = []
+            for account in accounts_data:
+                handle = account.get("handle", "")
+                posts = account.get("posts", [])
+                result["tweets_found"] += len(posts)
+
+                for post in posts:
+                    content = post.get("content", "")
+                    if not content:
+                        continue
+
+                    # Apply TweetRelevanceFilter
+                    filter_result = self._apply_tweet_relevance_filter(content)
+
+                    # Check if relevance > 0.7 (high confidence)
+                    if filter_result.get("score", 0.0) > 0.7:
+                        relevant_tweets.append(
+                            {
+                                "handle": handle,
+                                "content": content,
+                                "score": filter_result.get("score", 0.0),
+                                "topics": filter_result.get("topics", []),
+                                "league_id": handles_with_league.get(handle, {}).get("league_id"),
+                                "description": handles_with_league.get(handle, {}).get(
+                                    "description", ""
+                                ),
+                            }
+                        )
+
+            result["relevant_tweets"] = len(relevant_tweets)
+            logger.info(f"✅ [NITTER-CYCLE] Found {len(relevant_tweets)} relevant tweets")
+
+            # Step 4: Link relevant tweets to upcoming matches and trigger analysis
+            if relevant_tweets:
+                await self._link_and_trigger_matches(relevant_tweets, result)
+
+            logger.info(
+                f"🎯 [NITTER-CYCLE] Cycle complete: {result['handles_processed']} handles, "
+                f"{result['tweets_found']} tweets, {result['relevant_tweets']} relevant, "
+                f"{result['matches_triggered']} matches triggered"
+            )
+
+        except Exception as e:
+            error_msg = f"❌ [NITTER-CYCLE] Error: {e}"
+            logger.error(error_msg)
+            result["errors"].append(str(e))
+
+        return result
+
+    async def _get_handles_from_supabase(
+        self, continent: str | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch handles from Supabase social_sources table.
+
+        Args:
+            continent: Optional continent name to filter sources
+
+        Returns:
+            List of social source records with handle and league_id
+        """
+        try:
+            # Import inside method to avoid circular imports
+            from src.database.supabase_provider import get_supabase
+
+            supabase = get_supabase()
+
+            if continent:
+                # Get leagues for this continent, then get social sources for those leagues
+                active_leagues = supabase.get_active_leagues_for_continent(continent)
+                all_sources = []
+                for league in active_leagues:
+                    league_id = league.get("id")
+                    if league_id:
+                        league_sources = supabase.get_social_sources_for_league(league_id)
+                        all_sources.extend(league_sources)
+            else:
+                # Get all social sources
+                all_sources = supabase.get_social_sources()
+
+            # Filter only active sources
+            active_sources = [s for s in all_sources if s.get("is_active", False)]
+
+            logger.info(
+                f"📦 [NITTER-CYCLE] Loaded {len(active_sources)} active social sources from Supabase"
+            )
+            return active_sources
+
+        except Exception as e:
+            logger.error(f"❌ [NITTER-CYCLE] Failed to fetch handles from Supabase: {e}")
+            return []
+
+    def _apply_tweet_relevance_filter(self, text: str) -> dict[str, Any]:
+        """
+        Apply TweetRelevanceFilter to tweet content.
+
+        Args:
+            text: Tweet content to analyze
+
+        Returns:
+            Dict with relevance score and topics
+        """
+        try:
+            # Import inside method to avoid circular imports
+            from src.services.tweet_relevance_filter import get_tweet_relevance_filter
+
+            filter_instance = get_tweet_relevance_filter()
+            return filter_instance.analyze(text)
+
+        except Exception as e:
+            logger.warning(f"⚠️ [NITTER-CYCLE] TweetRelevanceFilter failed: {e}")
+            return {"is_relevant": False, "score": 0.0, "topics": []}
+
+    async def _link_and_trigger_matches(
+        self, relevant_tweets: list[dict[str, Any]], result: dict[str, Any]
+    ) -> None:
+        """
+        Link relevant tweets to upcoming matches and trigger analysis if 90% confident.
+
+        For each relevant tweet:
+        1. Look up the league_id associated with the handle
+        2. Query DB for upcoming matches in that league (Next 72h)
+        3. If team name fuzzy matches Home or Away team -> TRIGGER
+
+        Args:
+            relevant_tweets: List of relevant tweets with league_id
+            result: Result dict to update with matches_triggered count
+        """
+        try:
+            # Import inside method to avoid circular imports
+            from src.database.db_manager import get_db_session
+            from src.database.models import Match
+
+            now_utc = datetime.now(timezone.utc)
+            next_72h = now_utc + timedelta(hours=72)
+
+            for tweet in relevant_tweets:
+                handle = tweet.get("handle", "")
+                content = tweet.get("content", "")
+                league_id = tweet.get("league_id")
+                description = tweet.get("description", "")
+
+                if not league_id:
+                    continue
+
+                # Query DB for upcoming matches in this league
+                try:
+                    with get_db_session() as db_session:
+                        upcoming_matches = (
+                            db_session.query(Match)
+                            .filter(
+                                Match.league == league_id,
+                                Match.start_time >= now_utc,
+                                Match.start_time <= next_72h,
+                            )
+                            .order_by(Match.start_time)
+                            .all()
+                        )
+
+                        if not upcoming_matches:
+                            logger.debug(
+                                f"🔍 [NITTER-CYCLE] No upcoming matches for league {league_id}"
+                            )
+                            continue
+
+                        # Check for fuzzy match with team names
+                        for match in upcoming_matches:
+                            if await self._check_team_match(
+                                content, description, match.home_team, match.away_team
+                            ):
+                                # 90% confident - trigger analysis
+                                await self._trigger_analysis(match, handle, content)
+                                result["matches_triggered"] += 1
+                                break  # Only trigger once per tweet
+
+                except Exception as e:
+                    logger.warning(f"⚠️ [NITTER-CYCLE] Error querying matches: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"❌ [NITTER-CYCLE] Error linking tweets to matches: {e}")
+
+    async def _check_team_match(
+        self, tweet_content: str, handle_description: str, home_team: str, away_team: str
+    ) -> bool:
+        """
+        Check if tweet content or handle description fuzzy matches team names.
+
+        Uses SequenceMatcher for fuzzy string matching with 90% threshold.
+
+        Args:
+            tweet_content: Tweet text content
+            handle_description: Handle description from Supabase
+            home_team: Home team name
+            away_team: Away team name
+
+        Returns:
+            True if 90% confident tweet belongs to this match
+        """
+        if not home_team or not away_team:
+            return False
+
+        # Normalize text for matching
+        tweet_lower = tweet_content.lower()
+        desc_lower = handle_description.lower()
+        home_lower = home_team.lower()
+        away_lower = away_team.lower()
+
+        # Check for exact match first (highest confidence)
+        if home_lower in tweet_lower or away_lower in tweet_lower:
+            logger.debug(
+                f"✅ [NITTER-CYCLE] Exact team match found: '{home_team}' or '{away_team}' in tweet"
+            )
+            return True
+
+        # Check for team names in handle description
+        if home_lower in desc_lower or away_lower in desc_lower:
+            logger.debug(
+                f"✅ [NITTER-CYCLE] Team match found in description: '{home_team}' or '{away_team}'"
+            )
+            return True
+
+        # Use fuzzy matching for partial matches (90% threshold)
+        for team_name in [home_team, away_team]:
+            # Match against tweet content
+            content_similarity = SequenceMatcher(None, team_name.lower(), tweet_lower).ratio()
+            if content_similarity >= 0.9:
+                logger.debug(
+                    f"✅ [NITTER-CYCLE] Fuzzy match found: '{team_name}' ~ '{tweet_content[:30]}...' "
+                    f"(similarity: {content_similarity:.2f})"
+                )
+                return True
+
+            # Match against handle description
+            desc_similarity = SequenceMatcher(None, team_name.lower(), desc_lower).ratio()
+            if desc_similarity >= 0.9:
+                logger.debug(
+                    f"✅ [NITTER-CYCLE] Fuzzy match found in description: '{team_name}' ~ '{handle_description[:30]}...' "
+                    f"(similarity: {desc_similarity:.2f})"
+                )
+                return True
+
+        return False
+
+    async def _trigger_analysis(self, match: Any, handle: str, tweet_text: str) -> None:
+        """
+        Trigger analysis for a match with insider tweet intel.
+
+        V10.5 FIX: Now stores intel in shared cache for main.py to use.
+
+        Args:
+            match: Match database object
+            handle: Twitter handle that provided the intel
+            tweet_text: Tweet content
+        """
+        try:
+            # Build forced narrative with insider tweet context
+            forced_narrative = f"INSIDER TWEET ({handle}): {tweet_text}"
+
+            logger.info(
+                f"🚨 [NITTER-CYCLE] TRIGGER: Found intel for {match.home_team} vs {match.away_team} "
+                f"via {handle}"
+            )
+
+            # V10.5 FIX: Store intel in shared cache for main.py to access
+            _nitter_intel_cache[match.id] = {
+                "handle": handle,
+                "intel": forced_narrative,
+                "timestamp": datetime.now(timezone.utc),
+            }
+
+            logger.info(
+                f"✅ [NITTER-CYCLE] Intel cached for match {match.id}: {forced_narrative[:100]}..."
+            )
+
+        except Exception as e:
+            logger.error(f"❌ [NITTER-CYCLE] Error triggering analysis: {e}")
+
+
+# ============================================
+# V10.5: NITTER INTEL CACHE (Shared with main.py)
+# ============================================
+
+# Cache for storing Nitter intel that main.py can access
+# Format: {match_id: {"handle": str, "intel": str, "timestamp": datetime}}
+_nitter_intel_cache: dict[str, dict[str, Any]] = {}
+
+
+def get_nitter_intel_for_match(match_id: str) -> dict[str, Any] | None:
+    """
+    Get cached Nitter intel for a specific match.
+
+    This allows main.py to access insider intel gathered by Nitter cycle.
+
+    Args:
+        match_id: Match ID from database
+
+    Returns:
+        Dict with 'handle', 'intel', 'timestamp' keys, or None if no intel exists
+    """
+    return _nitter_intel_cache.get(match_id)
+
+
+def clear_nitter_intel_cache() -> None:
+    """
+    Clear expired Nitter intel cache entries.
+
+    Removes entries older than 24 hours to prevent stale intel.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    expired_keys = []
+
+    for match_id, intel_data in _nitter_intel_cache.items():
+        intel_time = intel_data.get("timestamp")
+        if intel_time and (now - intel_time).total_seconds() > 86400:  # 24 hours
+            expired_keys.append(match_id)
+
+    for key in expired_keys:
+        del _nitter_intel_cache[key]
+
+    if expired_keys:
+        logger.debug(f"🗑️ [NITTER-CACHE] Cleared {len(expired_keys)} expired entries")
 
 
 # ============================================

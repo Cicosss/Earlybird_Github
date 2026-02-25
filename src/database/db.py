@@ -141,11 +141,27 @@ def save_analysis(analysis_data: Any) -> None:
 
     Expects object with: match_id, url, summary, relevance_score, category, affected_team
 
+    V8.3: Also supports saving odds_at_alert, odds_at_kickoff, alert_sent_at
+
     Args:
         analysis_data: Analysis result object/dataclass/dictionary
     """
     with get_db_context() as session:
         try:
+            # Extract V8.3 fields if available
+            odds_at_alert = getattr(analysis_data, "odds_at_alert", None)
+            odds_at_kickoff = getattr(analysis_data, "odds_at_kickoff", None)
+            alert_sent_at = getattr(analysis_data, "alert_sent_at", None)
+
+            # Extract other optional fields
+            combo_suggestion = getattr(analysis_data, "combo_suggestion", None)
+            combo_reasoning = getattr(analysis_data, "combo_reasoning", None)
+            recommended_market = getattr(analysis_data, "recommended_market", None)
+            primary_driver = getattr(analysis_data, "primary_driver", None)
+            confidence_breakdown = getattr(analysis_data, "confidence_breakdown", None)
+            is_convergent = getattr(analysis_data, "is_convergent", False)
+            convergence_sources = getattr(analysis_data, "convergence_sources", None)
+
             log = NewsLog(
                 match_id=analysis_data.match_id,
                 url=analysis_data.url,
@@ -153,6 +169,18 @@ def save_analysis(analysis_data: Any) -> None:
                 score=analysis_data.score,
                 category=analysis_data.category,
                 affected_team=analysis_data.affected_team,
+                # V8.3 fields
+                odds_at_alert=odds_at_alert,
+                odds_at_kickoff=odds_at_kickoff,
+                alert_sent_at=alert_sent_at,
+                # Optional fields
+                combo_suggestion=combo_suggestion,
+                combo_reasoning=combo_reasoning,
+                recommended_market=recommended_market,
+                primary_driver=primary_driver,
+                confidence_breakdown=confidence_breakdown,
+                is_convergent=is_convergent,
+                convergence_sources=convergence_sources,
             )
             session.add(log)
         except Exception as e:

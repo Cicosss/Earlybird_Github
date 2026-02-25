@@ -1,42 +1,27 @@
 {
-  "https://www.abola.pt/noticias/sporting-recupera-lesionado-mas-e-reintegrado-na-equipa-b-2026020615042128526": {
-    "team": "Sporting Clube de Portugal",
-    "type": "B_TEAM",
-    "timestamp": "2026-02-10T12:25:30.056234+00:00"
-  },
-  "https://www.kickoff.com/psl/kaizer-chiefs/chiefs-coach-ben-youssef-defends-msimango-for-role-in-al-masry-goal": {
-    "team": "Kaizer Chiefs",
-    "type": "KEY_RETURN",
-    "timestamp": "2026-02-10T12:27:10.158499+00:00"
-  },
-  "https://onefootball.com/en/news/on-a-night-of-stunning-goals-boca-reserves-thrash-riestra-42390995": {
-    "team": "Boca Juniors",
-    "type": "B_TEAM",
-    "timestamp": "2026-02-14T08:59:08.112481+00:00"
-  },
-  "https://onefootball.com/en/news/ubeda-backs-aranda-to-give-xeneize-a-new-look-42404101": {
-    "team": "Boca Juniors",
-    "type": "B_TEAM",
-    "timestamp": "2026-02-14T08:59:45.571352+00:00"
-  },
-  "https://www.record.pt/futebol/futebol-nacional/coluna-distrital/detalhe/af-aveiro-afetada-pelo-mau-tempo-crac-e-beira-vouga-com-danos-nas-instalacoes-e-treinos-suspensos": {
-    "team": "CRAC",
+  "https://sports.yahoo.com/articles/two-more-georgia-football-players-171343456.html": {
+    "team": "Georgia Bulldogs",
     "type": "CRISIS",
-    "timestamp": "2026-02-14T09:01:35.635007+00:00"
+    "timestamp": "2026-02-20T00:31:26.439368+00:00"
   },
-  "https://www.kickoff.com/world-news/africa-news/benni-mccarthy-set-to-join-rulani-in-algeria": {
-    "team": "Manchester United",
+  "https://www.uol.com.br/esporte/futebol/ultimas-noticias/2026/02/16/abel-so-ve-dois-reservas-se-salvarem-no-palmeiras-em-teste-por-vaga-no-time.htm": {
+    "team": "Palmeiras",
     "type": "B_TEAM",
-    "timestamp": "2026-02-14T09:03:06.852959+00:00"
+    "timestamp": "2026-02-20T00:34:08.314413+00:00"
   },
-  "https://uk.sports.yahoo.com/news/football-southern-hellenic-county-northern-132802555.html": {
-    "team": "Gloucester City Reserves",
+  "https://www.haberler.com/spor/dort-ismi-11-den-aldi-kadroda-buyuk-degisiklik-19583989-haberi/": {
+    "team": "Galatasaray",
     "type": "B_TEAM",
-    "timestamp": "2026-02-16T12:14:12.866064+00:00"
+    "timestamp": "2026-02-20T08:22:41.302675+00:00"
   },
-  "https://www.uol.com.br/esporte/futebol/colunas/mauro-cezar-pereira/2026/02/14/apos-tres-derrotas-em-classicos-botafogo-encara-o-flamengo-e-o-caos-da-saf.htm": {
-    "team": "Botafogo",
+  "https://spor.haber7.com/galatasaray/haber/3605669-okan-buruktan-konyaspor-maci-icin-rotasyon-karari-4-oyuncu-kulubeye": {
+    "team": "Galatasaray",
     "type": "B_TEAM",
-    "timestamp": "2026-02-16T12:16:25.458468+00:00"
+    "timestamp": "2026-02-20T08:26:01.393613+00:00"
+  },
+  "https://www.corumhaber.net/erkan-kas-kadro-disi": {
+    "team": "Arca Çorum FK",
+    "type": "B_TEAM",
+    "timestamp": "2026-02-20T08:26:46.348027+00:00"
   }
 }

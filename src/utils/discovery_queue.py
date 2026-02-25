@@ -328,6 +328,8 @@ class DiscoveryQueue:
         Items are NOT removed from queue (they may match multiple matches).
         Use cleanup_expired() periodically to remove old items.
 
+        V11.0: Also includes items with league_key="GLOBAL" for GlobalRadarMonitor integration.
+
         Args:
             match_id: Match ID to attach to results
             team_names: List of team names to match against
@@ -346,12 +348,16 @@ class DiscoveryQueue:
             # Get UUIDs for this league
             league_uuids = set(self._by_league.get(league_key, []))
 
-            if not league_uuids:
+            # V11.0: Also include GLOBAL items (from GlobalRadarMonitor)
+            global_uuids = set(self._by_league.get("GLOBAL", []))
+            all_uuids = league_uuids.union(global_uuids)
+
+            if not all_uuids:
                 return []
 
             # Find matching items
             for item in self._queue:
-                if item.uuid not in league_uuids:
+                if item.uuid not in all_uuids:
                     continue
 
                 # Skip expired

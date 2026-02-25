@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-EarlyBird V3.7 - Process Orchestrator (Supervisor)
+EarlyBird - Process Orchestrator (Supervisor)
 
 Gestisce l'avvio e il riavvio automatico di:
 1. src/main.py - Pipeline principale (Odds + News + Analysis)
@@ -11,6 +11,8 @@ Gestisce l'avvio e il riavvio automatico di:
 Auto-Restart: Se un processo muore, viene riavviato immediatamente.
 Graceful Shutdown: Ctrl+C termina tutti i processi correttamente.
 Dynamic Discovery: Verifica l'esistenza dei file prima di avviarli.
+
+Historical Version: V3.7
 """
 
 import argparse
@@ -22,6 +24,20 @@ import sys
 import time
 from datetime import datetime
 
+# Setup path to import modules (fix for config module import)
+sys.path.append(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
+sys.path.append(os.getcwd())
+
+# Import orchestration metrics
+# Import settings for service control flags
+import config.settings as settings
+from src.alerting.orchestration_metrics import start_metrics_collection, stop_metrics_collection
+
+# Import centralized version tracking
+from src.version import get_version_with_module
+
 # Configurazione logging
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +46,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Log version on import
+logger.info(f"📦 {get_version_with_module('Launcher')}")
+
 # Candidati per i processi (verifica esistenza dinamica)
 PROCESS_CANDIDATES = [
     {"key": "main", "scripts": ["src/main.py"], "name": "Pipeline Principale"},
@@ -37,9 +56,8 @@ PROCESS_CANDIDATES = [
     {
         "key": "monitor",
         "scripts": [
-            "src/run_scraper.py",
             "run_telegram_monitor.py",
-        ],  # Nuovo nome + legacy fallback
+        ],  # Telegram Monitor script
         "name": "Telegram Monitor (Scraper)",
     },
     {"key": "news_radar", "scripts": ["run_news_radar.py"], "name": "News Radar (Hunter Autonomo)"},
@@ -81,7 +99,7 @@ def discover_processes() -> dict:
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="EarlyBird V3.7 - Process Orchestrator (Supervisor)",
+        description=f"EarlyBird {get_version_with_module('Launcher')}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Componenti gestiti:
@@ -200,6 +218,12 @@ _shutdown_requested = False
 def start_process(key: str) -> subprocess.Popen:
     """Avvia un processo e ritorna l'oggetto Popen."""
     config = PROCESSES[key]
+
+    # Check service control flags before starting
+    if key == "news_radar" and not settings.NEWS_RADAR_ENABLED:
+        logger.info("⚠️ Service News Radar Disabled by config.")
+        return None
+
     logger.info(f"🚀 Avvio {config['name']}...")
 
     # V7.2: start_new_session=True crea un nuovo process group
@@ -275,7 +299,11 @@ def check_and_restart():
 
         if process is None:
             # Primo avvio
-            start_process(key)
+            started_process = start_process(key)
+            # If process was disabled and returned None, mark as intentionally skipped
+            if started_process is None and key == "news_radar":
+                config["process"] = None  # Keep None to prevent restart attempts
+                config["restarts"] = 0  # No restarts for disabled services
 
         elif process.poll() is None:
             # Processo ancora in esecuzione - verifica stabilità per reset backoff
@@ -320,7 +348,11 @@ def check_and_restart():
 
             # Backoff prima del riavvio
             time.sleep(backoff_seconds)
-            start_process(key)
+            started_process = start_process(key)
+            # If process was disabled and returned None, mark as intentionally skipped
+            if started_process is None and key == "news_radar":
+                config["process"] = None  # Keep None to prevent restart attempts
+                config["restarts"] = 0  # No restarts for disabled services
 
 
 def signal_handler(signum, frame):
@@ -382,6 +414,13 @@ def main():
 
         logger.info("✅ Tutti i processi avviati. Monitoraggio attivo...")
 
+        # Start orchestration metrics collection
+        try:
+            start_metrics_collection()
+            logger.info("✅ Orchestration metrics collector started")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to start metrics collection: {e}")
+
         # Loop di monitoraggio
         while not _shutdown_requested:
             check_and_restart()
@@ -392,6 +431,14 @@ def main():
     finally:
         # Shutdown graceful
         logger.info("🔄 Arresto di tutti i processi...")
+
+        # Stop orchestration metrics collection
+        try:
+            stop_metrics_collection()
+            logger.info("✅ Orchestration metrics collector stopped")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to stop metrics collection: {e}")
+
         for key in PROCESSES:
             stop_process(key)
 

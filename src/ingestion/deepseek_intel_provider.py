@@ -1,23 +1,27 @@
 """
-EarlyBird DeepSeek Intel Provider - OpenRouter API (V6.1)
+EarlyBird DeepSeek Intel Provider - OpenRouter API (V10.0)
 
 Drop-in replacement for GeminiAgentProvider using DeepSeek via OpenRouter.
-Uses DDG as primary search (to save Brave quota) with Brave as fallback.
+Uses TwitterIntelCache for Twitter extraction (Twitter blocks search engine indexing).
 
 Flow:
-1. DDG Search (primary) or Brave Search (fallback) for real-time web results
-2. DeepSeek via OpenRouter for AI analysis
+1. TwitterIntelCache for Twitter/X tweets (Twitter blocks site:twitter.com since mid-2023)
+2. DDG Search (primary) or Brave Search (fallback) for real-time web results
+3. DeepSeek via OpenRouter for AI analysis
 
+V10.0: Replaced broken search engine Twitter queries with TwitterIntelCache.
+       Twitter/X blocks search engine indexing (site:twitter.com returns 0 results).
+V6.4: Fixed double URL encoding bug - HTTPX automatically encodes query parameters.
+       Do NOT manually encode to avoid double encoding (causes HTTP 422).
 V6.1: DDG as primary search to reduce Brave API quota consumption
-      Brave quota reserved for news_hunter which needs higher quality results
+       Brave quota reserved for news_hunter which needs higher quality results
 V1.0: Initial implementation with same interface as GeminiAgentProvider
 
 Requirements:
 - OPENROUTER_API_KEY environment variable
+- TwitterIntelCache for Twitter/X extraction (V10.0)
 - DDG library (ddgs) for primary search
 - Brave Search API (via BraveSearchProvider) as fallback
-
-Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search queries
 """
 
 import logging
@@ -25,7 +29,6 @@ import os
 import threading
 import time
 from datetime import datetime
-from urllib.parse import quote
 
 from src.ingestion.brave_provider import get_brave_provider
 from src.ingestion.prompts import (
@@ -48,6 +51,16 @@ from src.utils.validators import safe_get, safe_list_get
 # and should not share cooldown state with Gemini Direct API
 
 logger = logging.getLogger(__name__)
+
+# V10.0: Import TwitterIntelCache to replace broken search engine queries
+try:
+    from src.services.twitter_intel_cache import get_twitter_intel_cache
+
+    _TWITTER_INTEL_CACHE_AVAILABLE = True
+    logger.info("✅ TwitterIntelCache available for DeepSeek Twitter extraction")
+except ImportError as e:
+    _TWITTER_INTEL_CACHE_AVAILABLE = False
+    logger.warning(f"⚠️ TwitterIntelCache not available: {e}")
 
 # Configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -178,8 +191,8 @@ class DeepSeekIntelProvider:
 
         Gestisce errori gracefully (return empty list on failure).
 
-        Phase 1 Critical Fix: URL-encode query to handle non-ASCII characters
-        (e.g., Turkish "ş", Polish "ą", Greek "α").
+        V6.4: Fixed double URL encoding bug - HTTPX automatically encodes query parameters.
+        Do NOT manually encode to avoid double encoding (causes HTTP 422).
 
         Requirements: 3.1, 3.3, 3.4
 
@@ -190,16 +203,12 @@ class DeepSeekIntelProvider:
         Returns:
             List of dicts with title, url, snippet
         """
-        # Phase 1 Critical Fix: URL-encode query to handle special characters
-        # This fixes search failures for non-English team names
-        encoded_query = quote(query, safe=" ")
-
         # V6.1: Try SearchProvider first (DDG primary, then Brave fallback)
         # This saves Brave quota for news_hunter which needs higher quality results
         if hasattr(self, "_search_provider") and self._search_provider:
             try:
                 logger.debug(f"🔍 [DEEPSEEK] DDG search: {query[:60]}...")
-                results = self._search_provider.search(encoded_query, limit)
+                results = self._search_provider.search(query, limit)
                 if results:
                     logger.debug(f"🔍 [DEEPSEEK] DDG returned {len(results)} results")
                     return results
@@ -213,7 +222,7 @@ class DeepSeekIntelProvider:
 
         try:
             logger.debug(f"🔍 [DEEPSEEK] Brave fallback: {query[:60]}...")
-            results = self._brave_provider.search_news(encoded_query, limit=limit)
+            results = self._brave_provider.search_news(query, limit=limit)
             logger.debug(f"🔍 [DEEPSEEK] Brave returned {len(results)} results")
             return results
         except Exception as e:
@@ -1172,10 +1181,13 @@ Be conservative in your assessments when lacking current data.
         self, handles: list[str], max_posts_per_account: int = 5
     ) -> dict | None:
         """
-        Extract recent tweets using DeepSeek + Brave Search.
+        Extract recent tweets using TwitterIntelCache (V10.0).
 
-        V6.2 FIX: Processa TUTTI gli handle in batch da 10, non solo i primi 10.
-        Ritorna anche statistiche su quanti handle sono stati processati.
+        Twitter/X blocks search engine indexing (site:twitter.com returns 0 results
+        since mid-2023). This method now uses cached tweets from verified
+        accounts instead of search engines.
+
+        V10.0: Replaced broken search engine queries with TwitterIntelCache.
 
         Requirements: 2.7, 7.1
 
@@ -1191,7 +1203,7 @@ Be conservative in your assessments when lacking current data.
             logger.debug("[DEEPSEEK] Twitter extraction skipped: no handles")
             return None
 
-        # V6.2: Filter out invalid handles
+        # Filter out invalid handles
         valid_handles = [h for h in handles if h and isinstance(h, str) and h.strip()]
 
         if not valid_handles:
@@ -1202,88 +1214,90 @@ Be conservative in your assessments when lacking current data.
             logger.debug("[DEEPSEEK] Provider not available")
             return None
 
-        try:
-            # V6.2 FIX: Process ALL handles in batches of 10
-            BATCH_SIZE = 10
-            all_accounts = []
-            total_handles = len(valid_handles)
-            batches_processed = 0
-            batches_failed = 0
+        # V10.0: Use TwitterIntelCache instead of search engines
+        if not _TWITTER_INTEL_CACHE_AVAILABLE:
+            logger.warning("⚠️ [DEEPSEEK] TwitterIntelCache not available, cannot extract tweets")
+            return None
 
+        try:
             logger.info(
-                f"🐦 [DEEPSEEK] Extracting tweets from {total_handles} accounts in {(total_handles + BATCH_SIZE - 1) // BATCH_SIZE} batches..."
+                f"🐦 [DEEPSEEK] Extracting tweets from {len(valid_handles)} accounts via TwitterIntelCache..."
             )
 
-            for batch_start in range(0, total_handles, BATCH_SIZE):
-                batch_handles = valid_handles[batch_start : batch_start + BATCH_SIZE]
-                batch_num = batch_start // BATCH_SIZE + 1
+            # Get cache instance
+            cache = get_twitter_intel_cache()
 
+            # Check if cache is fresh (populated this cycle)
+            if not cache.is_fresh:
                 logger.debug(
-                    f"🐦 [DEEPSEEK] Processing batch {batch_num}: {len(batch_handles)} handles"
+                    f"🐦 [DEEPSEEK] Twitter Intel cache not fresh ({cache.cache_age_minutes}m old), skipping"
+                )
+                return None
+
+            # Topics filter for football-relevant tweets
+            topics_filter = [
+                "injury",
+                "lineup",
+                "squad",
+                "out",
+                "doubt",
+                "miss",
+                "absent",
+                "transfer",
+                "breaking",
+                "preview",
+            ]
+
+            # Collect all relevant tweets from cache
+            all_accounts = []
+            for handle in valid_handles:
+                # Search cache for this handle
+                handle_clean = handle.replace("@", "")
+                relevant_tweets = cache.search_intel(
+                    query=handle_clean,
+                    league_key=None,  # Search all cached accounts
+                    topics=topics_filter,
                 )
 
-                # Build search query for this batch
-                handles_str = " OR ".join(batch_handles)
-                search_query = f"site:twitter.com OR site:x.com {handles_str} football"
+                if relevant_tweets:
+                    # Limit to max_posts_per_account
+                    tweets = relevant_tweets[:max_posts_per_account]
 
-                # Search Brave for Twitter content
-                brave_results = self._search_brave(search_query, limit=10)
-                formatted_results = self._format_brave_results(brave_results)
+                    # Format posts to match expected structure
+                    posts = []
+                    for tweet in tweets:
+                        posts.append(
+                            {
+                                "date": tweet.date or "",
+                                "content": tweet.content,
+                                "topics": tweet.topics if tweet.topics else [],
+                            }
+                        )
 
-                # Build prompt for tweet extraction - V6.2: Escape braces properly
-                prompt = f"""You are a football news aggregator. Extract recent tweets from the search results.
-
-TASK: Find football-related posts from these accounts: {", ".join(batch_handles)}
-
-{formatted_results}
-
-OUTPUT FORMAT: Return ONLY a JSON object with this structure:
-- "accounts": array of objects with "handle", "posts" array
-- Each post has: "date" (YYYY-MM-DD), "content" (tweet text), "topics" (array of tags)
-- "extraction_time": ISO8601 timestamp
-
-TOPIC TAGS: injury, lineup, transfer, squad, breaking, preview
-
-RULES:
-1. Last 7 days only
-2. Football content only
-3. Max 280 chars per post
-4. Empty posts array if no content found for an account
-5. Include ALL accounts from the task list, even if no posts found"""
-
-                # Call DeepSeek for this batch
-                response_text = self._call_deepseek(prompt, f"twitter_batch_{batch_num}")
-
-                if response_text:
-                    parsed = parse_ai_json(response_text, None)
-                    if parsed and parsed.get("accounts"):
-                        all_accounts.extend(parsed["accounts"])
-                        batches_processed += 1
-                    else:
-                        batches_failed += 1
-                        logger.warning(f"⚠️ [DEEPSEEK] Batch {batch_num} returned no accounts")
-                else:
-                    batches_failed += 1
-                    logger.warning(f"⚠️ [DEEPSEEK] Batch {batch_num} failed")
+                    all_accounts.append(
+                        {
+                            "handle": handle,
+                            "posts": posts,
+                        }
+                    )
 
             # Build final result
             if not all_accounts:
                 logger.warning(
-                    f"⚠️ [DEEPSEEK] All {batches_failed} batches failed, no accounts extracted"
+                    f"🐦 [DEEPSEEK] No cached Twitter intel found for {len(valid_handles)} handles"
                 )
                 return None
 
             result = {
                 "accounts": all_accounts,
                 "extraction_time": datetime.utcnow().isoformat() + "Z",
-                # V6.2: Add metadata for debugging and fallback logic
+                # V10.0: Add metadata for debugging
                 "_meta": {
-                    "total_handles_requested": total_handles,
+                    "total_handles_requested": len(valid_handles),
                     "accounts_returned": len(all_accounts),
-                    "batches_processed": batches_processed,
-                    "batches_failed": batches_failed,
+                    "source": "twitter_intel_cache",
                     "is_complete": len(all_accounts)
-                    >= total_handles * 0.5,  # At least 50% coverage
+                    >= len(valid_handles) * 0.5,  # At least 50% coverage
                 },
             }
 
@@ -1292,7 +1306,7 @@ RULES:
 
             logger.info(
                 f"✅ [DEEPSEEK] Twitter: {accounts_with_posts}/{len(all_accounts)} accounts with posts, "
-                f"{total_posts} total posts ({batches_processed} batches OK, {batches_failed} failed)"
+                f"{total_posts} total posts (source: TwitterIntelCache)"
             )
 
             return result
