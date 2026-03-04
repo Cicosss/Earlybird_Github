@@ -226,6 +226,12 @@ def check_and_migrate():
             cursor.execute("ALTER TABLE news_logs ADD COLUMN convergence_sources TEXT")
             migrations_applied += 1
 
+        # V11.1: AI confidence (0-100) - Used by BettingQuant for market warning generation
+        if "confidence" not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.confidence")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN confidence REAL")
+            migrations_applied += 1
+
         # ============================================
         # MIGRATION: matches table
         # ============================================

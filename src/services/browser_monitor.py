@@ -1,5 +1,5 @@
 """
-EarlyBird Browser Monitor - Always-On Web Monitoring V7.5
+EarlyBird Browser Monitor - Always-On Web Monitoring V12.0
 
 Independent component that actively monitors web sources 24/7 to discover
 breaking news before they appear on search engines.
@@ -49,6 +49,18 @@ V7.5 Improvements:
 - 60-80% reduction in DeepSeek API calls
 - Shared content_analysis module with news_radar (DRY compliance)
 - Three-tier routing: SKIP / DEEPSEEK_FALLBACK / ALERT_DIRECT
+
+V12.0 Improvements:
+- Graceful Degradation: System continues in degraded mode if Playwright fails to initialize
+- Degraded Mode Loop: Minimal resource consumption when Playwright is unavailable
+- Enhanced Error Handling: Better logging and recovery mechanisms for VPS deployment
+- Playwright Recovery: Automatic recovery mechanism that periodically attempts to reinitialize Playwright
+  - Attempts recovery every 30 minutes (configurable via recovery_interval)
+  - Limits to 3 attempts per hour to avoid excessive resource usage
+  - Automatically switches to normal mode when recovery succeeds
+  - Resets attempt counter every hour for continuous recovery attempts
+  - Logs recovery progress and status for operator visibility
+- VPS-Optimized: Increased timeout and better handling of slow VPS connections
 
 Requirements: 1.1-1.4, 2.1-2.4, 3.1-3.5, 4.1-4.4, 5.1-5.4, 6.1-6.4, 7.1-7.4, 8.1-8.4
 """
@@ -706,6 +718,11 @@ class BrowserMonitor:
         self._fallback_extractions = 0
         self._blocked_resources = 0
 
+        # V12.1: Track stealth performance metrics (COVE FIX)
+        self._stealth_applications = 0  # Number of times stealth was applied
+        self._stealth_failures = 0  # Number of times stealth failed
+        self._stealth_total_time = 0.0  # Total time spent applying stealth (seconds)
+
         # V7.1: Circuit breakers per source (keyed by URL)
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
@@ -788,29 +805,55 @@ class BrowserMonitor:
                 logger.debug("⚠️ [BROWSER-MONITOR] Tavily not available")
 
             # Initialize Playwright
-            if not await self._initialize_playwright():
-                return False
+            playwright_available = await self._initialize_playwright()
 
-            # Initialize semaphore for concurrent page limit
-            self._page_semaphore = asyncio.Semaphore(
-                self._config.global_settings.max_concurrent_pages
-            )
+            # V12.0: Check if Playwright is available (graceful degradation)
+            if self._playwright is None:
+                # Playwright not available - system will run in DEGRADED MODE
+                logger.warning("⚠️ [BROWSER-MONITOR] Running in DEGRADED MODE (no browser)")
+                logger.info("ℹ️ [BROWSER-MONITOR] Web monitoring disabled, other services active")
 
-            # V7.7: Initialize browser recreation lock
-            self._browser_lock = asyncio.Lock()
+                # V12.0: Initialize degraded mode components
+                self._page_semaphore = None  # No browser = no semaphore needed
+                self._browser_lock = None  # No browser = no lock needed
 
-            # Start scan loop
-            self._running = True
-            self._stop_event.clear()
-            self._scan_task = asyncio.create_task(self._scan_loop())
-            
-            # V7.9: Signal to main thread that startup is complete
-            # This eliminates the race condition where main thread checks is_running()
-            # before Playwright initialization completes
-            self._startup_event.set()
+                # V12.0: Start degraded mode loop (minimal monitoring)
+                self._running = True
+                self._stop_event.clear()
 
-            logger.info(f"✅ [BROWSER-MONITOR] Started with {len(self._config.sources)} sources")
-            return True
+                # V12.0: Create a placeholder task that does nothing but keeps system alive
+                # This allows the monitor to be "running" even without browser
+                self._scan_task = asyncio.create_task(self._degraded_mode_loop())
+
+                # Signal to main thread that startup is complete
+                self._startup_event.set()
+
+                logger.info("✅ [BROWSER-MONITOR] Started in DEGRADED MODE (no web monitoring)")
+                return True
+            else:
+                # Playwright available - normal mode
+                # Initialize semaphore for concurrent page limit
+                self._page_semaphore = asyncio.Semaphore(
+                    self._config.global_settings.max_concurrent_pages
+                )
+
+                # V7.7: Initialize browser recreation lock
+                self._browser_lock = asyncio.Lock()
+
+                # Start scan loop
+                self._running = True
+                self._stop_event.clear()
+                self._scan_task = asyncio.create_task(self._scan_loop())
+
+                # V7.9: Signal to main thread that startup is complete
+                # This eliminates the race condition where main thread checks is_running()
+                # before Playwright initialization completes
+                self._startup_event.set()
+
+                logger.info(
+                    f"✅ [BROWSER-MONITOR] Started with {len(self._config.sources)} sources"
+                )
+                return True
 
         except Exception as e:
             logger.error(f"❌ [BROWSER-MONITOR] Failed to start: {e}")
@@ -823,6 +866,9 @@ class BrowserMonitor:
         Stop the browser monitor gracefully.
 
         Stops the scan loop and releases browser resources.
+
+        V12.0 FIX: Added check to verify if task is still active before cancelling
+        to avoid race conditions during mode transitions (degraded <-> normal).
 
         Returns:
             True if stopped successfully
@@ -841,8 +887,11 @@ class BrowserMonitor:
         # Wait for scan task to finish
         if self._scan_task:
             try:
-                self._scan_task.cancel()
-                await asyncio.wait_for(asyncio.shield(self._scan_task), timeout=5.0)
+                # V12.0 FIX: Verify if task is still active before cancelling
+                # This prevents race conditions during mode transitions
+                if not self._scan_task.done():
+                    self._scan_task.cancel()
+                    await asyncio.wait_for(asyncio.shield(self._scan_task), timeout=5.0)
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
             self._scan_task = None
@@ -860,19 +909,19 @@ class BrowserMonitor:
     def wait_for_startup(self, timeout: float = 10.0) -> bool:
         """
         V7.9: Wait for startup to complete, with timeout.
-        
+
         This method blocks until the browser monitor has completed startup
         (either successfully or with failure), or the timeout is reached.
-        
+
         This eliminates the race condition where main thread checks is_running()
         before Playwright initialization completes.
-        
+
         Args:
             timeout: Maximum time to wait for startup (in seconds)
-        
+
         Returns:
             True if startup completed within timeout, False if timeout was reached
-        
+
         Example:
             # In main thread:
             browser_monitor_thread.start()
@@ -919,12 +968,19 @@ class BrowserMonitor:
     # PLAYWRIGHT MANAGEMENT
     # ============================================
 
-    async def _initialize_playwright(self) -> bool:
+    async def _initialize_playwright(self) -> tuple[bool, str | None]:
         """
-        Initialize Playwright browser.
+        Initialize Playwright browser with graceful degradation.
+
+        V12.0: Enhanced error handling and graceful degradation.
+        If Playwright fails to initialize, the system can continue
+        without browser monitoring (degraded mode).
+
+        V12.0 FIX: Returns tuple with success status and error message
+        for better diagnostics during recovery attempts.
 
         Returns:
-            True if initialized successfully
+            Tuple of (success: bool, error_message: str | None)
 
         Requirements: 3.1, 6.1
         """
@@ -949,14 +1005,149 @@ class BrowserMonitor:
             )
 
             logger.info("✅ [BROWSER-MONITOR] Playwright initialized")
-            return True
+            return (True, None)
 
-        except ImportError:
-            logger.error("❌ [BROWSER-MONITOR] Playwright not installed")
-            return False
+        except ImportError as e:
+            error_msg = f"Playwright not installed: {e}"
+            logger.error(f"❌ [BROWSER-MONITOR] {error_msg}")
+            logger.warning("⚠️ [BROWSER-MONITOR] Browser monitoring will be DISABLED")
+            logger.info(
+                "ℹ️ [BROWSER-MONITOR] System will continue in DEGRADED MODE (no web monitoring)"
+            )
+            # V12.0: Graceful degradation - allow system to continue without browser
+            self._playwright = None
+            self._browser = None
+            return (True, error_msg)  # Return True to allow system to start (degraded mode)
         except Exception as e:
-            logger.error(f"❌ [BROWSER-MONITOR] Failed to initialize Playwright: {e}")
-            return False
+            error_msg = f"Failed to initialize Playwright: {e}"
+            logger.error(f"❌ [BROWSER-MONITOR] {error_msg}")
+            logger.warning("⚠️ [BROWSER-MONITOR] Browser monitoring will be DISABLED")
+            logger.info(
+                "ℹ️ [BROWSER-MONITOR] System will continue in DEGRADED MODE (no web monitoring)"
+            )
+            # V12.0: Graceful degradation - allow system to continue without browser
+            self._playwright = None
+            self._browser = None
+            return (True, error_msg)  # Return True to allow system to start (degraded mode)
+
+    async def _degraded_mode_loop(self):
+        """
+        V12.0: Degraded mode loop for when Playwright is unavailable.
+
+        When Playwright fails to initialize, the system runs in degraded mode:
+        - No web monitoring (browser_monitor is inactive)
+        - Other services continue to work (analysis, alerts, etc.)
+        - System remains responsive and functional
+        - Loop keeps monitor "running" but does minimal work
+        - Periodically attempts to recover Playwright (V12.0 FIX)
+
+        This allows the bot to continue operating even if Playwright
+        is not installed or fails to initialize.
+
+        V12.0 FIX: Added automatic recovery mechanism that periodically
+        attempts to reinitialize Playwright and switch to normal mode.
+
+        V12.0 FIX (COVE): Improved recovery logic with:
+        - Better error messages for diagnostics
+        - Fixed counter reset logic using timestamp
+        - Verification of both playwright and browser initialization
+        """
+        import time
+
+        # V12.0 FIX: Recovery mechanism configuration
+        recovery_attempts = 0
+        max_recovery_attempts = 3  # Try to recover 3 times per hour
+        last_recovery_attempt = 0
+        last_reset_time = int(time.time())  # V12.0 FIX (COVE): Track last reset time
+        recovery_interval = 1800  # 30 minutes between recovery attempts
+
+        logger.info("ℹ️ [BROWSER-MONITOR] Degraded mode loop started")
+
+        while self._running:
+            try:
+                # V12.0: Minimal work in degraded mode
+                # Just wait and check stop condition
+                # This keeps the thread alive but doesn't consume resources
+                await asyncio.sleep(60)  # Check every minute
+
+                # V12.0 FIX: Attempt to recover Playwright periodically
+                current_time = int(time.time())
+
+                # Check if we should attempt recovery
+                if recovery_attempts < max_recovery_attempts:
+                    if current_time - last_recovery_attempt >= recovery_interval:
+                        logger.info("🔄 [BROWSER-MONITOR] Attempting to recover Playwright...")
+                        last_recovery_attempt = current_time
+
+                        # Try to initialize Playwright
+                        success, error_msg = await self._initialize_playwright()
+                        if success:
+                            # V12.0 FIX (COVE): Verify both playwright and browser are initialized
+                            if self._playwright is not None and self._browser is not None:
+                                logger.info(
+                                    "✅ [BROWSER-MONITOR] Playwright recovered, switching to normal mode"
+                                )
+
+                                # Initialize semaphore and lock
+                                self._page_semaphore = asyncio.Semaphore(
+                                    self._config.global_settings.max_concurrent_pages
+                                )
+                                self._browser_lock = asyncio.Lock()
+
+                                # Start normal scan loop
+                                self._scan_task = asyncio.create_task(self._scan_loop())
+
+                                # Exit degraded mode loop (new task will take over)
+                                logger.info(
+                                    "✅ [BROWSER-MONITOR] Switched from DEGRADED to NORMAL mode"
+                                )
+                                return
+                            else:
+                                # V12.0 FIX (COVE): Log detailed error message
+                                if self._playwright is None and self._browser is None:
+                                    logger.warning(
+                                        "⚠️ [BROWSER-MONITOR] Neither playwright nor browser initialized"
+                                    )
+                                elif self._playwright is not None and self._browser is None:
+                                    logger.warning(
+                                        "⚠️ [BROWSER-MONITOR] Playwright initialized but browser failed"
+                                    )
+                                elif self._playwright is None and self._browser is not None:
+                                    logger.warning(
+                                        "⚠️ [BROWSER-MONITOR] Browser initialized but playwright failed (should not happen)"
+                                    )
+
+                        recovery_attempts += 1
+                        # V12.0 FIX (COVE): Log detailed error message
+                        logger.warning(
+                            f"⚠️ [BROWSER-MONITOR] Recovery attempt {recovery_attempts}/{max_recovery_attempts} failed: {error_msg}"
+                        )
+                else:
+                    # V12.0 FIX (COVE): Reset recovery attempts after 1 hour from last reset
+                    # Fixed logic: use timestamp instead of modulo check
+                    if current_time - last_reset_time >= 3600:
+                        logger.info("🔄 [BROWSER-MONITOR] Resetting recovery attempts counter")
+                        recovery_attempts = 0
+                        last_reset_time = current_time
+
+                # V12.0: Log periodic status (every 5 minutes)
+                # This helps operators know the system is in degraded mode
+                if current_time % 300 == 0:
+                    logger.info("ℹ️ [BROWSER-MONITOR] Still in DEGRADED MODE (no browser)")
+                    logger.info("ℹ️ [BROWSER-MONITOR] Other services operating normally")
+                    logger.info(
+                        f"ℹ️ [BROWSER-MONITOR] Recovery attempts: {recovery_attempts}/{max_recovery_attempts}"
+                    )
+
+            except asyncio.CancelledError:
+                logger.info("🛑 [BROWSER-MONITOR] Degraded mode loop cancelled")
+                break
+            except Exception as e:
+                logger.error(f"❌ [BROWSER-MONITOR] Degraded mode loop error: {e}")
+                # V12.0: Don't crash on error, just continue
+                await asyncio.sleep(10)  # Wait before retrying
+
+        logger.info("✅ [BROWSER-MONITOR] Degraded mode loop stopped")
 
     async def _shutdown_playwright(self) -> None:
         """Shutdown Playwright and release resources."""
@@ -1093,13 +1284,30 @@ class BrowserMonitor:
         V7.0: Apply playwright-stealth to evade bot detection.
 
         Bypasses ~70-80% of detection on news sites.
+
+        V12.1: Track stealth performance metrics (COVE FIX).
         """
         if STEALTH_AVAILABLE and Stealth is not None:
             try:
+                import time
+                start_time = time.time()
+
                 stealth = Stealth()
                 await stealth.apply_stealth_async(page)
-                logger.debug("🥷 [BROWSER-MONITOR] Stealth mode applied")
+
+                # Track stealth application time
+                stealth_time = time.time() - start_time
+                self._stealth_applications += 1
+                self._stealth_total_time += stealth_time
+
+                logger.debug(
+                    f"🥷 [BROWSER-MONITOR] Stealth mode applied "
+                    f"(applications: {self._stealth_applications}, "
+                    f"last_time: {stealth_time:.3f}s, "
+                    f"avg_time: {self._stealth_total_time / self._stealth_applications:.3f}s)"
+                )
             except Exception as e:
+                self._stealth_failures += 1
                 logger.warning(f"⚠️ [BROWSER-MONITOR] Stealth failed: {e}")
 
     async def _simulate_human_behavior(self, page) -> None:
@@ -2730,6 +2938,11 @@ RULES:
                 "blocked_resources": self._blocked_resources,
                 "stealth_enabled": STEALTH_AVAILABLE,
                 "trafilatura_enabled": TRAFILATURA_AVAILABLE,
+                # V12.1: Stealth performance metrics (COVE FIX)
+                "stealth_applications": self._stealth_applications,
+                "stealth_failures": self._stealth_failures,
+                "stealth_total_time": round(self._stealth_total_time, 3),
+                "stealth_avg_time": round(self._stealth_total_time / self._stealth_applications, 3) if self._stealth_applications > 0 else 0.0,
                 # V7.1: Hybrid mode and circuit breaker stats
                 "http_extractions": self._http_extractions,
                 "browser_extractions": self._browser_extractions,

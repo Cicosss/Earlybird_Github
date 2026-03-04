@@ -19,9 +19,16 @@ Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search quer
 import html
 import logging
 import re
-from urllib.parse import quote
+import threading
+import time
 
 logger = logging.getLogger(__name__)
+
+# V10.1: In-memory cache for Supabase news domains (1 hour TTL)
+# V10.2: Added threading.Lock for thread-safe access
+_NEWS_DOMAINS_CACHE: dict[str, tuple[list[str], float]] = {}
+_NEWS_DOMAINS_CACHE_LOCK = threading.Lock()  # Thread-safe lock for cache access
+_NEWS_DOMAINS_CACHE_TTL = 3600  # 1 hour in seconds
 
 # Import centralized HTTP client
 from src.utils.http_client import get_http_client
@@ -123,8 +130,13 @@ def get_news_domains_for_league(league_key: str) -> list[str]:
     Get news source domains for a specific league with Supabase-first strategy.
 
     Priority:
-    1. Try Supabase (news_sources table)
-    2. Fallback to hardcoded LEAGUE_DOMAINS
+    1. Check cache (1 hour TTL)
+    2. Try Supabase (news_sources table)
+    3. Fallback to hardcoded LEAGUE_DOMAINS
+
+    V10.1: Added in-memory caching to reduce Supabase queries.
+    V10.2: Added threading.Lock for thread-safe cache access.
+    V10.3: Added timeout to Supabase query to prevent indefinite hangs.
 
     Args:
         league_key: API league key (e.g., 'soccer_brazil_campeonato')
@@ -132,15 +144,52 @@ def get_news_domains_for_league(league_key: str) -> list[str]:
     Returns:
         List of domain names
     """
-    # Try Supabase first
-    domains_from_supabase = _fetch_news_sources_from_supabase(league_key)
+    current_time = time.time()
+
+    # Check cache first (thread-safe)
+    with _NEWS_DOMAINS_CACHE_LOCK:
+        if league_key in _NEWS_DOMAINS_CACHE:
+            cached_domains, cache_time = _NEWS_DOMAINS_CACHE[league_key]
+            if current_time - cache_time < _NEWS_DOMAINS_CACHE_TTL:
+                logger.debug(f"📦 [CACHE] Using cached domains for {league_key}")
+                return cached_domains
+
+    # Try Supabase first with timeout to prevent indefinite hangs
+    # V10.3: Use threading to run query in background with timeout
+    import concurrent.futures
+
+    domains_from_supabase = None
+
+    def fetch_supabase_with_timeout():
+        nonlocal domains_from_supabase
+        try:
+            logger.debug(f"🔄 Starting Supabase query for {league_key} (timeout: 15s)...")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_fetch_news_sources_from_supabase, league_key)
+                domains_from_supabase = future.result(timeout=15.0)  # 15 second timeout
+            logger.debug(f"✅ Supabase query completed for {league_key}")
+        except concurrent.futures.TimeoutError:
+            logger.warning(f"⚠️ Supabase query timeout for {league_key}, using fallback")
+            domains_from_supabase = None
+        except Exception as e:
+            logger.warning(f"⚠️ Supabase query failed for {league_key}: {e}")
+            domains_from_supabase = None
+
+    # Run Supabase query in background thread with timeout
+    fetch_supabase_with_timeout()
 
     if domains_from_supabase:
+        # Cache the result (thread-safe)
+        with _NEWS_DOMAINS_CACHE_LOCK:
+            _NEWS_DOMAINS_CACHE[league_key] = (domains_from_supabase, current_time)
         return domains_from_supabase
 
     # Fallback to hardcoded list
     if league_key in LEAGUE_DOMAINS:
         logger.info(f"🔄 [FALLBACK] Using hardcoded LEAGUE_DOMAINS for {league_key}")
+        # Also cache the fallback result (thread-safe)
+        with _NEWS_DOMAINS_CACHE_LOCK:
+            _NEWS_DOMAINS_CACHE[league_key] = (LEAGUE_DOMAINS[league_key], current_time)
         return LEAGUE_DOMAINS[league_key]
 
     return []
@@ -551,10 +600,6 @@ class SearchProvider:
             logger.warning("Libreria DuckDuckGo non disponibile")
             return []
 
-        # Apply rate limiting before DDG call (DDG uses requests internally)
-        rate_limiter = self._http_client._get_rate_limiter("duckduckgo")
-        rate_limiter.wait_sync()
-
         # Generate query variations from most specific to most general
         query_variations = self._get_query_variations(query)
         logger.info(f"[DDG-DIAG] Query variations to try: {len(query_variations)}")
@@ -578,17 +623,18 @@ class SearchProvider:
                 )
 
             try:
+                # Apply rate limiting before each DDG call (prevents rapid-fire requests on query variations)
+                rate_limiter = self._http_client._get_rate_limiter("duckduckgo")
+                rate_limiter.wait_sync()
+
                 # DIAGNOSTIC: Pass timeout parameter to DDGS constructor
                 ddgs = DDGS(timeout=DDGS_TIMEOUT)
                 # timelimit="w" filters to past week - prevents stale news
-                # SOLUTION B: Disable Grokipedia engine (unreliable for complex queries)
-                # Use only reliable engines: duckduckgo, brave, google
-                # NOTE: "bing" engine is not available in DDGS library
+                # V10.1: Removed backend parameter - using default DDG backend
                 raw_results = ddgs.text(
                     query_variant,
                     max_results=num_results,
                     timelimit="w",
-                    backend="duckduckgo,brave,google",  # Skip grokipedia (bing not available)
                 )
 
                 # If we got results, return them
@@ -715,8 +761,8 @@ class SearchProvider:
         If league_key is in LEAGUE_DOMAINS, restricts search to those domains
         using site: operator for higher quality results.
 
-        Phase 1 Critical Fix: URL-encode team names and keywords to handle non-ASCII
-        characters (e.g., Turkish "ş", Polish "ą", Greek "α").
+        V10.1: Removed manual URL encoding - DDG library handles encoding automatically.
+        Manual encoding was causing double encoding issues with non-ASCII characters.
 
         Args:
             team: Team name
@@ -726,23 +772,16 @@ class SearchProvider:
         Returns:
             Formatted query string with site: dorking if applicable
         """
-        # Phase 1 Critical Fix: URL-encode team name to handle special characters
-        # This fixes search failures for non-English team names like "Beşiktaş", "Lech Poznań"
-        encoded_team = quote(team, safe="")
-
-        # Phase 1 Critical Fix: URL-encode keywords to handle special characters
-        encoded_keywords = quote(keywords, safe=" ")
-
-        # Base query with URL-encoded team and keywords
-        base_query = f'"{encoded_team}" {encoded_keywords}'
+        # Base query with team and keywords (no manual encoding - DDG library handles it)
+        base_query = f'"{team}" {keywords}'
 
         # Add insider domain dorking if league has configured domains
         # V10.0: Use Supabase-first strategy with fallback to LEAGUE_DOMAINS
         if league_key:
             domains = get_news_domains_for_league(league_key)
             if domains:
-                # Phase 1 Critical Fix: URL-encode domain names as well
-                site_dork = " OR ".join([f"site:{quote(d, safe='')}" for d in domains])
+                # No manual encoding needed - DDG library handles it
+                site_dork = " OR ".join([f"site:{d}" for d in domains])
                 base_query = f"{base_query} ({site_dork})"
                 logger.debug(f"🎯 Insider dorking for {league_key}: {domains}")
 
@@ -955,15 +994,6 @@ def get_search_provider() -> SearchProvider:
 def search_news(query: str, num_results: int = 5, league_key: str = None) -> list[dict]:
     """Convenience function for news search."""
     return get_search_provider().search_news(query, num_results, league_key=league_key)
-
-
-def search_twitter(query: str, num_results: int = 5) -> list[dict]:
-    """Convenience function for Twitter search.
-
-    DEPRECATED V7.0: Returns 0 results - Twitter blocks indexing.
-    Use TwitterIntelCache instead.
-    """
-    return get_search_provider().search_twitter(query, num_results)
 
 
 def search_local(

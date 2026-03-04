@@ -1,10 +1,10 @@
 """
-Tests for IntelligenceRouter - V6.0 (DeepSeek Only)
+Tests for IntelligenceRouter - V8.0 (DeepSeek + Tavily + Claude 3 Haiku)
 
 Property-based tests using Hypothesis to verify correctness properties.
 Unit tests for specific behaviors and edge cases.
 
-V6.0: Updated for DeepSeek as sole primary provider (no cooldown)
+V8.0: Three-level fallback - DeepSeek (primary) → Tavily (fallback 1) → Claude 3 Haiku (fallback 2)
 
 Test Coverage:
 - Property 4: Request Routing Consistency
@@ -152,12 +152,13 @@ class TestResponseFormatCompatibility:
 
 class TestRequestRoutingConsistency:
     """
-    **Feature: intelligence-router V6.0, Property 4: Request Routing Consistency**
-    V6.0: All requests go to DeepSeek (no cooldown management).
+    **Feature: intelligence-router V8.0, Property 4: Request Routing Consistency**
+    V8.0: All requests go to DeepSeek (no cooldown management).
+    Three-level fallback: DeepSeek → Tavily → Claude 3 Haiku
     """
 
     def test_always_routes_to_deepseek(self):
-        """Test that requests are always routed to DeepSeek (V6.0)."""
+        """Test that requests are always routed to DeepSeek (V8.0)."""
         from src.services.intelligence_router import IntelligenceRouter
 
         router = IntelligenceRouter()
@@ -165,7 +166,7 @@ class TestRequestRoutingConsistency:
         assert provider_name == "deepseek"
 
     def test_cooldown_status_returns_none(self):
-        """Test that get_cooldown_status returns None (V6.0 - no cooldown)."""
+        """Test that get_cooldown_status returns None (V8.0 - no cooldown)."""
         from src.services.intelligence_router import IntelligenceRouter
 
         router = IntelligenceRouter()
@@ -191,11 +192,12 @@ class TestRequestRoutingConsistency:
 
 class TestGracefulErrorHandling:
     """
-    **Feature: intelligence-router V6.0, Property 10: Graceful Error Handling**
+    **Feature: intelligence-router V8.0, Property 10: Graceful Error Handling**
+    V8.0: Three-level fallback - DeepSeek → Tavily → Claude 3 Haiku
     """
 
-    def test_deepseek_failure_falls_back_to_perplexity(self):
-        """Test that DeepSeek failures fall back to Perplexity."""
+    def test_deepseek_failure_falls_back_to_claude(self):
+        """Test that DeepSeek failures fall back to Claude 3 Haiku (V8.0)."""
         from src.services.intelligence_router import IntelligenceRouter
 
         router = IntelligenceRouter()
@@ -204,13 +206,15 @@ class TestGracefulErrorHandling:
             router._primary_provider, "get_match_deep_dive", side_effect=Exception("DeepSeek Error")
         ):
             with patch.object(
-                router._fallback_provider, "get_match_deep_dive", return_value={"fallback": "data"}
+                router._fallback_2_provider,
+                "get_match_deep_dive",
+                return_value={"fallback": "data"},
             ):
                 result = router.get_match_deep_dive("Home", "Away", "2026-01-15")
                 assert result == {"fallback": "data"}
 
     def test_both_providers_fail_returns_none(self):
-        """Test that when both providers fail, None is returned."""
+        """Test that when both providers fail, None is returned (V8.0)."""
         from src.services.intelligence_router import IntelligenceRouter
 
         router = IntelligenceRouter()
@@ -219,12 +223,42 @@ class TestGracefulErrorHandling:
             router._primary_provider, "get_match_deep_dive", side_effect=Exception("DeepSeek Error")
         ):
             with patch.object(
-                router._fallback_provider,
+                router._fallback_2_provider,
                 "get_match_deep_dive",
-                side_effect=Exception("Perplexity Error"),
+                side_effect=Exception("Claude Error"),
             ):
                 result = router.get_match_deep_dive("Home", "Away", "2026-01-15")
                 assert result is None
+
+    def test_verify_news_item_fallback_to_claude(self):
+        """Test that verify_news_item falls back to Claude 3 Haiku (V8.0)."""
+        from src.services.intelligence_router import IntelligenceRouter
+
+        router = IntelligenceRouter()
+
+        with patch.object(
+            router._primary_provider, "verify_news_item", side_effect=Exception("DeepSeek Error")
+        ):
+            with patch.object(
+                router._fallback_2_provider, "verify_news_item", return_value={"verified": True}
+            ):
+                result = router.verify_news_item("Title", "Snippet", "Team")
+                assert result == {"verified": True}
+
+    def test_get_betting_stats_fallback_to_claude(self):
+        """Test that get_betting_stats falls back to Claude 3 Haiku (V8.0)."""
+        from src.services.intelligence_router import IntelligenceRouter
+
+        router = IntelligenceRouter()
+
+        with patch.object(
+            router._primary_provider, "get_betting_stats", side_effect=Exception("DeepSeek Error")
+        ):
+            with patch.object(
+                router._fallback_2_provider, "get_betting_stats", return_value={"stats": "data"}
+            ):
+                result = router.get_betting_stats("Home", "Away", "2026-01-15")
+                assert result == {"stats": "data"}
 
     def test_circuit_status_shows_no_cooldown(self):
         """Test that circuit status shows cooldown_active=False (V6.0)."""
@@ -247,12 +281,13 @@ class TestIntelligenceRouterUnit:
     """Unit tests for IntelligenceRouter specific behaviors."""
 
     def test_router_initialization(self):
-        """Test that router initializes with all required components."""
+        """Test that router initializes with all required components (V8.0)."""
         from src.services.intelligence_router import IntelligenceRouter
 
         router = IntelligenceRouter()
         assert router._primary_provider is not None
-        assert router._fallback_provider is not None
+        assert router._fallback_1_provider is not None  # Tavily
+        assert router._fallback_2_provider is not None  # Claude 3 Haiku
 
     def test_is_available_checks_deepseek(self):
         """Test that is_available() checks DeepSeek availability."""

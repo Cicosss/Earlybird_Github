@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/browser_fingerprint.py
+# hypothesis_version: 6.151.4
+
+['"Linux"', '"Windows"', '"macOS"', '1', '=', '?0', 'Accept', 'Accept-Encoding', 'Accept-Language', 'Connection', 'DNT', 'Sec-Ch-Ua', 'Sec-Ch-Ua-Mobile', 'Sec-Ch-Ua-Platform', 'Sec-Fetch-Dest', 'Sec-Fetch-Mode', 'Sec-Fetch-Site', 'User-Agent', '__main__', 'available_profiles', 'chrome', 'chrome_linux_131', 'chrome_mac_131', 'chrome_win_131', 'current_profile', 'document', 'domain_profiles', 'domains_tracked', 'edg', 'edge', 'edge_win_131', 'en-US,en;q=0.5', 'en-US,en;q=0.9', 'error_triggered', 'firefox', 'firefox_win_133', 'gzip, deflate, br', 'keep-alive', 'navigate', 'none', 'request_count', 'rotation_threshold', 'safari', 'safari_mac_17', 'threshold', 'total_rotations', 'unknown']

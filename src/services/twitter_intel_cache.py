@@ -42,6 +42,17 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
+# V11.1 FIX: Import nest_asyncio at module level for better performance
+# Call once at module level (idempotent) instead of before every asyncio.run()
+try:
+    import nest_asyncio
+
+    nest_asyncio.apply()  # Call once at module level (idempotent)
+    _NEST_ASYNCIO_AVAILABLE = True
+except ImportError:
+    _NEST_ASYNCIO_AVAILABLE = False
+    logging.warning("⚠️ nest_asyncio not available, Nitter recovery may fail in async context")
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from config.twitter_intel_accounts import (
@@ -1132,11 +1143,33 @@ class TwitterIntelCache:
                 f"{stats['tweets_recovered']} tweets recovered"
             )
 
-        # V10.5: Try NitterPool as third-tier fallback if Tavily also fails
-        if stats["recovered"] == 0 and stats["failed"] > 0:
-            nitter_stats = self._nitter_recover_tweets_batch(failed_handles, keywords)
+        # V12.5 COVE FIX: Try NitterPool for ALL accounts still without data (not just when Tavily recovers 0)
+        # This ensures maximum data recovery - Nitter is tried for any account that still lacks tweets
+        # after Tavily attempt, regardless of how many accounts Tavily recovered
+        handles_still_without_data = []
+        
+        # Identify accounts that still don't have data after Tavily
+        for handle in failed_handles:
+            handle_key = self._normalize_handle(handle)
+            with self._cache_lock:
+                # Account has no data if: not in cache OR has empty tweets list
+                if handle_key not in self._cache or not self._cache[handle_key].tweets:
+                    handles_still_without_data.append(handle)
+        
+        if handles_still_without_data:
+            logging.info(
+                f"🐦 [NITTER-FALLBACK] Attempting Nitter recovery for {len(handles_still_without_data)} "
+                f"accounts that still lack data after Tavily"
+            )
+            nitter_stats = self._nitter_recover_tweets_batch(handles_still_without_data, keywords)
             stats["recovered"] += nitter_stats.get("recovered", 0)
             stats["tweets_recovered"] += nitter_stats.get("tweets_recovered", 0)
+            
+            if nitter_stats.get("recovered", 0) > 0:
+                logging.info(
+                    f"🐦 [NITTER-FALLBACK] Nitter recovery complete: {nitter_stats.get('recovered', 0)} accounts, "
+                    f"{nitter_stats.get('tweets_recovered', 0)} tweets recovered"
+                )
 
         return stats
 
@@ -1173,13 +1206,30 @@ class TwitterIntelCache:
                 try:
                     # V10.5 FIX: Use nest_asyncio to avoid event loop conflict
                     # when called from within an already-running asyncio.run() in main.py
+                    # V11.1 FIX: nest_asyncio.apply() already called at module level
                     import asyncio
 
-                    import nest_asyncio
-
-                    # Apply nest_asyncio to allow nested event loops
-                    nest_asyncio.apply()
-                    tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
+                    if _NEST_ASYNCIO_AVAILABLE:
+                        tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
+                    else:
+                        # Fallback: Try asyncio.run() (may fail in async context)
+                        try:
+                            tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
+                        except RuntimeError as e:
+                            logging.error(f"❌ [NITTER-RECOVERY] Failed to fetch tweets: {e}")
+                            tweets_data = None
+                    
+                    # V12.5 COVE FIX: Explicitly handle NoneType responses
+                    # fetch_tweets_async should return a list, but defensive check prevents crashes
+                    if tweets_data is None:
+                        logging.warning(f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned None for @{handle}")
+                        tweets_data = []
+                    elif not isinstance(tweets_data, list):
+                        logging.warning(
+                            f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned unexpected type "
+                            f"{type(tweets_data).__name__} for @{handle}, expected list"
+                        )
+                        tweets_data = []
 
                     if tweets_data:
                         # V10.5: Apply TweetRelevanceFilter for precision gating
@@ -1314,14 +1364,22 @@ class TwitterIntelCache:
 # ============================================
 
 _twitter_intel_cache: Optional[TwitterIntelCache] = None
-_twitter_intel_cache_lock: Optional[threading.Lock] = None  # Lazy initialization
-
+_twitter_intel_cache_lock: Optional[threading.Lock] = None
+_twitter_intel_cache_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 def _get_cache_lock() -> threading.Lock:
-    """Get or create the cache lock (lazy initialization)."""
+    """
+    Get or create cache lock (thread-safe with double-checked locking).
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _twitter_intel_cache_lock
     if _twitter_intel_cache_lock is None:
-        _twitter_intel_cache_lock = threading.Lock()
+        with _twitter_intel_cache_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _twitter_intel_cache_lock is None:
+                _twitter_intel_cache_lock = threading.Lock()
     return _twitter_intel_cache_lock
 
 

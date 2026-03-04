@@ -13,6 +13,7 @@ Uses DuckDuckGo (native) if available, falls back to Serper API.
 
 import json
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -771,13 +772,22 @@ Factor this HEAVILY into your analysis. This is PRE-MARKET intelligence.
 
 
 _radar_instance = None
+_radar_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_radar() -> OpportunityRadar:
-    """Get or create the singleton radar instance."""
+    """
+    Get or create the singleton radar instance.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _radar_instance
     if _radar_instance is None:
-        _radar_instance = OpportunityRadar()
+        with _radar_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _radar_instance is None:
+                _radar_instance = OpportunityRadar()
     return _radar_instance
 
 

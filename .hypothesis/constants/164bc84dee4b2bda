@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/radar_cross_validator.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.15, 0.25, 0.95, ' ac', ' as', ' cf', ' fc', ' fk', ' sc', ' sk', 'alerts_processed', 'multi_source_alerts', 'multi_source_rate', 'pending_count']

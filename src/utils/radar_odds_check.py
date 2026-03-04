@@ -148,14 +148,24 @@ class RadarOddsChecker:
                     return default_result
 
                 # Determine which odds to check based on team position
+                # VPS FIX: Extract Match attributes safely to prevent session detachment
+                # This prevents "Trust validation error" when Match object becomes detached
+                # from session due to connection pool recycling under high load
+                home_team = getattr(match, "home_team", None)
+                away_team = getattr(match, "away_team", None)
+                opening_home_odd = getattr(match, "opening_home_odd", None)
+                current_home_odd = getattr(match, "current_home_odd", None)
+                opening_away_odd = getattr(match, "opening_away_odd", None)
+                current_away_odd = getattr(match, "current_away_odd", None)
+
                 if is_home_team or (
-                    match.home_team and team_name.lower() in match.home_team.lower()
+                    home_team and team_name.lower() in home_team.lower()
                 ):
-                    opening = match.opening_home_odd
-                    current = match.current_home_odd
+                    opening = opening_home_odd
+                    current = current_home_odd
                 else:
-                    opening = match.opening_away_odd
-                    current = match.current_away_odd
+                    opening = opening_away_odd
+                    current = current_away_odd
 
                 return self._analyze_movement(opening, current, match)
 
@@ -185,8 +195,14 @@ class RadarOddsChecker:
         )
 
         for match in matches:
-            home_lower = (match.home_team or "").lower()
-            away_lower = (match.away_team or "").lower()
+            # VPS FIX: Extract Match attributes safely to prevent session detachment
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load
+            home_team = getattr(match, "home_team", None)
+            away_team = getattr(match, "away_team", None)
+
+            home_lower = (home_team or "").lower()
+            away_lower = (away_team or "").lower()
 
             if (
                 team_lower in home_lower

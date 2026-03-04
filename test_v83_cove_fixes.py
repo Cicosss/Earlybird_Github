@@ -19,8 +19,7 @@ from unittest.mock import Mock, MagicMock, patch
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -28,6 +27,7 @@ logger = logging.getLogger(__name__)
 # ============================================
 # TEST 1: FIX #1 - Log warning when odds_at_alert is NULL
 # ============================================
+
 
 def test_fix1_log_warning_when_odds_at_alert_null():
     """
@@ -49,7 +49,7 @@ def test_fix1_log_warning_when_odds_at_alert_null():
         "current_home_odd": 2.50,
         "current_away_odd": 2.80,
         "current_draw_odd": 3.20,
-        "news_log_id": 12345
+        "news_log_id": 12345,
     }
 
     # Simulate the Settler logic
@@ -84,6 +84,7 @@ def test_fix1_log_warning_when_odds_at_alert_null():
 # ============================================
 # TEST 2: FIX #2 - Extended market type coverage (BTTS)
 # ============================================
+
 
 def test_fix2_btts_market_coverage():
     """
@@ -144,6 +145,7 @@ def test_fix2_btts_market_coverage():
 # TEST 3: FIX #3 - Improved error handling in send_alert_wrapper()
 # ============================================
 
+
 def test_fix3_improved_error_handling():
     """
     Test that error handling in send_alert_wrapper() provides detailed information.
@@ -175,7 +177,9 @@ def test_fix3_improved_error_handling():
             "news_log_id": getattr(analysis_result, "id", "unknown"),
             "match": f"{match_obj.home_team} vs {match_obj.away_team}",
             "market": recommended_market,
-            "traceback": traceback.format_exc() if logger.level <= logging.DEBUG else "disabled (set DEBUG level to see)",
+            "traceback": traceback.format_exc()
+            if logger.level <= logging.DEBUG
+            else "disabled (set DEBUG level to see)",
         }
         logger.error(
             f"❌ V8.3: Failed to save odds_at_alert for NewsLog ID {error_details['news_log_id']}. "
@@ -194,11 +198,13 @@ def test_fix3_improved_error_handling():
     expected_match = "Juventus vs AC Milan"
     expected_market = "HOME_WIN"
 
-    if (error_details["error_type"] == expected_error_type and
-        error_details["error_message"] == expected_error_message and
-        error_details["news_log_id"] == expected_news_log_id and
-        error_details["match"] == expected_match and
-        error_details["market"] == expected_market):
+    if (
+        error_details["error_type"] == expected_error_type
+        and error_details["error_message"] == expected_error_message
+        and error_details["news_log_id"] == expected_news_log_id
+        and error_details["match"] == expected_match
+        and error_details["market"] == expected_market
+    ):
         logger.info("✅ TEST 3 PASSED: Error handling provides detailed information")
         return True
     else:
@@ -209,6 +215,7 @@ def test_fix3_improved_error_handling():
 # ============================================
 # TEST 4: All markets are covered
 # ============================================
+
 
 def test_fix4_all_markets_covered():
     """
@@ -277,6 +284,7 @@ def test_fix4_all_markets_covered():
 # MAIN TEST RUNNER
 # ============================================
 
+
 def main():
     """Run all tests."""
     logger.info("\n")
@@ -288,9 +296,16 @@ def main():
     results = []
 
     # Run all tests
-    results.append(("FIX #1 - Log warning when odds_at_alert is NULL", test_fix1_log_warning_when_odds_at_alert_null()))
+    results.append(
+        (
+            "FIX #1 - Log warning when odds_at_alert is NULL",
+            test_fix1_log_warning_when_odds_at_alert_null(),
+        )
+    )
     logger.info("\n")
-    results.append(("FIX #2 - Extended market type coverage (BTTS)", test_fix2_btts_market_coverage()))
+    results.append(
+        ("FIX #2 - Extended market type coverage (BTTS)", test_fix2_btts_market_coverage())
+    )
     logger.info("\n")
     results.append(("FIX #3 - Improved error handling", test_fix3_improved_error_handling()))
     logger.info("\n")

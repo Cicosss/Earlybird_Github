@@ -71,6 +71,26 @@ def cleanup_on_exit():
     except Exception as e:
         logging.warning(f"⚠️ Cleanup failed: {e}")
 
+    # Stop orchestration metrics collection
+    try:
+        from src.alerting.orchestration_metrics import stop_metrics_collection
+
+        stop_metrics_collection()
+        logging.info("✅ Cleanup completed: orchestration metrics collector stopped")
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to stop orchestration metrics collector: {e}")
+
+    # V7.0: Cleanup FotMob provider (Playwright resources)
+    try:
+        from src.ingestion.data_provider import get_data_provider
+
+        provider = get_data_provider()
+        if hasattr(provider, "cleanup"):
+            provider.cleanup()
+            logging.info("✅ Cleanup completed: FotMob provider (Playwright)")
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to cleanup FotMob provider: {e}")
+
 
 # Register cleanup hooks
 atexit.register(cleanup_on_exit)
@@ -90,6 +110,10 @@ signal.signal(signal.SIGINT, signal_handler)
 # ============================================
 # CORE IMPORTS
 # ============================================
+# ============================================
+# ORCHESTRATION METRICS (V1.0 - System Monitoring)
+# ============================================
+from src.alerting.orchestration_metrics import start_metrics_collection
 from src.analysis.optimizer import get_optimizer
 
 # ============================================
@@ -290,14 +314,17 @@ try:
 except ImportError as e:
     _INTELLIGENCE_ROUTER_AVAILABLE = False
     get_intelligence_router = None
-    is_intelligence_available = lambda: False
+
+    def is_intelligence_available():
+        return False
+
     logger.warning(f"⚠️ Intelligence Router not available: {e}")
 
 # ============================================
 # INTELLIGENT DEDUPLICATION (V4.4)
 # ============================================
 try:
-    from src.utils.url_normalizer import are_articles_similar, normalize_url
+    from src.utils.url_normalizer import are_articles_similar, normalize_url  # noqa: F401
 
     _SMART_DEDUP_AVAILABLE = True
     logger.info("✅ Intelligent Deduplication module loaded")
@@ -310,7 +337,7 @@ except ImportError as e:
 # ============================================
 try:
     from src.analysis.market_intelligence import (
-        analyze_market_intelligence,
+        analyze_market_intelligence,  # noqa: F401
         cleanup_old_snapshots,
         init_market_intelligence_db,
     )
@@ -325,7 +352,10 @@ except ImportError as e:
 # FATIGUE ENGINE V2.0 (Advanced Fatigue Analysis)
 # ============================================
 try:
-    from src.analysis.fatigue_engine import FatigueDifferential, get_enhanced_fatigue_context
+    from src.analysis.fatigue_engine import (  # noqa: F401
+        FatigueDifferential,
+        get_enhanced_fatigue_context,
+    )
 
     _FATIGUE_ENGINE_AVAILABLE = True
     logger.info("✅ Fatigue Engine V2.0 loaded")
@@ -338,8 +368,8 @@ except ImportError as e:
 # ============================================
 try:
     from src.analysis.injury_impact_engine import (
-        InjuryDifferential,
-        TeamInjuryImpact,
+        InjuryDifferential,  # noqa: F401
+        TeamInjuryImpact,  # noqa: F401
         analyze_match_injuries,
     )
 
@@ -354,7 +384,10 @@ except ImportError as e:
 # BISCOTTO ENGINE V2.0 (Enhanced Detection)
 # ============================================
 try:
-    from src.analysis.biscotto_engine import BiscottoSeverity, get_enhanced_biscotto_analysis
+    from src.analysis.biscotto_engine import (  # noqa: F401
+        BiscottoSeverity,
+        get_enhanced_biscotto_analysis,
+    )
 
     _BISCOTTO_ENGINE_AVAILABLE = True
     logger.info("✅ Biscotto Engine V2.0 loaded")
@@ -394,8 +427,8 @@ except ImportError as e:
 # ============================================
 try:
     from src.services.tweet_relevance_filter import (
-        filter_tweets_for_match,
-        resolve_conflict_via_gemini,
+        filter_tweets_for_match,  # noqa: F401
+        resolve_conflict_via_gemini,  # noqa: F401
     )
 
     _TWEET_FILTER_AVAILABLE = True
@@ -408,7 +441,7 @@ except ImportError:
 # ============================================
 try:
     from src.processing.news_hunter import register_browser_monitor_discovery
-    from src.services.browser_monitor import BrowserMonitor, get_browser_monitor
+    from src.services.browser_monitor import BrowserMonitor, get_browser_monitor  # noqa: F401
 
     _BROWSER_MONITOR_AVAILABLE = True
 except ImportError:
@@ -430,7 +463,7 @@ except ImportError:
 # PARALLEL ENRICHMENT V6.0 (Performance Optimization)
 # ============================================
 try:
-    from src.utils.parallel_enrichment import EnrichmentResult, enrich_match_parallel
+    from src.utils.parallel_enrichment import EnrichmentResult, enrich_match_parallel  # noqa: F401
 
     _PARALLEL_ENRICHMENT_AVAILABLE = True
 except ImportError:
@@ -442,13 +475,13 @@ except ImportError:
 # ============================================
 try:
     from src.analysis.verification_layer import (
-        VERIFICATION_SCORE_THRESHOLD,
-        VerificationRequest,
-        VerificationResult,
-        VerificationStatus,
-        create_verification_request_from_match,
-        should_verify_alert,
-        verify_alert,
+        VERIFICATION_SCORE_THRESHOLD,  # noqa: F401
+        VerificationRequest,  # noqa: F401
+        VerificationResult,  # noqa: F401
+        VerificationStatus,  # noqa: F401
+        create_verification_request_from_match,  # noqa: F401
+        should_verify_alert,  # noqa: F401
+        verify_alert,  # noqa: F401
     )
 
     _VERIFICATION_LAYER_AVAILABLE = True
@@ -461,12 +494,15 @@ except ImportError:
 # FINAL ALERT VERIFIER V1.0 (Pre-Telegram Validation)
 # ============================================
 try:
-    from src.analysis.final_alert_verifier import get_final_verifier, is_final_verifier_available
+    from src.analysis.final_alert_verifier import (  # noqa: F401
+        get_final_verifier,
+        is_final_verifier_available,
+    )
     from src.analysis.verifier_integration import (
-        build_alert_data_for_verifier,
-        build_biscotto_alert_data_for_verifier,
-        build_context_data_for_verifier,
-        verify_alert_before_telegram,
+        build_alert_data_for_verifier,  # noqa: F401
+        build_biscotto_alert_data_for_verifier,  # noqa: F401
+        build_context_data_for_verifier,  # noqa: F401
+        verify_alert_before_telegram,  # noqa: F401
         verify_biscotto_alert_before_telegram,
     )
 
@@ -479,8 +515,10 @@ except ImportError:
 # INTELLIGENT MODIFICATION LOGGER V1.0 (Hybrid Approach)
 # ============================================
 try:
-    from src.analysis.intelligent_modification_logger import get_intelligent_modification_logger
-    from src.analysis.step_by_step_feedback import get_step_by_step_feedback_loop
+    from src.analysis.intelligent_modification_logger import (
+        get_intelligent_modification_logger,  # noqa: F401
+    )
+    from src.analysis.step_by_step_feedback import get_step_by_step_feedback_loop  # noqa: F401
 
     _INTELLIGENT_LOGGER_AVAILABLE = True
 except ImportError:
@@ -550,15 +588,22 @@ def is_case_closed(match, now: datetime) -> tuple:
     Returns:
         Tuple of (is_closed, reason)
     """
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    from src.utils.match_helper import extract_match_info
+
+    match_info = extract_match_info(match)
+
     # No previous investigation - case is open
-    if not match.last_deep_dive_time:
+    if not match_info["last_deep_dive_time"]:
         return False, "First investigation"
 
     # Calculate time since last investigation
-    hours_since_dive = (now - match.last_deep_dive_time).total_seconds() / 3600
+    hours_since_dive = (now - match_info["last_deep_dive_time"]).total_seconds() / 3600
 
     # Calculate time to kickoff
-    hours_to_kickoff = (match.start_time - now).total_seconds() / 3600
+    hours_to_kickoff = (match_info["start_time"] - now).total_seconds() / 3600
 
     # EXCEPTION: Final Check window - always allow investigation
     if hours_to_kickoff <= FINAL_CHECK_WINDOW_HOURS:
@@ -609,6 +654,7 @@ def is_biscotto_suspect(match) -> dict:
     🍪 BISCOTTO DETECTION: Check if Draw odds indicate a "mutually beneficial draw".
 
     V6.1: Added edge case protection for invalid odds values.
+    VPS FIX: Extract Match attributes safely to prevent session detachment
 
     Returns:
         dict with 'is_suspect', 'reason', 'draw_odd', 'drop_pct'
@@ -621,8 +667,11 @@ def is_biscotto_suspect(match) -> dict:
         "severity": "NONE",
     }
 
-    draw_odd = match.current_draw_odd
-    opening_draw = match.opening_draw_odd
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    draw_odd = getattr(match, "current_draw_odd", None)
+    opening_draw = getattr(match, "opening_draw_odd", None)
 
     # V6.1: Validate draw_odd is a positive number
     if not draw_odd or not isinstance(draw_odd, (int, float)) or draw_odd <= 0:
@@ -674,6 +723,8 @@ def check_odds_drops():
     This function scans all matches in the database and identifies
     significant odds drops that may indicate market movement or
     insider information.
+
+    VPS FIX: Extract Match attributes safely to prevent session detachment
     """
     db = SessionLocal()
     try:
@@ -691,35 +742,41 @@ def check_odds_drops():
         significant_drops = []
 
         for match in matches:
+            # VPS FIX: Extract Match attributes safely to prevent session detachment
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load
+            home_team = getattr(match, "home_team", None)
+            away_team = getattr(match, "away_team", None)
+            opening_home_odd = getattr(match, "opening_home_odd", None)
+            current_home_odd = getattr(match, "current_home_odd", None)
+            opening_away_odd = getattr(match, "opening_away_odd", None)
+            current_away_odd = getattr(match, "current_away_odd", None)
+
             # Calculate home odd drop
-            if match.opening_home_odd and match.current_home_odd:
-                home_drop_pct = (
-                    (match.opening_home_odd - match.current_home_odd) / match.opening_home_odd
-                ) * 100
+            if opening_home_odd and current_home_odd:
+                home_drop_pct = ((opening_home_odd - current_home_odd) / opening_home_odd) * 100
                 if home_drop_pct > 15:  # 15%+ drop is significant
                     significant_drops.append(
                         {
                             "match": match,
                             "type": "HOME_DROP",
                             "drop_pct": home_drop_pct,
-                            "opening": match.opening_home_odd,
-                            "current": match.current_home_odd,
+                            "opening": opening_home_odd,
+                            "current": current_home_odd,
                         }
                     )
 
             # Calculate away odd drop
-            if match.opening_away_odd and match.current_away_odd:
-                away_drop_pct = (
-                    (match.opening_away_odd - match.current_away_odd) / match.opening_away_odd
-                ) * 100
+            if opening_away_odd and current_away_odd:
+                away_drop_pct = ((opening_away_odd - current_away_odd) / opening_away_odd) * 100
                 if away_drop_pct > 15:  # 15%+ drop is significant
                     significant_drops.append(
                         {
                             "match": match,
                             "type": "AWAY_DROP",
                             "drop_pct": away_drop_pct,
-                            "opening": match.opening_away_odd,
-                            "current": match.current_away_odd,
+                            "opening": opening_away_odd,
+                            "current": current_away_odd,
                         }
                     )
 
@@ -727,8 +784,11 @@ def check_odds_drops():
             logging.info(f"💹 Found {len(significant_drops)} significant odds drops")
             for drop in significant_drops:
                 match = drop["match"]
+                # Extract team names safely
+                home_team = getattr(match, "home_team", "Unknown")
+                away_team = getattr(match, "away_team", "Unknown")
                 logging.info(
-                    f"   📉 {match.home_team} vs {match.away_team}: {drop['type']} {drop['drop_pct']:.1f}% ({drop['opening']:.2f} → {drop['current']:.2f})"
+                    f"   📉 {home_team} vs {away_team}: {drop['type']} {drop['drop_pct']:.1f}% ({drop['opening']:.2f} → {drop['current']:.2f})"
                 )
 
         return significant_drops
@@ -746,6 +806,8 @@ def check_biscotto_suspects():
 
     This function identifies matches with unusually low Draw odds
     that may indicate a "mutually beneficial draw" scenario.
+
+    VPS FIX: Extract Match attributes safely to prevent session detachment
     """
     db = SessionLocal()
     try:
@@ -777,7 +839,10 @@ def check_biscotto_suspects():
             logging.info(f"🍪 Found {len(suspects)} Biscotto suspects")
             for suspect in suspects:
                 match = suspect["match"]
-                logging.info(f"   🍪 {match.home_team} vs {match.away_team}: {suspect['reason']}")
+                # VPS FIX: Extract team names safely to prevent session detachment
+                home_team = getattr(match, "home_team", "Unknown")
+                away_team = getattr(match, "away_team", "Unknown")
+                logging.info(f"   🍪 {home_team} vs {away_team}: {suspect['reason']}")
 
                 # Send alert for EXTREME suspects
                 if suspect["severity"] == "EXTREME":
@@ -843,6 +908,8 @@ def process_radar_triggers(analysis_engine, fotmob, now_utc, db):
 
     Returns:
         Number of triggers processed
+
+    VPS FIX: Extract Match attributes safely to prevent session detachment
     """
     triggers_processed = 0
 
@@ -872,11 +939,17 @@ def process_radar_triggers(analysis_engine, fotmob, now_utc, db):
                     db.commit()
                     continue
 
+                # VPS FIX: Extract team names safely to prevent session detachment
+                # This prevents "Trust validation error" when Match object becomes detached
+                # from session due to connection pool recycling under high load
+                home_team = getattr(match, "home_team", "Unknown")
+                away_team = getattr(match, "away_team", "Unknown")
+
                 # Extract forced narrative from verification_reason field
                 forced_narrative = trigger.verification_reason or ""
 
                 logging.info(
-                    f"🔥 RADAR TRIGGER: Processing {match.home_team} vs {match.away_team} "
+                    f"🔥 RADAR TRIGGER: Processing {home_team} vs {away_team} "
                     f"with forced narrative from News Radar"
                 )
 
@@ -899,7 +972,7 @@ def process_radar_triggers(analysis_engine, fotmob, now_utc, db):
 
                 logging.info(
                     f"✅ RADAR TRIGGER: Completed analysis for "
-                    f"{match.home_team} vs {match.away_team} "
+                    f"{home_team} vs {away_team} "
                     f"(score: {analysis_result.get('score', 0):.1f})"
                 )
 
@@ -970,24 +1043,22 @@ def run_pipeline():
     check_and_migrate()
 
     # ============================================
-    # COVE FIX: Validate Telegram Credentials Before Starting
+    # COVE FIX: Validate Telegram Credentials Before Starting (V11.1: Use unified startup validation)
     # ============================================
     logging.info("🔍 Validating Telegram credentials...")
     try:
-        from src.alerting.notifier import validate_telegram_chat_id, validate_telegram_credentials
+        from src.alerting.notifier import validate_telegram_at_startup
 
-        # Validate bot token
-        validate_telegram_credentials()
-
-        # Validate chat ID format
-        if not validate_telegram_chat_id():
-            logging.warning("⚠️ Telegram chat ID validation failed, but continuing...")
+        # V11.1: Use unified startup validation function (fails fast if credentials missing)
+        validate_telegram_at_startup()
     except ValueError as e:
-        logging.error(f"❌ Telegram credentials validation failed: {e}")
-        logging.error("❌ Bot will start but alerts may not be sent!")
+        logging.error(f"❌ Telegram validation failed at startup: {e}")
+        logging.error("❌ Bot will NOT start - fix credentials before running!")
         logging.error(
-            "❌ Please check .env file and ensure TELEGRAM_TOKEN and TELEGRAM_CHAT_ID are correct."
+            "❌ Please check .env file and ensure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are correct."
         )
+        # V11.1: Exit with error code to fail fast as requested
+        sys.exit(1)
     except Exception as e:
         logging.warning(f"⚠️ Telegram validation skipped: {e}")
 
@@ -1177,8 +1248,7 @@ def run_pipeline():
         # Items are processed proactively here and also available via pop_for_match()
         if discovery_queue:
             try:
-                # Note: In production, this should be an async task running in parallel
-                # For now, we'll call it synchronously
+                # Process queue synchronously (function is now synchronous, not async)
                 process_intelligence_queue(
                     discovery_queue=discovery_queue,
                     db_session=db,
@@ -1212,6 +1282,12 @@ def run_pipeline():
         # 4. TRIANGULATION LOOP (INVESTIGATOR MODE) - DELEGATED TO ANALYSIS ENGINE
         # The Analysis Engine now handles all match-level analysis logic
         for match in matches:
+            # VPS FIX: Extract team names safely to prevent session detachment
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load
+            home_team = getattr(match, "home_team", "Unknown")
+            away_team = getattr(match, "away_team", "Unknown")
+
             # V10.5: Check for Nitter intel before analysis
             nitter_intel = None
             if _NITTER_INTEL_AVAILABLE:
@@ -1220,7 +1296,7 @@ def run_pipeline():
                     if intel_data:
                         nitter_intel = intel_data.get("intel")
                         logging.info(
-                            f"🐦 [NITTER-INTEL] Found intel for {match.home_team} vs {match.away_team} "
+                            f"🐦 [NITTER-INTEL] Found intel for {home_team} vs {away_team} "
                             f"via {intel_data.get('handle')}"
                         )
                 except Exception as e:
@@ -1245,7 +1321,7 @@ def run_pipeline():
             # Log any errors
             if analysis_result["error"]:
                 logging.warning(
-                    f"⚠️ Analysis error for {match.home_team} vs {match.away_team}: {analysis_result['error']}"
+                    f"⚠️ Analysis error for {home_team} vs {away_team}: {analysis_result['error']}"
                 )
 
         # 5. TIER 2 FALLBACK (V4.3)
@@ -1256,7 +1332,7 @@ def run_pipeline():
         ):
             logging.info("🔄 Activating Tier 2 Fallback...")
 
-            tier2_batch = get_tier2_fallback_batch(max_leagues=3)
+            tier2_batch = get_tier2_fallback_batch()
 
             if tier2_batch:
                 logging.info(f"🎯 Tier 2 Fallback: Processing {len(tier2_batch)} leagues")
@@ -1278,6 +1354,12 @@ def run_pipeline():
 
                         # Process Tier 2 matches (simplified analysis)
                         for match in tier2_matches:
+                            # VPS FIX: Extract team names safely to prevent session detachment
+                            # This prevents "Trust validation error" when Match object becomes detached
+                            # from session due to connection pool recycling under high load
+                            home_team = getattr(match, "home_team", "Unknown")
+                            away_team = getattr(match, "away_team", "Unknown")
+
                             # V10.5: Check for Nitter intel before analysis
                             nitter_intel = None
                             if _NITTER_INTEL_AVAILABLE:
@@ -1286,7 +1368,7 @@ def run_pipeline():
                                     if intel_data:
                                         nitter_intel = intel_data.get("intel")
                                         logging.info(
-                                            f"🐦 [NITTER-INTEL] Found intel for {match.home_team} vs {match.away_team} "
+                                            f"🐦 [NITTER-INTEL] Found intel for {home_team} vs {away_team} "
                                             f"via {intel_data.get('handle')}"
                                         )
                                 except Exception as e:
@@ -1308,7 +1390,7 @@ def run_pipeline():
 
                             if analysis_result["error"]:
                                 logging.warning(
-                                    f"⚠️ Tier 2 analysis error: {analysis_result['error']}"
+                                    f"⚠️ Tier 2 analysis error for {home_team} vs {away_team}: {analysis_result['error']}"
                                 )
 
                     except Exception as e:
@@ -1340,7 +1422,7 @@ def run_pipeline():
 # ============================================
 
 
-async def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotmob, now_utc):
+def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotmob, now_utc):
     """
     Process items from the intelligence queue.
 
@@ -1416,9 +1498,8 @@ async def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session
                 continue
 
             # Extract item data
-            item_data = item.data.copy()
+            item.data.copy()
             team_name = item.team
-            league_key = item.league_key
             title = item.title
             url = item.url
             category = item.category
@@ -1650,6 +1731,13 @@ def run_continuous():
     logging.info(f"   Standard Matches: Score >= {ALERT_THRESHOLD_HIGH} (was 8.6)")
     logging.info(f"   Radar Matches (Insider News): Score >= {ALERT_THRESHOLD_RADAR} (was 7.0)")
 
+    # Start orchestration metrics collection
+    try:
+        start_metrics_collection()
+        logging.info("✅ Orchestration metrics collector started")
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to start orchestration metrics collector: {e}")
+
     # Initialize health monitor
     health = get_health_monitor()
 
@@ -1662,7 +1750,6 @@ def run_continuous():
 
     # V5.1: Track browser monitor state
     browser_monitor_instance = None
-    browser_monitor_started = False
     browser_monitor_loop = None  # Keep reference to event loop
     browser_monitor_thread = None  # V5.2: Keep reference for graceful shutdown
 
@@ -1715,14 +1802,14 @@ def run_continuous():
             # This eliminates the race condition where main thread checks is_running()
             # before Playwright initialization completes (which can take 2-3+ seconds)
             # V11.1 FIX: Increased timeout from 10s to 90s for VPS deployment (browser binary download)
-            if browser_monitor_instance.wait_for_startup(timeout=90.0):
+            # V12.0 FIX: Further increased to 180s for slow VPS connections
+            if browser_monitor_instance.wait_for_startup(timeout=180.0):
                 if browser_monitor_instance.is_running():
-                    browser_monitor_started = True
                     logging.info("🌐 [BROWSER-MONITOR] Started - monitoring web sources 24/7")
                 else:
                     logging.warning("⚠️ [BROWSER-MONITOR] Failed to start")
             else:
-                logging.error("❌ [BROWSER-MONITOR] Startup timeout after 90 seconds")
+                logging.error("❌ [BROWSER-MONITOR] Startup timeout after 180 seconds")
         except Exception as e:
             logging.warning(f"⚠️ [BROWSER-MONITOR] Startup error: {e}")
 
@@ -1799,11 +1886,17 @@ def run_continuous():
                     # Analyze each match in the league
                     for match in league_matches:
                         try:
+                            # VPS FIX: Extract team names safely to prevent session detachment
+                            # This prevents "Trust validation error" when Match object becomes detached
+                            # from session due to connection pool recycling under high load
+                            home_team = getattr(match, "home_team", "Unknown")
+                            away_team = getattr(match, "away_team", "Unknown")
+
                             # Check for Nitter intel before analysis
                             nitter_intel = None
                             if _NITTER_INTEL_AVAILABLE:
                                 try:
-                                    from src.processing.nitter_intel import (
+                                    from src.services.nitter_fallback_scraper import (
                                         get_nitter_intel_for_match,
                                     )
 
@@ -1811,7 +1904,7 @@ def run_continuous():
                                     if intel_data:
                                         nitter_intel = intel_data.get("intel")
                                         logging.info(
-                                            f"🐦 [HIGH-PRIORITY] Nitter intel found for {match.home_team} vs {match.away_team}"
+                                            f"🐦 [HIGH-PRIORITY] Nitter intel found for {home_team} vs {away_team}"
                                         )
                                 except Exception as e:
                                     logging.debug(f"Nitter intel check failed: {e}")
@@ -1828,12 +1921,12 @@ def run_continuous():
 
                             if analysis_result["alert_sent"]:
                                 logging.info(
-                                    f"📢 [HIGH-PRIORITY] Alert sent for {match.home_team} vs {match.away_team}"
+                                    f"📢 [HIGH-PRIORITY] Alert sent for {home_team} vs {away_team}"
                                 )
 
                             if analysis_result["error"]:
                                 logging.warning(
-                                    f"⚠️ [HIGH-PRIORITY] Analysis error for {match.home_team} vs {match.away_team}: {analysis_result['error']}"
+                                    f"⚠️ [HIGH-PRIORITY] Analysis error for {home_team} vs {away_team}: {analysis_result['error']}"
                                 )
 
                         except Exception as e:
@@ -1862,7 +1955,16 @@ def run_continuous():
 
     # Send initial heartbeat on startup
     if health.should_send_heartbeat():
-        startup_msg = health.get_heartbeat_message()
+        # V12.5: Get cache metrics from SupabaseProvider if available
+        cache_metrics = None
+        if _SUPABASE_PROVIDER_AVAILABLE:
+            try:
+                provider = get_supabase()
+                cache_metrics = provider.get_cache_metrics()
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to get cache metrics: {e}")
+
+        startup_msg = health.get_heartbeat_message(cache_metrics=cache_metrics)
         startup_msg = startup_msg.replace("✅ System operational", "🚀 System starting up...")
         send_status_message(startup_msg)
         health.mark_heartbeat_sent()
@@ -1947,7 +2049,16 @@ def run_continuous():
 
             # Check if it's time for a heartbeat (every 4 hours)
             if health.should_send_heartbeat():
-                heartbeat_msg = health.get_heartbeat_message()
+                # V12.5: Get cache metrics from SupabaseProvider if available
+                cache_metrics = None
+                if _SUPABASE_PROVIDER_AVAILABLE:
+                    try:
+                        provider = get_supabase()
+                        cache_metrics = provider.get_cache_metrics()
+                    except Exception as e:
+                        logging.warning(f"⚠️ Failed to get cache metrics: {e}")
+
+                heartbeat_msg = health.get_heartbeat_message(cache_metrics=cache_metrics)
                 if send_status_message(heartbeat_msg):
                     health.mark_heartbeat_sent()
 
@@ -2185,6 +2296,8 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
 
     Returns:
         Dict with analysis results including alert_sent, score, error
+
+    VPS FIX: Extract Match attributes safely to prevent session detachment
     """
     result = {"alert_sent": False, "score": 0.0, "error": None}
 
@@ -2200,9 +2313,13 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
                 logging.error(result["error"])
                 return result
 
-            logging.info(
-                f"🎯 RADAR ANALYSIS: {match.home_team} vs {match.away_team} (ID: {match_id})"
-            )
+            # VPS FIX: Extract team names safely to prevent session detachment
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load
+            home_team = getattr(match, "home_team", "Unknown")
+            away_team = getattr(match, "away_team", "Unknown")
+
+            logging.info(f"🎯 RADAR ANALYSIS: {home_team} vs {away_team} (ID: {match_id})")
 
             # 3. Create NewsLog entry for radar narrative
             if forced_narrative:
@@ -2212,9 +2329,10 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
                     summary=forced_narrative,
                     score=10,  # Maximum score for radar-detected intelligence
                     category="RADAR_INTEL",
-                    affected_team=match.home_team,  # Default to home team
+                    affected_team=home_team,  # Default to home team
                     source="radar",
                     source_confidence=0.9,
+                    confidence=90,  # V11.1: High confidence for radar-detected intelligence (0-100 scale)
                     status="pending",
                 )
                 db.add(radar_log)
@@ -2246,11 +2364,11 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
 
             if result["alert_sent"]:
                 logging.info(
-                    f"✅ RADAR ALERT SENT for {match.home_team} vs {match.away_team} (Score: {result['score']})"
+                    f"✅ RADAR ALERT SENT for {home_team} vs {away_team} (Score: {result['score']})"
                 )
             else:
                 logging.info(
-                    f"ℹ️ RADAR analysis completed for {match.home_team} vs {match.away_team} (Score: {result['score']}, No alert)"
+                    f"ℹ️ RADAR analysis completed for {home_team} vs {away_team} (Score: {result['score']}, No alert)"
                 )
 
             return result

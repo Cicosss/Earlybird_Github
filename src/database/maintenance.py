@@ -106,7 +106,8 @@ def get_db_stats() -> dict:
         total_logs = db.query(NewsLog).count()
 
         oldest_match = db.query(Match).order_by(Match.start_time.asc()).first()
-        oldest_date = oldest_match.start_time if oldest_match else None
+        # VPS FIX: Extract start_time safely to prevent session detachment
+        oldest_date = getattr(oldest_match, "start_time", None) if oldest_match else None
 
         return {
             "total_matches": total_matches,
@@ -250,11 +251,15 @@ def cleanup_stale_radar_triggers(timeout_minutes: int = 10, send_alert: bool = T
             try:
                 # Get match for logging
                 match = db.query(Match).filter(Match.id == trigger.match_id).first()
-                match_info = (
-                    f"{match.home_team} vs {match.away_team}"
-                    if match
-                    else f"Match ID {trigger.match_id}"
-                )
+                if match:
+                    # VPS FIX: Extract Match attributes safely to prevent session detachment
+                    # This prevents "Trust validation error" when Match object becomes detached
+                    # from session due to connection pool recycling under high load
+                    home_team = getattr(match, "home_team", None)
+                    away_team = getattr(match, "away_team", None)
+                    match_info = f"{home_team} vs {away_team}"
+                else:
+                    match_info = f"Match ID {trigger.match_id}"
 
                 # Update trigger status to FAILED
                 trigger.status = "FAILED"

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/database/db.py
+# hypothesis_version: 6.151.4
+
+[' Club', ' FC', ' SK', '+00:00', 'Z', 'alert_sent_at', 'combo_reasoning', 'combo_suggestion', 'confidence', 'confidence_breakdown', 'convergence_sources', 'is_convergent', 'league', 'odds_at_alert', 'odds_at_kickoff', 'primary_driver', 'recommended_market', 'start_time']

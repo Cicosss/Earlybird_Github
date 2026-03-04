@@ -159,8 +159,8 @@ def test_5_parallel_enrichment():
             away_team=away_team,
             match_start_time=match_start_time,
             weather_provider=get_match_weather,
-            max_workers=4,
-            timeout=45,
+            # max_workers=4,  # Use default (1) to match production configuration
+            timeout=90,  # Updated from 45 to 90 for retries and backoff
         )
 
         logger.info(f"Enrichment completed in {result.enrichment_time_ms}ms")

@@ -170,6 +170,7 @@ class TestVersionIntegration:
         """Test version module can be imported by other modules."""
         # This test ensures the version module is importable
         from src.version import get_version
+
         version = get_version()
         assert version == "V11.1"
 

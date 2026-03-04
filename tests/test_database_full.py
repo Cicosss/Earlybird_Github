@@ -220,6 +220,7 @@ class TestNewsLogCRUD:
             recommended_market="Over 2.5 Goals",
             primary_driver="INJURY_INTEL",
             source="web",
+            confidence=80,  # V11.1: AI confidence (0-100)
         )
         test_session.add(news)
         test_session.commit()
@@ -258,6 +259,7 @@ class TestNewsLogCRUD:
             affected_team="Galatasaray",
             odds_taken=2.15,  # V4.2: Odds when alert sent
             clv_percent=3.5,  # V4.2: Calculated CLV
+            confidence=80,  # V11.1: AI confidence (0-100)
         )
         test_session.add(news)
         test_session.commit()
@@ -291,6 +293,7 @@ class TestNewsLogCRUD:
                 score=7 + i,
                 category="INJURY",
                 affected_team="Galatasaray",
+                confidence=70 + i * 10,  # V11.1: AI confidence (0-100)
             )
             test_session.add(news)
         test_session.commit()
@@ -711,6 +714,7 @@ class TestDataFlowE2E:
             primary_driver="INJURY_INTEL",
             odds_taken=3.40,  # V4.2: CLV tracking
             sent=True,
+            confidence=90,  # V11.1: AI confidence (0-100)
         )
         test_session.add(news)
 
@@ -757,6 +761,7 @@ class TestDataFlowE2E:
             recommended_market="Away Win",
             odds_taken=3.40,  # Odds when we sent alert
             sent=True,
+            confidence=80,  # V11.1: AI confidence (0-100)
         )
         test_session.add(news)
         test_session.commit()
@@ -893,6 +898,7 @@ class TestEdgeCases:
             score=5,
             category="",  # Empty category
             affected_team="",  # Empty team
+            confidence=50,  # V11.1: AI confidence (0-100)
         )
         test_session.add(news)
         test_session.commit()
@@ -968,6 +974,7 @@ class TestMaintenanceOperations:
             score=7,
             category="INJURY",
             affected_team="Old Team A",
+            confidence=70,  # V11.1: AI confidence (0-100)
         )
         test_session.add(old_news)
 
@@ -1035,6 +1042,7 @@ class TestMaintenanceOperations:
                 score=7,
                 category="INJURY",
                 affected_team=f"Team A{i}",
+                confidence=70,  # V11.1: AI confidence (0-100)
             )
             test_session.add(news)
 

@@ -3,17 +3,10 @@
 Database models, migrations, and connection management.
 """
 
-from .db import get_db_context
-from .migration import check_and_migrate
-from .models import Base, Match, NewsLog, SessionLocal, TeamAlias, init_db
+# NOTE: Package-level exports removed to avoid loading heavy modules when importing from submodules.
+# All imports should be done directly from modules:
+# - from src.database.models import Match (not from src.database import Match)
+# - from src.database.db import get_db_context (not from src.database import get_db_context)
+# - from src.database.migration import check_and_migrate (not from src.database import check_and_migrate)
 
-__all__ = [
-    "Match",
-    "NewsLog",
-    "TeamAlias",
-    "Base",
-    "init_db",
-    "SessionLocal",
-    "get_db_context",
-    "check_and_migrate",
-]
+__all__ = []

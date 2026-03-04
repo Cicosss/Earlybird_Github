@@ -9,55 +9,8 @@ V4.5: Added NEWS_VERIFICATION_PROMPT for Gemini news confirmation.
 V4.5: Added BISCOTTO_CONFIRMATION_PROMPT for uncertain biscotto signals.
 V4.4: Added BETTING_STATS_PROMPT for corners/cards data enrichment.
 
-Phase 1 Critical Fix: Added Unicode normalization and safe UTF-8 truncation
+Note: Unicode normalization functions removed - use src.utils.text_normalizer
 """
-
-import unicodedata
-
-
-def normalize_unicode(text: str) -> str:
-    """
-    Normalize Unicode to NFC form for consistent text handling.
-
-    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
-    Greek, Arabic, Chinese, Japanese, Korean, and other languages
-    are handled consistently across all components.
-
-    Args:
-        text: Input text to normalize
-
-    Returns:
-        Normalized text in NFC form
-    """
-    if not text:
-        return ""
-    return unicodedata.normalize("NFC", text)
-
-
-def truncate_utf8(text: str, max_bytes: int) -> str:
-    """
-    Truncate text to fit within max_bytes UTF-8 encoded.
-
-    Phase 1 Critical Fix: Safe truncation that preserves UTF-8 characters
-    instead of cutting at arbitrary byte positions which can corrupt
-    multi-byte characters.
-
-    Args:
-        text: Input text to truncate
-        max_bytes: Maximum bytes in UTF-8 encoding
-
-    Returns:
-        Truncated text with valid UTF-8 characters
-    """
-    if not text:
-        return ""
-    encoded = text.encode("utf-8")
-    if len(encoded) <= max_bytes:
-        return text
-    # Truncate and decode, removing incomplete characters
-    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
-    return truncated
-
 
 # Deep Dive Analysis Prompt Template
 # Used by: GeminiAgentProvider, PerplexityProvider

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/schemas/__init__.py
+# hypothesis_version: 6.151.4
+
+['BTTSImpact', 'BettingStatsResponse', 'BiscottoPotential', 'CardsSignal', 'DataConfidence', 'DeepDiveResponse', 'InjuryImpact', 'MatchIntensity', 'RefereeStrictness', 'RiskLevel', 'SignalLevel']

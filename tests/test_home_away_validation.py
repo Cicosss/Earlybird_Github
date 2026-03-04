@@ -246,6 +246,7 @@ class TestSendAlertValidatedTeams:
                 league="Test League",
                 validated_home_team="Correct Home",
                 validated_away_team="Correct Away",
+                market_warning=None,  # V11.1 FIX: Explicitly pass market_warning (None for test)
             )
             # If we get here without error, the function accepts the new params
             assert True
@@ -272,6 +273,7 @@ class TestSendAlertValidatedTeams:
                 score=8,
                 league="Test League",
                 # No validated_home_team or validated_away_team
+                market_warning=None,  # V11.1 FIX: Explicitly pass market_warning (None for test)
             )
             assert True
 

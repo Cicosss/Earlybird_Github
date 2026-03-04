@@ -493,15 +493,15 @@ def test_continental_orchestrator():
     print("=" * 60)
 
     try:
-        # Import ContinentalOrchestrator
-        from src.processing.continental_orchestrator import (
+        # Import GlobalOrchestrator (V11.0: continental_orchestrator.py replaced by global_orchestrator.py)
+        from src.processing.global_orchestrator import (
             CONTINENTAL_WINDOWS,
             MIRROR_FILE_PATH,
-            ContinentalOrchestrator,
-            get_continental_orchestrator,
+            GlobalOrchestrator,
+            get_global_orchestrator,  # V11.0: Use get_global_orchestrator() instead of deprecated get_continental_orchestrator()
         )
 
-        print_ok("Modulo ContinentalOrchestrator importato")
+        print_ok("Modulo GlobalOrchestrator importato (V11.0 - replaces ContinentalOrchestrator)")
 
         # Display continental windows
         print("\n📋 Finestre Continentali UTC:")
@@ -537,7 +537,7 @@ def test_continental_orchestrator():
         # Test 2: Initialize orchestrator
         print("\n🔧 Inizializzazione Orchestrator:")
         print("-" * 50)
-        orchestrator = get_continental_orchestrator()
+        orchestrator = get_global_orchestrator()
         print_ok("Orchestrator inizializzato")
 
         # Test 3: Check continental status

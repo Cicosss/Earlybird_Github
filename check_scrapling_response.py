@@ -5,7 +5,7 @@ from scrapling.engines.toolbelt.custom import Response
 
 print("All Response attributes:")
 for a in dir(Response):
-    if not a.startswith('__'):
+    if not a.startswith("__"):
         print(f"  {a}")
 
 print("\n\nChecking for status-related attributes:")

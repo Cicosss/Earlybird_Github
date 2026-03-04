@@ -26,6 +26,24 @@ from src.utils.validators import safe_dict_get
 
 logger = logging.getLogger(__name__)
 
+# Import referee cache for V9.0
+try:
+    from src.analysis.referee_cache import get_referee_cache
+
+    REFEREE_CACHE_AVAILABLE = True
+except ImportError:
+    REFEREE_CACHE_AVAILABLE = False
+    logger.warning("⚠️ Referee cache not available")
+
+# Import referee cache monitor for V9.0
+try:
+    from src.analysis.referee_cache_monitor import get_referee_cache_monitor
+
+    REFEREE_CACHE_MONITOR_AVAILABLE = True
+except ImportError:
+    REFEREE_CACHE_MONITOR_AVAILABLE = False
+    logger.warning("⚠️ Referee cache monitor not available")
+
 
 # ============================================
 # CONFIGURATION CONSTANTS
@@ -393,11 +411,14 @@ class RefereeStats:
 
     def __post_init__(self):
         """Auto-classify strictness based on cards per game."""
-        if self.cards_per_game >= REFEREE_STRICT_THRESHOLD:
+        # Keep "unknown" if cards_per_game is 0 or negative
+        if self.cards_per_game <= 0:
+            self.strictness = "unknown"
+        elif self.cards_per_game >= REFEREE_STRICT_THRESHOLD:
             self.strictness = "strict"
         elif self.cards_per_game <= REFEREE_LENIENT_THRESHOLD:
             self.strictness = "lenient"
-        elif self.cards_per_game > 0:
+        else:
             self.strictness = "average"
 
     def is_strict(self) -> bool:
@@ -411,6 +432,39 @@ class RefereeStats:
     def should_veto_cards(self) -> bool:
         """Check if referee should veto Over Cards suggestions."""
         return self.is_lenient()
+
+    def should_boost_cards(self) -> bool:
+        """
+        Check if referee should boost Over Cards suggestions.
+
+        Returns:
+            True if referee is strict enough to justify Over Cards bet
+            (>=4.0 cards/game, regardless of strictness classification)
+        """
+        return self.cards_per_game >= 4.0
+
+    def should_upgrade_cards_line(self) -> bool:
+        """
+        Check if referee is very strict and should upgrade cards line.
+
+        Returns:
+            True if referee is very strict (>=5.0 cards/game)
+        """
+        return self.cards_per_game >= 5.0
+
+    def get_boost_multiplier(self) -> float:
+        """
+        Get boost multiplier based on referee strictness.
+
+        Returns:
+            Multiplier: 1.0 (no boost), 1.2 (moderate), 1.5 (strong)
+        """
+        if self.cards_per_game >= 5.0:
+            return 1.5  # Strong boost
+        elif self.cards_per_game >= 4.0:
+            return 1.2  # Moderate boost
+        else:
+            return 1.0  # No boost
 
 
 @dataclass
@@ -2095,9 +2149,56 @@ class TavilyVerifier:
         verified.h2h = self._parse_h2h_stats(all_text)
         verified.h2h_confidence = "MEDIUM" if verified.h2h and verified.h2h.has_data() else "LOW"
 
-        # Parse referee stats
-        verified.referee = self._parse_referee_stats(all_text, request.fotmob_referee_name)
-        verified.referee_confidence = "MEDIUM" if verified.referee else "LOW"
+        # Parse referee stats with cache integration (V9.0)
+        referee_name = request.fotmob_referee_name or "Unknown"
+
+        # Try cache first if available
+        if REFEREE_CACHE_AVAILABLE:
+            cache = get_referee_cache()
+            cached_stats = cache.get(referee_name)
+            if cached_stats:
+                logger.debug(f"✅ Cache hit for referee: {referee_name}")
+                verified.referee = RefereeStats(**cached_stats)
+                verified.referee_confidence = "HIGH"  # Cached data is trusted
+                
+                # Record cache hit if monitor is available
+                if REFEREE_CACHE_MONITOR_AVAILABLE:
+                    try:
+                        monitor = get_referee_cache_monitor()
+                        monitor.record_hit(referee_name)
+                        logger.debug(f"📊 Cache hit recorded for referee: {referee_name}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to record cache hit: {e}")
+            else:
+                logger.debug(
+                    f"❌ Cache miss for referee: {referee_name}, fetching from Tavily/Perplexity"
+                )
+                verified.referee = self._parse_referee_stats(all_text, referee_name)
+                verified.referee_confidence = "MEDIUM" if verified.referee else "LOW"
+
+                # Record cache miss if monitor is available
+                if REFEREE_CACHE_MONITOR_AVAILABLE:
+                    try:
+                        monitor = get_referee_cache_monitor()
+                        monitor.record_miss(referee_name)
+                        logger.debug(f"📊 Cache miss recorded for referee: {referee_name}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to record cache miss: {e}")
+
+                # Cache the fetched stats
+                if verified.referee:
+                    stats_dict = {
+                        "name": verified.referee.name,
+                        "cards_per_game": verified.referee.cards_per_game,
+                        "strictness": verified.referee.strictness,
+                        "matches_officiated": verified.referee.matches_officiated,
+                    }
+                    cache.set(referee_name, stats_dict)
+                    logger.debug(f"💾 Cached referee stats for: {referee_name}")
+        else:
+            # Fallback to parsing without cache
+            verified.referee = self._parse_referee_stats(all_text, referee_name)
+            verified.referee_confidence = "MEDIUM" if verified.referee else "LOW"
 
         # Parse corner stats
         verified.home_corner_avg = self._parse_corner_avg(all_text, request.home_team)
@@ -4376,10 +4477,13 @@ def create_verification_request_from_match(
     away_team = getattr(match, "away_team", "Unknown")
     league = getattr(match, "league", "unknown")
 
+    # VPS FIX: Extract match start_time safely to prevent session detachment
+    start_time = getattr(match, "start_time", None)
+
     # Extract match date
     match_date = "unknown"
-    if hasattr(match, "start_time") and match.start_time:
-        match_date = match.start_time.strftime("%Y-%m-%d")
+    if start_time:
+        match_date = start_time.strftime("%Y-%m-%d")
 
     # Extract analysis info
     preliminary_score = float(getattr(analysis, "score", 0))

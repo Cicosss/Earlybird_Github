@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/referee_cache_monitor.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.4, 0.6, 0.8, 1000, '\nPerformance:', '\nTop Referees:', '=', 'Cache metrics reset', 'No requests yet', 'avg_hit_time_ms', 'avg_miss_time_ms', 'data/metrics', 'excellent', 'fair', 'good', 'health', 'hit_rate', 'hits', 'last_accessed', 'last_updated', 'message', 'misses', 'performance', 'poor', 'r', 'referee_name', 'referee_stats', 'total_hit_time_ms', 'total_hits', 'total_miss_time_ms', 'total_misses', 'total_requests', 'unknown', 'utf-8', 'w']

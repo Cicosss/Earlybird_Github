@@ -16,61 +16,27 @@ import logging
 import os
 import re
 import threading
-import unicodedata
 from datetime import datetime, timezone
 from typing import Any
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from src.analysis.verification_layer import RefereeStats
 from src.database.models import NewsLog
 from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
 from src.utils.validators import safe_get
 
+# Import referee monitoring modules for V9.0
+try:
+    from src.analysis.referee_boost_logger import get_referee_boost_logger
+    from src.analysis.referee_cache_monitor import get_referee_cache_monitor
+    from src.analysis.referee_influence_metrics import get_referee_influence_metrics
 
-def normalize_unicode(text: str) -> str:
-    """
-    Normalize Unicode to NFC form for consistent text handling.
-
-    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
-    Greek, Arabic, Chinese, Japanese, Korean, and other languages
-    are handled consistently across all components.
-
-    Args:
-        text: Input text to normalize
-
-    Returns:
-        Normalized text in NFC form
-    """
-    if not text:
-        return ""
-    return unicodedata.normalize("NFC", text)
-
-
-def truncate_utf8(text: str, max_bytes: int) -> str:
-    """
-    Truncate text to fit within max_bytes UTF-8 encoded.
-
-    Phase 1 Critical Fix: Safe truncation that preserves UTF-8 characters
-    instead of cutting at arbitrary byte positions which can corrupt
-    multi-byte characters.
-
-    Args:
-        text: Input text to truncate
-        max_bytes: Maximum bytes in UTF-8 encoding
-
-    Returns:
-        Truncated text with valid UTF-8 characters
-    """
-    if not text:
-        return ""
-    encoded = text.encode("utf-8")
-    if len(encoded) <= max_bytes:
-        return text
-    # Truncate and decode, removing incomplete characters
-    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
-    return truncated
+    REFEREE_MONITORING_AVAILABLE = True
+except ImportError:
+    REFEREE_MONITORING_AVAILABLE = False
 
 
 # Configure logger
@@ -100,7 +66,7 @@ except ImportError:
 # INTELLIGENCE ROUTER (V5.0 - Gemini/Perplexity Fallback)
 # ============================================
 try:
-    from src.services.intelligence_router import get_intelligence_router, is_intelligence_available
+    from src.services.intelligence_router import get_intelligence_router
 
     INTELLIGENCE_ROUTER_AVAILABLE = True
     logger.info("✅ Intelligence Router module loaded")
@@ -112,7 +78,7 @@ except ImportError as e:
 # PERPLEXITY PROVIDER (Fallback - Safe Import)
 # ============================================
 try:
-    from src.ingestion.perplexity_provider import get_perplexity_provider, is_perplexity_available
+    from src.ingestion.perplexity_provider import get_perplexity_provider
 
     PERPLEXITY_AVAILABLE = True
 except ImportError as e:
@@ -123,7 +89,7 @@ except ImportError as e:
 # INJURY IMPACT ENGINE (V5.3.1 - Context-Aware Injury Assessment)
 # ============================================
 try:
-    from src.analysis.injury_impact_engine import InjuryDifferential, analyze_match_injuries
+    from src.analysis.injury_impact_engine import analyze_match_injuries
 
     INJURY_IMPACT_AVAILABLE = True
     logger.info("✅ Injury Impact Engine loaded")
@@ -239,28 +205,30 @@ Compare the statistical strength of these 5 options and pick the BEST one:
    - If one team High_Scoring + opponent has weak defense news -> Suggest **Over 2.5 Goals / BTTS**
    - If BOTH teams Low_Scoring -> Suggest **Under 2.5 Goals**
 
-2. **CARDS MARKET (V2.8 - REFEREE VETO SYSTEM):**
+2. **CARDS MARKET (V9.0 - ENHANCED REFEREE SYSTEM):**
    
-   **STEP 1: Check Referee Stats (HARD FILTER)**
+   **STEP 1: Check Referee Data Availability (HARD REQUIREMENT)**
+   - If Referee Stats are UNKNOWN or MISSING → **SKIP Cards Market** (Reason: "Dati arbitro insufficienti")
+   - Only proceed with Cards analysis if referee data is available
+   
+   **STEP 2: Check Referee Stats (HARD FILTER)**
    - If Referee Cards/Game < 3.5 → **VETO: FORBID Over Cards** (Reason: "Arbitro troppo permissivo")
-   - If Referee Cards/Game >= 3.5 AND < 5.5 → Proceed to Step 2
+   - If Referee Cards/Game >= 3.5 AND < 5.5 → Proceed to Step 3
    - If Referee Cards/Game >= 5.5 → **OVERRIDE: Suggest Over Cards** even without Derby context
-   - If Referee Stats UNKNOWN → Proceed with caution, max confidence 70%
    
-   **STEP 2: Check Match Context (only if Referee allows)**
+   **STEP 3: Check Match Context (only if Referee allows)**
    - High Intensity Context: Derby, Rivalry, Relegation Battle, Title Decider
    - If High Intensity + Referee >= 3.5 → Suggest **OVER CARDS**
    - If BOTH teams Aggressive (Cards > 2.5) + Referee >= 3.5 → Suggest **OVER CARDS**
    
    **DECISION MATRIX:**
-   | Referee Avg | Context | Decision |
-   |-------------|---------|----------|
-   | < 3.5 | Any | ❌ VETO - No Cards bet |
-   | 3.5 - 5.5 | Derby/Aggressive | ✅ Over Cards |
-   | 3.5 - 5.5 | Normal | ❌ Skip Cards |
-   | > 5.5 | Any | ✅ Over Cards (Ref Override) |
-   | Unknown | Derby/Aggressive | ⚠️ Over Cards (max 70% conf) |
-   | Unknown | Normal | ❌ Skip Cards |
+   | Referee Data | Referee Avg | Context | Decision |
+   |--------------|-------------|---------|----------|
+   | Unknown/Missing | Any | Any | ❌ SKIP - No Cards bet |
+   | Available | < 3.5 | Any | ❌ VETO - No Cards bet |
+   | Available | 3.5 - 5.5 | Derby/Aggressive | ✅ Over Cards |
+   | Available | 3.5 - 5.5 | Normal | ❌ Skip Cards |
+   | Available | > 5.5 | Any | ✅ Over Cards (Ref Override) |
 
 3. **CORNERS MARKET (V4.2 - EQUAL CITIZEN):**
    - **CRITICAL:** If TEAM STATS shows "Corners: High" for BOTH teams -> Suggest **Over 9.5 Corners**
@@ -706,9 +674,9 @@ def validate_ai_response(data: dict) -> dict:
         if expected_type and not isinstance(value, expected_type):
             try:
                 # Try to coerce to expected type
-                if expected_type == int:
+                if expected_type is int:
                     value = int(value)
-                elif expected_type == str:
+                elif expected_type is str:
                     value = str(value)
             except (ValueError, TypeError):
                 logging.warning(f"AI response field '{field}' has invalid type, using default")
@@ -837,10 +805,8 @@ def call_deepseek(
     # V6.2: Select model based on use_reasoner parameter
     if use_reasoner:
         models_to_try = [MODEL_B_REASONER, MODEL_A_STANDARD]
-        model_type = "Reasoner"
     else:
         models_to_try = [MODEL_A_STANDARD]
-        model_type = "Standard"
 
     last_error = None
     AI_SLOW_THRESHOLD = 45  # seconds
@@ -1522,8 +1488,16 @@ def analyze_with_triangulation(
     is_match_level_call = match is not None
 
     if is_match_level_call:
+        # VPS FIX: Extract Match attributes safely to prevent session detachment
+        from src.utils.match_helper import extract_match_info, extract_match_odds
+
+        match_info = extract_match_info(match)
+        match_odds = extract_match_odds(match)
+
         # Transform match-level data into legacy format
-        logging.info(f"🔄 Processing match-level analysis: {match.home_team} vs {match.away_team}")
+        logging.info(
+            f"🔄 Processing match-level analysis: {match_info['home_team']} vs {match_info['away_team']}"
+        )
 
         # Build snippet_data from match object
         if snippet_data is None:
@@ -1532,17 +1506,17 @@ def analyze_with_triangulation(
         # Populate snippet_data with match information
         snippet_data.update(
             {
-                "match_id": match.id,
-                "home_team": match.home_team,
-                "away_team": match.away_team,
-                "league": match.league,
-                "start_time": match.start_time,
-                "current_home_odd": match.current_home_odd,
-                "current_away_odd": match.current_away_odd,
-                "current_draw_odd": match.current_draw_odd,
-                "opening_home_odd": match.opening_home_odd,
-                "opening_away_odd": match.opening_away_odd,
-                "opening_draw_odd": match.opening_draw_odd,
+                "match_id": match_info["match_id"],
+                "home_team": match_info["home_team"],
+                "away_team": match_info["away_team"],
+                "league": match_info["league"],
+                "start_time": match_info["start_time"],
+                "current_home_odd": match_odds["current_home_odd"],
+                "current_away_odd": match_odds["current_away_odd"],
+                "current_draw_odd": match_odds["current_draw_odd"],
+                "opening_home_odd": match_odds["opening_home_odd"],
+                "opening_away_odd": match_odds["opening_away_odd"],
+                "opening_draw_odd": match_odds["opening_draw_odd"],
                 "home_context": home_context or {},
                 "away_context": away_context or {},
             }
@@ -1570,7 +1544,7 @@ def analyze_with_triangulation(
             if len(team_names) == 1:
                 snippet_data["team"] = team_names.pop()
             elif len(team_names) > 1:
-                snippet_data["team"] = match.home_team
+                snippet_data["team"] = match_info["home_team"]
         else:
             news_snippet = news_snippet or "No news available"
 
@@ -1681,6 +1655,9 @@ def analyze_with_triangulation(
                 score=mock_resp["relevance_score"],
                 category=mock_resp["category"],
                 affected_team=mock_resp["affected_team"],
+                confidence=mock_resp.get(
+                    "confidence", 0
+                ),  # V11.1: Get confidence from mock, default to 0
             )
         return None
 
@@ -1697,16 +1674,23 @@ def analyze_with_triangulation(
             news_snippet = news_snippet[:NEWS_SNIPPET_MAX_CHARS] + "... [TRUNCATED]"
             logging.debug(f"📝 News snippet truncated to {NEWS_SNIPPET_MAX_CHARS} chars")
 
+        # VPS FIX: Extract Match attributes safely to prevent session detachment
+        # This prevents "Trust validation error" when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        home_team = getattr(match, "home_team", "Unknown")
+
         # STEP 1: Enrich official_data with FotMob player status
-        team_name = snippet_data.get("team", match.home_team)
-        
+        team_name = snippet_data.get("team", home_team)
+
         if not official_data or official_data == "No official data available":
             # Resolve team_id for FotMob lookup
             provider = get_data_provider()
             team_id, fotmob_name = provider.search_team_id(team_name)
-            
+
             if team_id:
-                logging.info(f"🔄 Enriching news with FotMob player data for team: {team_name} (ID: {team_id})")
+                logging.info(
+                    f"🔄 Enriching news with FotMob player data for team: {team_name} (ID: {team_id})"
+                )
                 official_data = enrich_with_player_data(news_snippet, team_name, team_id)
             else:
                 logging.warning(f"⚠️ Could not resolve team_id for: {team_name}")
@@ -2064,6 +2048,232 @@ def analyze_with_triangulation(
                 f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop * 100:.1f}% (>=15%), overriding verdict to NO BET"
             )
 
+        # V9.0: REFEREE INTELLIGENCE BOOST
+        # Apply positive boost for strict referees on Cards Market
+        referee_boost_applied = False
+        referee_boost_reason = ""
+
+        try:
+            # Check if we have referee data
+            if referee_info and isinstance(referee_info, RefereeStats):
+                # Only apply to Cards Market
+                is_cards_market = (recommended_market and "card" in recommended_market.lower()) or (
+                    combo_suggestion and "card" in combo_suggestion.lower()
+                )
+
+                if is_cards_market:
+                    # CASE 1: Strict referee + "No bet" → Override to "Over 3.5 Cards"
+                    if verdict == "NO BET" and referee_info.should_boost_cards():
+                        # Check for high intensity context
+                        is_high_intensity = (
+                            "derby" in tactical_context.lower()
+                            or "rivalry" in tactical_context.lower()
+                            or "relegation" in tactical_context.lower()
+                            or "title decider" in tactical_context.lower()
+                        )
+
+                        if is_high_intensity or referee_info.cards_per_game >= 4.0:
+                            verdict = "BET"
+                            if not recommended_market or recommended_market == "NONE":
+                                recommended_market = "Over 3.5 Cards"
+                            referee_boost_applied = True
+                            referee_boost_reason = (
+                                f"⚖️ REFEREE BOOST: Arbitro severo ({referee_info.name}: "
+                                f"{referee_info.cards_per_game:.1f} cards/game) "
+                                f"+ {'Derby/High Intensity' if is_high_intensity else 'Strict Referee'}"
+                            )
+                            logging.info(
+                                f"   {referee_boost_reason} → suggesting {recommended_market}"
+                            )
+
+                    # CASE 2: Very strict referee + "Over 3.5" → Upgrade to "Over 4.5"
+                    elif (
+                        recommended_market == "Over 3.5 Cards"
+                        and referee_info.should_upgrade_cards_line()
+                    ):
+                        recommended_market = "Over 4.5 Cards"
+                        referee_boost_applied = True
+                        referee_boost_reason = (
+                            f"⚖️ REFEREE UPGRADE: Arbitro molto severo ({referee_info.name}: "
+                            f"{referee_info.cards_per_game:.1f} cards/game) "
+                            f"→ upgrading to {recommended_market}"
+                        )
+                        logging.info(f"   {referee_boost_reason}")
+
+                    # CASE 3: Add boost to reasoning
+                    if referee_boost_applied:
+                        reasoning = f"{referee_boost_reason}\n\n{reasoning}"
+                        # Increase confidence for referee boost
+                        confidence_before = confidence
+                        confidence = min(95, confidence + 10)  # Cap at 95%
+                        confidence_after = confidence
+
+                        # V9.0: Record referee boost with monitoring modules
+                        if REFEREE_MONITORING_AVAILABLE:
+                            try:
+                                monitor = get_referee_cache_monitor()
+                                logger_module = get_referee_boost_logger()
+                                metrics = get_referee_influence_metrics()
+
+                                # Record cache hit (referee data was used)
+                                monitor.record_hit(referee_info.name)
+
+                                # Determine boost type
+                                if "UPGRADE" in referee_boost_reason:
+                                    boost_type = "upgrade_cards_line"
+                                else:
+                                    boost_type = "boost_no_bet_to_bet"
+
+                                # Log boost application
+                                logger_module.log_boost_applied(
+                                    referee_name=referee_info.name,
+                                    cards_per_game=referee_info.cards_per_game,
+                                    strictness=referee_info.strictness,
+                                    original_verdict="NO BET"
+                                    if "BOOST" in referee_boost_reason
+                                    else "BET",
+                                    new_verdict="BET",
+                                    recommended_market=recommended_market,
+                                    reason=referee_boost_reason,
+                                    match_id=snippet_data.get("match_id") if snippet_data else None,
+                                    home_team=snippet_data.get("home_team")
+                                    if snippet_data
+                                    else None,
+                                    away_team=snippet_data.get("away_team")
+                                    if snippet_data
+                                    else None,
+                                    league=snippet_data.get("league") if snippet_data else None,
+                                    confidence_before=confidence_before,
+                                    confidence_after=confidence_after,
+                                    tactical_context=tactical_context,
+                                )
+
+                                # Record boost in metrics
+                                metrics.record_boost_applied(
+                                    referee_name=referee_info.name,
+                                    cards_per_game=referee_info.cards_per_game,
+                                    boost_type=boost_type,
+                                    original_verdict="NO BET"
+                                    if "BOOST" in referee_boost_reason
+                                    else "BET",
+                                    new_verdict="BET",
+                                    confidence_before=confidence_before,
+                                    confidence_after=confidence_after,
+                                    market_type="cards",
+                                )
+
+                                logging.debug(
+                                    f"✅ Referee boost monitoring recorded for {referee_info.name}"
+                                )
+                            except Exception as monitor_error:
+                                logging.warning(
+                                    f"⚠️ Failed to record referee boost monitoring: {monitor_error}"
+                                )
+        except Exception as e:
+            logging.warning(f"⚠️ Referee boost logic failed: {e}")
+
+        # V9.1: REFEREE INFLUENCE ON OTHER MARKETS
+        # Extend referee influence to Goals, Corners, Winner markets
+        try:
+            if referee_info and isinstance(referee_info, RefereeStats):
+                boost_multiplier = referee_info.get_boost_multiplier()
+
+                # Goals Market: Strict referee → More cards → More stoppages → Fewer goals
+                if recommended_market and "goal" in recommended_market.lower():
+                    if referee_info.is_strict():
+                        # Strict referee → Reduce confidence for Over Goals
+                        if "over" in recommended_market.lower():
+                            confidence_before = confidence
+                            confidence = max(50, confidence - 15 * (boost_multiplier - 1.0))
+                            reasoning = (
+                                f"⚖️ REFEREE IMPACT: Arbitro severo ({referee_info.cards_per_game:.1f} cards/game) "
+                                f"→ ridotta confidenza Over Goals (più interruzioni)\n\n{reasoning}"
+                            )
+
+                            # V9.1: Record referee influence on goals market
+                            if REFEREE_MONITORING_AVAILABLE:
+                                try:
+                                    metrics = get_referee_influence_metrics()
+                                    metrics.record_influence_applied(
+                                        referee_name=referee_info.name,
+                                        cards_per_game=referee_info.cards_per_game,
+                                        influence_type="influence_goals",
+                                        market_type="goals",
+                                        confidence_before=confidence_before,
+                                        confidence_after=confidence,
+                                    )
+                                    logging.debug(
+                                        f"✅ Referee influence on goals market recorded for {referee_info.name}"
+                                    )
+                                except Exception as monitor_error:
+                                    logging.warning(
+                                        f"⚠️ Failed to record referee influence: {monitor_error}"
+                                    )
+
+                # Corners Market: Strict referee → More fouls → More corners
+                elif recommended_market and "corner" in recommended_market.lower():
+                    if referee_info.is_strict():
+                        # Strict referee → Increase confidence for Over Corners
+                        if "over" in recommended_market.lower():
+                            confidence_before = confidence
+                            confidence = min(95, confidence + 10 * (boost_multiplier - 1.0))
+                            reasoning = (
+                                f"⚖️ REFEREE IMPACT: Arbitro severo ({referee_info.cards_per_game:.1f} cards/game) "
+                                f"→ aumentata confidenza Over Corners (più falli)\n\n{reasoning}"
+                            )
+
+                            # V9.1: Record referee influence on corners market
+                            if REFEREE_MONITORING_AVAILABLE:
+                                try:
+                                    metrics = get_referee_influence_metrics()
+                                    metrics.record_influence_applied(
+                                        referee_name=referee_info.name,
+                                        cards_per_game=referee_info.cards_per_game,
+                                        influence_type="influence_corners",
+                                        market_type="corners",
+                                        confidence_before=confidence_before,
+                                        confidence_after=confidence,
+                                    )
+                                    logging.debug(
+                                        f"✅ Referee influence on corners market recorded for {referee_info.name}"
+                                    )
+                                except Exception as monitor_error:
+                                    logging.warning(
+                                        f"⚠️ Failed to record referee influence: {monitor_error}"
+                                    )
+
+                # Winner Market: Strict referee → More unpredictable
+                elif recommended_market and recommended_market in ["1", "X", "2", "1X", "X2", "12"]:
+                    if referee_info.is_strict():
+                        # Strict referee → Slightly reduce confidence (more unpredictable)
+                        confidence = max(50, confidence - 5 * (boost_multiplier - 1.0))
+                        reasoning = (
+                            f"⚖️ REFEREE IMPACT: Arbitro severo ({referee_info.cards_per_game:.1f} cards/game) "
+                            f"→ leggermente ridotta confidenza (più imprevedibile)\n\n{reasoning}"
+                        )
+
+                        # V9.1: Record referee influence on winner market
+                        if REFEREE_MONITORING_AVAILABLE:
+                            try:
+                                metrics = get_referee_influence_metrics()
+                                metrics.record_influence_applied(
+                                    referee_name=referee_info.name,
+                                    cards_per_game=referee_info.cards_per_game,
+                                    influence_type="influence_winner",
+                                    market_type="winner",
+                                    confidence_before=confidence + 5 * (boost_multiplier - 1.0),
+                                    confidence_after=confidence,
+                                )
+                                logging.debug(
+                                    f"✅ Referee influence on winner market recorded for {referee_info.name}"
+                                )
+                            except Exception as monitor_error:
+                                logging.warning(
+                                    f"⚠️ Failed to record referee influence: {monitor_error}"
+                                )
+        except Exception as e:
+            logging.warning(f"⚠️ Referee influence on other markets failed: {e}")
+
         # V8.1: Extract confidence breakdown (transparency feature)
         confidence_breakdown = data.get("confidence_breakdown", {})
         primary_driver = data.get("primary_driver", "UNKNOWN")
@@ -2392,6 +2602,7 @@ def analyze_with_triangulation(
             recommended_market=primary_market or recommended_market,
             primary_driver=primary_driver,
             odds_taken=odds_taken,  # V4.2: CLV Tracking
+            confidence=confidence,  # V11.1: AI confidence (0-100) for BettingQuant
             confidence_breakdown=confidence_breakdown_str,  # V8.1: Transparency
             is_convergent=is_convergent,  # V9.5: Cross-Source Convergence
             convergence_sources=convergence_sources_str,  # V9.5: Convergence details
@@ -2514,6 +2725,7 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: dict) -> NewsLog 
         score=score,
         category=category,
         affected_team=team,
+        confidence=None,  # V11.1: No AI confidence in fallback mode
     )
 
 

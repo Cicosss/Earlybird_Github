@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/fotmob_team_mapping.py
+# hypothesis_version: 6.151.4
+
+[112, 114, 182, 183, 186, 196, 215, 230, 268, 278, 325, 8598, 8600, 8601, 8609, 8672, 8673, 'Besiktas JK', 'Fenerbahce', 'Galatasaray', 'Lech Poznan', 'Legia Warsaw', 'Trabzonspor', 'soccer_epl', 'soccer_italy_serie_a', 'soccer_mexico_ligamx', 'soccer_spain_la_liga', 'soccer_spl']

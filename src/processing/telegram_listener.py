@@ -299,8 +299,18 @@ def has_upcoming_match(
             )
 
             for match in matches:
-                home_lower = match.home_team.lower()
-                away_lower = match.away_team.lower()
+                # VPS FIX: Extract Match attributes safely to prevent session detachment
+                # This prevents "Trust validation error" when Match object becomes detached
+                # from session due to connection pool recycling under high load
+                home_team = getattr(match, "home_team", None)
+                away_team = getattr(match, "away_team", None)
+                league = getattr(match, "league", None)
+
+                if not home_team or not away_team:
+                    continue
+
+                home_lower = home_team.lower()
+                away_lower = away_team.lower()
 
                 # Fuzzy match: team name contained in home/away
                 if (
@@ -310,14 +320,13 @@ def has_upcoming_match(
                     or away_lower in team_lower
                 ):
                     # ELITE FILTER: Only process matches from Elite leagues
-                    match_league = match.league if hasattr(match, "league") else None
-                    if match_league and match_league not in ELITE_LEAGUES:
-                        logger.debug(f"⏭️ Skipping non-Elite league: {match_league}")
+                    if league and league not in ELITE_LEAGUES:
+                        logger.debug(f"⏭️ Skipping non-Elite league: {league}")
                         continue
 
                     logger.debug(
-                        f"🏆 [TELEGRAM] Found upcoming match: {match.home_team} vs "
-                        f"{match.away_team}"
+                        f"🏆 [TELEGRAM] Found upcoming match: {home_team} vs "
+                        f"{away_team}"
                     )
                     return True, match
 
@@ -645,8 +654,11 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
 
                             # Get first odds drop time for this match (if available)
                             first_drop_time = None
-                            if match and hasattr(match, "id"):
-                                first_drop_time = get_first_odds_drop_time(match.id)
+                            if match:
+                                # VPS FIX: Extract match_id safely to prevent session detachment
+                                match_id = getattr(match, "id", None)
+                                if match_id:
+                                    first_drop_time = get_first_odds_drop_time(match_id)
 
                             # Load channel metrics for validation
                             channel_metrics_dict = get_channel_metrics(channel)
@@ -707,13 +719,15 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                             )
 
                             # Log message for audit
+                            # VPS FIX: Extract match_id safely to prevent session detachment
+                            match_id = getattr(match, "id", None) if match else None
                             log_telegram_message(
                                 channel_id=channel,
                                 message_id=str(msg.id) if hasattr(msg, "id") else None,
                                 text_hash=_get_text_hash(full_text),
                                 text_preview=full_text[:200] if full_text else None,
                                 message_time=msg.date,
-                                match_id=match.id if match else None,
+                                match_id=match_id,
                                 timestamp_lag=validation.timestamp_lag_minutes,
                                 was_insider_hit=is_insider_hit,
                                 is_echo=validation.is_echo,
@@ -724,11 +738,14 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
 
                             # V4.3: Track odds correlation for Trust Score V2
                             # This updates channel metrics with insider/follower classification
-                            if match and hasattr(match, "id") and msg.date:
+                            if match and msg.date:
                                 try:
-                                    lag_minutes = track_odds_correlation(
-                                        channel_id=channel, message_time=msg.date, match_id=match.id
-                                    )
+                                    # VPS FIX: Extract match_id safely to prevent session detachment
+                                    match_id = getattr(match, "id", None)
+                                    if match_id:
+                                        lag_minutes = track_odds_correlation(
+                                            channel_id=channel, message_time=msg.date, match_id=match_id
+                                        )
                                     if lag_minutes is not None:
                                         if lag_minutes < 0:
                                             logging.info(
@@ -757,8 +774,10 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                 continue
 
                             # Determine team info BEFORE using it in Tavily verification
+                            # VPS FIX: Extract home_team safely to prevent session detachment
+                            home_team = getattr(match, "home_team", "Unknown") if match else "Unknown"
                             team_name = channel_info.get(
-                                "team", match.home_team if match else "Unknown"
+                                "team", home_team
                             )
                             search_name = channel_info.get("search_name", team_name)
 

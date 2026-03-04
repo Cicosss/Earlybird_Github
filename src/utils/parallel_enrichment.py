@@ -41,7 +41,9 @@ logger = logging.getLogger(__name__)
 # Sequential execution ensures proper request spacing and reduces 403 errors
 DEFAULT_MAX_WORKERS = 1
 DEFAULT_TIMEOUT_SECONDS = 30  # Timeout per singola chiamata
-TOTAL_TIMEOUT_SECONDS = 45  # Timeout totale per tutte le chiamate
+TOTAL_TIMEOUT_SECONDS = (
+    90  # Timeout totale per tutte le chiamate (was 45 - increased for retries and backoff)
+)
 
 
 @dataclass

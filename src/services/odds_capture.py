@@ -74,11 +74,18 @@ def capture_kickoff_odds() -> int:
 
             # For each match, find sent NewsLog records without kickoff odds
             for match in upcoming_matches:
+                # VPS FIX: Extract Match attributes safely to prevent session detachment
+                # This prevents "Trust validation error" when Match object becomes detached
+                # from session due to connection pool recycling under high load
+                from src.utils.match_helper import extract_match_info
+
+                match_info = extract_match_info(match)
+
                 news_logs = (
                     db.query(NewsLog)
                     .filter(
                         and_(
-                            NewsLog.match_id == match.id,
+                            NewsLog.match_id == match_info["match_id"],
                             NewsLog.sent == True,
                             NewsLog.odds_at_kickoff.is_(None),  # Not captured yet
                         )
@@ -111,29 +118,36 @@ def capture_kickoff_odds() -> int:
                             else:
                                 logger.warning(
                                     f"⚠️  Data provider not available after {max_retries} attempts. "
-                                    f"Skipping odds refresh for {match.home_team} vs {match.away_team}."
+                                    f"Skipping odds refresh for {match_info['home_team']} vs {match_info['away_team']}."
                                 )
                                 break
 
                         provider_available = True
 
                         # Fetch latest odds for this match
-                        updated_match = provider.get_match_by_id(match.id)
+                        updated_match = provider.get_match_by_id(match_info["match_id"])
                         if updated_match:
+                            # VPS FIX: Extract odds safely from updated_match to prevent session detachment
+                            # This prevents "Trust validation error" when Match object becomes detached
+                            # from session due to connection pool recycling under high load
+                            updated_home_odd = getattr(updated_match, "current_home_odd", None)
+                            updated_away_odd = getattr(updated_match, "current_away_odd", None)
+                            updated_draw_odd = getattr(updated_match, "current_draw_odd", None)
+
                             # Update match with latest odds
-                            match.current_home_odd = updated_match.current_home_odd
-                            match.current_away_odd = updated_match.current_away_odd
-                            match.current_draw_odd = updated_match.current_draw_odd
+                            match.current_home_odd = updated_home_odd
+                            match.current_away_odd = updated_away_odd
+                            match.current_draw_odd = updated_draw_odd
                             db.add(match)
                             logger.info(
-                                f"📊 Refreshed odds for {match.home_team} vs {match.away_team}"
+                                f"📊 Refreshed odds for {match_info['home_team']} vs {match_info['away_team']}"
                             )
                         break  # Success, exit retry loop
 
                     except Exception as e:
                         if attempt < max_retries - 1:
                             logger.warning(
-                                f"⚠️  Could not refresh odds for {match.id} (attempt {attempt + 1}/{max_retries}): {e}. "
+                                f"⚠️  Could not refresh odds for {match_info['match_id']} (attempt {attempt + 1}/{max_retries}): {e}. "
                                 f"Retrying in {retry_delay_seconds}s..."
                             )
                             import time
@@ -141,7 +155,7 @@ def capture_kickoff_odds() -> int:
                             time.sleep(retry_delay_seconds)
                         else:
                             logger.warning(
-                                f"⚠️  Could not refresh odds for {match.id} after {max_retries} attempts: {e}. "
+                                f"⚠️  Could not refresh odds for {match_info['match_id']} after {max_retries} attempts: {e}. "
                                 f"Continuing with existing odds."
                             )
 
@@ -164,12 +178,12 @@ def capture_kickoff_odds() -> int:
                         logger.info(
                             f"✅ Captured kickoff odds: {kickoff_odds:.2f} "
                             f"for {news_log.recommended_market} "
-                            f"({match.home_team} vs {match.away_team})"
+                            f"({match_info['home_team']} vs {match_info['away_team']})"
                         )
                     else:
                         logger.warning(
                             f"⚠️  Could not capture kickoff odds for "
-                            f"{news_log.recommended_market} ({match.home_team} vs {match.away_team})"
+                            f"{news_log.recommended_market} ({match_info['home_team']} vs {match_info['away_team']})"
                         )
 
             if updated_count > 0:

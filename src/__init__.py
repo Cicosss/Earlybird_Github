@@ -7,28 +7,13 @@ news, and market movements to identify profitable betting opportunities.
 __version__ = "9.5"
 __author__ = "EarlyBird Team"
 
-# Core exports
-from src.core import AnalysisEngine
-from src.core.settlement_service import get_settlement_service
-
-# Database exports
-from src.database.models import Base, Match, NewsLog, SessionLocal, TeamAlias, init_db
-
-# Models exports
-from src.models.schemas import GeminiResponse, MatchAlert, OddsMovement
+# NOTE: Package-level exports removed to avoid loading heavy modules (analyzer, etc.)
+# when importing from submodules. All imports should be done directly from modules:
+# - from src.core.analysis_engine import AnalysisEngine (not from src import AnalysisEngine)
+# - from src.database.models import Match (not from src import Match)
+# - from src.models.schemas import GeminiResponse (not from src import GeminiResponse)
 
 __all__ = [
     "__version__",
     "__author__",
-    "AnalysisEngine",
-    "get_settlement_service",
-    "Match",
-    "NewsLog",
-    "TeamAlias",
-    "Base",
-    "init_db",
-    "SessionLocal",
-    "GeminiResponse",
-    "OddsMovement",
-    "MatchAlert",
 ]

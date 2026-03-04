@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 
 from bs4 import BeautifulSoup
 from dateutil import parser as date_parser
-from scrapling import AsyncFetcher
+from scrapling import AsyncFetcher, Fetcher
 
 from src.config.nitter_instances import (
     CIRCUIT_BREAKER_CONFIG,
@@ -589,11 +589,42 @@ class NitterPool:
 
         return tweets
 
+    def _browser_fetch(self, url: str) -> str:
+        """
+        Fetch content using synchronous browser-like fetcher.
+
+        This method uses the synchronous Fetcher with browser impersonation
+        to handle cases where AsyncFetcher fails (e.g., 403/Captcha).
+        This is a blocking operation and should be run in a thread.
+
+        Args:
+            url: URL to fetch
+
+        Returns:
+            Response text content
+
+        Raises:
+            Exception: If the fetch fails
+        """
+        try:
+            # Use synchronous Fetcher with browser impersonation
+            fetcher = Fetcher()
+            response = fetcher.get(url, timeout=15, impersonate="chrome", stealthy_headers=True)
+
+            # Return response text
+            return response.text
+        except Exception as e:
+            logger.error(f"❌ [NITTER-POOL] Browser fetch failed for {url}: {e}")
+            raise
+
     async def fetch_tweets_async(self, username: str, max_retries: int = 3) -> List[Dict[str, any]]:
         """
-        Fetch tweets from a Twitter username using Nitter instances.
+        Fetch tweets from a Twitter username using Nitter instances with hybrid scraping.
 
-        Attempts to fetch via RSS first, then falls back to HTML parsing.
+        Hybrid Scraping Logic (V11.1):
+        1. Fast Path: AsyncFetcher (awaitable) - RSS first, then HTML parsing
+        2. Slow Path (Fallback): If HTTP fails (403/Captcha), trigger Browser via asyncio.to_thread
+
         Automatically retries with different instances on connection errors.
 
         Args:
@@ -630,7 +661,7 @@ class NitterPool:
             )
 
             try:
-                # Attempt 1: Try RSS feed first
+                # Attempt 1: Try RSS feed first (Fast Path)
                 rss_url = f"{instance}/{username}/rss"
                 try:
                     response = await fetcher.get(
@@ -658,6 +689,29 @@ class NitterPool:
                             f"⚠️ [NITTER-POOL] User @{username} not found (404) on {instance}"
                         )
                         return []
+                    elif response.status in (403, 429):
+                        # Forbidden or Too Many Requests - trigger browser fallback
+                        logger.warning(
+                            f"⚠️ [NITTER-POOL] RSS blocked ({response.status}) for @{username}, "
+                            f"trying browser fallback..."
+                        )
+                        try:
+                            # Use asyncio.to_thread to run blocking browser fetch in a thread
+                            rss_content = await asyncio.to_thread(self._browser_fetch, rss_url)
+                            tweets = self._parse_rss_response(rss_content, instance, username)
+
+                            if tweets:
+                                self.record_success(instance)
+                                logger.info(
+                                    f"✅ [NITTER-POOL] Successfully fetched "
+                                    f"{len(tweets)} tweets "
+                                    f"for @{username} via RSS (Browser Fallback) from {instance}"
+                                )
+                                return tweets
+                        except Exception as browser_error:
+                            logger.debug(
+                                f"⚠️ [NITTER-POOL] Browser fallback failed for RSS: {browser_error}"
+                            )
                     else:
                         logger.debug(
                             f"⚠️ [NITTER-POOL] RSS returned status {response.status} for @{username}"
@@ -665,7 +719,7 @@ class NitterPool:
                 except (Exception, asyncio.TimeoutError) as e:
                     logger.debug(f"⚠️ [NITTER-POOL] RSS request failed for @{username}: {e}")
 
-                # Attempt 2: Fallback to HTML parsing
+                # Attempt 2: Fallback to HTML parsing (Fast Path)
                 html_url = f"{instance}/{username}"
                 try:
                     response = await fetcher.get(
@@ -693,6 +747,29 @@ class NitterPool:
                             f"⚠️ [NITTER-POOL] User @{username} not found (404) on {instance}"
                         )
                         return []
+                    elif response.status in (403, 429):
+                        # Forbidden or Too Many Requests - trigger browser fallback
+                        logger.warning(
+                            f"⚠️ [NITTER-POOL] HTML blocked ({response.status}) for @{username}, "
+                            f"trying browser fallback..."
+                        )
+                        try:
+                            # Use asyncio.to_thread to run blocking browser fetch in a thread
+                            html_content = await asyncio.to_thread(self._browser_fetch, html_url)
+                            tweets = self._parse_html_response(html_content, instance, username)
+
+                            if tweets:
+                                self.record_success(instance)
+                                logger.info(
+                                    f"✅ [NITTER-POOL] Successfully fetched "
+                                    f"{len(tweets)} tweets "
+                                    f"for @{username} via HTML (Browser Fallback) from {instance}"
+                                )
+                                return tweets
+                        except Exception as browser_error:
+                            logger.debug(
+                                f"⚠️ [NITTER-POOL] Browser fallback failed for HTML: {browser_error}"
+                            )
                     else:
                         logger.debug(
                             f"⚠️ [NITTER-POOL] HTML returned status "

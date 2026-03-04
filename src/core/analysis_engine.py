@@ -53,6 +53,9 @@ from src.analysis.verifier_integration import (
     verify_alert_before_telegram,
 )
 
+# V11.1 FIX: Import BettingQuant for market warning generation
+from src.core.betting_quant import BettingQuant
+
 # Database
 from src.database.models import Match, NewsLog, SessionLocal
 
@@ -148,6 +151,9 @@ class AnalysisEngine:
             "parallel_enrichment": _PARALLEL_ENRICHMENT_AVAILABLE,
         }
 
+        # V11.1 FIX: Initialize BettingQuant for market warning generation
+        self.betting_quant = BettingQuant()
+
     def get_availability_flags(self) -> dict[str, bool]:
         """Get availability flags for optional components."""
         return self._availability_flags.copy()
@@ -197,15 +203,21 @@ class AnalysisEngine:
         Returns:
             Tuple of (is_closed, reason)
         """
+        # VPS FIX: Extract Match attributes safely to prevent session detachment
+        # This prevents "Trust validation error" when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        last_deep_dive_time = getattr(match, "last_deep_dive_time", None)
+        start_time = getattr(match, "start_time", None)
+
         # No previous investigation - case is open
-        if not match.last_deep_dive_time:
+        if not last_deep_dive_time:
             return False, "First investigation"
 
         # Calculate time since last investigation
-        hours_since_dive = (now - match.last_deep_dive_time).total_seconds() / 3600
+        hours_since_dive = (now - last_deep_dive_time).total_seconds() / 3600
 
         # Calculate time to kickoff
-        hours_to_kickoff = (match.start_time - now).total_seconds() / 3600
+        hours_to_kickoff = (start_time - now).total_seconds() / 3600
 
         # EXCEPTION: Final Check window - always allow investigation
         if hours_to_kickoff <= FINAL_CHECK_WINDOW_HOURS:
@@ -245,8 +257,14 @@ class AnalysisEngine:
             "severity": "NONE",
         }
 
-        draw_odd = match.current_draw_odd
-        opening_draw = match.opening_draw_odd
+        # VPS FIX: Extract Match attributes safely to prevent session detachment
+        # This prevents "Trust validation error" when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        current_draw_odd = getattr(match, "current_draw_odd", None)
+        opening_draw_odd = getattr(match, "opening_draw_odd", None)
+
+        draw_odd = current_draw_odd
+        opening_draw = opening_draw_odd
 
         # V6.1: Validate draw_odd is a positive number
         if not draw_odd or not isinstance(draw_odd, (int, float)) or draw_odd <= 0:
@@ -353,6 +371,10 @@ class AnalysisEngine:
         significant odds drops that may indicate market movement or
         insider information.
 
+        VPS FIX: Extract Match attributes safely to prevent session detachment.
+        This prevents "Trust validation error" when Match object becomes detached
+        from session due to connection pool recycling under high load.
+
         Returns:
             List of significant drop dictionaries
         """
@@ -372,35 +394,41 @@ class AnalysisEngine:
             significant_drops = []
 
             for match in matches:
+                # VPS FIX: Extract Match attributes safely to prevent session detachment
+                # This prevents "Trust validation error" when Match object becomes detached
+                # from session due to connection pool recycling under high load
+                home_team = getattr(match, "home_team", "Unknown")
+                away_team = getattr(match, "away_team", "Unknown")
+                opening_home_odd = getattr(match, "opening_home_odd", None)
+                current_home_odd = getattr(match, "current_home_odd", None)
+                opening_away_odd = getattr(match, "opening_away_odd", None)
+                current_away_odd = getattr(match, "current_away_odd", None)
+
                 # Calculate home odd drop
-                if match.opening_home_odd and match.current_home_odd:
-                    home_drop_pct = (
-                        (match.opening_home_odd - match.current_home_odd) / match.opening_home_odd
-                    ) * 100
+                if opening_home_odd and current_home_odd:
+                    home_drop_pct = ((opening_home_odd - current_home_odd) / opening_home_odd) * 100
                     if home_drop_pct > 15:  # 15%+ drop is significant
                         significant_drops.append(
                             {
                                 "match": match,
                                 "type": "HOME_DROP",
                                 "drop_pct": home_drop_pct,
-                                "opening": match.opening_home_odd,
-                                "current": match.current_home_odd,
+                                "opening": opening_home_odd,
+                                "current": current_home_odd,
                             }
                         )
 
                 # Calculate away odd drop
-                if match.opening_away_odd and match.current_away_odd:
-                    away_drop_pct = (
-                        (match.opening_away_odd - match.current_away_odd) / match.opening_away_odd
-                    ) * 100
+                if opening_away_odd and current_away_odd:
+                    away_drop_pct = ((opening_away_odd - current_away_odd) / opening_away_odd) * 100
                     if away_drop_pct > 15:  # 15%+ drop is significant
                         significant_drops.append(
                             {
                                 "match": match,
                                 "type": "AWAY_DROP",
                                 "drop_pct": away_drop_pct,
-                                "opening": match.opening_away_odd,
-                                "current": match.current_away_odd,
+                                "opening": opening_away_odd,
+                                "current": current_away_odd,
                             }
                         )
 
@@ -408,8 +436,11 @@ class AnalysisEngine:
                 logger.info(f"💹 Found {len(significant_drops)} significant odds drops")
                 for drop in significant_drops:
                     match = drop["match"]
+                    # Extract team names safely
+                    home_team = getattr(match, "home_team", "Unknown")
+                    away_team = getattr(match, "away_team", "Unknown")
                     logger.info(
-                        f"   📉 {match.home_team} vs {match.away_team}: {drop['type']} {drop['drop_pct']:.1f}% ({drop['opening']:.2f} → {drop['current']:.2f})"
+                        f"   📉 {home_team} vs {away_team}: {drop['type']} {drop['drop_pct']:.1f}% ({drop['opening']:.2f} → {drop['current']:.2f})"
                     )
 
             return significant_drops
@@ -429,6 +460,10 @@ class AnalysisEngine:
 
         Centralizes the Twitter Intel enrichment logic to avoid duplication.
 
+        VPS FIX: Extract Match attributes safely to prevent session detachment.
+        This prevents "Trust validation error" when Match object becomes detached
+        from session due to connection pool recycling under high load.
+
         Args:
             match: Match object with home_team, away_team, league
             context_label: Optional label for logging (e.g., "TIER2", "RADAR")
@@ -444,11 +479,18 @@ class AnalysisEngine:
             if not cache.is_fresh:
                 return None
 
+            # VPS FIX: Extract Match attributes safely to prevent session detachment
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load
+            home_team = getattr(match, "home_team", "Unknown")
+            away_team = getattr(match, "away_team", "Unknown")
+            league = getattr(match, "league", "Unknown")
+
             # Search for relevant tweets about both teams
             relevant_tweets = []
-            for team in [match.home_team, match.away_team]:
+            for team in [home_team, away_team]:
                 tweets = cache.search_intel(
-                    team, league_key=match.league, topics=["injury", "lineup", "squad"]
+                    team, league_key=league, topics=["injury", "lineup", "squad"]
                 )
                 relevant_tweets.extend(tweets)
 
@@ -502,10 +544,17 @@ class AnalysisEngine:
             return ""
 
         try:
+            # VPS FIX: Extract Match attributes safely to prevent session detachment
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load
+            home_team = getattr(match, "home_team", "Unknown")
+            away_team = getattr(match, "away_team", "Unknown")
+            league = getattr(match, "league", "Unknown")
+
             result = filter_tweets_for_match(
-                home_team=match.home_team,
-                away_team=match.away_team,
-                league_key=match.league,
+                home_team=home_team,
+                away_team=away_team,
+                league_key=league,
                 fotmob_data=official_data,
             )
 
@@ -530,8 +579,8 @@ class AnalysisEngine:
                 # Call Gemini to resolve conflict
                 gemini_resolution = resolve_conflict_via_gemini(
                     conflict_description=result.conflict_description,
-                    home_team=match.home_team,
-                    away_team=match.away_team,
+                    home_team=home_team,
+                    away_team=away_team,
                     twitter_claim=twitter_claim,
                     fotmob_claim=official_data[:500] if official_data else "No FotMob data",
                 )
@@ -704,8 +753,8 @@ class AnalysisEngine:
                 away_team=away_team,
                 match_start_time=match_start_time,
                 weather_provider=weather_provider,
-                max_workers=4,
-                timeout=45,
+                # max_workers=4,  # REMOVED - use default (1) to avoid FotMob 403 errors (V6.2 fix)
+                timeout=90,  # UPDATED from 45 to 90 for retries and backoff (COVE fix V6.3)
             )
 
             # Convert EnrichmentResult to legacy dict format
@@ -871,25 +920,34 @@ class AnalysisEngine:
         result = {"alert_sent": False, "score": 0.0, "market": None, "error": None}
 
         try:
-            # --- STEP 0a: HOME/AWAY VALIDATION (V5.1) ---
+
+            # VPS FIX: Extract Match attributes safely to prevent session detachment.
+            # This prevents "Trust validation error" when Match object becomes detached
+            # from session due to connection pool recycling under high load.
+            home_team = getattr(match, "home_team", "Unknown")
+            away_team = getattr(match, "away_team", "Unknown")
+            league = getattr(match, "league", "Unknown")
+            start_time = getattr(match, "start_time", None)
+
+            # --- STEP 0a: HOME/AWAY VALIDATION \(V5.1\) ---
             # Validate home/away order using FotMob as source of truth
             # This prevents alerts with inverted team order (e.g., "FC Porto vs Santa Clara"
             # when the actual match is "Santa Clara vs FC Porto")
 
-            home_team_valid = match.home_team
-            away_team_valid = match.away_team
+            home_team_valid = home_team
+            away_team_valid = away_team
 
             if fotmob:
                 try:
                     # Get FotMob team IDs for validation
-                    fotmob_home_id = get_fotmob_team_id(match.home_team)
-                    fotmob_away_id = get_fotmob_team_id(match.away_team)
+                    fotmob_home_id = get_fotmob_team_id(home_team)
+                    fotmob_away_id = get_fotmob_team_id(away_team)
 
                     # If we have both IDs, validate the order
                     if fotmob_home_id and fotmob_away_id:
                         # Get FotMob match data to validate order
                         fotmob_match = fotmob.get_match(
-                            fotmob_home_id, fotmob_away_id, match.start_time
+                            fotmob_home_id, fotmob_away_id, start_time
                         )
 
                         if fotmob_match:
@@ -901,10 +959,10 @@ class AnalysisEngine:
                             if (
                                 fotmob_home_name
                                 and fotmob_away_name
-                                and match.home_team != fotmob_home_name
+                                and home_team != fotmob_home_name
                             ):
                                 self.logger.warning(
-                                    f"⚠️ Team order mismatch detected: DB has {match.home_team} vs {match.away_team}, FotMob has {fotmob_home_name} vs {fotmob_away_name}"
+                                    f"⚠️ Team order mismatch detected: DB has {home_team} vs {away_team}, FotMob has {fotmob_home_name} vs {fotmob_away_name}"
                                 )
                                 # Swap team names
                                 home_team_valid, away_team_valid = away_team_valid, home_team_valid
@@ -919,7 +977,7 @@ class AnalysisEngine:
             is_closed, cooldown_reason = self.is_case_closed(match, now_utc)
             if is_closed:
                 self.logger.info(
-                    f"⏸️  Skipping {match.home_team} vs {match.away_team}: {cooldown_reason}"
+                    f"⏸️  Skipping {home_team} vs {away_team}: {cooldown_reason}"
                 )
                 return result
 
@@ -935,7 +993,7 @@ class AnalysisEngine:
                     fotmob=fotmob,
                     home_team=home_team_valid,
                     away_team=away_team_valid,
-                    match_start_time=match.start_time,
+                    match_start_time=start_time,
                     weather_provider=get_match_weather,
                 )
 
@@ -994,7 +1052,7 @@ class AnalysisEngine:
 
             market_intel = None
             try:
-                market_intel = analyze_market_intelligence(match=match, league_key=match.league)
+                market_intel = analyze_market_intelligence(match=match, league_key=league)
             except Exception as e:
                 self.logger.warning(f"⚠️ Market intelligence analysis failed: {e}")
 
@@ -1062,6 +1120,65 @@ class AnalysisEngine:
                     market_intel=market_intel,
                     referee_info=referee_info,
                 )
+
+                # --- V11.1 FIX: Generate market warning using BettingQuant ---
+                market_warning = None
+                if analysis_result and match:
+                    try:
+                        # Extract team stats for BettingQuant
+                        # Use goals_avg from stats, fallback to league default (1.35)
+                        home_scored = home_stats.get("goals_avg") if home_stats else 1.35
+                        away_scored = away_stats.get("goals_avg") if away_stats else 1.35
+
+                        # FotMob doesn't provide goals_conceded_avg, use goals_avg as fallback
+                        home_conceded = home_stats.get("goals_avg") if home_stats else 1.35
+                        away_conceded = away_stats.get("goals_avg") if away_stats else 1.35
+
+                        # VPS FIX: Copy odds attributes before using them to prevent session detachment
+                        # This prevents "Trust validation error" when Match object becomes detached
+                        # from session due to connection pool recycling under high load
+                        home_odd = getattr(match, "current_home_odd", None)
+                        draw_odd = getattr(match, "current_draw_odd", None)
+                        away_odd = getattr(match, "current_away_odd", None)
+                        over_25_odd = getattr(match, "current_over_2_5", None)
+                        under_25_odd = getattr(match, "current_under_2_5", None)
+
+                        # Build market odds dict from copied attributes
+                        market_odds = {
+                            "home": home_odd,
+                            "draw": draw_odd,
+                            "away": away_odd,
+                            "over_25": over_25_odd,
+                            "under_25": under_25_odd,
+                            # BTTS not available in database, set to None
+                        }
+
+                        # Call BettingQuant to evaluate bet and generate market warning
+                        betting_decision = self.betting_quant.evaluate_bet(
+                            match=match,
+                            analysis=analysis_result,
+                            home_scored=home_scored,
+                            home_conceded=home_conceded,
+                            away_scored=away_scored,
+                            away_conceded=away_conceded,
+                            market_odds=market_odds,
+                            ai_prob=analysis_result.confidence / 100.0
+                            if analysis_result.confidence
+                            else None,
+                        )
+
+                        # Extract market warning from BettingDecision
+                        market_warning = betting_decision.market_warning
+
+                        if market_warning:
+                            self.logger.info(f"⚠️ V11.1: Market warning generated: {market_warning}")
+
+                    except Exception as e:
+                        self.logger.warning(
+                            f"⚠️ V11.1: Failed to generate market warning with BettingQuant: {e}"
+                        )
+                        # Continue without market warning (non-critical)
+                        market_warning = None
 
                 # --- V8.3 FIX: Save analysis_result to database BEFORE sending alert ---
                 # This creates the NewsLog record with all analysis data
@@ -1153,6 +1270,7 @@ class AnalysisEngine:
                         convergence_sources = getattr(analysis_result, "convergence_sources", None)
 
                         # V8.3 FIX: Pass analysis_result to send_alert_wrapper so it can update with odds_at_alert
+                        # V11.1 FIX: Pass market_warning to send_alert_wrapper
                         send_alert_wrapper(
                             match=match,
                             score=final_score,
@@ -1174,6 +1292,7 @@ class AnalysisEngine:
                             convergence_sources=convergence_sources,
                             analysis_result=analysis_result,  # V8.3: Pass NewsLog object for updating
                             db_session=db_session,  # V8.3: Pass db_session for updating
+                            market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
                         )
 
                         result["alert_sent"] = True
@@ -1192,8 +1311,13 @@ class AnalysisEngine:
                             self.logger.error(f"❌ Rollback failed: {rollback_error}")
                         result["error"] = str(e)
                 else:
+                    # V11.1: Enhanced veto transparency logging
+                    veto_reason = "Unknown"
+                    if verification_result and verification_result.score_adjustment_reason:
+                        veto_reason = verification_result.score_adjustment_reason
+
                     self.logger.info(
-                        f"   No alert sent (score: {final_score:.1f}, threshold: {ALERT_THRESHOLD_HIGH})"
+                        f"🛑 MATCH VETOED: Final Score {final_score:.1f} < {ALERT_THRESHOLD_HIGH} [Reason: {veto_reason}]"
                     )
 
                     result["score"] = final_score

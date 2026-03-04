@@ -1,21 +1,24 @@
 """
-EarlyBird Final Alert Verifier - V1.0
+EarlyBird Final Alert Verifier - V2.0
 
 Intercepts final alerts before Telegram and performs comprehensive verification
-using Perplexity API with structured prompts for maximum accuracy.
+using IntelligenceRouter with three-level fallback (DeepSeek → Tavily → Claude 3 Haiku).
 
 Position in pipeline:
 Analysis → Verification Layer → FINAL VERIFIER → Telegram
 
 The verifier acts as a professional betting analyst validating the complete reasoning,
 data extracted, news links, and all components that generated the alert.
+
+V2.0: Updated to use IntelligenceRouter with three-level fallback instead of PerplexityProvider
 """
 
 import json
 import logging
+import threading
 
 from src.database.models import Match, NewsLog, SessionLocal
-from src.ingestion.perplexity_provider import get_perplexity_provider
+from src.services.intelligence_router import get_intelligence_router
 from src.utils.validators import safe_get
 
 logger = logging.getLogger(__name__)
@@ -25,7 +28,7 @@ class FinalAlertVerifier:
     """
     Final verification layer for alerts before Telegram delivery.
 
-    Uses Perplexity API with structured prompts to validate:
+    Uses IntelligenceRouter with three-level fallback (DeepSeek → Tavily → Claude 3 Haiku) to validate:
     - Complete reasoning and logic
     - Data extraction accuracy
     - News source reliability
@@ -33,21 +36,23 @@ class FinalAlertVerifier:
 
     If verification fails, alert is marked as "no bet" and all components
     are updated accordingly.
+
+    V2.0: Updated to use IntelligenceRouter instead of PerplexityProvider
     """
 
     def __init__(self):
         try:
-            self._perplexity = get_perplexity_provider()
-            self._enabled = self._perplexity is not None and self._perplexity.is_available()
+            self._router = get_intelligence_router()
+            self._enabled = self._router is not None and self._router.is_available()
         except Exception as e:
-            logger.error(f"Failed to initialize Perplexity provider: {e}")
-            self._perplexity = None
+            logger.error(f"Failed to initialize IntelligenceRouter: {e}")
+            self._router = None
             self._enabled = False
 
         if self._enabled:
-            logger.info("🔍 Final Alert Verifier initialized (Perplexity)")
+            logger.info("🔍 Final Alert Verifier initialized (IntelligenceRouter V8.0)")
         else:
-            logger.warning("⚠️ Final Alert Verifier disabled: Perplexity not available")
+            logger.warning("⚠️ Final Alert Verifier disabled: IntelligenceRouter not available")
 
     def verify_final_alert(
         self, match: Match, analysis: NewsLog, alert_data: dict, context_data: dict | None = None
@@ -77,14 +82,18 @@ class FinalAlertVerifier:
             logger.debug("Final verifier disabled, allowing alert")
             return True, {"status": "disabled", "reason": "Verifier not available"}
 
+        # VPS FIX: Copy Match attributes before using them to prevent session detachment
+        home_team = getattr(match, "home_team", None)
+        away_team = getattr(match, "away_team", None)
+
         prompt = self._build_verification_prompt(
             match=match, analysis=analysis, alert_data=alert_data, context_data=context_data or {}
         )
 
-        logger.info(f"🔍 [FINAL VERIFIER] Verifying alert: {match.home_team} vs {match.away_team}")
+        logger.info(f"🔍 [FINAL VERIFIER] Verifying alert: {home_team} vs {away_team}")
 
         try:
-            response = self._query_perplexity(prompt)
+            response = self._query_intelligence_router(prompt, match)
 
             if response:
                 result = self._process_verification_response(response)
@@ -105,12 +114,16 @@ class FinalAlertVerifier:
                     self._handle_alert_rejection(match, analysis, result)
                     return False, result
             else:
-                logger.warning("⚠️ [FINAL VERIFIER] No response from Perplexity")
-                return True, {"status": "error", "reason": "No response"}
+                logger.warning("⚠️ [FINAL VERIFIER] No response from IntelligenceRouter")
+                # CRITICAL FIX #3: Return False on failure instead of True
+                # This prevents unverified alerts from being sent to Telegram
+                return False, {"status": "error", "reason": "No response from IntelligenceRouter"}
 
         except Exception as e:
             logger.error(f"❌ [FINAL VERIFIER] Verification failed: {e}")
-            return True, {"status": "error", "reason": str(e)}
+            # CRITICAL FIX #3: Return False on failure instead of True
+            # This prevents unverified alerts from being sent to Telegram
+            return False, {"status": "error", "reason": str(e)}
 
     def _build_verification_prompt(
         self, match: Match, analysis: NewsLog, alert_data: dict, context_data: dict
@@ -126,10 +139,20 @@ class FinalAlertVerifier:
         5. Output Format: Structured JSON with clear fields
         """
 
-        home_team = match.home_team
-        away_team = match.away_team
-        league = match.league
-        match_date = match.start_time.strftime("%Y-%m-%d") if match.start_time else "Unknown"
+        # VPS FIX: Copy Match attributes before using them to prevent session detachment
+        home_team = getattr(match, "home_team", None)
+        away_team = getattr(match, "away_team", None)
+        league = getattr(match, "league", None)
+        start_time = getattr(match, "start_time", None)
+        match_date = start_time.strftime("%Y-%m-%d") if start_time else "Unknown"
+
+        # VPS FIX: Extract Match odds safely to prevent session detachment
+        opening_home_odd = getattr(match, "opening_home_odd", None)
+        current_home_odd = getattr(match, "current_home_odd", None)
+        opening_draw_odd = getattr(match, "opening_draw_odd", None)
+        current_draw_odd = getattr(match, "current_draw_odd", None)
+        opening_away_odd = getattr(match, "opening_away_odd", None)
+        current_away_odd = getattr(match, "current_away_odd", None)
 
         context_lines = [
             f"MATCH: {home_team} vs {away_team}",
@@ -138,18 +161,12 @@ class FinalAlertVerifier:
             f"ALERT SCORE: {alert_data.get('score', 0)}/10",
         ]
 
-        if match.opening_home_odd and match.current_home_odd:
-            context_lines.append(
-                f"HOME ODDS: {match.opening_home_odd:.2f} → {match.current_home_odd:.2f}"
-            )
-        if match.opening_draw_odd and match.current_draw_odd:
-            context_lines.append(
-                f"DRAW ODDS: {match.opening_draw_odd:.2f} → {match.current_draw_odd:.2f}"
-            )
-        if match.opening_away_odd and match.current_away_odd:
-            context_lines.append(
-                f"AWAY ODDS: {match.opening_away_odd:.2f} → {match.current_away_odd:.2f}"
-            )
+        if opening_home_odd and current_home_odd:
+            context_lines.append(f"HOME ODDS: {opening_home_odd:.2f} → {current_home_odd:.2f}")
+        if opening_draw_odd and current_draw_odd:
+            context_lines.append(f"DRAW ODDS: {opening_draw_odd:.2f} → {current_draw_odd:.2f}")
+        if opening_away_odd and current_away_odd:
+            context_lines.append(f"AWAY ODDS: {opening_away_odd:.2f} → {current_away_odd:.2f}")
 
         if alert_data.get("recommended_market"):
             context_lines.append(f"PRIMARY MARKET: {alert_data['recommended_market']}")
@@ -335,13 +352,33 @@ Begin your analysis now."""
 
         return prompt
 
-    def _query_perplexity(self, prompt: str) -> dict | None:
-        """Query Perplexity API with verification prompt."""
+    def _query_intelligence_router(self, prompt: str, match: Match) -> dict | None:
+        """
+        Query IntelligenceRouter with two-level fallback for final alert verification.
+
+        Uses DeepSeek (primary) → Claude 3 Haiku (fallback).
+        Tavily is NOT used as fallback because it's a search provider, not an AI analysis provider.
+
+        CRITICAL FIX #1: Now uses verify_final_alert() instead of verify_news_item().
+        This method is specifically designed for final alert verification and doesn't truncate the prompt.
+
+        Args:
+            prompt: The complete verification prompt (not truncated)
+            match: Match object for team names
+
+        Returns:
+            Parsed response or None on failure
+        """
         try:
-            response = self._perplexity._query_api_raw(prompt)
-            return response
+            # CRITICAL FIX #1: Use verify_final_alert() instead of verify_news_item()
+            # This method is specifically designed for final alert verification
+            # and doesn't truncate the prompt to 2000 characters
+            result = self._router.verify_final_alert(
+                verification_prompt=prompt  # Full prompt, not truncated
+            )
+            return result
         except Exception as e:
-            logger.error(f"Perplexity query failed: {e}")
+            logger.warning(f"⚠️ [FINAL VERIFIER] IntelligenceRouter query failed: {e}")
             return None
 
     def _process_verification_response(self, response: dict) -> dict:
@@ -653,13 +690,22 @@ Begin your analysis now."""
 
 
 _final_verifier_instance: FinalAlertVerifier | None = None
+_final_verifier_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_final_verifier() -> FinalAlertVerifier:
-    """Get or create the singleton FinalAlertVerifier instance."""
+    """
+    Get or create the singleton FinalAlertVerifier instance.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _final_verifier_instance
     if _final_verifier_instance is None:
-        _final_verifier_instance = FinalAlertVerifier()
+        with _final_verifier_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _final_verifier_instance is None:
+                _final_verifier_instance = FinalAlertVerifier()
     return _final_verifier_instance
 
 

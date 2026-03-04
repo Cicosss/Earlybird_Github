@@ -19,7 +19,6 @@ import os
 import re
 import threading
 import time
-import unicodedata
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -30,6 +29,7 @@ import requests.exceptions
 from dotenv import load_dotenv
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+# Import text normalization utilities from centralized location
 # Import centralized version tracking
 from src.version import get_version_with_module
 
@@ -38,52 +38,9 @@ logger = logging.getLogger(__name__)
 logger.info(f"📦 {get_version_with_module('Notifier')}")
 
 
-def normalize_unicode(text: str) -> str:
-    """
-    Normalize Unicode to NFC form for consistent text handling.
-
-    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
-    Greek, Arabic, Chinese, Japanese, Korean, and other languages
-    are handled consistently across all components.
-
-    Args:
-        text: Input text to normalize
-
-    Returns:
-        Normalized text in NFC form
-    """
-    if not text:
-        return ""
-    return unicodedata.normalize("NFC", text)
-
-
-def truncate_utf8(text: str, max_bytes: int) -> str:
-    """
-    Truncate text to fit within max_bytes UTF-8 encoded.
-
-    Phase 1 Critical Fix: Safe truncation that preserves UTF-8 characters
-    instead of cutting at arbitrary byte positions which can corrupt
-    multi-byte characters.
-
-    Args:
-        text: Input text to truncate
-        max_bytes: Maximum bytes in UTF-8 encoding
-
-    Returns:
-        Truncated text with valid UTF-8 characters
-    """
-    if not text:
-        return ""
-    encoded = text.encode("utf-8")
-    if len(encoded) <= max_bytes:
-        return text
-    # Truncate and decode, removing incomplete characters
-    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
-    return truncated
-
-
-# Load environment variables
+print("--- NOTIFIER: Loading .env ---")
 load_dotenv()
+print("--- NOTIFIER: .env loaded ---")
 
 # ============================================
 # CONFIGURATION
@@ -95,9 +52,12 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Verify credentials are loaded securely
 if TELEGRAM_TOKEN:
+    print("--- NOTIFIER: Telegram token found ---")
     logging.debug("Telegram token caricato da variabile ambiente")
 if TELEGRAM_CHAT_ID:
+    print("--- NOTIFIER: Telegram chat ID found ---")
     logging.debug("Telegram chat ID caricato da variabile ambiente")
+print("--- NOTIFIER: Configuration finished ---")
 
 # ============================================
 # COVE FIX: Telegram Credentials Validation
@@ -179,6 +139,41 @@ def validate_telegram_chat_id() -> bool:
         return True
     except ValueError:
         logging.error(f"❌ Invalid TELEGRAM_CHAT_ID format: {TELEGRAM_CHAT_ID}")
+        return False
+
+
+def validate_telegram_at_startup() -> bool:
+    """
+    V11.1: Validate Telegram credentials at system startup.
+
+    This function should be called during the main boot sequence to fail fast
+    if Telegram tokens are missing or invalid.
+
+    Returns:
+        True if credentials are valid, False otherwise
+
+    Raises:
+        ValueError: If credentials are missing or invalid (fail fast)
+    """
+    try:
+        # Validate credentials
+        is_valid = validate_telegram_credentials()
+        if is_valid:
+            # Also validate chat ID format
+            is_chat_id_valid = validate_telegram_chat_id()
+            if not is_chat_id_valid:
+                raise ValueError("TELEGRAM_CHAT_ID is missing or invalid format")
+
+            logging.info("✅ Telegram validation successful - Bot is ready to send alerts")
+            return True
+        else:
+            raise ValueError("Telegram credentials validation failed")
+    except ValueError as e:
+        # Re-raise to fail fast as requested
+        raise ValueError(f"❌ Telegram validation failed at startup: {e}")
+    except Exception as e:
+        # Unexpected error - log but don't raise (allow system to continue)
+        logging.error(f"⚠️ Unexpected error during Telegram validation: {e}")
         return False
 
 
@@ -931,6 +926,7 @@ def _truncate_message_if_needed(
     news_summary_clean: str = "",  # BUG #2 FIX: Add default value
     news_link: str = "",  # BUG #2 FIX: Add default value
     convergence_section: str = "",
+    market_warning: str = "",  # V11.1 FIX: Add market_warning parameter
 ) -> str:
     """Truncate message if it exceeds Telegram limits."""
     if len(message) <= TELEGRAM_MESSAGE_LIMIT:
@@ -956,6 +952,7 @@ def _truncate_message_if_needed(
             f"{twitter_section}"
             f"{verification_section}"
             f"{final_verification_section}\n"  # BUG #2 FIX: Add final verification section to truncated message
+            f"{market_warning}"  # V11.1 FIX: Include market_warning in truncated message
             f"📝 <i>{news_summary_truncated}</i>"
             f"{news_link}"
         )
@@ -994,6 +991,7 @@ def send_alert_wrapper(**kwargs) -> None:
         - verification_result -> verification_info
         - is_convergent -> is_convergent (V9.5)
         - convergence_sources -> convergence_sources (V9.5)
+        - market_warning -> market_warning (V11.1)
         - analysis_result -> NewsLog object to update with odds_at_alert (V8.3)
         - db_session -> Database session for updating NewsLog (V8.3)
     """
@@ -1029,6 +1027,9 @@ def send_alert_wrapper(**kwargs) -> None:
     # V9.5: Extract convergence parameters
     is_convergent = kwargs.get("is_convergent", False)
     convergence_sources = kwargs.get("convergence_sources")
+
+    # V11.1 FIX: Extract market_warning parameter
+    market_warning = kwargs.get("market_warning")
 
     # V8.3: Extract NewsLog update parameters
     analysis_result = kwargs.get("analysis_result")
@@ -1161,6 +1162,7 @@ def send_alert_wrapper(**kwargs) -> None:
         confidence_breakdown=confidence_breakdown,
         is_convergent=is_convergent,
         convergence_sources=convergence_sources,
+        market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
     )
 
 
@@ -1192,6 +1194,7 @@ def send_alert(
     confidence_breakdown: dict[str, Any] | None = None,
     is_convergent: bool = False,
     convergence_sources: dict[str, Any] | None = None,
+    market_warning: str | None = None,  # V11.1 FIX: Market warning for late-to-market alerts
 ) -> None:
     """
     Sends a formatted alert to Telegram with odds movement analysis.
@@ -1219,6 +1222,7 @@ def send_alert(
         confidence_breakdown: Confidence score breakdown (optional)
         is_convergent: V9.5 - True if signal confirmed by both Web and Social sources (optional)
         convergence_sources: V9.5 - Dict with web and social signal details (optional)
+        market_warning: V11.1 - Warning message for late-to-market alerts (optional)
     """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping alert.")
@@ -1303,6 +1307,11 @@ def send_alert(
         # Default to web source if no specific source provided
         enhanced_source_section = "📡 <b>Source:</b> Web\n"
 
+    # V11.1 FIX: Prepend market warning if present
+    warning_section = ""
+    if market_warning:
+        warning_section = f"{market_warning}\n\n"
+
     # Header changes based on whether this is an update
     if is_update:
         header = f"🔄 <b>AGGIORNAMENTO</b> (Score Increased) | {league}"
@@ -1317,6 +1326,7 @@ def send_alert(
 
     # Build the message
     message = (
+        f"{warning_section}"  # V11.1 FIX: Prepend market warning
         f"{header}\n"
         f"{date_line}"
         f"⚽ <b>{match_str}</b>\n"
@@ -1345,6 +1355,7 @@ def send_alert(
         score,
         odds_line,
         movement,
+        warning_section,  # V11.1 FIX: Include warning section in truncation
         enhanced_source_section,
         bet_section,
         breakdown_section,
@@ -1643,3 +1654,6 @@ def send_document(file_path: str, caption: str = "") -> bool:
     except Exception as e:
         logging.error(f"Error sending document: {e}")
         return False
+
+
+print("--- NOTIFIER MODULE END reached ---")

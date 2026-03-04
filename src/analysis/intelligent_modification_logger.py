@@ -9,6 +9,7 @@ This component implements the hybrid approach:
 """
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -621,6 +622,7 @@ class IntelligentModificationLogger:
 
 # Singleton instance
 _intelligent_logger_instance: IntelligentModificationLogger | None = None
+_intelligent_logger_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_intelligent_modification_logger() -> IntelligentModificationLogger:

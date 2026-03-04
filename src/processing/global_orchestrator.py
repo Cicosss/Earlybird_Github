@@ -7,7 +7,7 @@ The bot now monitors ALL active leagues simultaneously to catch news instantly.
 
 GLOBAL EYES ARCHITECTURE:
 - NO TIME RESTRICTIONS: The bot sees the whole world at once
-- PARALLEL SCANNING: 4-Tab Radar (LATAM, ASIA, AFRICA, GLOBAL) runs concurrently
+- PARALLEL SCANNING: 3-Tab Radar (LATAM, ASIA, AFRICA) runs concurrently
 - INTELLIGENCE QUEUE: Thread-safe queue serializes heavy lifting while discovery remains parallel
 - SAFETY VALVE: Prevents DB locks and API rate limits
 
@@ -15,7 +15,7 @@ Key Changes from Continental Scheduler:
 - Removed: Time-based continental windows (AFRICA: 08:00-19:00, ASIA: 00:00-11:00, LATAM: 12:00-23:00)
 - Removed: Maintenance window (04:00-06:00 UTC)
 - Added: get_all_active_leagues() - returns ALL active leagues regardless of time
-- Added: Support for 4-tab parallel radar in news_radar.py
+- Added: Support for 3-tab parallel radar in Global mode
 
 Resilience Features:
 - Falls back to local mirror (data/supabase_mirror.json) if Supabase is slow/unreachable
@@ -23,7 +23,7 @@ Resilience Features:
 - Preserves Tactical Veto V5.0 and Balanced Probability logic (imported from analyzer/math_engine)
 
 V11.0: Global Parallel Architecture
-- Parallel scanning across 4 async contexts (LATAM, ASIA, AFRICA, GLOBAL)
+- Parallel scanning across 3 async contexts (LATAM, ASIA, AFRICA)
 - Intelligence Queue for safe, serialized processing
 - Budget checks for Tavily and Brave APIs before processing
 
@@ -53,9 +53,11 @@ from pathlib import Path
 from typing import Any
 
 # V10.5 FIX: Import nest_asyncio to handle event loop conflicts
+# V11.1 FIX: Call nest_asyncio.apply() once at module level for better performance
 try:
     import nest_asyncio
 
+    nest_asyncio.apply()  # Call once at module level (idempotent)
     _NEST_ASYNCIO_AVAILABLE = True
 except ImportError:
     _NEST_ASYNCIO_AVAILABLE = False
@@ -90,7 +92,7 @@ class GlobalOrchestrator:
     1. Fetching ALL active leagues from Supabase (no time restrictions)
     2. Running Nitter intelligence cycle for all continents
     3. Falling back to local mirror if Supabase is slow/unreachable
-    4. Supporting 4-tab parallel radar in news_radar.py
+    4. Supporting 3-tab parallel radar in Global mode
 
     The Tactical Veto V5.0 and Balanced Probability logic are preserved by
     importing from the analyzer and math_engine modules respectively.
@@ -165,7 +167,7 @@ class GlobalOrchestrator:
         # V11.0: Run Nitter intelligence cycle for ALL continents
         if all_continents:
             if _NEST_ASYNCIO_AVAILABLE:
-                nest_asyncio.apply()
+                # nest_asyncio.apply() already called at module level
                 asyncio.run(self._run_nitter_intelligence_cycle(all_continents))
             else:
                 # Fallback: Try asyncio.run() (may fail in async context)
@@ -181,9 +183,16 @@ class GlobalOrchestrator:
         if self.supabase_available:
             try:
                 # Try to fetch from Supabase
+                # V12.5: Use bypass_cache=True for first continent to ensure fresh data
+                # Subsequent continents can use cached data (within 5-minute TTL)
+                first_continent = True
                 for continent_name in all_continents:
+                    # Bypass cache for first fetch to ensure fresh data
+                    bypass_cache = first_continent
+                    first_continent = False
+
                     continent_leagues = self.supabase_provider.get_active_leagues_for_continent(
-                        continent_name
+                        continent_name, bypass_cache=bypass_cache
                     )
                     active_leagues.extend(continent_leagues)
 

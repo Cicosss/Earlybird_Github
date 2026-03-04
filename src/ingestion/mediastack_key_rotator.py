@@ -9,6 +9,7 @@ Requirements: Standard library only (no new dependencies)
 """
 
 import logging
+import threading
 from datetime import datetime, timezone
 
 from config.settings import MEDIASTACK_API_KEYS
@@ -222,18 +223,25 @@ class MediaStackKeyRotator:
 # ============================================
 
 _key_rotator_instance: MediaStackKeyRotator | None = None
+_key_rotator_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_mediastack_key_rotator() -> MediaStackKeyRotator:
     """
     Get or create the singleton MediaStackKeyRotator instance.
 
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+
     Returns:
         Singleton instance of MediaStackKeyRotator
     """
     global _key_rotator_instance
     if _key_rotator_instance is None:
-        _key_rotator_instance = MediaStackKeyRotator()
+        with _key_rotator_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _key_rotator_instance is None:
+                _key_rotator_instance = MediaStackKeyRotator()
     return _key_rotator_instance
 
 

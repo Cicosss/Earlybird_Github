@@ -8,6 +8,7 @@ Requirements: Refactored to inherit from BaseBudgetManager (V1.1)
 """
 
 import logging
+import threading
 
 from config.settings import (
     BRAVE_BUDGET_ALLOCATION,
@@ -114,13 +115,22 @@ class BudgetManager(BaseBudgetManager):
 # ============================================
 
 _budget_manager_instance: BudgetManager | None = None
+_budget_manager_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_brave_budget_manager() -> BudgetManager:
-    """Get or create singleton BudgetManager instance."""
+    """
+    Get or create singleton BudgetManager instance.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _budget_manager_instance
     if _budget_manager_instance is None:
-        _budget_manager_instance = BudgetManager()
+        with _budget_manager_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _budget_manager_instance is None:
+                _budget_manager_instance = BudgetManager()
     return _budget_manager_instance
 
 

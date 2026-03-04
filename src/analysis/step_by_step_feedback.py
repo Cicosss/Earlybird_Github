@@ -6,6 +6,7 @@ step-by-step, ensuring all components communicate properly during the process.
 """
 
 import logging
+import threading
 from datetime import datetime, timezone
 
 from src.analysis.alert_feedback_loop import AlertFeedbackLoop
@@ -551,11 +552,20 @@ class ComponentCommunicator:
 
 # Singleton instance
 _step_by_step_loop_instance: StepByStepFeedbackLoop | None = None
+_step_by_step_loop_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_step_by_step_feedback_loop() -> StepByStepFeedbackLoop:
-    """Get or create the singleton StepByStepFeedbackLoop instance."""
+    """
+    Get or create the singleton StepByStepFeedbackLoop instance.
+    
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _step_by_step_loop_instance
     if _step_by_step_loop_instance is None:
-        _step_by_step_loop_instance = StepByStepFeedbackLoop()
+        with _step_by_step_loop_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _step_by_step_loop_instance is None:
+                _step_by_step_loop_instance = StepByStepFeedbackLoop()
     return _step_by_step_loop_instance

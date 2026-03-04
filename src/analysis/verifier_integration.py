@@ -104,6 +104,12 @@ def build_alert_data_for_verifier(
     Returns:
         Complete alert data dictionary
     """
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    from src.utils.match_helper import extract_match_info, extract_match_odds
+
+    match_info = extract_match_info(match)
+    match_odds = extract_match_odds(match)
+
     alert_data = {
         "news_summary": news_summary,
         "news_url": news_url,
@@ -112,16 +118,18 @@ def build_alert_data_for_verifier(
         "combo_suggestion": combo_suggestion,
         "reasoning": reasoning or news_summary,  # Fallback to summary
         "match": {
-            "home_team": match.home_team,
-            "away_team": match.away_team,
-            "league": match.league,
-            "start_time": match.start_time.isoformat() if match.start_time else None,
-            "opening_home_odd": match.opening_home_odd,
-            "current_home_odd": match.current_home_odd,
-            "opening_draw_odd": match.opening_draw_odd,
-            "current_draw_odd": match.current_draw_odd,
-            "opening_away_odd": match.opening_away_odd,
-            "current_away_odd": match.current_away_odd,
+            "home_team": match_info["home_team"],
+            "away_team": match_info["away_team"],
+            "league": match_info["league"],
+            "start_time": match_info["start_time"].isoformat()
+            if match_info["start_time"]
+            else None,
+            "opening_home_odd": match_odds["opening_home_odd"],
+            "current_home_odd": match_odds["current_home_odd"],
+            "opening_draw_odd": match_odds["opening_draw_odd"],
+            "current_draw_odd": match_odds["current_draw_odd"],
+            "opening_away_odd": match_odds["opening_away_odd"],
+            "current_away_odd": match_odds["current_away_odd"],
         },
         "analysis": {
             "id": analysis.id if analysis else None,
@@ -351,6 +359,14 @@ def build_biscotto_alert_data_for_verifier(
     else:
         score = 4
 
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    home_team = getattr(match, "home_team", None)
+    away_team = getattr(match, "away_team", None)
+    league = getattr(match, "league", None)
+    start_time = getattr(match, "start_time", None)
+    opening_draw_odd = getattr(match, "opening_draw_odd", None)
+    current_draw_odd = getattr(match, "current_draw_odd", None)
+
     alert_data = {
         "news_summary": reasoning,
         "news_url": news_url or "",
@@ -364,12 +380,12 @@ def build_biscotto_alert_data_for_verifier(
             "severity": severity,
         },
         "match": {
-            "home_team": match.home_team,
-            "away_team": match.away_team,
-            "league": match.league,
-            "start_time": match.start_time.isoformat() if match.start_time else None,
-            "opening_draw_odd": match.opening_draw_odd,
-            "current_draw_odd": match.current_draw_odd,
+            "home_team": home_team,
+            "away_team": away_team,
+            "league": league,
+            "start_time": start_time.isoformat() if start_time else None,
+            "opening_draw_odd": opening_draw_odd,
+            "current_draw_odd": current_draw_odd,
         },
         "analysis": {
             "id": None,  # No NewsLog for biscotto alerts
@@ -407,14 +423,20 @@ def verify_biscotto_alert_before_telegram(
         - should_send: True if alert should be sent to Telegram
         - final_verification_info: Verification result for logging/reporting
     """
+    # VPS FIX: Extract match_id safely to prevent session detachment
+    match_id = getattr(match, "id", None)
+
     # Create dummy NewsLog object for compatibility with verify_alert_before_telegram()
     # Note: This is a lightweight object, not saved to database
     dummy_analysis = NewsLog(
-        match_id=match.id,
+        match_id=match_id,
         summary=reasoning,
         url=news_url or "",
         score=10 if severity == "EXTREME" else 8,
         recommended_market="DRAW",
+        confidence=90
+        if severity == "EXTREME"
+        else 80,  # V11.1: High confidence for critical biscotto alerts (0-100 scale)
     )
 
     # Build alert data for verifier

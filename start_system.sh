@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# EarlyBird V8.3 - Dashboard Unificato (Official)
+# EarlyBird V12.4 - Dashboard Unificato (Official)
 # " The Master Command"
 # Avvia bot (Launcher) + test monitor in split-screen tmux
 # ============================================
@@ -16,7 +16,7 @@ SESSION_NAME="earlybird"
 
 echo -e "${CYAN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🦅 EARLYBIRD V8.3 - DASHBOARD UNIFICATO"
+echo "🦅 EARLYBIRD V12.4 - DASHBOARD UNIFICATO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${NC}"
 echo "📅 $(date)"

@@ -1,373 +1,412 @@
 """
-EarlyBird Article Reader - Deep Dive on Demand
+EarlyBird Article Reader - Scrapling Powered Deep Extraction
 
-Utility module for fetching and extracting full article content from URLs.
-Uses Trafilatura for clean article extraction with fallback to raw text.
+Centralized, stealthy article fetcher using Scrapling Hybrid Mode + Trafilatura.
+Replaces direct Playwright calls with a robust, reusable extraction engine.
 
-This module enables NewsHunter to upgrade shallow search results (metadata only)
-into "Deep" content by visiting the URL and extracting the full article text.
+Strategy:
+1. Fast Path: AsyncFetcher (HTTP) - Check status 200
+2. Stealth Path: If 403/WAF detected, switch to Fetcher (Browser) in asyncio.to_thread
+3. Cleanup: Pass HTML to Trafilatura for clean text extraction
 
-Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
+Requirements: scrapling, trafilatura (both already in requirements.txt)
 """
 
+import asyncio
 import logging
-from dataclasses import dataclass
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Import centralized HTTP client
+# ============================================
+# IMPORT SCRAPLING
+# ============================================
 try:
-    from src.utils.http_client import get_http_client
+    from scrapling import AsyncFetcher, Fetcher
 
-    _HTTP_CLIENT_AVAILABLE = True
+    _SCRAPLING_AVAILABLE = True
 except ImportError:
-    _HTTP_CLIENT_AVAILABLE = False
-    logger.warning("HTTP client not available for article_reader")
+    _SCRAPLING_AVAILABLE = False
+    AsyncFetcher = None  # type: ignore
+    Fetcher = None  # type: ignore
+    logger.warning("⚠️ [ARTICLE-READER] Scrapling not available, article extraction disabled")
 
-# Trafilatura via centralized module (V8.4: handles warning suppression)
+# ============================================
+# IMPORT TRAFILATURA
+# ============================================
 try:
-    from src.utils.trafilatura_extractor import (
-        TRAFILATURA_AVAILABLE as _TRAFILATURA_AVAILABLE,
-    )
-    from src.utils.trafilatura_extractor import (
-        extract_with_fallback,
-        is_valid_html,
-        record_extraction,
-    )
-    from src.utils.trafilatura_extractor import (
-        extract_with_trafilatura as _central_extract,
-    )
+    import trafilatura
 
-    # Keep trafilatura import for fetch_url functionality
-    if _TRAFILATURA_AVAILABLE:
-        import trafilatura
+    _TRAFILATURA_AVAILABLE = True
 except ImportError:
     _TRAFILATURA_AVAILABLE = False
-    _central_extract = None
-    extract_with_fallback = None
-    is_valid_html = lambda x: True  # type: ignore
-    record_extraction = lambda x, y: None  # type: ignore
-    logger.warning(
-        "⚠️ [ARTICLE-READER] trafilatura_extractor not available, using raw text extraction"
-    )
+    trafilatura = None  # type: ignore
+    logger.warning("⚠️ [ARTICLE-READER] Trafilatura not available, article extraction disabled")
 
 
-@dataclass
-class ArticleResult:
+# ============================================
+# CONSTANTS
+# ============================================
+
+# Minimum text length to consider extraction successful
+MIN_TEXT_LENGTH = 100
+
+# Status codes that trigger browser fallback
+WAF_STATUS_CODES = (403, 429)
+
+
+# ============================================
+# CORE CLASS
+# ============================================
+
+
+class ArticleReader:
     """
-    Result of article fetch operation.
+    Centralized article reader using Scrapling Hybrid Mode.
 
-    Attributes:
-        title: Article title
-        content: Full article content (extracted text)
-        url: Source URL
-        success: Whether the fetch was successful
-        error: Error message if success=False
-        method: Extraction method used ('trafilatura', 'raw', 'error')
+    This class provides a stealthy way to fetch full article text from URLs.
+    It implements a hybrid strategy:
+
+    1. Fast Path: AsyncFetcher (HTTP) - Try first for speed
+    2. Stealth Path: If 403/WAF detected, use Fetcher (Browser) in asyncio.to_thread
+    3. Cleanup: Trafilatura for clean text extraction
+
+    This module will replace direct Playwright calls in NewsHunter and BrowserMonitor.
+
+    Example:
+        >>> reader = ArticleReader()
+        >>> result = await reader.fetch_and_extract("https://example.com/article")
+        >>> if result["success"]:
+        ...     print(f"Title: {result['title']}")
+        ...     print(f"Text: {result['text'][:200]}...")
     """
 
-    title: str
-    content: str
-    url: str
-    success: bool
-    error: str | None = None
-    method: str = "trafilatura"
+    def __init__(self):
+        """
+        Initialize the ArticleReader.
+
+        Creates an AsyncFetcher instance for the fast HTTP path.
+        Browser fetcher is created on-demand to avoid blocking initialization.
+        """
+        self.async_fetcher: Optional[AsyncFetcher] = None
+        if _SCRAPLING_AVAILABLE and AsyncFetcher is not None:
+            self.async_fetcher = AsyncFetcher()
+            logger.debug("✅ [ARTICLE-READER] AsyncFetcher initialized")
+
+    def _browser_fetch(self, url: str, timeout: int = 15) -> str:
+        """
+        Fetch content using synchronous Fetcher with browser impersonation.
+
+        This is a blocking operation and should be run in asyncio.to_thread().
+        Uses Chrome impersonation and stealthy headers to bypass WAFs.
+
+        Args:
+            url: URL to fetch
+            timeout: Timeout for fetch operation in seconds (default: 15)
+
+        Returns:
+            HTML content as string
+
+        Raises:
+            Exception: If the fetch fails
+        """
+        if Fetcher is None:
+            raise RuntimeError("Scrapling Fetcher not available")
+
+        fetcher = Fetcher()
+        response = fetcher.get(url, timeout=timeout, impersonate="chrome", stealthy_headers=True)
+        return response.text
+
+    async def fetch_and_extract(self, url: str, timeout: int = 15) -> dict:
+        """
+        Fetch and extract article content using hybrid strategy.
+
+        Hybrid Scraping Pattern:
+        1. Fast Path: Try AsyncFetcher (HTTP) first
+           - If status 200, use the content
+           - If status 403/429 (WAF), switch to browser
+        2. Stealth Path: If HTTP fails, use Fetcher (Browser) in asyncio.to_thread
+        3. Cleanup: Extract clean text using Trafilatura
+
+        Args:
+            url: URL to fetch and extract
+            timeout: Timeout for fetch operations in seconds (default: 15)
+
+        Returns:
+            Dict with keys:
+                - url: str - The URL that was fetched
+                - title: str - Article title (from Trafilatura)
+                - text: str - Cleaned article body text
+                - method: str - "http" or "browser" (which method succeeded)
+                - success: bool - True if extraction succeeded
+
+            If extraction fails, text and title will be empty strings and success=False.
+        """
+        result = {"url": url, "title": "", "text": "", "method": "http", "success": False}
+
+        # Validate URL
+        if not url:
+            logger.warning("⚠️ [ARTICLE-READER] Empty URL provided")
+            return result
+
+        # Check dependencies
+        if not _SCRAPLING_AVAILABLE:
+            logger.warning("⚠️ [ARTICLE-READER] Scrapling not available")
+            return result
+
+        if not _TRAFILATURA_AVAILABLE:
+            logger.warning("⚠️ [ARTICLE-READER] Trafilatura not available")
+            return result
+
+        html_content: Optional[str] = None
+        method_used = "http"
+
+        # ============================================================
+        # STEP 1: FAST PATH - AsyncFetcher (HTTP)
+        # ============================================================
+        if self.async_fetcher:
+            try:
+                response = await self.async_fetcher.get(
+                    url, timeout=timeout, impersonate="chrome", stealthy_headers=True
+                )
+
+                if response.status == 200:
+                    # Success - use response.body.decode() (not response.text)
+                    # Based on NitterPool pattern (line 673)
+                    html_content = response.body.decode("utf-8", errors="ignore")
+                    logger.debug(f"✅ [ARTICLE-READER] HTTP fetch successful: {url[:60]}...")
+                elif response.status in WAF_STATUS_CODES:
+                    # WAF detected - switch to browser
+                    logger.warning(
+                        f"⚠️ [ARTICLE-READER] WAF detected (status {response.status}), "
+                        f"switching to browser: {url[:60]}..."
+                    )
+                    method_used = "browser"
+                else:
+                    logger.warning(f"⚠️ [ARTICLE-READER] HTTP {response.status} for {url[:60]}...")
+                    # Try browser fallback for other errors too
+                    method_used = "browser"
+
+            except Exception as e:
+                logger.debug(f"⚠️ [ARTICLE-READER] AsyncFetcher failed: {e}")
+                method_used = "browser"
+
+        # ============================================================
+        # STEP 2: STEALTH PATH - Browser fetcher (if needed)
+        # ============================================================
+        if html_content is None and method_used == "browser":
+            try:
+                html_content = await asyncio.to_thread(self._browser_fetch, url, timeout)
+                logger.debug(f"✅ [ARTICLE-READER] Browser fetch successful: {url[:60]}...")
+            except Exception as e:
+                logger.warning(f"⚠️ [ARTICLE-READER] Browser fetch failed: {e}")
+
+        # ============================================================
+        # STEP 3: EXTRACT WITH TRAFILATURA
+        # ============================================================
+        if html_content and trafilatura is not None:
+            logger.debug(f"🔍 [ARTICLE-READER] HTML content length: {len(html_content)} chars")
+            try:
+                # Extract clean text (no comments, no tables for cleaner output)
+                text = trafilatura.extract(
+                    html_content, include_comments=False, include_tables=False, no_fallback=False
+                )
+
+                # Extract title using regex (trafilatura.extract_title doesn't exist in this version)
+                import re
+
+                title_match = re.search(
+                    r"<title[^>]*>(.*?)</title>", html_content, re.IGNORECASE | re.DOTALL
+                )
+                title = title_match.group(1).strip() if title_match else ""
+
+                logger.debug(
+                    f"🔍 [ARTICLE-READER] Trafilatura returned: {len(text) if text else 0} chars"
+                )
+                logger.debug(
+                    f"🔍 [ARTICLE-READER] Title extracted: {title[:50] if title else '(none)'}..."
+                )
+
+                # Validate extracted text
+                if text and len(text.strip()) >= MIN_TEXT_LENGTH:
+                    result["text"] = text.strip()
+                    result["title"] = title
+                    result["method"] = method_used
+                    result["success"] = True
+
+                    logger.info(
+                        f"✅ [ARTICLE-READER] Successfully extracted {len(text)} chars "
+                        f"using {method_used} method from {url[:60]}..."
+                    )
+                else:
+                    logger.debug(
+                        f"⚠️ [ARTICLE-READER] Extracted text too short "
+                        f"({len(text) if text else 0} chars) from {url[:60]}..."
+                    )
+                    # Log a sample of what we got
+                    if text:
+                        logger.debug(f"🔍 [ARTICLE-READER] Text sample: {text[:200]}...")
+
+            except Exception as e:
+                logger.debug(f"⚠️ [ARTICLE-READER] Trafilatura extraction failed: {e}")
+        else:
+            logger.debug(f"⚠️ [ARTICLE-READER] No HTML content to extract from {url[:60]}...")
+
+        return result
 
 
-def fetch_full_article(
-    url: str, timeout: float = 15.0, use_fingerprint: bool = True
-) -> ArticleResult:
+# ============================================
+# PUBLIC API
+# ============================================
+
+__all__ = ["ArticleReader", "apply_deep_dive_to_results"]
+
+
+# ============================================
+# DEEP DIVE ON DEMAND
+# ============================================
+
+
+async def apply_deep_dive_to_results(
+    results: list[dict], triggers: list[str], max_articles: int = 3, timeout: int = 15
+) -> list[dict]:
     """
-    Fetch and extract full article content from a URL.
+    Apply deep dive to search results by fetching full article text.
+
+    This function upgrades shallow search results to full article content
+    for high-value keywords (injury, squad, transfer, etc.).
 
     Strategy:
-    1. Fetch page content using centralized HTTP client
-    2. Extract article text using Trafilatura (clean extraction)
-    3. Fallback to raw text extraction if Trafilatura fails
-    4. Handle errors gracefully (timeouts, 404s, etc.)
+    1. Iterate through search results
+    2. Check if snippet contains trigger keywords
+    3. Select top N candidates (default: 3)
+    4. For each candidate, fetch full article text using ArticleReader
+    5. If fetch succeeds, overwrite snippet with full_text (truncated to 2000 chars)
+    6. Add [DEEP DIVE] prefix to the summary so the AI knows it's full text
+    7. Wrap in try/except to ensure one bad link doesn't crash the whole hunter
 
     Args:
-        url: URL to fetch
-        timeout: Request timeout in seconds
-        use_fingerprint: Whether to use browser fingerprinting
+        results: List of search result dictionaries from NewsHunter
+        triggers: List of keywords that trigger deep dive (e.g., ["injury", "squad"])
+        max_articles: Maximum number of articles to deep dive (default: 3)
+        timeout: Timeout for article fetch in seconds (default: 15)
 
     Returns:
-        ArticleResult with title, content, and success status
+        Updated list of results with deep-dived content where successful
 
-    Examples:
-        >>> result = fetch_full_article("https://example.com/news/article")
-        >>> if result.success:
-        ...     print(f"Title: {result.title}")
-        ...     print(f"Content: {result.content[:200]}...")
-    """
-    if not url:
-        return ArticleResult(
-            title="", content="", url=url, success=False, error="Empty URL provided", method="error"
-        )
-
-    # Step 1: Fetch page content
-    html_content = None
-    try:
-        if _HTTP_CLIENT_AVAILABLE:
-            # Use centralized HTTP client
-            client = get_http_client()
-            response = client.get_sync(
-                url,
-                rate_limit_key="article_reader",
-                use_fingerprint=use_fingerprint,
-                timeout=timeout,
-            )
-            html_content = response.text
-        else:
-            # Fallback to requests
-            import requests
-
-            response = requests.get(url, timeout=timeout)
-            response.raise_for_status()
-            html_content = response.text
-
-    except Exception as e:
-        error_msg = f"Failed to fetch URL: {e}"
-        logger.warning(f"⚠️ [ARTICLE-READER] {error_msg} | URL: {url[:60]}...")
-        return ArticleResult(
-            title="", content="", url=url, success=False, error=error_msg, method="error"
-        )
-
-    if not html_content:
-        return ArticleResult(
-            title="", content="", url=url, success=False, error="Empty HTML content", method="error"
-        )
-
-    # Step 2: Extract article text using Trafilatura (V8.4: with pre-validation)
-    if _TRAFILATURA_AVAILABLE:
-        try:
-            # V8.4: Use centralized extractor if available
-            if _central_extract is not None and html_content:
-                # Pre-validate HTML before extraction
-                if is_valid_html(html_content):
-                    record_extraction("trafilatura", True)
-                    extracted = _central_extract(html_content)
-
-                    if extracted and len(extracted.strip()) > 100:
-                        # Try to get title from HTML
-                        import re
-
-                        title_match = re.search(
-                            r"<title[^>]*>(.*?)</title>", html_content, re.IGNORECASE | re.DOTALL
-                        )
-                        title = title_match.group(1).strip() if title_match else ""
-
-                        logger.info(
-                            f"✅ [ARTICLE-READER] Trafilatura extracted {len(extracted)} chars "
-                            f"from {url[:60]}..."
-                        )
-
-                        return ArticleResult(
-                            title=title,
-                            content=extracted,
-                            url=url,
-                            success=True,
-                            method="trafilatura",
-                        )
-                else:
-                    record_extraction("validation", False)
-                    logger.debug(f"[ARTICLE-READER] HTML validation failed for {url[:40]}...")
-
-            # Fallback: Use Trafilatura's fetch_url for more complete extraction
-            downloaded = trafilatura.fetch_url(url)
-            if downloaded:
-                # Pre-validate downloaded content
-                if is_valid_html(downloaded):
-                    extracted = trafilatura.extract(
-                        downloaded, include_comments=False, include_tables=False, no_fallback=False
-                    )
-
-                    if extracted and len(extracted.strip()) > 100:
-                        # Get title from Trafilatura
-                        title = trafilatura.extract_title(downloaded) or ""
-
-                        logger.info(
-                            f"✅ [ARTICLE-READER] Trafilatura extracted {len(extracted)} chars "
-                            f"from {url[:60]}..."
-                        )
-                        record_extraction("trafilatura", True)
-
-                        return ArticleResult(
-                            title=title,
-                            content=extracted,
-                            url=url,
-                            success=True,
-                            method="trafilatura",
-                        )
-                else:
-                    record_extraction("validation", False)
-        except Exception as e:
-            logger.debug(f"Trafilatura extraction failed: {e}")
-
-    # Step 3: Fallback to raw text extraction
-    try:
-        import re
-        from html import unescape
-
-        # Remove script and style tags
-        cleaned_html = re.sub(
-            r"<(script|style).*?>.*?</\1>", "", html_content, flags=re.DOTALL | re.IGNORECASE
-        )
-
-        # Extract text from HTML
-        text = re.sub(r"<[^>]+>", " ", cleaned_html)
-        text = unescape(text)
-
-        # Clean up whitespace
-        text = re.sub(r"\s+", " ", text).strip()
-
-        if len(text) > 100:
-            # Try to extract title from <title> tag
-            title_match = re.search(
-                r"<title>(.*?)</title>", html_content, re.IGNORECASE | re.DOTALL
-            )
-            title = title_match.group(1).strip() if title_match else ""
-
-            logger.info(
-                f"✅ [ARTICLE-READER] Raw text extracted {len(text)} chars from {url[:60]}..."
-            )
-
-            return ArticleResult(title=title, content=text, url=url, success=True, method="raw")
-    except Exception as e:
-        logger.debug(f"Raw text extraction failed: {e}")
-
-    # All extraction methods failed
-    error_msg = "All extraction methods failed"
-    logger.warning(f"⚠️ [ARTICLE-READER] {error_msg} | URL: {url[:60]}...")
-
-    return ArticleResult(
-        title="", content="", url=url, success=False, error=error_msg, method="error"
-    )
-
-
-def should_deep_dive(
-    title: str, snippet: str, triggers: list, snippet_threshold: int = 500
-) -> bool:
-    """
-    Determine if a search result should trigger a deep dive.
-
-    A deep dive is triggered when:
-    1. Title or snippet contains high-value keywords
-    2. Snippet is short (incomplete, < threshold chars)
-
-    Args:
-        title: Article title
-        snippet: Article snippet/preview
-        triggers: List of keywords that trigger deep dive
-        snippet_threshold: Minimum snippet length to skip deep dive
-
-    Returns:
-        True if deep dive should be performed, False otherwise
-
-    Examples:
-        >>> triggers = ["injury", "squad", "lineup"]
-        >>> should_deep_dive("Player injury update", "Short snippet...", triggers)
-        True
-        >>> should_deep_dive("Match preview", "Long detailed article content..." * 10, triggers)
-        False
-    """
-    # Check if snippet is long enough (already complete)
-    if snippet and len(snippet) >= snippet_threshold:
-        return False
-
-    # Combine title and snippet for keyword matching
-    combined_text = f"{title} {snippet}".lower()
-
-    # Check for any trigger keywords
-    for trigger in triggers:
-        if trigger.lower() in combined_text:
-            logger.debug(
-                f"🎯 [DEEP-DIVE] Trigger '{trigger}' found in: "
-                f"'{title[:50]}...' (snippet: {len(snippet) if snippet else 0} chars)"
-            )
-            return True
-
-    return False
-
-
-def apply_deep_dive_to_results(
-    results: list, triggers: list, max_articles: int = 3, timeout: float = 15.0
-) -> list:
-    """
-    Apply deep dive logic to a list of search results.
-
-    For each result:
-    1. Check if it contains high-value keywords
-    2. If yes and snippet is short, fetch full article
-    3. If successful, replace snippet with full content
-    4. Mark as 'deep_dive': True
-
-    Args:
-        results: List of search result dicts with 'title', 'snippet', 'link'
-        triggers: List of keywords that trigger deep dive
-        max_articles: Maximum articles to deep dive (to limit performance impact)
-        timeout: Timeout for article fetch in seconds
-
-    Returns:
-        Updated list of results with deep dive applied
-
-    Examples:
-        >>> results = [{'title': 'Injury update', 'snippet': 'Short...', 'link': '...'}]
-        >>> triggers = ['injury', 'squad']
-        >>> updated = apply_deep_dive_to_results(results, triggers, max_articles=1)
-        >>> updated[0].get('deep_dive')
-        True
+    Example:
+        >>> results = [
+        ...     {"title": "Player injured", "snippet": "...", "link": "https://example.com/article1"},
+        ...     {"title": "Match preview", "snippet": "...", "link": "https://example.com/article2"},
+        ... ]
+        >>> triggers = ["injury", "squad"]
+        >>> enhanced_results = await apply_deep_dive_to_results(results, triggers, max_articles=2)
     """
     if not results:
         return results
 
-    deep_dive_count = 0
-    updated_results = []
+    if not triggers:
+        return results
 
-    for result in results:
-        # Copy result to avoid modifying original
-        updated_result = result.copy()
+    # Create ArticleReader instance
+    reader = ArticleReader()
 
-        # Check if we should deep dive this result
-        title = result.get("title", "")
-        snippet = result.get("snippet", "")
-        link = result.get("link", "")
+    # Identify candidates for deep dive
+    candidates = []
+    for item in results:
+        # Skip items that already have deep dive
+        if item.get("deep_dive"):
+            continue
 
-        if deep_dive_count < max_articles and link and should_deep_dive(title, snippet, triggers):
-            # Perform deep dive
-            logger.info(f"🔍 [DEEP-DIVE] Fetching full article: {title[:50]}...")
+        # FIX #3: Skip deep dive if snippet is already long enough (>= 500 chars)
+        snippet_length = len(item.get("snippet", ""))
+        if snippet_length >= 500:
+            logger.debug(
+                f"⏭️ [DEEP-DIVE] Skipping long snippet ({snippet_length} chars): {item.get('title', '')[:60]}..."
+            )
+            continue
 
-            article_result = fetch_full_article(link, timeout=timeout)
+        # Get text to analyze (title + snippet)
+        text_to_analyze = ""
+        if item.get("title"):
+            text_to_analyze += item["title"] + " "
+        if item.get("snippet"):
+            text_to_analyze += item["snippet"]
 
-            if article_result.success:
-                # Replace snippet with full content
-                updated_result["snippet"] = article_result.content
-                updated_result["deep_dive"] = True
-                updated_result["deep_dive_method"] = article_result.method
+        # Check if any trigger keyword is present (case-insensitive)
+        text_lower = text_to_analyze.lower()
+        triggered_by = None
+        for trigger in triggers:
+            if trigger.lower() in text_lower:
+                triggered_by = trigger
+                break
 
-                # Update title if we got a better one
-                if article_result.title and len(article_result.title) > len(title):
-                    updated_result["title"] = article_result.title
+        if triggered_by:
+            candidates.append(
+                {
+                    "item": item,
+                    "trigger": triggered_by,
+                    "url": item.get("link", ""),
+                }
+            )
 
-                deep_dive_count += 1
+    # Limit to max_articles
+    candidates = candidates[:max_articles]
+
+    if not candidates:
+        logger.debug("🔍 [DEEP-DIVE] No candidates found for deep dive")
+        return results
+
+    logger.info(f"🔍 [DEEP-DIVE] Found {len(candidates)} candidates, fetching full text...")
+
+    # Process candidates
+    for candidate in candidates:
+        item = candidate["item"]
+        url = candidate["url"]
+        trigger = candidate["trigger"]
+
+        # Skip if no URL
+        if not url:
+            logger.debug("⚠️ [DEEP-DIVE] Skipping item with no URL")
+            continue
+
+        # Skip Twitter URLs (already have full content)
+        if "twitter.com" in url or "x.com" in url:
+            logger.debug(f"⏭️ [DEEP-DIVE] Skipping Twitter URL: {url[:60]}...")
+            continue
+
+        try:
+            # Fetch full article text (FIX #2: Pass timeout parameter)
+            result = await reader.fetch_and_extract(url, timeout=timeout)
+
+            if result["success"]:
+                # Truncate to 2000 chars
+                full_text = result["text"][:2000]
+
+                # FIX #1: Save original snippet BEFORE overwriting
+                original_snippet = item.get("snippet", "")
+                item["deep_dive_original_snippet"] = original_snippet[:500]
+
+                # Overwrite snippet with full text
+                item["snippet"] = full_text
+
+                # Add deep dive metadata
+                item["deep_dive"] = True
+                item["deep_dive_trigger"] = trigger
+                item["deep_dive_method"] = result["method"]
+
+                # Add [DEEP DIVE] prefix to title for AI visibility
+                if item.get("title"):
+                    item["title"] = f"[DEEP DIVE] {item['title']}"
 
                 logger.info(
-                    f"✅ [DEEP-DIVE] Upgraded article ({deep_dive_count}/{max_articles}): "
-                    f"{len(article_result.content)} chars"
+                    f"✅ [DEEP-DIVE] Upgraded article ({trigger}): {item.get('title', '')[:60]}..."
                 )
             else:
-                # Deep dive failed, keep original shallow result
-                updated_result["deep_dive"] = False
-                updated_result["deep_dive_error"] = article_result.error
+                logger.debug(f"⚠️ [DEEP-DIVE] Failed to fetch: {url[:60]}...")
 
-                logger.debug(f"⚠️ [DEEP-DIVE] Failed to fetch: {article_result.error}")
-        else:
-            # No deep dive needed or limit reached
-            updated_result["deep_dive"] = False
+        except Exception as e:
+            logger.warning(f"⚠️ [DEEP-DIVE] Error fetching {url[:60]}...: {e}")
+            # Continue with next candidate
 
-        updated_results.append(updated_result)
-
-    if deep_dive_count > 0:
-        logger.info(f"📊 [DEEP-DIVE] Summary: {deep_dive_count}/{len(results)} articles upgraded")
-
-    return updated_results
+    return results

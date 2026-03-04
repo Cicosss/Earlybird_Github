@@ -2,12 +2,9 @@
 Database Operations Module for EarlyBird
 =======================================
 Provides clean, maintainable database operations with proper session handling and error management.
-
-Phase 1 Critical Fix: Added Unicode normalization for consistent text handling
 """
 
 import logging
-import unicodedata
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
@@ -18,25 +15,6 @@ from src.database.models import init_db as init_models
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-
-def normalize_unicode(text: str) -> str:
-    """
-    Normalize Unicode to NFC form for consistent text handling.
-
-    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
-    Greek, Arabic, Chinese, Japanese, Korean, and other languages
-    are handled consistently across all components.
-
-    Args:
-        text: Input text to normalize
-
-    Returns:
-        Normalized text in NFC form
-    """
-    if not text:
-        return ""
-    return unicodedata.normalize("NFC", text)
 
 
 @contextmanager
@@ -173,6 +151,8 @@ def save_analysis(analysis_data: Any) -> None:
                 odds_at_alert=odds_at_alert,
                 odds_at_kickoff=odds_at_kickoff,
                 alert_sent_at=alert_sent_at,
+                # V11.1: AI confidence
+                confidence=getattr(analysis_data, "confidence", None),
                 # Optional fields
                 combo_suggestion=combo_suggestion,
                 combo_reasoning=combo_reasoning,
@@ -200,8 +180,13 @@ def get_upcoming_matches() -> list[MatchModel]:
 
             # Add compatibility attributes for older code that uses sport_key and commence_time
             for match in matches:
-                match.sport_key = match.league
-                match.commence_time = match.start_time
+                # VPS FIX: Extract Match attributes safely to prevent session detachment
+                # This prevents "Trust validation error" when Match object becomes detached
+                # from session due to connection pool recycling under high load
+                league = getattr(match, "league", None)
+                start_time = getattr(match, "start_time", None)
+                match.sport_key = league
+                match.commence_time = start_time
 
             return matches
         except Exception as e:

@@ -33,7 +33,6 @@ Phase 1 Critical Fix: Added Unicode normalization for consistent text handling
 import hashlib
 import logging
 import re
-import unicodedata
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from threading import RLock
@@ -41,25 +40,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_unicode(text: str) -> str:
-    """
-    Normalize Unicode to NFC form for consistent text handling.
-
-    Phase 1 Critical Fix: Ensures special characters from Turkish, Polish,
-    Greek, Arabic, Chinese, Japanese, Korean, and other languages
-    are handled consistently across all components.
-
-    Args:
-        text: Input text to normalize
-
-    Returns:
-        Normalized text in NFC form
-    """
-    if not text:
-        return ""
-    return unicodedata.normalize("NFC", text)
 
 
 # Configuration

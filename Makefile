@@ -1,7 +1,7 @@
 # ==============================================================================
 # Earlybird Project - Single Source of Truth Makefile
 # ==============================================================================
-# Version: V9.5 (Supabase Database Integration + API Handshake)
+# Version: V12.4 (Lock Monitoring + Referee Boost + Playwright Fixes)
 #
 # This Makefile is the authoritative source for all operational commands.
 # All test and run commands MUST use this Makefile, not generic pytest or python commands.
@@ -76,7 +76,7 @@ COLOR_BLUE := \033[34m
 # ==============================================================================
 
 .PHONY: help sync-memory test test-unit test-integration test-regression test-coverage test-global
-.PHONY: setup setup-python setup-system install setup-telegram-auth verify-setup
+.PHONY: setup setup-python setup-system setup-playwright-browsers install setup-telegram-auth verify-setup
 .PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor run-funnel
 .PHONY: check-apis check-startup check-health check-database
 .PHONY: clean clean-db clean-all
@@ -107,9 +107,10 @@ help:
 	@echo "  make test-global       - Run GlobalOrchestrator integration tests"
 	@echo ""
 	@echo "$(COLOR_BOLD)Setup Commands:$(COLOR_RESET)"
-	@echo "  make setup             - Full setup (System + Python)"
+	@echo "  make setup             - Full setup (System + Python + Playwright Browsers)"
 	@echo "  make setup-python      - Python dependencies only"
 	@echo "  make setup-system      - System dependencies only"
+	@echo "  make setup-playwright-browsers - Install Playwright browsers (Chromium)"
 	@echo "  make setup-telegram-auth - Setup Telegram user session (one-time)"
 	@echo "  make install           - Alias for setup"
 	@echo ""
@@ -192,7 +193,7 @@ test-coverage: check-env
 # Setup Commands
 # ==============================================================================
 
-setup: setup-system setup-python
+setup: setup-system setup-python setup-playwright-browsers
 	@echo "$(COLOR_GREEN)Full setup complete!$(COLOR_RESET)"
 	@echo "$(COLOR_YELLOW)Please ensure .env file is configured before running the system.$(COLOR_RESET)"
 
@@ -219,6 +220,12 @@ setup-python: check-env
 		$(PYTHON) -m pip install -r requirements.txt || exit 1; \
 	fi
 	@echo "$(COLOR_GREEN)Python dependencies installed successfully!$(COLOR_RESET)"
+
+setup-playwright-browsers: check-env
+	@echo "$(COLOR_GREEN)Installing Playwright browsers...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)This may take a few minutes on first run...$(COLOR_RESET)"
+	@$(PYTHON) -m playwright install chromium
+	@echo "$(COLOR_GREEN)Playwright browsers installed successfully!$(COLOR_RESET)"
 
 setup-telegram-auth: check-env
 	@echo "$(COLOR_GREEN)Setting up Telegram user session...$(COLOR_RESET)"

@@ -10,11 +10,19 @@ and rate limiting.
 
 # List of working public Nitter instances
 NITTER_INSTANCES = [
-    "https://xcancel.com",
-    "https://nitter.poast.org",
-    "https://nitter.lucabased.xyz",
-    "https://nitter.privacydev.net",
     "https://nitter.net",
+    "https://xcancel.com",
+    "https://nitter.privacyredirect.com",
+    "https://lightbrd.com",
+    "https://nitter.space",
+    "https://nitter.tiekoetter.com",
+    "https://nuku.trabun.org",
+    "https://nitter.kuuro.net",
+    "https://nitter.privacydev.net",
+    "https://nitter.hostux.net",
+    "https://nitter.at",
+    "https://nt.ggtyler.dev",
+    "https://nitter.private.coffee",
 ]
 
 # Circuit breaker configuration

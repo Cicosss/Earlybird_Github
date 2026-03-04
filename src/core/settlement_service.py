@@ -166,28 +166,38 @@ class SettlementService:
                 logger.info(f"📋 Found {len(matches)} matches to settle")
 
                 for match in matches:
+                    # VPS FIX: Copy Match attributes before using them to prevent session detachment
+                    # This prevents "Trust validation error" when Match object becomes detached
+                    # from session due to connection pool recycling under high load
+                    match_id = getattr(match, "id", None)
+                    home_team = getattr(match, "home_team", None)
+                    away_team = getattr(match, "away_team", None)
+                    start_time = getattr(match, "start_time", None)
+                    league = getattr(match, "league", None)
+                    current_home_odd = getattr(match, "current_home_odd", None)
+                    current_away_odd = getattr(match, "current_away_odd", None)
+                    current_draw_odd = getattr(match, "current_draw_odd", None)
+
                     sent_logs = [nl for nl in match.news_logs if nl.sent and nl.recommended_market]
                     news_log = (
                         max(sent_logs, key=lambda x: x.score, default=None) if sent_logs else None
                     )
 
                     if not news_log or not news_log.recommended_market:
-                        logger.debug(
-                            f"No recommendation found for {match.home_team} vs {match.away_team}"
-                        )
+                        logger.debug(f"No recommendation found for {home_team} vs {away_team}")
                         continue
 
                     matches_to_settle.append(
                         {
-                            "match_id": match.id,
+                            "match_id": match_id,
                             "news_log_id": news_log.id,
-                            "home_team": match.home_team,
-                            "away_team": match.away_team,
-                            "start_time": match.start_time,
-                            "league": match.league,
-                            "current_home_odd": match.current_home_odd,
-                            "current_away_odd": match.current_away_odd,
-                            "current_draw_odd": match.current_draw_odd,
+                            "home_team": home_team,
+                            "away_team": away_team,
+                            "start_time": start_time,
+                            "league": league,
+                            "current_home_odd": current_home_odd,
+                            "current_away_odd": current_away_odd,
+                            "current_draw_odd": current_draw_odd,
                             "recommended_market": news_log.recommended_market,
                             "combo_suggestion": getattr(news_log, "combo_suggestion", None),
                             "news_log_score": news_log.score,

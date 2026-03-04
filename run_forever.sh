@@ -20,7 +20,8 @@ fi
 echo "🌐 Verifica Playwright..."
 if ! python -c "from playwright.async_api import async_playwright" 2>/dev/null; then
     echo "⚠️ Playwright non installato, installazione..."
-    pip install playwright playwright-stealth trafilatura --quiet
+    # V12.5: Use requirements.txt for consistent versioning (COVE FIX 2026-03-04)
+    pip install -r requirements.txt --quiet
 fi
 if ! python -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); p.chromium.launch(headless=True).close(); p.stop()" 2>/dev/null; then
     echo "⚠️ Browser Chromium mancante, installazione..."

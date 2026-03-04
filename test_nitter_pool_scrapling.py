@@ -4,6 +4,7 @@
 import asyncio
 import sys
 
+
 async def main():
     """Test NitterPool integration."""
     print("Testing NitterPool with Scrapling...")
@@ -37,9 +38,11 @@ async def main():
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         print("\nSCRAPLING PILOT FAILED: Error occurred. ❌")
         return False
+
 
 if __name__ == "__main__":
     result = asyncio.run(main())

@@ -54,6 +54,7 @@ METRICS_TABLE = "orchestration_metrics"
 SYSTEM_METRICS_INTERVAL = 300  # 5 minutes
 ORCHESTRATION_METRICS_INTERVAL = 60  # 1 minute
 BUSINESS_METRICS_INTERVAL = 600  # 10 minutes
+LOCK_CONTENTION_METRICS_INTERVAL = 300  # 5 minutes
 
 # Alert thresholds (configurable via environment variables)
 CPU_THRESHOLD = float(os.getenv("METRICS_CPU_THRESHOLD", "80.0"))
@@ -97,6 +98,21 @@ class BusinessMetrics:
     matches_analyzed_last_hour: int
     matches_analyzed_last_24h: int
     errors_by_type: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class LockContentionMetrics:
+    """Lock contention metrics for cache operations."""
+
+    timestamp: datetime
+    supabase_cache_wait_count: int
+    supabase_cache_wait_time_total: float
+    supabase_cache_wait_time_avg: float
+    supabase_cache_timeout_count: int
+    referee_cache_wait_count: int
+    referee_cache_wait_time_total: float
+    referee_cache_wait_time_avg: float
+    referee_cache_timeout_count: int
 
 
 # ============================================
@@ -155,6 +171,18 @@ class OrchestrationMetricsCollector:
                 ON {METRICS_TABLE}(metric_type)
             """)
 
+            # Create news_log table if it doesn't exist
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS news_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    url TEXT NOT NULL,
+                    title TEXT,
+                    summary TEXT,
+                    sent BOOLEAN DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             conn.commit()
             conn.close()
 
@@ -195,6 +223,7 @@ class OrchestrationMetricsCollector:
         last_system_collection = 0
         last_orchestration_collection = 0
         last_business_collection = 0
+        last_lock_contention_collection = 0
 
         while self._running:
             now = time.time()
@@ -226,6 +255,15 @@ class OrchestrationMetricsCollector:
                     last_business_collection = now
                 except Exception as e:
                     logger.error(f"❌ Failed to collect business metrics: {e}")
+
+            # Collect lock contention metrics every 5 minutes
+            if now - last_lock_contention_collection >= LOCK_CONTENTION_METRICS_INTERVAL:
+                try:
+                    metrics = self._collect_lock_contention_metrics()
+                    self._store_metrics("lock_contention", metrics)
+                    last_lock_contention_collection = now
+                except Exception as e:
+                    logger.error(f"❌ Failed to collect lock contention metrics: {e}")
 
             # Sleep for 1 second before next check
             time.sleep(1)
@@ -317,13 +355,13 @@ class OrchestrationMetricsCollector:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            # Count matches with kickoff_time in the future
+            # Count matches with start_time in the future
             now = datetime.now(timezone.utc).isoformat()
             cursor.execute(
                 """
-                SELECT COUNT(*) FROM matches
-                WHERE kickoff_time > ?
-            """,
+                    SELECT COUNT(*) FROM matches
+                    WHERE start_time > ?
+                """,
                 (now,),
             )
 
@@ -394,32 +432,97 @@ class OrchestrationMetricsCollector:
             "notification_errors": 0,
         }
 
-    def _store_metrics(self, metric_type: str, metrics: Any):
-        """Store metrics in the database."""
+    def _collect_lock_contention_metrics(self) -> LockContentionMetrics:
+        """Collect lock contention metrics from cache components."""
         try:
-            import json
+            # Get SupabaseProvider lock stats
+            from src.database.supabase_provider import get_supabase
 
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            supabase = get_supabase()
+            supabase_stats = supabase.get_cache_lock_stats()
 
-            # Serialize metrics to JSON
-            metrics_json = json.dumps(metrics, default=str)
+            # Get RefereeCache lock stats
+            from src.analysis.referee_cache import get_referee_cache
 
-            # Insert metrics
-            cursor.execute(
-                f"""
-                INSERT INTO {METRICS_TABLE} (timestamp, metric_type, metric_data)
-                VALUES (?, ?, ?)
-            """,
-                (datetime.now(timezone.utc).isoformat(), metric_type, metrics_json),
+            referee_cache = get_referee_cache()
+            referee_stats = referee_cache.get_lock_stats()
+
+            return LockContentionMetrics(
+                timestamp=datetime.now(timezone.utc),
+                supabase_cache_wait_count=supabase_stats.get("wait_count", 0),
+                supabase_cache_wait_time_total=supabase_stats.get("wait_time_total", 0.0),
+                supabase_cache_wait_time_avg=supabase_stats.get("wait_time_avg", 0.0),
+                supabase_cache_timeout_count=supabase_stats.get("timeout_count", 0),
+                referee_cache_wait_count=referee_stats.get("wait_count", 0),
+                referee_cache_wait_time_total=referee_stats.get("wait_time_total", 0.0),
+                referee_cache_wait_time_avg=referee_stats.get("wait_time_avg", 0.0),
+                referee_cache_timeout_count=referee_stats.get("timeout_count", 0),
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to collect lock contention metrics: {e}")
+            # Return empty metrics on error
+            return LockContentionMetrics(
+                timestamp=datetime.now(timezone.utc),
+                supabase_cache_wait_count=0,
+                supabase_cache_wait_time_total=0.0,
+                supabase_cache_wait_time_avg=0.0,
+                supabase_cache_timeout_count=0,
+                referee_cache_wait_count=0,
+                referee_cache_wait_time_total=0.0,
+                referee_cache_wait_time_avg=0.0,
+                referee_cache_timeout_count=0,
             )
 
-            conn.commit()
-            conn.close()
+    def _store_metrics(self, metric_type: str, metrics: Any):
+        """Store metrics in the database (thread-safe)."""
+        with self._lock:
+            try:
+                import json
 
-            logger.debug(f"📊 Stored {metric_type} metrics")
-        except Exception as e:
-            logger.error(f"❌ Failed to store metrics: {e}")
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+
+                # Serialize metrics to JSON
+                metrics_json = json.dumps(metrics, default=str)
+
+                # Insert metrics
+                cursor.execute(
+                    f"""
+                    INSERT INTO {METRICS_TABLE} (timestamp, metric_type, metric_data)
+                    VALUES (?, ?, ?)
+                """,
+                    (datetime.now(timezone.utc).isoformat(), metric_type, metrics_json),
+                )
+
+                conn.commit()
+                conn.close()
+
+                logger.debug(f"📊 Stored {metric_type} metrics")
+            except Exception as e:
+                logger.error(f"❌ Failed to store metrics: {e}")
+
+    def record_cache_corruption(self, cache_name: str, error: str):
+        """
+        Record cache corruption event for operator alerting.
+
+        V12.2: Added cache corruption tracking for production observability.
+
+        Args:
+            cache_name: Name of the corrupted cache (e.g., "referee_cache", "supabase_cache")
+            error: Error message from cache load failure
+        """
+        corruption_event = {
+            "cache_name": cache_name,
+            "error": error,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        self._store_metrics("cache_corruption", corruption_event)
+        logger.error(
+            f"❌ [ORCHESTRATION-METRICS] Cache corruption recorded: "
+            f"{cache_name} - {error}"
+        )
+
+
 
     def _check_system_alerts(self, metrics: SystemMetrics):
         """Check system metrics against thresholds and send alerts."""

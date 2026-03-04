@@ -7,7 +7,7 @@ python-dotenv==1.0.1
 sqlalchemy==2.0.36
 tenacity==9.0.0
 pydantic==2.12.5
-python-dateutil==2.9.0  # For robust datetime parsing (timezone handling)
+python-dateutil>=2.9.0.post0  # For robust datetime parsing (timezone handling)
 thefuzz[speedup]==0.22.1  # Fuzzy string matching for team names (token_set_ratio)
 
 # AI/LLM
@@ -45,8 +45,8 @@ ruff==0.15.1  # Fast Python linter and formatter (10-100x faster than alternativ
 psutil==6.0.0
 
 # Browser Automation (V7.0 - Stealth + Trafilatura)
-playwright==1.48.0
-playwright-stealth==1.0.6  # Anti-detection for Playwright (installed: 2.0.0)
+playwright==1.58.0  # Updated to match installed version (COVE FIX 2026-03-04)
+playwright-stealth==2.0.1  # Anti-detection for Playwright (verified: 2.0.1)
 trafilatura==1.12.0  # Clean article extraction (88-92% accuracy, installed: 2.0.0)
 htmldate==1.9.4  # Updated to support lxml>=5.3.0 (compatible with lxml>=6.0.2 for Scrapling V11.0)
 
@@ -67,7 +67,7 @@ nest_asyncio==1.6.0  # Allows nested asyncio.run() calls (used by Nitter fallbac
 
 # V8.2: Hybrid Verifier System Dependencies
 dataclasses>=0.6; python_version < '3.7'  # For dataclasses (Python 3.7+ has built-in)
-typing-extensions==4.12.2  # Extended typing support
+typing-extensions>=4.14.1  # Extended typing support
 
 # V9.0: Supabase Database Integration (New Intelligence Source)
 supabase==2.27.3  # Official Supabase Python client

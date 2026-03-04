@@ -30,44 +30,39 @@ def get_market_odds(market: str, match) -> float | None:
             - current_draw_odd: Current draw odds
 
     Returns:
-        float: The odds value for the specified market, or None if not available
+        float: The odds value for specified market, or None if not available
     """
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    current_home_odd = getattr(match, "current_home_odd", None)
+    current_away_odd = getattr(match, "current_away_odd", None)
+    current_draw_odd = getattr(match, "current_draw_odd", None)
+
     market_lower = market.lower()
 
     # Home Win
     if "home" in market_lower and "win" in market_lower:
-        return (
-            match.current_home_odd
-            if match.current_home_odd and match.current_home_odd > 1.0
-            else None
-        )
+        return current_home_odd if current_home_odd and current_home_odd > 1.0 else None
 
     # Away Win
     elif "away" in market_lower and "win" in market_lower:
-        return (
-            match.current_away_odd
-            if match.current_away_odd and match.current_away_odd > 1.0
-            else None
-        )
+        return current_away_odd if current_away_odd and current_away_odd > 1.0 else None
 
     # Draw
     elif "draw" in market_lower or market_lower == "x":
-        return (
-            match.current_draw_odd
-            if match.current_draw_odd and match.current_draw_odd > 1.0
-            else None
-        )
+        return current_draw_odd if current_draw_odd and current_draw_odd > 1.0 else None
 
     # Double Chance 1X
     elif "1x" in market_lower:
-        h = match.current_home_odd or 2.0
-        d = match.current_draw_odd or 3.0
+        h = current_home_odd or 2.0
+        d = current_draw_odd or 3.0
         return round(1 / ((1 / h) + (1 / d)), 2) if h > 1 and d > 1 else None
 
     # Double Chance X2
     elif "x2" in market_lower:
-        d = match.current_draw_odd or 3.0
-        a = match.current_away_odd or 2.5
+        d = current_draw_odd or 3.0
+        a = current_away_odd or 2.5
         return round(1 / ((1 / d) + (1 / a)), 2) if d > 1 and a > 1 else None
 
     # Over/Under, BTTS, Corners, Cards

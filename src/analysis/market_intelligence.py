@@ -378,31 +378,35 @@ def detect_reverse_line_movement(
     Returns:
         ReverseLineSignal if detected, None otherwise
     """
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    opening_home_odd = getattr(match, "opening_home_odd", None)
+    opening_away_odd = getattr(match, "opening_away_odd", None)
+    current_home_odd = getattr(match, "current_home_odd", None)
+    current_away_odd = getattr(match, "current_away_odd", None)
+
     if not match:
         return None
 
-    if not match.opening_home_odd or not match.current_home_odd:
+    if not opening_home_odd or not current_home_odd:
         return None
-    if not match.opening_away_odd or not match.current_away_odd:
+    if not opening_away_odd or not current_away_odd:
         return None
 
-    if match.opening_home_odd < RLM_MIN_VALID_ODD or match.opening_away_odd < RLM_MIN_VALID_ODD:
+    if opening_home_odd < RLM_MIN_VALID_ODD or opening_away_odd < RLM_MIN_VALID_ODD:
         logger.debug(f"RLM V1: Invalid odds (< {RLM_MIN_VALID_ODD}), skipping")
         return None
 
-    home_movement_pct = (
-        (match.current_home_odd - match.opening_home_odd) / match.opening_home_odd
-    ) * 100
-    away_movement_pct = (
-        (match.current_away_odd - match.opening_away_odd) / match.opening_away_odd
-    ) * 100
+    home_movement_pct = ((current_home_odd - opening_home_odd) / opening_home_odd) * 100
+    away_movement_pct = ((current_away_odd - opening_away_odd) / opening_away_odd) * 100
 
     if public_bet_distribution is None:
-        total_implied = (1 / match.opening_home_odd) + (1 / match.opening_away_odd)
+        total_implied = (1 / opening_home_odd) + (1 / opening_away_odd)
         if total_implied <= 0:
             return None
 
-        home_implied = (1 / match.opening_home_odd) / total_implied
+        home_implied = (1 / opening_home_odd) / total_implied
 
         PUBLIC_FAVORITE_BIAS = 0.15
 
@@ -482,40 +486,46 @@ def detect_rlm_v2(
     Returns:
         RLMSignalV2 if detected, None otherwise
     """
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    match_id = getattr(match, "id", None)
+    opening_home_odd = getattr(match, "opening_home_odd", None)
+    opening_away_odd = getattr(match, "opening_away_odd", None)
+    current_home_odd = getattr(match, "current_home_odd", None)
+    current_away_odd = getattr(match, "current_away_odd", None)
+
     if not match:
         logger.debug("RLM V2: No match provided")
         return None
 
-    if not match.opening_home_odd or not match.current_home_odd:
-        logger.debug(
-            f"RLM V2: Insufficient home odds data for match {getattr(match, 'id', 'unknown')}"
-        )
+    if not opening_home_odd or not current_home_odd:
+        logger.debug(f"RLM V2: Insufficient home odds data for match {match_id}")
         return None
-    if not match.opening_away_odd or not match.current_away_odd:
-        logger.debug(
-            f"RLM V2: Insufficient away odds data for match {getattr(match, 'id', 'unknown')}"
-        )
+    if not opening_away_odd or not current_away_odd:
+        logger.debug(f"RLM V2: Insufficient away odds data for match {match_id}")
         return None
 
-    if match.opening_home_odd < RLM_MIN_VALID_ODD or match.opening_away_odd < RLM_MIN_VALID_ODD:
+    if opening_home_odd < RLM_MIN_VALID_ODD or opening_away_odd < RLM_MIN_VALID_ODD:
         logger.debug(f"RLM V2: Invalid odds (< {RLM_MIN_VALID_ODD})")
         return None
 
-    home_movement_pct = (
-        (match.current_home_odd - match.opening_home_odd) / match.opening_home_odd
-    ) * 100
-    away_movement_pct = (
-        (match.current_away_odd - match.opening_away_odd) / match.opening_away_odd
-    ) * 100
+    home_movement_pct = ((current_home_odd - opening_home_odd) / opening_home_odd) * 100
+    away_movement_pct = ((current_away_odd - opening_away_odd) / opening_away_odd) * 100
 
-    time_window_min = _estimate_rlm_time_window(getattr(match, "id", None))
+    time_window_min = _estimate_rlm_time_window(match_id)
 
     if public_bet_distribution is None:
-        total_implied = (1 / match.opening_home_odd) + (1 / match.opening_away_odd)
+        total_implied = (1 / opening_home_odd) + (1 / opening_away_odd)
         if total_implied <= 0:
             return None
 
-        home_implied = (1 / match.opening_home_odd) / total_implied
+        # VPS FIX: Extract Match attributes safely to prevent session detachment
+        # This prevents "Trust validation error" when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        opening_home_odd = getattr(match, "opening_home_odd", None)
+
+        home_implied = (1 / opening_home_odd) / total_implied
 
         PUBLIC_FAVORITE_BIAS = 0.15
 
@@ -960,13 +970,22 @@ def analyze_market_intelligence(
 
     effective_league = league_key or getattr(match, "league", None)
 
+    # VPS FIX: Extract Match odds safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    current_home_odd = getattr(match, "current_home_odd", None)
+    current_draw_odd = getattr(match, "current_draw_odd", None)
+    current_away_odd = getattr(match, "current_away_odd", None)
+
     current_odds = {
-        "home": match.current_home_odd,
-        "draw": match.current_draw_odd,
-        "away": match.current_away_odd,
+        "home": current_home_odd,
+        "draw": current_draw_odd,
+        "away": current_away_odd,
     }
 
-    steam_signal = detect_steam_move(match.id, current_odds, league_key=effective_league)
+    # VPS FIX: Extract match_id safely to prevent session detachment
+    match_id = getattr(match, "id", None)
+    steam_signal = detect_steam_move(match_id, current_odds, league_key=effective_league)
 
     rlm_signal = detect_reverse_line_movement(match, public_bet_distribution)
 

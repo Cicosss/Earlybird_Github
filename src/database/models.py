@@ -251,6 +251,9 @@ class NewsLog(Base):
         String, nullable=True, comment="Type: over/under, gg/ng, corners, cards"
     )
 
+    # V11.1: AI confidence (0-100) - Used by BettingQuant for market warning generation
+    confidence = Column(Float, nullable=True, comment="AI confidence percentage 0-100")
+
     # Source tracking
     source = Column(String, default="web", comment="Source: web, telegram_ocr, telegram_channel")
     source_confidence = Column(Float, nullable=True, comment="Confidence in source reliability 0-1")
@@ -435,7 +438,7 @@ DB_PATH = f"sqlite:///{os.path.join(DB_DIR, DB_FILE)}"
 # - pool_pre_ping: Verify connections before use to handle stale connections
 # - pool_size=5: Allow multiple concurrent connections
 # - max_overflow=5: Allow up to 10 total connections under load
-# - pool_recycle=3600: Recycle connections after 1 hour to prevent memory leaks
+# - pool_recycle=7200: Recycle connections after 2 hours to prevent memory leaks (VPS FIX: increased from 3600)
 engine = create_engine(
     DB_PATH,
     connect_args={"check_same_thread": False, "timeout": 60},
@@ -443,7 +446,7 @@ engine = create_engine(
     pool_size=5,
     max_overflow=5,
     pool_timeout=60,
-    pool_recycle=3600,
+    pool_recycle=7200,
     echo=False,  # Set to True for SQL debugging
 )
 

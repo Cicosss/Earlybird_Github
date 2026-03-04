@@ -14,6 +14,7 @@ Updated: 2026-02-23 (Centralized Version Tracking)
 
 import logging
 import os
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -198,12 +199,15 @@ class HealthMonitor:
         self._last_heartbeat_time = datetime.now(timezone.utc)
         logger.info("Heartbeat sent")
 
-    def get_heartbeat_message(self, api_quota: dict[str, Any] | None = None) -> str:
+    def get_heartbeat_message(
+        self, api_quota: dict[str, Any] | None = None, cache_metrics: dict[str, Any] | None = None
+    ) -> str:
         """
         Generate heartbeat status message.
 
         Args:
             api_quota: Optional dict with 'remaining' and 'used' keys
+            cache_metrics: Optional dict with Supabase cache metrics (V12.5)
 
         Returns:
             Formatted status message
@@ -227,6 +231,23 @@ class HealthMonitor:
             remaining = api_quota.get("remaining", "N/A")
             used = api_quota.get("used", "N/A")
             lines.append(f"💰 API Quota: <b>{remaining}</b> remaining ({used} used)")
+
+        # Add cache metrics if available (V12.5)
+        if cache_metrics:
+            hit_ratio = cache_metrics.get("hit_ratio_percent", 0.0)
+            hit_count = cache_metrics.get("hit_count", 0)
+            miss_count = cache_metrics.get("miss_count", 0)
+            bypass_count = cache_metrics.get("bypass_count", 0)
+            total_requests = cache_metrics.get("total_requests", 0)
+            ttl_seconds = cache_metrics.get("cache_ttl_seconds", 0)
+            cached_keys = cache_metrics.get("cached_keys_count", 0)
+
+            lines.append(
+                f"💾 Cache Hit Ratio: <b>{hit_ratio:.1f}%</b> ({hit_count} hits, {miss_count} misses)"
+            )
+            if bypass_count > 0:
+                lines.append(f"🔄 Cache Bypass: <b>{bypass_count}</b> requests")
+            lines.append(f"⏱️ Cache TTL: <b>{ttl_seconds}s</b> ({cached_keys} keys cached)")
 
         # Add last scan time
         if self.stats.last_scan_time:
@@ -514,11 +535,20 @@ class HealthMonitor:
 # ============================================
 
 _monitor_instance: HealthMonitor | None = None
+_monitor_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_health_monitor() -> HealthMonitor:
-    """Get singleton instance of HealthMonitor."""
+    """
+    Get singleton instance of HealthMonitor.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _monitor_instance
     if _monitor_instance is None:
-        _monitor_instance = HealthMonitor()
+        with _monitor_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _monitor_instance is None:
+                _monitor_instance = HealthMonitor()
     return _monitor_instance

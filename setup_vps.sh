@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# EarlyBird VPS Setup Script V4.1
+# EarlyBird VPS Setup Script V12.4
 # One-time setup for fresh Linux VPS
 # Stack: OCR + Google GenAI SDK + uv (Fast)
 # ============================================
@@ -118,10 +118,19 @@ echo -e "${GREEN}   ✅ Google GenAI SDK installed${NC}"
 # Step 3c: Playwright Browser Automation (V7.0 - Stealth + Trafilatura)
 echo ""
 echo -e "${GREEN}🌐 [3c/6] Installing Playwright Browser Automation (V7.0)...${NC}"
-pip install playwright playwright-stealth trafilatura
+# V12.5: Playwright is already installed via requirements.txt at line 109 (COVE FIX 2026-03-04)
+# This section now only installs browser binaries, not the Python package
+
 # Install Chromium browser for Playwright (headless) - V7.2: use python -m for reliability
-python -m playwright install chromium
+echo -e "${GREEN}   Installing Chromium browser...${NC}"
+if ! python -m playwright install chromium; then
+    echo -e "${RED}   ❌ CRITICAL: Failed to install Chromium browser${NC}"
+    echo -e "${RED}   ❌ Bot will NOT work without Playwright Chromium${NC}"
+    exit 1
+fi
+
 # Install system dependencies for Playwright
+echo -e "${GREEN}   Installing Playwright system dependencies...${NC}"
 # V11.2 FIX: Capture stderr to show errors only if command fails (Bug #2 fix)
 if ! install_output=$(python -m playwright install-deps chromium 2>&1); then
     echo -e "${YELLOW}   ⚠️ install-deps failed (may require sudo on some systems)${NC}"
@@ -131,6 +140,74 @@ if ! install_output=$(python -m playwright install-deps chromium 2>&1); then
 else
     echo -e "${GREEN}   ✅ System dependencies installed${NC}"
 fi
+
+# V12.5 COVE FIX: Verify Playwright browser binaries are installed and accessible
+echo ""
+echo -e "${GREEN}🧪 [3d/6] Verifying Playwright browser binaries...${NC}"
+if ! python -c "
+import sys
+try:
+    from playwright.sync_api import sync_playwright
+    # Test that we can import and access browser types
+    with sync_playwright() as p:
+        # Verify chromium browser type is available
+        if not hasattr(p, 'chromium'):
+            print('❌ Chromium browser type not available')
+            sys.exit(1)
+        print('✅ Playwright browser binaries verified (chromium available)')
+        sys.exit(0)
+except ImportError as e:
+    print(f'❌ Playwright import failed: {e}')
+    sys.exit(1)
+except Exception as e:
+    print(f'❌ Playwright verification failed: {e}')
+    sys.exit(1)
+" 2>&1; then
+    echo -e "${RED}   ❌ CRITICAL: Playwright browser binaries verification failed${NC}"
+    echo -e "${RED}   ❌ Bot will NOT work without Playwright Chromium${NC}"
+    echo -e "${YELLOW}   ⚠️  Try running: python -m playwright install chromium --force${NC}"
+    exit 1
+else
+    echo -e "${GREEN}   ✅ Playwright browser binaries verified${NC}"
+fi
+
+# V12.0: Verify Playwright can launch Chromium (CRITICAL for VPS deployment)
+echo ""
+echo -e "${GREEN}🧪 [3d/6] Verifying Playwright installation...${NC}"
+if ! python -c "
+import sys
+import asyncio
+try:
+    from playwright.async_api import async_playwright
+    async def test():
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            # Test navigation to a simple page
+            await page.goto('https://example.com', timeout=10000)
+            # Test content extraction
+            content = await page.content()
+            if 'Example Domain' not in content:
+                raise Exception('Content extraction failed')
+            await browser.close()
+        print('✅ Playwright Chromium verified working (launch + navigation + extraction)')
+        sys.exit(0)
+    asyncio.run(test())
+except Exception as e:
+    print(f'❌ Playwright verification failed: {e}')
+    sys.exit(1)
+except ImportError as e:
+    print(f'❌ Playwright not installed: {e}')
+    sys.exit(1)
+" 2>&1; then
+    echo -e "${RED}   ❌ CRITICAL: Playwright Chromium installation failed${NC}"
+    echo -e "${RED}   ❌ Bot will NOT work without Playwright${NC}"
+    echo -e "${YELLOW}   ⚠️  Please check the error above and fix manually${NC}"
+    exit 1
+else
+    echo -e "${GREEN}   ✅ Playwright Chromium verified working (launch + navigation + extraction)${NC}"
+fi
+
 echo -e "${GREEN}   ✅ Playwright + Chromium + Stealth + Trafilatura installed${NC}"
 
 # Step 4: Permissions
@@ -223,6 +300,16 @@ if [ -f ".env" ]; then
             MISSING_KEYS+=("$key")
         fi
     done
+    
+    # V12.5: Check SUPABASE_CACHE_TTL_SECONDS (optional, has default)
+    if grep -q "^SUPABASE_CACHE_TTL_SECONDS=" .env; then
+        echo -e "${GREEN}   ✅ SUPABASE_CACHE_TTL_SECONDS is set${NC}"
+    else
+        echo -e "${YELLOW}   ⚠️ SUPABASE_CACHE_TTL_SECONDS not set (will use default: 300s)${NC}"
+        # Add default value to .env
+        echo "SUPABASE_CACHE_TTL_SECONDS=300" >> .env
+        echo -e "${GREEN}   ✅ SUPABASE_CACHE_TTL_SECONDS=300 added to .env${NC}"
+    fi
     
     if [ ${#MISSING_KEYS[@]} -gt 0 ]; then
         echo ""

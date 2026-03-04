@@ -19,15 +19,17 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
-# Setup path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Load environment variables
 from dotenv import load_dotenv
 
-env_file = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"
-)
+# Add project root to sys.path for direct script execution
+# This allows imports like 'from config.settings import ...' to work when running:
+# python src/utils/debug_funnel.py
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Setup path
+env_file = os.path.join(project_root, ".env")
 load_dotenv(env_file)
 
 # Configure logging
@@ -44,26 +46,28 @@ logger = logging.getLogger(__name__)
 
 # Database
 # Settings
-from config.settings import ALERT_THRESHOLD_HIGH
+from config.settings import ALERT_THRESHOLD_HIGH  # noqa: E402
 
 # Analyzer
-from src.analysis.analyzer import analyze_with_triangulation
+from src.analysis.analyzer import analyze_with_triangulation  # noqa: E402
 
 # Analysis Engine
-from src.core.analysis_engine import AnalysisEngine
-from src.database.models import Match, SessionLocal
+from src.core.analysis_engine import AnalysisEngine  # noqa: E402
+from src.database.models import Match, SessionLocal  # noqa: E402
 
 # Data Provider
-from src.ingestion.data_provider import get_data_provider
+from src.ingestion.data_provider import get_data_provider  # noqa: E402
 
 # FotMob team mapping
-from src.ingestion.fotmob_team_mapping import get_fotmob_team_id
+from src.ingestion.fotmob_team_mapping import get_fotmob_team_id  # noqa: E402
 
-# Continental Orchestrator
-from src.processing.continental_orchestrator import get_continental_orchestrator
+# Global Orchestrator (V11.0: continental_orchestrator.py replaced by global_orchestrator.py)
+from src.processing.global_orchestrator import (  # noqa: E402
+    get_continental_orchestrator,  # Backward compatibility alias
+)
 
 # News Hunter
-from src.processing.news_hunter import run_hunter_for_match
+from src.processing.news_hunter import run_hunter_for_match  # noqa: E402
 
 # ============================================
 # CONSTANTS
@@ -89,20 +93,24 @@ def check_active_continent(match: Match) -> tuple[bool, str]:
         orchestrator = get_continental_orchestrator()
         result = orchestrator.get_active_leagues_for_current_time()
 
-        active_continents = result.get("continent_blocks", [])
         active_leagues = result.get("leagues", [])
 
         # Check if match's league is in active leagues
-        if match.league in active_leagues:
+        # VPS FIX: Extract Match attributes safely to prevent session detachment
+        # This prevents "Trust validation error" when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        league = getattr(match, "league", None)
+
+        if league and league in active_leagues:
             # Determine continent from league
-            if "africa" in match.league.lower():
+            if "africa" in league.lower():
                 return True, "AFRICA"
             elif any(
-                x in match.league.lower()
+                x in league.lower()
                 for x in ["argentina", "brazil", "mexico", "colombia", "usa"]
             ):
                 return True, "LATAM"
-            elif any(x in match.league.lower() for x in ["japan", "china", "korea", "australia"]):
+            elif any(x in league.lower() for x in ["japan", "china", "korea", "australia"]):
                 return True, "ASIA"
             else:
                 return True, "UNKNOWN"
@@ -122,24 +130,34 @@ def check_market_veto(match: Match) -> tuple[bool, float]:
     """
     max_drop_pct = 0.0
 
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    opening_home_odd = getattr(match, "opening_home_odd", None)
+    current_home_odd = getattr(match, "current_home_odd", None)
+    opening_away_odd = getattr(match, "opening_away_odd", None)
+    current_away_odd = getattr(match, "current_away_odd", None)
+    opening_draw_odd = getattr(match, "opening_draw_odd", None)
+    current_draw_odd = getattr(match, "current_draw_odd", None)
+
     # Check home odd drop
-    if match.opening_home_odd and match.current_home_odd:
+    if opening_home_odd and current_home_odd:
         home_drop_pct = (
-            (match.opening_home_odd - match.current_home_odd) / match.opening_home_odd
+            (opening_home_odd - current_home_odd) / opening_home_odd
         ) * 100
         max_drop_pct = max(max_drop_pct, home_drop_pct)
 
     # Check away odd drop
-    if match.opening_away_odd and match.current_away_odd:
+    if opening_away_odd and current_away_odd:
         away_drop_pct = (
-            (match.opening_away_odd - match.current_away_odd) / match.opening_away_odd
+            (opening_away_odd - current_away_odd) / opening_away_odd
         ) * 100
         max_drop_pct = max(max_drop_pct, away_drop_pct)
 
     # Check draw odd drop
-    if match.opening_draw_odd and match.current_draw_odd:
+    if opening_draw_odd and current_draw_odd:
         draw_drop_pct = (
-            (match.opening_draw_odd - match.current_draw_odd) / match.opening_draw_odd
+            (opening_draw_odd - current_draw_odd) / opening_draw_odd
         ) * 100
         max_drop_pct = max(max_drop_pct, draw_drop_pct)
 
@@ -178,19 +196,26 @@ def trace_match_pipeline(match: Match, analysis_engine: AnalysisEngine, fotmob) 
     Returns:
         Dict with trace results
     """
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    match_id = getattr(match, "id", None)
+    home_team = getattr(match, "home_team", None)
+    away_team = getattr(match, "away_team", None)
+    league = getattr(match, "league", None)
+    start_time = getattr(match, "start_time", None)
+
     trace_result = {
-        "match_id": match.id,
-        "home_team": match.home_team,
-        "away_team": match.away_team,
-        "league": match.league,
-        "start_time": match.start_time,
+        "match_id": match_id,
+        "home_team": home_team,
+        "away_team": away_team,
+        "league": league,
+        "start_time": start_time,
         "steps": [],
         "stop_reason": None,
         "final_score": 0.0,
         "alert_sent": False,
     }
-
-    now_utc = datetime.now(timezone.utc)
 
     # ============================================
     # STEP 1: INGESTION
@@ -199,8 +224,8 @@ def trace_match_pipeline(match: Match, analysis_engine: AnalysisEngine, fotmob) 
     step1_result = {
         "step": 1,
         "name": "Ingestion",
-        "match": f"{match.home_team} vs {match.away_team}",
-        "league": match.league,
+        "match": f"{home_team} vs {away_team}",
+        "league": league,
         "active_continent": is_active,
         "continent_name": continent,
         "status": "PASS" if is_active else "FAIL",
@@ -254,17 +279,17 @@ def trace_match_pipeline(match: Match, analysis_engine: AnalysisEngine, fotmob) 
     # ============================================
     try:
         # Validate team order using FotMob
-        home_team_valid = match.home_team
-        away_team_valid = match.away_team
+        home_team_valid = home_team
+        away_team_valid = away_team
 
         if fotmob:
             try:
-                fotmob_home_id = get_fotmob_team_id(match.home_team)
-                fotmob_away_id = get_fotmob_team_id(match.away_team)
+                fotmob_home_id = get_fotmob_team_id(home_team)
+                fotmob_away_id = get_fotmob_team_id(away_team)
 
                 if fotmob_home_id and fotmob_away_id:
                     fotmob_match = fotmob.get_match(
-                        fotmob_home_id, fotmob_away_id, match.start_time
+                        fotmob_home_id, fotmob_away_id, start_time
                     )
 
                     if fotmob_match:
@@ -274,7 +299,7 @@ def trace_match_pipeline(match: Match, analysis_engine: AnalysisEngine, fotmob) 
                         if (
                             fotmob_home_name
                             and fotmob_away_name
-                            and match.home_team != fotmob_home_name
+                            and home_team != fotmob_home_name
                         ):
                             home_team_valid, away_team_valid = away_team_valid, home_team_valid
             except Exception as e:
@@ -289,10 +314,10 @@ def trace_match_pipeline(match: Match, analysis_engine: AnalysisEngine, fotmob) 
                 fotmob=fotmob,
                 home_team=home_team_valid,
                 away_team=away_team_valid,
-                match_start_time=match.start_time,
+                match_start_time=start_time,
                 weather_provider=None,
-                max_workers=4,
-                timeout=45,
+                # max_workers=4,  # REMOVED - use default (1) to avoid FotMob 403 errors (V6.2 fix)
+                timeout=90,  # UPDATED from 45 to 90 for retries and backoff (COVE fix V6.3)
             )
         except Exception as e:
             logger.debug(f"Parallel enrichment failed: {e}")
@@ -423,20 +448,10 @@ def main():
         logger.info(f"Alert threshold: {ALERT_THRESHOLD}")
         logger.info("")
 
-        # Get active continent info
-        try:
-            orchestrator = get_continental_orchestrator()
-            result = orchestrator.get_active_leagues_for_current_time()
-            active_continents = result.get("continent_blocks", [])
-            active_leagues = result.get("leagues", [])
-            logger.info(
-                f"Active continents: {', '.join(active_continents) if active_continents else 'None'}"
-            )
-            logger.info(f"Active leagues count: {len(active_leagues)}")
-            logger.info("")
-        except Exception as e:
-            logger.warning(f"Failed to get active continent info: {e}")
-            logger.info("")
+        # For diagnostic tool, skip active continent check to avoid blocking operations
+        # Just trace all upcoming matches regardless of continent
+        logger.info("Skipping active continent check (diagnostic mode)")
+        logger.info("")
 
         # Fetch next 5 upcoming matches (any league, not just Elite)
         matches = (
@@ -475,7 +490,8 @@ def main():
 
         logger.info("")
 
-        # Trace each match
+        # Trace each match and save results
+        trace_results = []
         for i, match in enumerate(matches, 1):
             logger.info("=" * 80)
             logger.info(f"TRACE #{i}: {match.home_team} vs {match.away_team}")
@@ -485,6 +501,7 @@ def main():
 
             # Trace match
             trace_result = trace_match_pipeline(match, analysis_engine, fotmob)
+            trace_results.append(trace_result)
 
             # Print step-by-step report
             for step in trace_result["steps"]:
@@ -522,9 +539,9 @@ def main():
                     logger.info(f"Market Veto (15% drop): {step['market_veto']['status']}")
                     logger.info(f"  Drop: {step['market_veto']['drop_pct']:.1f}%")
                     logger.info(f"Kelly Stake: {step['kelly_stake']:.1f}%")
-                    logger.info(
-                        f"Final Score vs Threshold ({step['threshold_check']['threshold']}): {step['threshold_check']['status']}"
-                    )
+                    threshold_v = step["threshold_check"]["threshold"]
+                    threshold_status = step["threshold_check"]["status"]
+                    logger.info(f"Final Score vs Threshold ({threshold_v}): {threshold_status}")
                     logger.info(f"  Score: {step['threshold_check']['score']:.1f}")
                     logger.info(f"Status: {status}")
 
@@ -544,15 +561,12 @@ def main():
         logger.info("DIAGNOSTIC SUMMARY")
         logger.info("=" * 80)
 
-        total_matches = len(matches)
-        alerts_sent = sum(
-            1 for m in matches if trace_match_pipeline(m, analysis_engine, fotmob)["alert_sent"]
-        )
+        total_matches = len(trace_results)
+        alerts_sent = sum(1 for t in trace_results if t["alert_sent"])
 
         # Count stop reasons
         stop_reasons = {}
-        for match in matches:
-            trace = trace_match_pipeline(match, analysis_engine, fotmob)
+        for trace in trace_results:
             reason = trace["stop_reason"] or "ALERT SENT"
             stop_reasons[reason] = stop_reasons.get(reason, 0) + 1
 

@@ -1,42 +1,36 @@
-# 🦅 EarlyBird V9.5 - Deploy Instructions
+# 🦅 EarlyBird V12.4 - Deploy Instructions
 
 Guida definitiva per il deploy su Ubuntu VPS.
 
 **Version History:**
-- **V9.5** (Current) - Supabase Database Integration
+- **V12.4** (Current) - Lock Monitoring & Referee Boost Integration
+  - Added Lock Contention Monitoring for Supabase and Referee Cache (V12.3)
+  - Integrated Referee Boost System V9.0 (Cache + Analytics)
+  - Added Playwright Graceful Degradation & DEGRADED MODE (V12.0)
+  - Fixed NewsRadar race conditions (V12.1)
+- **V9.5** - Supabase Database Integration
   - Added Supabase database connection for continental orchestration
   - Integrated ContinentalOrchestrator for time-based league scheduling
   - Added API Handshake validation (make check-apis) as mandatory pre-deploy step
 - **V8.3** - Learning Loop Integrity Fix
-  - Added `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at` columns for accurate ROI calculations
-  - Fixed learning loop data integrity issues
-- **V8.0** - Tactical Brain Integration
-  - asyncio.run() instead of deprecated get_event_loop()
-  - Tactical Veto (V8.0) - Applied when market signals contradict tactical reality
-- **V7.3** - Added `last_alert_time` column for temporal reset
-- **V7.2** - Signal handling fixes in news_radar
-- **V7.1** - Test Monitor integration
-- **V7.0** - Intelligence Router with DeepSeek primary + Tavily pre-enrichment
-- **V5.3** - Odds type conversion and validation fixes
-- **V5.2** - Input validation and edge case handling in optimizer
+- **V7.0** - Intelligence Router (DeepSeek + Tavily)
+
+**Novità V12.4:**
+- 🛡️ **Lock Contention Monitoring**: Monitoraggio proattivo della contesa dei lock su Supabase e Referee Cache (V12.3).
+- 🔄 **Referee Boost System V9.0**: Analisi statistica degli arbitri con caching a 7 giorni e monitoraggio hit-rate.
+- 🎭 **Playwright Fail-Safe**: Il sistema ora si avvia in **DEGRADED MODE** se Playwright fallisce l'inizializzazione.
+- ⚡ **Setup Browser Automatizzato**: Makefile aggiornato con `setup-playwright-browsers`.
 
 **Novità V9.5:**
-- 🗄️ **Supabase Integration**: Added cloud database for continental orchestration
-- 🌍 **Continental Orchestrator**: Time-based league scheduling across continents
-- 🚨 **API Handshake**: Mandatory pre-deploy validation of all API credentials (make check-apis)
-- 🔄 **Mirror Fallback**: Local mirror file for resilience during Supabase outages
-- 🚪 **3-Level Intelligence Gate**: Zero-cost keyword filtering (95% token savings)
-  - Level 1: 147 native keywords in 9 languages (FREE)
-  - Level 2: DeepSeek V3 translation and classification
-  - Level 3: DeepSeek R1 deep reasoning for BET/NO BET verdict
-- 🤖 **Dual-Model Hierarchy**: Model A (Standard) + Model B (Reasoner)
-- 🔴 **Cross-Source Convergence**: Detects signals in both Web and Social sources
+- 🗄️ **Supabase Integration**: Cloud database per orchestrazione continentale.
+- 🌍 **Continental Orchestrator**: Scheduling campionati basato su fusi orari.
+- 🚪 **3-Level Intelligence Gate**: Zero-cost keyword filtering (95% token savings).
+- 🤖 **Dual-Model Hierarchy**: Model A (Standard) + Model B (Reasoner).
+- 🔴 **Cross-Source Convergence**: Signal matching Web + Social.
 
 **Novità V8.3:**
-- 🎯 **Learning Loop Integrity**: Fixed ROI calculation accuracy with proper odds tracking
-- 📊 **New Database Columns**: `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at` for precise performance metrics
-- 🔧 **Data Type Fixes**: Improved odds type conversion and validation (V5.3)
-- 🛡️ **Session Handling**: Fixed signal handling in news_radar (V7.2) and asyncio migration (V8.0)
+- 🎯 **Learning Loop Integrity**: ROI accurato con odds tracking.
+- 📊 **New Columns**: `odds_at_alert`, `odds_at_kickoff`, `alert_sent_at`.
 
 ---
 
@@ -46,7 +40,7 @@ Guida definitiva per il deploy su Ubuntu VPS.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        EARLYBIRD V9.5                            │
+│                        EARLYBIRD V12.4                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
         ┌─────────────────────┼─────────────────────┐
@@ -246,7 +240,7 @@ pytest tests/test_validators.py -v
 
 ---
 
-## 🧠 INTELLIGENCE FEATURES (V9.5)
+## 🧠 INTELLIGENCE FEATURES (V12.4)
 
 Il sistema include 12+ modelli di intelligence per l'analisi predittiva e decisionale.
 
@@ -254,10 +248,12 @@ Il sistema include 12+ modelli di intelligence per l'analisi predittiva e decisi
 
 | Feature | Version | Location | Description |
 |---------|---------|----------|-------------|
-| **🚪 Intelligence Gate** | V9.5 ⭐ NEW | `src/utils/intelligence_gate.py` | 3-level gating for 95% token savings |
-| **🤖 Dual-Model Hierarchy** | V9.5 ⭐ NEW | `src/utils/intelligence_gate.py` | Model A (Standard) + Model B (Reasoner) |
-| **🔴 Cross-Source Convergence** | V9.5 ⭐ NEW | `src/analysis/analyzer.py` | Web + Social signal matching |
-| **Intelligence Router** | V7.0 | `src/services/intelligence_router.py` | Routes to DeepSeek (primary) with Tavily pre-enrichment |
+| **🛡️ Lock Monitoring** | V12.3 ⭐ NEW | `src/database/` | Monitoring for cache lock contention |
+| **🔄 Referee Boost** | V9.0 | `src/analysis/` | Statistical Monitoring for Referee Signals |
+| **🚪 Intelligence Gate** | V9.5 | `src/utils/` | 3-level gating for 95% token savings |
+| **🤖 Dual-Model Hierarchy** | V9.5 | `src/utils/` | Model A (Standard) + Model B (Reasoner) |
+| **🔴 Cross-Source Convergence** | V9.5 | `src/analysis/` | Web + Social signal matching |
+| **Intelligence Router** | V7.0 | `src/services/` | Routes to DeepSeek (primary) |
 | **Market Intelligence** | V1.1 | `src/analysis/market_intelligence.py` | Steam Move, Reverse Line, News Decay analysis |
 | **Tactical Veto** | V8.0 | `src/analysis/` | Applied when market signals contradict tactical reality |
 | **B-Team Detection** | V2.0 | `src/analysis/` | Financial Intelligence for detecting B-Team/Reserves lineups |
@@ -597,23 +593,12 @@ pytest tests/ --cov=src --cov-report=html
 
 ---
 
-## 1️⃣ Preparazione Locale
+## 1️⃣ [DEPRECATED] Preparazione Locale (Manuale)
+> ⚠️ **OBSOLETE**: Questa procedura manuale è sostituita dallo script automatizzato in **Sezione 3**. Usare solo per debug.
 
 ### Crea lo ZIP (escludendo file non necessari)
 ```bash
-zip -r earlybird_v83_YYYYMMDD.zip \
-  src/ config/ tests/ .env requirements.txt pytest.ini \
-  run_forever.sh run_tests_monitor.sh \
-  start_system.sh setup_vps.sh \
-  setup_telegram_auth.py show_errors.py \
-  go_live.py run_news_radar.py run_telegram_monitor.py \
-  README.md ARCHITECTURE.md DEPLOY_INSTRUCTIONS.md \
-  -x "*.pyc" -x "*__pycache__*" -x "*.session" -x "*.log" -x "*.db" -x "venv/*" -x ".venv/*"
-```
-
-### Upload su VPS
-```bash
-scp earlybird_v83_YYYYMMDD.zip root@YOUR_VPS_IP:/root/
+# Sostituito da Automated Master Deploy
 ```
 
 ---
@@ -623,71 +608,90 @@ scp earlybird_v83_YYYYMMDD.zip root@YOUR_VPS_IP:/root/
 ### Ferma processi esistenti
 ```bash
 screen -X -S earlybird quit 2>/dev/null
-screen -X -S bot quit 2>/dev/null
+tmux kill-session -t earlybird 2>/dev/null
 pkill -9 -f python
 ```
 
-### Rimuovi vecchia installazione (opzionale)
+### Installazione Install (Raccomandato)
 ```bash
 cd /root
-rm -rf earlybird
-```
-
-### Estrai e installa
-```bash
+# Carica lo ZIP rinominato come earlybird.zip
 mkdir -p earlybird
+unzip earlybird.zip -d earlybird/
 cd earlybird
-unzip /root/earlybird_v83_YYYYMMDD.zip
 chmod +x setup_vps.sh
 ./setup_vps.sh
 ```
 
-> ⏱️ **Nota:** Lo script impiega ~3-5 minuti per scaricare Chromium e le dipendenze.
+> ⏱️ **Nota:** Lo script ora include l'installazione di **Playwright Chromium** e le sue dipendenze di sistema. Impiega ~5-7 minuti.
+> ⚠️ **Fix V12.0:** Se l'installazione browser fallisce, il sistema userà il **Degraded Mode** (funzionante ma senza scraping dinamico).
 
 ---
 
-## 3️⃣ Procedura Operativa di Lancio (Dashboard Experience)
+## 3️⃣ Procedura Operativa di Lancio (Automated Master Deploy) ⭐
 
-Per l'ultima volta, segui questi passaggi per fare tabula rasa e far partire il nuovo "Mostro" V8.3 con il **Unified Dashboard**:
+**Percorso Preferenziale per LLM:** Usare sempre questo metodo per il deploy.
 
-### Dal terminale dell'IDE:
+### Dal terminale locale:
+1. **CRITICAL: Crea il file ZIP di deployment** (obbligatorio)
+   
+   Il file ZIP deve includere TUTTI i file necessari per il deploy:
+   ```bash
+   # Crea il file ZIP di deployment (eseguilo dalla root del progetto)
+   zip -r earlybird_deploy.zip \
+     .env \
+     Makefile \
+     src/ \
+     config/ \
+     data/ \
+     *.py \
+     *.sh \
+     requirements.txt \
+     pyproject.toml \
+     pytest.ini \
+     setup_vps.sh \
+     start_system.sh \
+     run_*.py \
+     -x "*.log" \
+     -x "*.db" \
+     -x "*.session" \
+     -x "__pycache__" \
+     -x "*.pyc" \
+     -x ".git" \
+     -x "venv" \
+     -x ".venv" \
+     -x "*.tmp"
+   ```
+   
+   > 🚨 **CRITICAL:** Il file `.env` DEVE essere incluso nel ZIP per garantire la connessione a Supabase sulla VPS. Senza il file `.env`, il bot non potrà connettersi al database e riceverai gli errori "No handles found" e "No active leagues".
+   
+   > 🚨 **CRITICAL:** Il file `Makefile` DEVE essere incluso nel ZIP per eseguire i comandi di setup sulla VPS (make check-apis, make migrate, ecc.).
+   
+   > 📦 **Nota:** Il comando esclude file non necessari (log, database, sessioni, cache, venv) per ridurre la dimensione del ZIP.
 
-**Crea lo ZIP pulito (escludendo file temporanei):**
+2. Assicurarsi di aver configurato il file `.env` correttamente.
+3. Eseguire:
+    ```bash
+    ./master_deploy.sh
+    ```
 
-```bash
-zip -r earlybird_v83_FINAL.zip \
-  src/ config/ tests/ .env requirements.txt pytest.ini Makefile \
-  start_system.sh setup_vps.sh run_tests_monitor.sh \
-  README.md ARCHITECTURE.md DEPLOY_INSTRUCTIONS.md \
-  -x "*.pyc" -x "*__pycache__*" -x "*.session" -x "*.log" -x "*.db" -x "venv/*" -x ".venv/*"
-```
+### Cosa fa lo script (V12.4):
+- **Backup**: Salva `.env` e `.session` dalla VPS (se esistenti).
+- **Wipe & Setup**: Pulisce l'ambiente e reinstalla i pacchetti.
+- **Playwright Setup**: Esegue `make setup-playwright-browsers`.
+- **API Handshake**: Verifica connessione a Supabase, Odds e AI (MANDATORIO).
+- **Referee System**: Inizializza le cache degli arbitri.
+- **Go Live**: Avvia in Tmux Dashboard.
 
-**Invia alla VPS:**
+> 🚨 **IMPORTANTE:** Il file `.env` deve essere incluso nel file `earlybird_deploy.zip` creato localmente. Lo script esegue un backup del `.env` esistente sulla VPS come sicurezza, ma il file `.env` nel ZIP è la fonte principale per la configurazione.
 
-```bash
-scp earlybird_v83_FINAL.zip root@YOUR_VPS_IP:/root/
-```
+---
+## 3b. [LEGACY] Procedura Operativa V8.3 (Wipe & Start Manuale)
+> ⚠️ **DEPRECATED**: Questa sezione è mantenuta per riferimento storico. Per il deploy corrente (V9.5+), usare la **Sezione 3 (Master Deploy)**.
 
 ### Sulla VPS (Wipe & Start):
-
 ```bash
-# 1. Kill totale (Reset ambiente)
-tmux kill-session -t earlybird 2>/dev/null
-pkill -9 -f python
-rm -rf earlybird
-
-# 2. Installazione
-unzip earlybird_v83_FINAL.zip -d earlybird
-cd earlybird
-./setup_vps.sh
-
-# 3. Inizializzazione
-cp .env.template .env  # O ripristina il tuo .env salvato
-make check-apis        # 🚨 CRITICAL: API Handshake - MUST PASS before proceeding
-make migrate
-
-# 4. 🚀 GO LIVE (Dashboard Mode)
-./start_system.sh
+# Vedere Sezione 3 per il comando unificato
 ```
 
 > **Nota:** Il comando `./start_system.sh` aprirà automaticamente una sessione Tmux chiamata `earlybird` con:
@@ -756,7 +760,7 @@ make check-apis
 
 ---
 
-## 4️⃣ Inizializzazione
+## 5️⃣ Inizializzazione
 
 ### ⚡ CRITICAL: API Handshake (MANDATORY - Run BEFORE starting the bot)
 ```bash
@@ -797,69 +801,8 @@ python3 -c "from src.database.migration_v83_odds_fix import migrate; migrate()"
 - `odds_at_kickoff` column (REAL)
 - `alert_sent_at` column (TIMESTAMP)
 
-### Migration Paths
-
-#### From V8.0 to V8.3
-```bash
-# 1. Stop all processes
-tmux kill-session -t earlybird
-pkill -f python
-
-# 2. Backup database
-cp data/earlybird.db data/earlybird.db.backup_v80
-
-# 3. Run V8.3 migration
-source venv/bin/activate
-python3 src/deploy_v83_odds_fix.py
-
-# 4. Verify migration
-sqlite3 data/earlybird.db "PRAGMA table_info(matches);" | grep -E "odds_at_alert|odds_at_kickoff|alert_sent_at"
-
-# 5. Restart system
-./start_system.sh
-```
-
-#### From V7.x to V8.3
-```bash
-# 1. Stop all processes
-tmux kill-session -t earlybird
-pkill -f python
-
-# 2. Backup database
-cp data/earlybird.db data/earlybird.db.backup_v7x
-
-# 3. Run migrations in order
-source venv/bin/activate
-python3 -c "from src.database.migration import migrate; migrate()"  # V7.3
-python3 src/deploy_v83_odds_fix.py  # V8.3
-
-# 4. Verify migrations
-sqlite3 data/earlybird.db "PRAGMA table_info(matches);" | grep -E "last_alert_time|odds_at_alert|odds_at_kickoff|alert_sent_at"
-
-# 5. Restart system
-./start_system.sh
-```
-
-#### From V5.x to V8.3
-```bash
-# 1. Stop all processes
-tmux kill-session -t earlybird
-pkill -f python
-
-# 2. Backup database
-cp data/earlybird.db data/earlybird.db.backup_v5x
-
-# 3. Run all migrations
-source venv/bin/activate
-python3 -c "from src.database.migration import migrate; migrate()"  # V7.3
-python3 src/deploy_v83_odds_fix.py  # V8.3
-
-# 4. Verify migrations
-sqlite3 data/earlybird.db "PRAGMA table_info(matches);" | grep -E "last_alert_time|odds_at_alert|odds_at_kickoff|alert_sent_at"
-
-# 5. Restart system
-./start_system.sh
-```
+### [LEGACY] Migration Paths (Old Versions)
+> ⚠️ **OBSOLETE**: Da usare solo se si ripristina un database pre-V8.3. Per nuove installazioni V9.5+, il database viene inizializzato correttamente da zero con `make migrate`.
 
 ### Autenticazione Telegram (solo prima volta)
 ```bash
@@ -871,7 +814,7 @@ python3 setup_telegram_auth.py
 
 ---
 
-## 5️⃣ Avvio Sistema
+## 6️⃣ Avvio Sistema
 
 ### Metodo consigliato (Dashboard Experience) ⭐
 
@@ -922,16 +865,11 @@ tmux attach -t earlybird
 tmux kill-session -t earlybird
 ```
 
-### Metodo alternativo (screen - legacy)
-```bash
-screen -S earlybird ./run_forever.sh
-```
+### [DEPRECATED] Metodo alternativo (screen - legacy)
+> ⚠️ **OBSOLETE**: Lo sviluppo e il monitoraggio sono ottimizzati per **tmux**. L'uso di screen è sconsigliato.
 
-Per uscire dalla screen: `Ctrl+A` poi `D`
-
-### Rientrare nella screen
 ```bash
-screen -r earlybird
+# Usare tmux attach -t earlybird
 ```
 
 ### 🤖 Processi Avviati Automaticamente
@@ -978,7 +916,7 @@ Il launcher implementa robusto process management con:
 
 ---
 
-## 6️⃣ Comandi Utili
+## 7️⃣ Comandi Utili (Quick Reference)
 
 ### Monitoraggio
 ```bash
@@ -1110,34 +1048,37 @@ python3 run_news_radar.py
 
 ---
 
-## 📋 Checklist Deploy
+### V12.4 Verification (Critical Monitoring)
 
-- [ ] ZIP creato con `.env` incluso (V8.3)
-- [ ] Upload su VPS completato
-- [ ] `setup_vps.sh` eseguito senza errori
-- [ ] API keys verificate (`make check-apis`) - **CRITICAL: Must pass before proceeding**
-- [ ] Database inizializzato
-- [ ] **V8.3 Migration eseguita** (`python3 src/deploy_v83_odds_fix.py`)
-- [ ] Telegram autenticato (se necessario)
-- [ ] Test pre-avvio passano (`pytest tests/test_validators.py`)
-- [ ] Sistema avviato con `./start_system.sh` (V7.1)
-- [ ] Entrambi i pannelli tmux funzionanti
-- [ ] 4 processi attivi: main, bot, monitor, news_radar
-- [ ] Heartbeat ricevuto su Telegram
-
-### V8.3 Verification
-
-Verifica che le nuove colonne siano presenti nel database:
+Verifica che i nuovi sistemi di monitoraggio lock siano attivi:
 
 ```bash
-sqlite3 data/earlybird.db "PRAGMA table_info(matches);" | grep -E "odds_at_alert|odds_at_kickoff|alert_sent_at"
+# Verifica presenza log Referee Boost
+ls -la logs/referee_boost.log
+
+# Verifica caching arbitri
+ls -la data/cache/referee_stats.json
+
+# Verifica monitoraggio Lock
+source venv/bin/activate
+python3 -c "from src.database.supabase_provider import get_supabase; print(get_supabase().get_lock_stats())"
 ```
 
-Output atteso:
-```
-odds_at_alert|REAL|0||0
-odds_at_kickoff|REAL|0||0
-alert_sent_at|TIMESTAMP|0||0
-```
+Output atteso per i Lock:
+`{'wait_count': 0, 'wait_time_total': 0, ...}` (se il sistema è appena avviato).
+
+---
+
+## 📋 Checklist Deploy V12.4
+
+- [ ] **ZIP di deployment creato** con `.env` e `Makefile` inclusi (CRITICAL)
+- [ ] ZIP caricato su `/root/earlybird.zip`
+- [ ] `master_deploy.sh` eseguito con successo
+- [ ] **Handshake API**: PASSATO (`make check-apis`)
+- [ ] **Playwright**: Installato (o in Degraded Mode)
+- [ ] **Referee Cache**: Inizializzata (`data/cache/`)
+- [ ] **Lock Monitoring**: Integrato in Orchestration Metrics
+- [ ] **Telegram Session**: Attiva (`earlybird_monitor.session`)
+- [ ] **4 Processi Attivi**: `main`, `bot`, `monitor`, `news_radar` (verificabili in Tmux)
 
 ---

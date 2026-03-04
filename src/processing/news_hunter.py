@@ -76,7 +76,11 @@ except ImportError:
 
 # Try to import search provider
 try:
-    from src.ingestion.search_provider import LEAGUE_DOMAINS, get_search_provider
+    from src.ingestion.search_provider import (
+        LEAGUE_DOMAINS,
+        get_news_domains_for_league,
+        get_search_provider,
+    )
 
     _SEARCH_PROVIDER_AVAILABLE = True
 except ImportError:
@@ -1597,7 +1601,8 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> list[d
         return []
 
     # Get sources and keywords for this league (Supabase with fallback to local)
-    sources = get_news_sources_from_supabase(league_key)
+    # V12.0 FIX: Use get_news_domains_for_league() from search_provider for timeout, caching, and thread safety
+    sources = get_news_domains_for_league(league_key)
     keywords = get_keywords_for_league(league_key)
     country = get_country_from_league(league_key)
 
@@ -2175,19 +2180,26 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         logging.error("run_hunter_for_match called with None match")
         return []
 
+    # VPS FIX: Extract Match attributes safely to prevent session detachment
+    # This prevents "Trust validation error" when Match object becomes detached
+    # from session due to connection pool recycling under high load
+    from src.utils.match_helper import extract_match_info
+
+    match_info = extract_match_info(match)
+
     # Validate match has required attributes
-    if not hasattr(match, "league") or not match.league:
+    if not match_info["league"]:
         logging.error("Match object missing 'league' attribute")
         return []
 
-    if not hasattr(match, "home_team") or not hasattr(match, "away_team"):
+    if not match_info["home_team"] or not match_info["away_team"]:
         logging.error("Match object missing team attributes")
         return []
 
     db = SessionLocal()
     try:
         # match.league contains the sport_key (e.g., 'soccer_argentina_primera_division')
-        sport_key = match.league
+        sport_key = match_info["league"]
 
         # Get language from country mapping
         country = get_country_from_league(sport_key)
@@ -2216,23 +2228,27 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
 
         # Get Aliases with safe attribute access
         try:
-            home_alias = db.query(TeamAlias).filter(TeamAlias.api_name == match.home_team).first()
-            away_alias = db.query(TeamAlias).filter(TeamAlias.api_name == match.away_team).first()
+            home_alias = (
+                db.query(TeamAlias).filter(TeamAlias.api_name == match_info["home_team"]).first()
+            )
+            away_alias = (
+                db.query(TeamAlias).filter(TeamAlias.api_name == match_info["away_team"]).first()
+            )
 
             home_search_name = (
                 home_alias.search_name
                 if home_alias and hasattr(home_alias, "search_name")
-                else match.home_team
+                else match_info["home_team"]
             )
             away_search_name = (
                 away_alias.search_name
                 if away_alias and hasattr(away_alias, "search_name")
-                else match.away_team
+                else match_info["away_team"]
             )
         except Exception as e:
             logging.warning(f"Failed to load team aliases: {e}")
-            home_search_name = match.home_team
-            away_search_name = match.away_team
+            home_search_name = match_info["home_team"]
+            away_search_name = match_info["away_team"]
 
         all_news: list[dict[str, Any]] = []
 
@@ -2245,7 +2261,7 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
 
             try:
                 browser_monitor_news = get_browser_monitor_news(
-                    match_id=match.id,
+                    match_id=match_info["match_id"],
                     team_names=[home_search_name, away_search_name],
                     league_key=sport_key,
                 )
@@ -2271,10 +2287,10 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
             try:
                 scraper = get_aleague_scraper()
                 if scraper.is_available():
-                    home_aleague_news = scraper.search_team_news(home_search_name, match.id)
+                    home_aleague_news = scraper.search_team_news(home_search_name, match_info["match_id"])
                     all_news.extend(home_aleague_news)
 
-                    away_aleague_news = scraper.search_team_news(away_search_name, match.id)
+                    away_aleague_news = scraper.search_team_news(away_search_name, match_info["match_id"])
                     all_news.extend(away_aleague_news)
 
                     aleague_count = len(home_aleague_news) + len(away_aleague_news)
@@ -2297,10 +2313,10 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         logging.info(f"⭐ Beat Writer Priority search for {sport_key}...")
 
         try:
-            home_bw_news = search_beat_writers_priority(home_search_name, sport_key, match.id)
+            home_bw_news = search_beat_writers_priority(home_search_name, sport_key, match_info["match_id"])
             all_news.extend(home_bw_news)
 
-            away_bw_news = search_beat_writers_priority(away_search_name, sport_key, match.id)
+            away_bw_news = search_beat_writers_priority(away_search_name, sport_key, match_info["match_id"])
             all_news.extend(away_bw_news)
 
             beat_writer_count = len(home_bw_news) + len(away_bw_news)
@@ -2316,11 +2332,11 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         # ============================================
         try:
             logging.info(f"🔍 Hunting news for Home: {home_search_name} [{sport_key}]")
-            home_news = search_news(home_search_name, lang, match.id, league_key=sport_key)
+            home_news = search_news(home_search_name, lang, match_info["match_id"], league_key=sport_key)
             all_news.extend(home_news)
 
             logging.info(f"🔍 Hunting news for Away: {away_search_name} [{sport_key}]")
-            away_news = search_news(away_search_name, lang, match.id, league_key=sport_key)
+            away_news = search_news(away_search_name, lang, match_info["match_id"], league_key=sport_key)
             all_news.extend(away_news)
         except Exception as e:
             logging.error(f"News search error: {e}")
@@ -2330,8 +2346,8 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         # ============================================
         if include_insiders:
             try:
-                home_insider_news = search_insiders(home_search_name, sport_key, match.id)
-                away_insider_news = search_insiders(away_search_name, sport_key, match.id)
+                home_insider_news = search_insiders(home_search_name, sport_key, match_info["match_id"])
+                away_insider_news = search_insiders(away_search_name, sport_key, match_info["match_id"])
 
                 insider_count = len(home_insider_news) + len(away_insider_news)
                 if insider_count > 0:
@@ -2430,7 +2446,7 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         # NEWS DECAY: Apply freshness multiplier
         # ============================================
         if _NEWS_DECAY_AVAILABLE and all_news:
-            _apply_news_decay(all_news, match, sport_key)
+            _apply_news_decay(all_news, match_info, sport_key)
 
         return all_news
 
@@ -2438,13 +2454,13 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         db.close()
 
 
-def _apply_news_decay(all_news: list[dict[str, Any]], match: MatchModel, sport_key: str) -> None:
+def _apply_news_decay(all_news: list[dict[str, Any]], match: MatchModel | dict[str, Any], sport_key: str) -> None:
     """
     Apply news decay multipliers to all news items.
 
     Args:
         all_news: List of news items to process
-        match: Match model for kickoff time calculation
+        match: Match model or dict with match info for kickoff time calculation
         sport_key: League key for decay rates
     """
     fresh_count = 0
@@ -2459,10 +2475,18 @@ def _apply_news_decay(all_news: list[dict[str, Any]], match: MatchModel, sport_k
 
     # Calculate minutes_to_kickoff
     minutes_to_kickoff: int | None = None
-    if hasattr(match, "start_time") and match.start_time:
+    start_time = None
+
+    # Handle both MatchModel and dict
+    if isinstance(match, dict):
+        start_time = match.get("start_time")
+    elif hasattr(match, "start_time"):
+        start_time = match.start_time
+
+    if start_time:
         try:
             now = datetime.now(timezone.utc)
-            match_start = match.start_time
+            match_start = start_time
             if match_start.tzinfo is None:
                 match_start = match_start.replace(tzinfo=timezone.utc)
 

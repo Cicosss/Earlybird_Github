@@ -8,6 +8,7 @@ Requirements: Refactored to inherit from BaseBudgetManager (V1.1)
 """
 
 import logging
+import threading
 
 from config.settings import (
     MEDIASTACK_BUDGET_ALLOCATION,
@@ -85,18 +86,25 @@ class MediaStackBudget(BaseBudgetManager):
 # ============================================
 
 _budget_instance: MediaStackBudget | None = None
+_budget_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_mediastack_budget() -> MediaStackBudget:
     """
     Get or create singleton MediaStackBudget instance.
 
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+
     Returns:
         Singleton instance of MediaStackBudget
     """
     global _budget_instance
     if _budget_instance is None:
-        _budget_instance = MediaStackBudget()
+        with _budget_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _budget_instance is None:
+                _budget_instance = MediaStackBudget()
     return _budget_instance
 
 

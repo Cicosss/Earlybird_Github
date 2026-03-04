@@ -3,18 +3,17 @@
 Analysis engines, verifiers, and optimization components.
 """
 
-from .analyzer import analyze_with_triangulation
-from .final_alert_verifier import get_final_verifier
-from .math_engine import MathPredictor, format_math_context
-from .optimizer import get_dynamic_alert_threshold, get_optimizer
-from .verification_layer import verify_alert
+# NOTE: Package-level export removed to avoid loading heavy modules (analyzer, etc.)
+# when importing from submodules. All imports should be done directly from modules:
+# - from src.analysis.analyzer import analyze_with_triangulation
+#     (instead of from src.analysis import analyze_with_triangulation)
+# - from src.analysis.math_engine import MathPredictor
+#     (instead of from src.analysis import MathPredictor)
+# - from src.analysis.optimizer import get_optimizer
+#     (instead of from src.analysis import get_optimizer)
+# - from src.analysis.verification_layer import verify_alert
+#     (instead of from src.analysis import verify_alert)
+# - from src.analysis.final_alert_verifier import get_final_verifier
+#     (instead of from src.analysis import get_final_verifier)
 
-__all__ = [
-    "analyze_with_triangulation",
-    "MathPredictor",
-    "format_math_context",
-    "get_optimizer",
-    "get_dynamic_alert_threshold",
-    "verify_alert",
-    "get_final_verifier",
-]
+__all__ = []

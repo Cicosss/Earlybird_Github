@@ -53,19 +53,20 @@ class TestTwitterIntelCacheIntegration:
             ),
         ]
 
-    def test_extract_twitter_intel_with_fresh_cache(
-        self, provider, mock_cache, sample_tweets
-    ):
+    def test_extract_twitter_intel_with_fresh_cache(self, provider, mock_cache, sample_tweets):
         """Test that extract_twitter_intel returns cached tweets when cache is fresh."""
         # Setup mock
         mock_cache.search_intel.return_value = sample_tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=5)
 
@@ -84,7 +85,9 @@ class TestTwitterIntelCacheIntegration:
 
         # Check metadata
         assert "_meta" in result, "Result should contain metadata"
-        assert result["_meta"]["source"] == "twitter_intel_cache", "Source should be twitter_intel_cache"
+        assert result["_meta"]["source"] == "twitter_intel_cache", (
+            "Source should be twitter_intel_cache"
+        )
         assert result["_meta"]["total_handles_requested"] == 1, "Should request 1 handle"
         assert result["_meta"]["accounts_returned"] == 1, "Should return 1 account"
 
@@ -94,12 +97,15 @@ class TestTwitterIntelCacheIntegration:
         mock_cache.is_fresh = False
         mock_cache.cache_age_minutes = 400
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=5)
 
@@ -131,12 +137,15 @@ class TestTwitterIntelCacheIntegration:
         mock_cache.is_fresh = True
         mock_cache.search_intel.return_value = []
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(
                 ["@valid", "", None, "invalid_no_at", "   "], max_posts_per_account=5
@@ -150,12 +159,15 @@ class TestTwitterIntelCacheIntegration:
         # Setup mock - no tweets found
         mock_cache.search_intel.return_value = []
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=5)
 
@@ -170,12 +182,15 @@ class TestTwitterIntelCacheIntegration:
         many_tweets = sample_tweets * 3  # 6 tweets
         mock_cache.search_intel.return_value = many_tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=3)
 
@@ -183,9 +198,7 @@ class TestTwitterIntelCacheIntegration:
         assert result is not None, "Result should not be None"
         assert len(result["accounts"][0]["posts"]) == 3, "Should limit to 3 posts"
 
-    def test_extract_twitter_intel_filters_by_topics(
-        self, provider, mock_cache
-    ):
+    def test_extract_twitter_intel_filters_by_topics(self, provider, mock_cache):
         """Test that extract_twitter_intel filters tweets by topics."""
         # Create tweets with different topics
         tweets = [
@@ -211,12 +224,15 @@ class TestTwitterIntelCacheIntegration:
 
         mock_cache.search_intel.return_value = tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=10)
 
@@ -225,10 +241,9 @@ class TestTwitterIntelCacheIntegration:
         # For now, we just verify that the method works
         assert result is not None, "Result should not be None"
 
-    def test_extract_twitter_intel_handles_multiple_accounts(
-        self, provider, mock_cache
-    ):
+    def test_extract_twitter_intel_handles_multiple_accounts(self, provider, mock_cache):
         """Test that extract_twitter_intel handles multiple accounts."""
+
         # Setup mock - return different tweets for each account
         def mock_search_intel(query, league_key, topics):
             if "user1" in query:
@@ -253,16 +268,17 @@ class TestTwitterIntelCacheIntegration:
 
         mock_cache.search_intel.side_effect = mock_search_intel
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
-            result = provider.extract_twitter_intel(
-                ["@user1", "@user2"], max_posts_per_account=5
-            )
+            result = provider.extract_twitter_intel(["@user1", "@user2"], max_posts_per_account=5)
 
         # Assertions
         assert result is not None, "Result should not be None"
@@ -271,23 +287,22 @@ class TestTwitterIntelCacheIntegration:
         assert "@user1" in handles, "Should include @user1"
         assert "@user2" in handles, "Should include @user2"
 
-    def test_extract_twitter_intel_metadata_is_complete(
-        self, provider, mock_cache, sample_tweets
-    ):
+    def test_extract_twitter_intel_metadata_is_complete(self, provider, mock_cache, sample_tweets):
         """Test that extract_twitter_intel correctly sets is_complete metadata."""
         mock_cache.search_intel.return_value = sample_tweets
 
         # Test with 50% coverage (2 accounts requested, 1 returned)
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
-            result = provider.extract_twitter_intel(
-                ["@user1", "@user2"], max_posts_per_account=5
-            )
+            result = provider.extract_twitter_intel(["@user1", "@user2"], max_posts_per_account=5)
 
         # Assertions
         assert result is not None, "Result should not be None"
@@ -307,19 +322,20 @@ class TestTwitterIntelCacheIntegration:
         # Assertions
         assert result is None, "Result should be None when provider is not available"
 
-    def test_extract_twitter_intel_exception_handling(
-        self, provider, mock_cache
-    ):
+    def test_extract_twitter_intel_exception_handling(self, provider, mock_cache):
         """Test that extract_twitter_intel handles exceptions gracefully."""
         # Setup mock to raise exception
         mock_cache.search_intel.side_effect = Exception("Test exception")
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=5)
 
@@ -332,12 +348,15 @@ class TestTwitterIntelCacheIntegration:
         """Test that extract_twitter_intel removes @ from handle when searching cache."""
         mock_cache.search_intel.return_value = sample_tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=5)
 
@@ -354,12 +373,15 @@ class TestTwitterIntelCacheIntegration:
         """Test that extract_twitter_intel handles handles without @ prefix."""
         mock_cache.search_intel.return_value = sample_tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["testuser"], max_posts_per_account=5)
 
@@ -377,36 +399,44 @@ class TestTwitterIntelCacheIntegration:
         """Test that extract_twitter_intel handles handles with whitespace."""
         mock_cache.search_intel.return_value = sample_tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["  @testuser  "], max_posts_per_account=5)
 
         # Assertions
         assert result is not None, "Result should not be None"
-        assert result["accounts"][0]["handle"] == "  @testuser  ", "Handle should be preserved as-is"
+        assert result["accounts"][0]["handle"] == "  @testuser  ", (
+            "Handle should be preserved as-is"
+        )
         # Verify that search_intel was called with handle without @ (whitespace preserved)
         mock_cache.search_intel.assert_called_once()
         call_args = mock_cache.search_intel.call_args
         # Note: The code only removes @, not whitespace
-        assert call_args[1]["query"] == "  testuser  ", "Should search with @ removed but whitespace preserved"
+        assert call_args[1]["query"] == "  testuser  ", (
+            "Should search with @ removed but whitespace preserved"
+        )
 
-    def test_extract_twitter_intel_post_structure(
-        self, provider, mock_cache, sample_tweets
-    ):
+    def test_extract_twitter_intel_post_structure(self, provider, mock_cache, sample_tweets):
         """Test that extract_twitter_intel returns posts with correct structure."""
         mock_cache.search_intel.return_value = sample_tweets
 
-        with patch(
-            "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
-            True,
-        ), patch(
-            "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
-            return_value=mock_cache,
+        with (
+            patch(
+                "src.ingestion.deepseek_intel_provider._TWITTER_INTEL_CACHE_AVAILABLE",
+                True,
+            ),
+            patch(
+                "src.ingestion.deepseek_intel_provider.get_twitter_intel_cache",
+                return_value=mock_cache,
+            ),
         ):
             result = provider.extract_twitter_intel(["@testuser"], max_posts_per_account=5)
 

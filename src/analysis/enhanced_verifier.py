@@ -20,7 +20,7 @@ class DataDiscrepancy:
 
     field: str
     fotmob_value: any
-    perplexity_value: any
+    intelligence_value: any  # V2.0: Changed from perplexity_value
     impact: str  # "LOW", "MEDIUM", "HIGH"
     description: str
 
@@ -74,9 +74,11 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
 
     def _detect_data_discrepancies(self, verification_result: dict) -> list[DataDiscrepancy]:
         """
-        Detect data discrepancies from Perplexity response.
+        Detect data discrepancies from IntelligenceRouter response.
 
         Looks for patterns indicating data differences between sources.
+
+        V2.0: Updated to use IntelligenceRouter instead of Perplexity
         """
         discrepancies = []
         rejection_reason = verification_result.get("rejection_reason", "")
@@ -131,9 +133,9 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
                         return DataDiscrepancy(
                             field=field,
                             fotmob_value="extracted_from_fotmob",
-                            perplexity_value="found_by_perplexity",
+                            intelligence_value="found_by_intelligence_router",  # V2.0: Changed from perplexity_value
                             impact=impact,
-                            description=f"Perplexity found different {field} data",
+                            description=f"IntelligenceRouter found different {field} data",  # V2.0: Changed from Perplexity
                         )
 
         return None

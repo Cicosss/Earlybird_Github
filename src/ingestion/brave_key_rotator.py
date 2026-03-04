@@ -9,6 +9,7 @@ Requirements: Duplicated from TavilyKeyRotator (V8.0)
 """
 
 import logging
+import threading
 from datetime import datetime, timezone
 
 from config.settings import BRAVE_API_KEYS
@@ -259,13 +260,22 @@ class BraveKeyRotator:
 # ============================================
 
 _key_rotator_instance: BraveKeyRotator | None = None
+_key_rotator_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_brave_key_rotator() -> BraveKeyRotator:
-    """Get or create singleton BraveKeyRotator instance."""
+    """
+    Get or create singleton BraveKeyRotator instance.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _key_rotator_instance
     if _key_rotator_instance is None:
-        _key_rotator_instance = BraveKeyRotator()
+        with _key_rotator_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _key_rotator_instance is None:
+                _key_rotator_instance = BraveKeyRotator()
     return _key_rotator_instance
 
 

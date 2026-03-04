@@ -1,9 +1,10 @@
 """
-EarlyBird Intelligence Router - V7.0 (DeepSeek + Tavily)
+EarlyBird Intelligence Router - V8.0 (DeepSeek + Tavily + Claude 3 Haiku)
 
 Routes intelligence requests to DeepSeek provider with Tavily pre-enrichment.
-Perplexity available as optional fallback for non-critical failures.
+Three-level fallback: DeepSeek (primary) → Tavily (fallback 1) → Claude 3 Haiku (fallback 2).
 
+V8.0: Added Claude 3 Haiku as third-level fallback via OpenRouter
 V7.0: Added Tavily AI Search for match context enrichment before DeepSeek
 V6.0: DeepSeek as sole primary provider (no cooldown needed - high rate limits)
 V5.1: Added DeepSeekIntelProvider as primary provider (replaces Gemini)
@@ -13,6 +14,7 @@ Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4
 """
 
 import logging
+import threading
 from collections.abc import Callable
 from typing import Any
 
@@ -21,37 +23,40 @@ logger = logging.getLogger(__name__)
 
 class IntelligenceRouter:
     """
-    Routes intelligence requests to DeepSeek (primary) with Tavily pre-enrichment.
+    Routes intelligence requests to DeepSeek (primary) with three-level fallback.
 
+    V8.0: Three-level fallback - DeepSeek → Tavily → Claude 3 Haiku
     V7.0: Tavily AI Search for match context enrichment before DeepSeek analysis.
     V6.0: Simplified routing - DeepSeek has high rate limits, no cooldown needed.
-    Perplexity used only as fallback for transient errors.
 
     Requirements: 2.1-2.6, 3.1-3.4
     """
 
     def __init__(self):
         """
-        Initialize IntelligenceRouter with DeepSeek as primary provider and Tavily for enrichment.
+        Initialize IntelligenceRouter with three-level fallback.
 
         Requirements: 2.1-2.4, 3.1
         """
         # Import here to avoid circular dependencies
         from src.ingestion.deepseek_intel_provider import get_deepseek_provider
-        from src.ingestion.perplexity_provider import get_perplexity_provider
+        from src.ingestion.openrouter_fallback_provider import get_openrouter_fallback_provider
         from src.ingestion.tavily_budget import get_budget_manager
         from src.ingestion.tavily_provider import get_tavily_provider
         from src.ingestion.tavily_query_builder import TavilyQueryBuilder
 
         self._primary_provider = get_deepseek_provider()
-        self._fallback_provider = get_perplexity_provider()
+        self._fallback_1_provider = get_tavily_provider()  # Tavily
+        self._fallback_2_provider = get_openrouter_fallback_provider()  # Claude 3 Haiku
         self._tavily = get_tavily_provider()
         self._tavily_query_builder = TavilyQueryBuilder
         self._budget_manager = get_budget_manager()
 
-        tavily_status = "enabled" if self._tavily.is_available() else "disabled"
+        fallback_1_status = "enabled" if self._fallback_1_provider.is_available() else "disabled"
+        fallback_2_status = "enabled" if self._fallback_2_provider.is_available() else "disabled"
         logger.info(
-            f"🔀 IntelligenceRouter V7.0 initialized (DeepSeek primary, Tavily {tavily_status}, Perplexity fallback)"
+            f"🔀 IntelligenceRouter V8.0 initialized "
+            f"(DeepSeek primary, Tavily {fallback_1_status}, Claude 3 Haiku {fallback_2_status})"
         )
 
     # ============================================
@@ -90,18 +95,25 @@ class IntelligenceRouter:
     # ============================================
 
     def _route_request(
-        self, operation: str, primary_func: Callable, fallback_func: Callable, *args, **kwargs
+        self,
+        operation: str,
+        primary_func: Callable,
+        fallback_1_func: Callable,
+        fallback_2_func: Callable,
+        *args,
+        **kwargs,
     ) -> Any | None:
         """
-        Route a request to DeepSeek, with Perplexity as optional fallback.
+        Route a request with three-level fallback.
 
-        V6.0: Simplified routing - DeepSeek primary, Perplexity fallback on errors.
+        V8.0: Three-level fallback - DeepSeek → Tavily → Claude 3 Haiku
         No cooldown management needed (DeepSeek has high rate limits).
 
         Args:
             operation: Name of the operation for logging
             primary_func: Primary provider (DeepSeek) method to call
-            fallback_func: Fallback provider (Perplexity) method to call
+            fallback_1_func: Fallback 1 provider (Tavily) method to call
+            fallback_2_func: Fallback 2 provider (Claude 3 Haiku) method to call
             *args, **kwargs: Arguments to pass to the provider method
 
         Returns:
@@ -114,14 +126,22 @@ class IntelligenceRouter:
             result = primary_func(*args, **kwargs)
             return result
         except Exception as e:
-            logger.warning(f"⚠️ [DEEPSEEK] {operation} failed: {e}, trying Perplexity fallback...")
+            logger.warning(f"⚠️ [DEEPSEEK] {operation} failed: {e}, trying Tavily fallback...")
 
-            # Fall back to Perplexity on any error
+            # Fall back to Tavily
             try:
-                return fallback_func(*args, **kwargs)
-            except Exception as perplexity_error:
-                logger.warning(f"⚠️ [PERPLEXITY] {operation} fallback failed: {perplexity_error}")
-                return None
+                return fallback_1_func(*args, **kwargs)
+            except Exception as tavily_error:
+                logger.warning(
+                    f"⚠️ [TAVILY] {operation} fallback failed: {tavily_error}, trying Claude 3 Haiku fallback..."
+                )
+
+                # Fall back to Claude 3 Haiku
+                try:
+                    return fallback_2_func(*args, **kwargs)
+                except Exception as claude_error:
+                    logger.warning(f"⚠️ [CLAUDE] {operation} fallback failed: {claude_error}")
+                    return None
 
     # ============================================
     # PROXIED METHODS - Same interface as GeminiAgentProvider/DeepSeekIntelProvider
@@ -138,7 +158,8 @@ class IntelligenceRouter:
         """
         Get deep analysis for a match.
 
-        Routes to active provider based on cooldown state.
+        Routes to DeepSeek (primary) → Claude 3 Haiku (fallback).
+        Tavily is NOT used as fallback because it doesn't have get_match_deep_dive() method.
 
         Args:
             home_team: Home team name
@@ -157,9 +178,10 @@ class IntelligenceRouter:
             primary_func=lambda: self._primary_provider.get_match_deep_dive(
                 home_team, away_team, match_date, referee, missing_players
             ),
-            fallback_func=lambda: self._fallback_provider.get_match_deep_dive(
+            fallback_1_func=lambda: self._fallback_2_provider.get_match_deep_dive(
                 home_team, away_team, match_date, referee, missing_players
             ),
+            fallback_2_func=None,  # No third fallback for deep dive
         )
 
     def verify_news_item(
@@ -173,7 +195,8 @@ class IntelligenceRouter:
         """
         Verify a news item using web search.
 
-        Routes to active provider based on cooldown state.
+        Routes to DeepSeek (primary) → Claude 3 Haiku (fallback).
+        Tavily is NOT used as fallback because it doesn't have verify_news_item() method.
 
         Args:
             news_title: Title of the news article
@@ -192,9 +215,10 @@ class IntelligenceRouter:
             primary_func=lambda: self._primary_provider.verify_news_item(
                 news_title, news_snippet, team_name, news_source, match_context
             ),
-            fallback_func=lambda: self._fallback_provider.verify_news_item(
+            fallback_1_func=lambda: self._fallback_2_provider.verify_news_item(
                 news_title, news_snippet, team_name, news_source, match_context
             ),
+            fallback_2_func=None,  # No third fallback for news verification
         )
 
     def verify_news_batch(
@@ -208,6 +232,7 @@ class IntelligenceRouter:
         Verify multiple news items with Tavily pre-filtering.
 
         V7.0: Uses Tavily as pre-filter before DeepSeek verification.
+        V8.1: Fixed fallback routing - Tavily doesn't have verify_news_batch() method.
 
         Args:
             news_items: List of news item dicts
@@ -226,15 +251,17 @@ class IntelligenceRouter:
         # Step 1: Pre-filter with Tavily
         prefiltered_items = self._tavily_prefilter_news(news_items, team_name)
 
-        # Step 2: Route to DeepSeek/Perplexity for full verification
+        # Step 2: Route to DeepSeek → Claude 3 Haiku for full verification
+        # Tavily is NOT used as fallback because it doesn't have verify_news_batch() method
         result = self._route_request(
             operation="news_batch_verification",
             primary_func=lambda: self._primary_provider.verify_news_batch(
                 prefiltered_items, team_name, match_context, max_items
             ),
-            fallback_func=lambda: self._fallback_provider.verify_news_batch(
+            fallback_1_func=lambda: self._fallback_2_provider.verify_news_batch(
                 prefiltered_items, team_name, match_context, max_items
             ),
+            fallback_2_func=None,  # No third fallback for news batch verification
         )
 
         # Return original items if routing failed
@@ -246,7 +273,8 @@ class IntelligenceRouter:
         """
         Get corner/cards statistics for combo enrichment.
 
-        Routes to active provider based on cooldown state.
+        Routes to DeepSeek (primary) → Claude 3 Haiku (fallback).
+        Tavily is NOT used as fallback because it doesn't have get_betting_stats() method.
 
         Args:
             home_team: Home team name
@@ -264,9 +292,10 @@ class IntelligenceRouter:
             primary_func=lambda: self._primary_provider.get_betting_stats(
                 home_team, away_team, match_date, league
             ),
-            fallback_func=lambda: self._fallback_provider.get_betting_stats(
+            fallback_1_func=lambda: self._fallback_2_provider.get_betting_stats(
                 home_team, away_team, match_date, league
             ),
+            fallback_2_func=None,  # No third fallback for betting stats
         )
 
     def confirm_biscotto(
@@ -285,6 +314,7 @@ class IntelligenceRouter:
         Confirm uncertain biscotto signal with Tavily evidence search.
 
         V7.0: Uses Tavily to search for mutual benefit evidence before DeepSeek.
+        V8.1: Fixed fallback routing - Tavily doesn't have confirm_biscotto() method.
 
         Args:
             home_team: Home team name
@@ -307,7 +337,8 @@ class IntelligenceRouter:
             home_team=home_team, away_team=away_team, league=league, season_context=season_context
         )
 
-        # Step 2: Route to DeepSeek/Perplexity for confirmation
+        # Step 2: Route to DeepSeek → Claude 3 Haiku for confirmation
+        # Tavily is NOT used as fallback because it doesn't have confirm_biscotto() method
         result = self._route_request(
             operation="biscotto_confirmation",
             primary_func=lambda: self._primary_provider.confirm_biscotto(
@@ -321,7 +352,7 @@ class IntelligenceRouter:
                 season_context,
                 detected_factors,
             ),
-            fallback_func=lambda: self._fallback_provider.confirm_biscotto(
+            fallback_1_func=lambda: self._fallback_2_provider.confirm_biscotto(
                 home_team,
                 away_team,
                 match_date,
@@ -332,6 +363,7 @@ class IntelligenceRouter:
                 season_context,
                 detected_factors,
             ),
+            fallback_2_func=None,  # No third fallback for biscotto confirmation
         )
 
         # Step 3: Merge Tavily evidence into result
@@ -342,6 +374,36 @@ class IntelligenceRouter:
             result["tavily_enriched"] = False
 
         return result
+
+    def verify_final_alert(self, verification_prompt: str) -> dict | None:
+        """
+        Verify final alert using AI providers without web search.
+
+        This method is designed for FinalAlertVerifier which provides
+        a comprehensive verification prompt with all match data, analysis,
+        and context. No web search is performed as all information
+        is already included in the prompt.
+
+        Routes to DeepSeek (primary) → Claude 3 Haiku (fallback).
+        Tavily is NOT used as fallback because it doesn't have verify_final_alert() method.
+
+        Args:
+            verification_prompt: Complete verification prompt with match data,
+                               analysis, reasoning, and context
+
+        Returns:
+            Dict with verification result or None on failure
+
+        Requirements: 2.6
+        """
+        return self._route_request(
+            operation="final_alert_verification",
+            primary_func=lambda: self._primary_provider.verify_final_alert(verification_prompt),
+            fallback_1_func=lambda: self._fallback_2_provider.verify_final_alert(
+                verification_prompt
+            ),
+            fallback_2_func=None,  # No third fallback for final alert verification
+        )
 
     def format_for_prompt(self, deep_dive: dict | None) -> str:
         """
@@ -700,13 +762,20 @@ class IntelligenceRouter:
 # ============================================
 
 _intelligence_router_instance: IntelligenceRouter | None = None
+_intelligence_router_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_intelligence_router() -> IntelligenceRouter:
-    """Get or create the singleton IntelligenceRouter instance."""
+    """
+    Get or create the singleton IntelligenceRouter instance.
+
+    Thread-safe implementation using double-checked locking pattern.
+    """
     global _intelligence_router_instance
     if _intelligence_router_instance is None:
-        _intelligence_router_instance = IntelligenceRouter()
+        with _intelligence_router_instance_init_lock:
+            if _intelligence_router_instance is None:
+                _intelligence_router_instance = IntelligenceRouter()
     return _intelligence_router_instance
 
 

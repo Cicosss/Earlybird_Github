@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/article_reader.py
+# hypothesis_version: 6.151.4
+
+[100, 200, 403, 429, 500, 2000, 'ArticleReader', 'browser', 'chrome', 'deep_dive', 'deep_dive_method', 'deep_dive_trigger', 'http', 'ignore', 'item', 'link', 'method', 'snippet', 'success', 'text', 'title', 'trigger', 'twitter.com', 'url', 'utf-8', 'x.com']

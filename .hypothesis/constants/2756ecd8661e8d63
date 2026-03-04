@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/schemas/perplexity_schemas.py
+# hypothesis_version: 6.151.4
+
+['Aggressive', 'Cards signal level', 'Corner signal level', 'Critical', 'Disciplined', 'High', 'League table context', 'Lenient', 'Low', 'Manageable', 'Medium', 'Negative', 'Neutral', 'No', 'No bet', 'Positive', 'Referee name', 'Strict', 'Unknown', 'Yes', 'away_draws_corrected', 'away_form_draws', 'away_form_losses', 'away_form_wins', 'away_wins_corrected', 'biscotto_potential', 'btts_impact', 'cards_signal', 'corners_signal', 'data_confidence', 'home_draws_corrected', 'home_form_draws', 'home_form_losses', 'home_form_wins', 'home_wins_corrected', 'injury_impact', 'internal_crisis', 'match_intensity', 'motivation_away', 'motivation_home', 'referee_intel', 'referee_strictness', 'turnover_risk']

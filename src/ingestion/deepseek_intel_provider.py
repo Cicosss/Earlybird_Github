@@ -1103,6 +1103,143 @@ Be conservative in your assessments when lacking current data.
             logger.error(f"❌ [DEEPSEEK] Biscotto confirmation error: {e}")
             return None
 
+    def verify_final_alert(self, verification_prompt: str) -> dict | None:
+        """
+        Verify final alert using DeepSeek without web search.
+
+        This method is designed for FinalAlertVerifier which provides
+        a comprehensive verification prompt with all match data, analysis,
+        and context. No web search is performed as all information
+        is already included in the prompt.
+
+        Args:
+            verification_prompt: Complete verification prompt with match data,
+                               analysis, reasoning, and context
+
+        Returns:
+            Dict with verification result or None on failure
+
+        Requirements: 2.6
+        """
+        if not self.is_available():
+            logger.debug("[DEEPSEEK] Provider not available for final alert verification")
+            return None
+
+        # Validate input
+        if not verification_prompt or not verification_prompt.strip():
+            logger.debug("[DEEPSEEK] Final alert verification skipped: empty prompt")
+            return None
+
+        try:
+            logger.info("🔍 [DEEPSEEK] Verifying final alert...")
+
+            # Call DeepSeek with the verification prompt
+            # Use Model B (Reasoner) for final verification as it requires careful analysis
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are a professional betting analyst and fact-checker with 10+ years of experience in sports betting and football analysis. Respond ONLY with valid JSON in the format specified in the user prompt. No markdown, no explanations.",
+                },
+                {"role": "user", "content": verification_prompt},
+            ]
+
+            response_text = self.call_reasoner_model(
+                messages,
+                temperature=0.1,
+                max_tokens=2000,
+                operation_name="final_alert_verification",
+            )
+
+            if not response_text:
+                return None
+
+            # Parse the JSON response
+            parsed = parse_ai_json(response_text, None)
+            if not parsed:
+                logger.warning("[DEEPSEEK] Failed to parse final alert verification response")
+                return None
+
+            # Normalize the response to ensure all required fields are present
+            result = self._normalize_final_alert_verification(parsed)
+            status = result.get("verification_status", "UNKNOWN")
+            should_send = result.get("should_send", False)
+
+            logger.info(
+                f"✅ [DEEPSEEK] Final alert verification: {status}, should_send={should_send}"
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ [DEEPSEEK] Final alert verification error: {e}")
+            return None
+
+    def _normalize_final_alert_verification(self, data: dict) -> dict:
+        """Normalize final alert verification response with safe defaults."""
+
+        def safe_bool(val, default=False):
+            if val is None:
+                return default
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, str):
+                return val.lower() in ("true", "yes", "si", "1", "confirmed")
+            return default
+
+        def safe_int(val, default=0, min_val=0, max_val=10):
+            if val is None:
+                return default
+            try:
+                result = int(val)
+                return max(min_val, min(max_val, result))
+            except (ValueError, TypeError):
+                return default
+
+        def safe_str(val, default="Unknown"):
+            if val is None or val == "":
+                return default
+            return str(val)
+
+        def safe_list(val, default=None):
+            if default is None:
+                default = []
+            if val is None:
+                return default
+            if isinstance(val, list):
+                return [str(v) for v in val if v]
+            if isinstance(val, str):
+                return [val]
+            return default
+
+        return {
+            "verification_status": safe_str(data.get("verification_status"), "NEEDS_REVIEW"),
+            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
+            "should_send": safe_bool(data.get("should_send"), False),
+            "logic_score": safe_int(data.get("logic_score"), 5, 0, 10),
+            "data_accuracy_score": safe_int(data.get("data_accuracy_score"), 5, 0, 10),
+            "reasoning_quality_score": safe_int(data.get("reasoning_quality_score"), 5, 0, 10),
+            "market_validation": safe_str(data.get("market_validation"), "QUESTIONABLE"),
+            "key_strengths": safe_list(data.get("key_strengths")),
+            "key_weaknesses": safe_list(data.get("key_weaknesses")),
+            "missing_information": safe_list(data.get("missing_information")),
+            "rejection_reason": safe_str(data.get("rejection_reason"), ""),
+            "final_recommendation": safe_str(data.get("final_recommendation"), "NO_BET"),
+            "suggested_modifications": safe_str(data.get("suggested_modifications"), ""),
+            "data_discrepancies": safe_list(data.get("data_discrepancies")),
+            "discrepancy_impact": safe_str(data.get("discrepancy_impact"), "MINOR"),
+            "adjusted_score_if_discrepancy": safe_int(
+                data.get("adjusted_score_if_discrepancy"), 5, 0, 10
+            ),
+            "source_verification": {
+                "source_confirmed": safe_bool(data.get("source_confirmed"), False),
+                "cross_source_found": safe_bool(data.get("cross_source_found"), False),
+                "source_bias_detected": safe_bool(data.get("source_bias_detected"), False),
+                "source_reliability_adjusted": safe_str(
+                    data.get("source_reliability_adjusted"), "LOW"
+                ),
+                "verification_issues": safe_list(data.get("verification_issues")),
+            },
+        }
+
     def enrich_match_context(
         self,
         home_team: str,

@@ -29,7 +29,9 @@ import json
 import logging
 import os
 import re
+import subprocess
 import time
+import traceback
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -84,7 +86,23 @@ try:
 except ImportError:
     _CROSS_VALIDATOR_AVAILABLE = False
 
+# V12.1: playwright-stealth import with fallback (COVE FIX)
+try:
+    from playwright_stealth import Stealth
+
+    STEALTH_AVAILABLE = True
+except ImportError:
+    STEALTH_AVAILABLE = False
+    Stealth = None
+
+# V11.0: Import DiscoveryQueue for GlobalRadarMonitor intelligence queue
+from src.utils.discovery_queue import DiscoveryQueue
+
 logger = logging.getLogger(__name__)
+
+# V12.1: Log stealth availability (COVE FIX)
+if not STEALTH_AVAILABLE:
+    logger.warning("⚠️ [NEWS-RADAR] playwright-stealth not installed, running without stealth")
 
 # Configuration constants
 DEFAULT_CONFIG_FILE = "config/news_radar_sources.json"
@@ -637,11 +655,28 @@ def load_config_from_supabase() -> RadarConfig:
     Returns:
         RadarConfig with web-only sources from Supabase
     """
+    import time
+
     try:
         from src.database.supabase_provider import SupabaseProvider
 
+        logger.info("🔄 [NEWS-RADAR] Initializing Supabase provider...")
+        start = time.time()
         provider = SupabaseProvider()
+        init_time = time.time() - start
+        logger.info(f"✅ [NEWS-RADAR] SupabaseProvider initialized in {init_time:.2f}s")
+
+        if not provider.is_connected():
+            logger.error(
+                f"❌ [NEWS-RADAR] Supabase connection failed: {provider.get_connection_error()}"
+            )
+            return RadarConfig()
+
+        logger.info("✅ [NEWS-RADAR] Supabase connected, fetching news sources...")
+        start = time.time()
         all_sources = provider.fetch_all_news_sources()
+        fetch_time = time.time() - start
+        logger.info(f"✅ [NEWS-RADAR] Fetched {len(all_sources)} sources in {fetch_time:.2f}s")
 
         if not all_sources:
             logger.warning("⚠️ [NEWS-RADAR] No news sources found in Supabase")
@@ -760,15 +795,104 @@ class ContentExtractor:
         self._browser_extractions = 0
         self._failed_extractions = 0
 
+    def _diagnose_playwright_installation(self) -> dict:
+        """
+        Diagnose Playwright installation status.
+
+        Checks:
+        - Playwright Python package installation
+        - Chromium browser binaries
+        - System dependencies
+
+        Returns dict with diagnostic results.
+        """
+        diagnostics = {
+            "playwright_installed": False,
+            "chromium_binaries_installed": False,
+            "system_dependencies_installed": False,
+            "details": [],
+        }
+
+        # Check Playwright Python package
+        try:
+            import playwright
+
+            diagnostics["playwright_installed"] = True
+            # V12.5: Add error handling for version access (COVE FIX 2026-03-04)
+            # Playwright 1.58.0 removed __version__ from main module
+            try:
+                version = playwright.__version__
+                diagnostics["details"].append(f"✅ Playwright v{version} installed")
+            except AttributeError:
+                # Fallback: try to get version from _repo_version
+                try:
+                    from playwright._repo_version import __version__
+
+                    diagnostics["details"].append(f"✅ Playwright v{__version__} installed")
+                except (ImportError, AttributeError):
+                    diagnostics["details"].append("✅ Playwright installed (version unknown)")
+        except ImportError:
+            diagnostics["details"].append("❌ Playwright Python package not installed")
+            return diagnostics
+
+        # Check Chromium binaries using subprocess
+        try:
+            result = subprocess.run(
+                ["python", "-m", "playwright", "install", "--dry-run", "chromium"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                diagnostics["chromium_binaries_installed"] = True
+                diagnostics["details"].append("✅ Chromium browser binaries installed")
+            else:
+                diagnostics["details"].append(
+                    "❌ Chromium binaries not installed (run: python -m playwright install chromium)"
+                )
+        except subprocess.TimeoutExpired:
+            diagnostics["details"].append("⚠️ Timeout checking Chromium binaries")
+        except Exception as e:
+            diagnostics["details"].append(f"⚠️ Error checking Chromium binaries: {e}")
+
+        # Check system dependencies using subprocess
+        try:
+            result = subprocess.run(
+                ["python", "-m", "playwright", "install-deps", "--dry-run", "chromium"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                diagnostics["system_dependencies_installed"] = True
+                diagnostics["details"].append("✅ System dependencies installed")
+            else:
+                diagnostics["details"].append(
+                    "❌ System dependencies not installed (run: python -m playwright install-deps chromium)"
+                )
+        except subprocess.TimeoutExpired:
+            diagnostics["details"].append("⚠️ Timeout checking system dependencies")
+        except Exception as e:
+            diagnostics["details"].append(f"⚠️ Error checking system dependencies: {e}")
+
+        return diagnostics
+
     async def initialize(self) -> bool:
         """
         Initialize Playwright browser (optional).
 
         V7.4: Now returns True even without Playwright - HTTP-only mode is supported.
         Playwright is optional and provides fallback for JS-heavy sites.
+        V13.0: Added diagnostic logging for Playwright installation status.
 
         Returns True if initialized successfully (HTTP-only or with Playwright).
         """
+        # Run diagnostics before attempting initialization
+        logger.info("🔍 [NEWS-RADAR] Running Playwright diagnostics...")
+        diagnostics = self._diagnose_playwright_installation()
+        for detail in diagnostics["details"]:
+            logger.info(f"   {detail}")
+
         try:
             from playwright.async_api import async_playwright
 
@@ -799,9 +923,23 @@ class ContentExtractor:
             # V7.4: Playwright is optional - HTTP-only mode works for most sites
             logger.warning("⚠️ [NEWS-RADAR] Playwright not installed - running in HTTP-only mode")
             logger.info("   HTTP + Trafilatura will be used for content extraction")
+            logger.info(
+                "   To enable browser extraction: pip install playwright && python -m playwright install chromium"
+            )
             return True  # Continue without Playwright
         except Exception as e:
-            logger.error(f"❌ [NEWS-RADAR] Failed to initialize Playwright: {e}")
+            logger.error(
+                f"❌ [NEWS-RADAR] Failed to initialize Playwright: {type(e).__name__}: {e}"
+            )
+            logger.debug(f"   Traceback:\n{traceback.format_exc()}")
+            logger.info("   Troubleshooting:")
+            logger.info(
+                "   1. Check if Chromium binaries are installed: python -m playwright install chromium"
+            )
+            logger.info(
+                "   2. Check system dependencies: python -m playwright install-deps chromium"
+            )
+            logger.info("   3. Verify VPS resources (CPU, RAM)")
             return False
 
     async def shutdown(self) -> None:
@@ -837,6 +975,7 @@ class ContentExtractor:
         but self._browser is not None, causing TargetClosedError on new_page().
 
         V1.3: Uses asyncio.Lock to serialize browser recreation across coroutines.
+        V13.0: Added detailed logging with traceback for debugging.
 
         Returns:
             True if browser is available and connected, False otherwise
@@ -862,7 +1001,9 @@ class ContentExtractor:
                     return await self._recreate_browser_internal()
             except Exception as e:
                 # is_connected() itself failed - browser is in bad state
-                logger.warning(f"⚠️ [NEWS-RADAR] Browser state check failed: {e}, recreating...")
+                logger.error(f"❌ [NEWS-RADAR] Browser state check failed: {type(e).__name__}: {e}")
+                logger.debug(f"   Traceback:\n{traceback.format_exc()}")
+                logger.warning("⚠️ [NEWS-RADAR] Browser in bad state, attempting to recreate...")
                 return await self._recreate_browser_internal()
 
             return True
@@ -873,6 +1014,7 @@ class ContentExtractor:
 
         Safely closes existing resources and reinitializes Playwright.
         IMPORTANT: This method assumes the caller holds self._browser_lock.
+        V13.0: Added detailed logging with traceback for debugging.
 
         Returns:
             True if browser was successfully recreated
@@ -883,8 +1025,8 @@ class ContentExtractor:
         if self._browser:
             try:
                 await self._browser.close()
-            except Exception:
-                pass  # Ignore errors on already-closed browser
+            except Exception as e:
+                logger.debug(f"⚠️ [NEWS-RADAR] Error closing existing browser: {e}")
             self._browser = None
 
         # Recreate browser using existing playwright instance
@@ -904,12 +1046,17 @@ class ContentExtractor:
                 logger.info("✅ [NEWS-RADAR] Browser recreated successfully")
                 return True
             except Exception as e:
-                logger.error(f"❌ [NEWS-RADAR] Failed to recreate browser: {e}")
+                logger.error(f"❌ [NEWS-RADAR] Failed to recreate browser: {type(e).__name__}: {e}")
+                logger.debug(f"   Traceback:\n{traceback.format_exc()}")
+                logger.warning("⚠️ [NEWS-RADAR] Attempting full reinitialization...")
                 # Try full reinitialization
                 await self.shutdown()
                 return await self.initialize()
         else:
             # No playwright instance, do full initialization
+            logger.warning(
+                "⚠️ [NEWS-RADAR] No Playwright instance, attempting full initialization..."
+            )
             return await self.initialize()
 
     def _extract_with_trafilatura(self, html: str) -> str | None:
@@ -1023,14 +1170,18 @@ class ContentExtractor:
             page = await self._browser.new_page()
             await page.set_viewport_size({"width": 1280, "height": 720})
 
-            # Apply stealth if available
-            try:
-                from playwright_stealth import Stealth
-
-                stealth = Stealth()
-                await stealth.apply_stealth_async(page)
-            except ImportError:
-                pass
+            # V12.1: Apply stealth if available (COVE FIX)
+            if STEALTH_AVAILABLE and Stealth is not None:
+                try:
+                    stealth = Stealth()
+                    await stealth.apply_stealth_async(page)
+                    logger.debug("🥷 [NEWS-RADAR] Stealth mode applied")
+                except Exception as e:
+                    logger.warning(f"⚠️ [NEWS-RADAR] Stealth failed: {e}")
+            else:
+                logger.debug(
+                    "⚠️ [NEWS-RADAR] playwright-stealth not available, continuing without stealth"
+                )
 
             # Navigate
             timeout_ms = self._page_timeout * 1000
@@ -1051,10 +1202,15 @@ class ContentExtractor:
             return text
 
         except asyncio.TimeoutError:
-            logger.warning(f"⚠️ [NEWS-RADAR] Browser timeout: {url[:60]}...")
+            logger.warning(
+                f"⚠️ [NEWS-RADAR] Browser timeout after {self._page_timeout}s: {url[:60]}..."
+            )
+            logger.debug(f"   Full URL: {url}")
             return None
         except Exception as e:
-            logger.warning(f"⚠️ [NEWS-RADAR] Browser extraction error: {e}")
+            logger.error(f"❌ [NEWS-RADAR] Browser extraction error: {type(e).__name__}: {e}")
+            logger.error(f"   URL: {url}")
+            logger.debug(f"   Traceback:\n{traceback.format_exc()}")
             return None
         finally:
             if page:
@@ -1125,14 +1281,18 @@ class ContentExtractor:
                 page = await self._browser.new_page()
                 await page.set_viewport_size({"width": 1280, "height": 720})
 
-                # Apply stealth if available
-                try:
-                    from playwright_stealth import Stealth
-
-                    stealth = Stealth()
-                    await stealth.apply_stealth_async(page)
-                except ImportError:
-                    pass
+                # V12.1: Apply stealth if available (COVE FIX)
+                if STEALTH_AVAILABLE and Stealth is not None:
+                    try:
+                        stealth = Stealth()
+                        await stealth.apply_stealth_async(page)
+                        logger.debug("🥷 [NEWS-RADAR] Stealth mode applied")
+                    except Exception as e:
+                        logger.warning(f"[NEWS-RADAR] Stealth failed: {e}")
+                else:
+                    logger.debug(
+                        "[NEWS-RADAR] playwright-stealth not available, continuing without stealth"
+                    )
 
                 # Navigate to main page
                 timeout_ms = self._page_timeout * 1000
@@ -1896,7 +2056,8 @@ class NewsRadarMonitor:
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
         # V8.0: Lock for async-safe cache writing (prevents race conditions in concurrent scanning)
-        self._cache_lock: asyncio.Lock | None = None
+        # V12.0 FIX: Initialize lock in __init__ to prevent lazy initialization race condition
+        self._cache_lock = asyncio.Lock()
 
         # V9.0: Supabase hot reload polling
         self._last_supabase_check = 0.0
@@ -1977,8 +2138,8 @@ class NewsRadarMonitor:
                 self._tavily_budget = None
                 logger.debug("⚠️ [NEWS-RADAR] Tavily not available")
 
-            # V8.0: Initialize cache lock for async-safe concurrent scanning
-            self._cache_lock = asyncio.Lock()
+            # V12.0 FIX: Cache lock now initialized in __init__ to prevent race condition
+            # No need to initialize here anymore
 
             # Start scan loop
             self._running = True
@@ -2265,27 +2426,36 @@ class NewsRadarMonitor:
                         alert = await self.scan_source(source)
                         chunk_scanned += 1
 
-                        # V8.0: Async-safe cache writing with lock
-                        # V9.0: Added timeout to prevent deadlock
+                        # V8.0: Async-safe counter increment with lock
+                        # V12.0: Fixed async lock usage - use try/finally instead of async with
                         if alert:
                             try:
-                                if self._cache_lock is None:
-                                    self._cache_lock = asyncio.Lock()
+                                # Send alert first (I/O operation, no lock needed)
+                                alert_sent = False
+                                if self._alerter:
+                                    alert_sent = await asyncio.wait_for(
+                                        self._alerter.send_alert(alert), timeout=10.0
+                                    )
 
-                                async with asyncio.wait_for(
-                                    self._cache_lock.acquire(), timeout=5.0
-                                ):
+                                # Then acquire lock only for counter increment (minimal lock time)
+                                if alert_sent:
+                                    # V12.0 FIX: Lock is now initialized in __init__, no race condition
                                     try:
-                                        if self._alerter and await asyncio.wait_for(
-                                            self._alerter.send_alert(alert), timeout=10.0
-                                        ):
+                                        await asyncio.wait_for(
+                                            self._cache_lock.acquire(), timeout=5.0
+                                        )
+                                        try:
                                             chunk_alerts += 1
                                             self._alerts_sent += 1
-                                    finally:
-                                        self._cache_lock.release()
+                                        finally:
+                                            self._cache_lock.release()
+                                    except asyncio.TimeoutError:
+                                        logger.warning(
+                                            f"⚠️ [NEWS-RADAR] Chunk {chunk_id + 1} failed to acquire lock for counter increment"
+                                        )
                             except asyncio.TimeoutError:
                                 logger.warning(
-                                    f"⚠️ [NEWS-RADAR] Chunk {chunk_id + 1} alert send timeout (possible deadlock)"
+                                    f"⚠️ [NEWS-RADAR] Chunk {chunk_id + 1} alert send timeout"
                                 )
 
                         # Update last scanned time
@@ -2793,13 +2963,18 @@ class NewsRadarMonitor:
                     match_id=alert.enrichment_context.match_id,
                     url=alert.source_url,
                     summary=f"RADAR HANDOFF: {alert.summary}",
-                    score=int(alert.confidence * 10),  # Convert 0.7-1.0 to 7-10
+                    score=int(alert.confidence * 10)
+                    if alert.confidence is not None
+                    else 8,  # Convert 0.7-1.0 to 7-10, fallback to 8 if None
                     category=alert.category,
                     affected_team=alert.affected_team,
                     status="PENDING_RADAR_TRIGGER",  # Special status for cross-process handoff
                     sent=False,
                     source="news_radar",
                     source_confidence=alert.confidence,
+                    confidence=alert.confidence * 100
+                    if alert.confidence is not None
+                    else None,  # V11.1: Convert 0-1 to 0-100 for BettingQuant, handle None
                     # Store original content as forced narrative
                     # Use verification_reason to store the full content
                     verification_reason=content[:10000],  # Limit to 10KB
@@ -2978,9 +3153,15 @@ class GlobalRadarMonitor:
     - Prevents DB locks by serializing heavy lifting
     - Prevents API rate limits by controlling queue consumption
     - Budget checks for Tavily and Brave APIs
+
+    Note: This module uses 4 contexts (LATAM, ASIA, AFRICA, GLOBAL) for news source
+    categorization, which is different from global_orchestrator.py that uses 3 continents
+    for match monitoring. The GLOBAL context here serves as a fallback for uncategorized
+    global news sources.
     """
 
     # Continent mappings for source assignment
+    # Note: GLOBAL context is used as fallback for uncategorized sources
     CONTINENT_CONTEXTS = ["LATAM", "ASIA", "AFRICA", "GLOBAL"]
 
     def __init__(self, config_file: str = DEFAULT_CONFIG_FILE):
@@ -3045,8 +3226,6 @@ class GlobalRadarMonitor:
                 logger.warning("⚠️ [GLOBAL-RADAR] No sources configured")
 
             # Initialize Intelligence Queue
-            from src.utils.discovery_queue import DiscoveryQueue
-
             self._discovery_queue = DiscoveryQueue(max_entries=1000, ttl_hours=24)
             logger.info("✅ [GLOBAL-RADAR] Intelligence Queue initialized")
 
@@ -3092,7 +3271,7 @@ class GlobalRadarMonitor:
                 logger.error("❌ [GLOBAL-RADAR] Failed to initialize browser")
                 return False
 
-            # Create 4 async contexts
+            # Create 4 async contexts (LATAM, ASIA, AFRICA, GLOBAL)
             await self._create_contexts()
 
             # Start scan loops for all 4 contexts
@@ -3104,7 +3283,9 @@ class GlobalRadarMonitor:
                 task = asyncio.create_task(self._context_scan_loop(context_name))
                 self._scan_tasks.append(task)
 
-            logger.info("✅ [GLOBAL-RADAR] V11.0 Started with 4 parallel contexts")
+            logger.info(
+                "✅ [GLOBAL-RADAR] V11.0 Started with 4 parallel contexts (LATAM, ASIA, AFRICA, GLOBAL)"
+            )
             logger.info(f"   Contexts: {', '.join(self.CONTINENT_CONTEXTS)}")
             logger.info(f"   Sources: {len(self._config.sources)}")
             return True
@@ -3190,6 +3371,8 @@ class GlobalRadarMonitor:
         Create 4 async contexts: LATAM, ASIA, AFRICA, GLOBAL.
 
         Each context gets its own browser context for isolated scanning.
+        Note: The GLOBAL context is used as a fallback for uncategorized news sources,
+        which is different from global_orchestrator.py that uses 3 continents for match monitoring.
         """
         for context_name in self.CONTINENT_CONTEXTS:
             try:
@@ -3235,6 +3418,7 @@ class GlobalRadarMonitor:
 
         Returns:
             Context name (LATAM, ASIA, AFRICA, or GLOBAL)
+            Note: GLOBAL is used as fallback for uncategorized sources
         """
         # Simple heuristic based on source name or URL
         source_lower = source.name.lower() if source.name else ""

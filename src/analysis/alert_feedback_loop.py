@@ -15,6 +15,7 @@ VPS Compatibility:
 """
 
 import logging
+import threading
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -446,13 +447,22 @@ class AlertFeedbackLoop:
 
 # Singleton instance
 _feedback_loop_instance: AlertFeedbackLoop | None = None
+_feedback_loop_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_alert_feedback_loop() -> AlertFeedbackLoop:
-    """Get or create the singleton AlertFeedbackLoop instance."""
+    """
+    Get or create the singleton AlertFeedbackLoop instance.
+    
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _feedback_loop_instance
     if _feedback_loop_instance is None:
-        _feedback_loop_instance = AlertFeedbackLoop()
+        with _feedback_loop_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _feedback_loop_instance is None:
+                _feedback_loop_instance = AlertFeedbackLoop()
     return _feedback_loop_instance
 
 

@@ -199,6 +199,9 @@ async def monitor_loop():
                                         category="TELEGRAM_OCR_INTEL",
                                         affected_team=squad["team"],
                                         source="telegram_ocr",
+                                        confidence=alert.get(
+                                            "confidence", None
+                                        ),  # V11.1: AI confidence from OCR alert
                                     )
                                     db.add(news_log)
                                     # commit is automatic in context manager

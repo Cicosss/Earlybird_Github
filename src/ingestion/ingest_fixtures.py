@@ -219,7 +219,11 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
     # Filter to future matches with proper timezone handling
     next_match = None
     for match in all_matches:
-        match_time = _ensure_utc_aware(match.start_time)
+        # VPS FIX: Extract start_time safely to prevent session detachment
+        # This prevents "Trust validation error" when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        start_time = getattr(match, "start_time", None)
+        match_time = _ensure_utc_aware(start_time)
         if match_time > now:
             next_match = match
             break
@@ -229,7 +233,9 @@ def should_update_league(db, sport_key: str) -> tuple[bool, str, float | None]:
         return True, "NO_MATCHES_DISCOVERY", None
 
     # Ensure both datetimes are comparable (handle naive vs aware)
-    match_time = _ensure_utc_aware(next_match.start_time)
+    # VPS FIX: Extract start_time safely to prevent session detachment
+    start_time = getattr(next_match, "start_time", None)
+    match_time = _ensure_utc_aware(start_time)
     hours_to_match = (match_time - now).total_seconds() / 3600
 
     # Check last update time for this league

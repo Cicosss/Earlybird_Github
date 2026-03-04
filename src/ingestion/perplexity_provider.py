@@ -18,6 +18,7 @@ Phase 1 Critical Fix: Added URL encoding for non-ASCII characters in search quer
 
 import logging
 import os
+import threading
 
 import requests
 
@@ -796,13 +797,22 @@ class PerplexityProvider:
 
 # Singleton instance
 _perplexity_instance: PerplexityProvider | None = None
+_perplexity_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_perplexity_provider() -> PerplexityProvider:
-    """Get or create the singleton PerplexityProvider instance."""
+    """
+    Get or create the singleton PerplexityProvider instance.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _perplexity_instance
     if _perplexity_instance is None:
-        _perplexity_instance = PerplexityProvider()
+        with _perplexity_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _perplexity_instance is None:
+                _perplexity_instance = PerplexityProvider()
     return _perplexity_instance
 
 

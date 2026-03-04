@@ -310,10 +310,10 @@ ANALYSIS_WINDOW_HOURS = 72  # 72h = 3 days (captures weekend fixtures early)
 
 # Alert thresholds
 ALERT_THRESHOLD_HIGH = (
-    9.0  # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY
+    8.5  # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY (V11.1: Relaxed from 9.0)
 )
 ALERT_THRESHOLD_RADAR = (
-    7.5  # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY
+    7.0  # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY (V11.1: Relaxed from 7.5)
 )
 SETTLEMENT_MIN_SCORE = 7.0  # Minimum highest_score_sent to include in settlement
 

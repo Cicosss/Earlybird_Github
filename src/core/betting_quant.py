@@ -90,6 +90,7 @@ class BettingDecision:
     veto_reason: str | None  # Reason if vetoed
     safety_violation: str | None  # Safety check violation if any
     volatility_adjusted: bool  # Whether volatility guard was applied
+    market_warning: str | None  # Warning message (e.g., late to market)
 
     # Supporting Data
     poisson_result: PoissonResult | None  # Poisson simulation results
@@ -190,6 +191,23 @@ class BettingQuant:
         Returns:
             BettingDecision with final Go/No-Go decision and all supporting data
         """
+        # VPS FIX: Copy all needed Match attributes before using them
+        # This prevents session detachment issues when Match object becomes detached
+        # from session due to connection pool recycling under high load
+        match_id = match.id
+        home_team = match.home_team
+        away_team = match.away_team
+        league = match.league
+        start_time = match.start_time
+        opening_home_odd = match.opening_home_odd
+        opening_draw_odd = match.opening_draw_odd
+        opening_away_odd = match.opening_away_odd
+        current_home_odd = match.current_home_odd
+        current_draw_odd = match.current_draw_odd
+        current_away_odd = match.current_away_odd
+        current_over_2_5 = match.current_over_2_5
+        current_under_2_5 = match.current_under_2_5
+
         # Step 1: Run Poisson simulation
         poisson_result = self.predictor.simulate_match(
             home_scored=home_scored,
@@ -236,19 +254,10 @@ class BettingQuant:
             )
 
         # Step 5: Apply market veto (15% threshold) - SECOND
-        veto_reason = self._apply_market_veto(
+        # V11.1: DO NOT veto - instead add warning for user awareness
+        market_warning = self._apply_market_veto_warning(
             match=match, analysis=analysis, edge_result=edge_result
         )
-
-        if veto_reason:
-            return self._create_vetoed_decision(
-                veto_reason=veto_reason,
-                veto_detail="Market already crashed (>15% drop)",
-                edge_result=edge_result,
-                poisson_result=poisson_result,
-                market_odds=market_odds,
-                ai_prob=ai_prob,
-            )
 
         # Step 6: Check if there's value - THIRD
         if not edge_result.has_value:
@@ -294,6 +303,7 @@ class BettingQuant:
             veto_reason=None,
             safety_violation=None,
             volatility_adjusted=volatility_adjusted,
+            market_warning=market_warning,  # V11.1: Market warning for late-to-market alerts
             poisson_result=poisson_result,
             balanced_prob=balanced_prob * 100.0,
             ai_prob=ai_prob * 100.0 if ai_prob else None,
@@ -500,6 +510,7 @@ class BettingQuant:
                 odds_drop = float(drop_match.group(1)) / 100.0
 
         # Try to extract from match odds
+        # VPS FIX: Use getattr with default values to prevent session detachment
         if odds_drop == 0.0 and match:
             opening_odd = getattr(match, "opening_home_odd", None)
             current_odd = getattr(match, "current_home_odd", None)
@@ -513,6 +524,73 @@ class BettingQuant:
                 f"(>={MARKET_VETO_THRESHOLD * 100:.0f}%), value is gone"
             )
             return VetoReason.MARKET_CRASHED
+
+        return None
+
+    def _apply_market_veto_warning(
+        self, match: Match, analysis: NewsLog, edge_result: EdgeResult
+    ) -> str | None:
+        """
+        V11.1: Apply Market Veto as WARNING (not veto).
+
+        If odds have dropped >= 15%, do NOT veto the bet.
+        Instead, return a warning message to prepend to the reasoning.
+        This allows the user to make the final decision.
+
+        Args:
+            match: Match database object
+            analysis: NewsLog analysis object
+            edge_result: Edge calculation result
+
+        Returns:
+            Warning message string if odds dropped >= 15%, None otherwise
+        """
+        # Extract odds drop from analysis summary or match data
+        odds_drop = 0.0
+
+        # Try to extract from analysis summary
+        summary = getattr(analysis, "summary", "")
+        if summary and "dropped" in summary.lower():
+            import re
+
+            drop_match = re.search(r"dropped\s+(\d+(?:\.\d+)?)\s*%", summary, re.IGNORECASE)
+            if drop_match:
+                odds_drop = float(drop_match.group(1)) / 100.0
+
+        # V11.1 FIX: Calculate odds drop for the selected market, not just home team
+        if odds_drop == 0.0 and match and edge_result:
+            # Determine which market we're betting on
+            market_lower = edge_result.market.lower() if edge_result.market else ""
+
+            # Map market to correct odd fields
+            market_to_odd_fields = {
+                "home": ("opening_home_odd", "current_home_odd"),
+                "draw": ("opening_draw_odd", "current_draw_odd"),
+                "away": ("opening_away_odd", "current_away_odd"),
+                "over_25": ("opening_over_2_5", "current_over_2_5"),
+                "under_25": ("opening_under_2_5", "current_under_2_5"),
+                "btts": None,  # BTTS doesn't have dedicated odds fields
+            }
+
+            # Get the correct odd fields for this market
+            odd_fields = market_to_odd_fields.get(market_lower)
+            if odd_fields:
+                opening_odd = getattr(match, odd_fields[0], None)
+                current_odd = getattr(match, odd_fields[1], None)
+                if opening_odd and current_odd and opening_odd > 0:
+                    odds_drop = (opening_odd - current_odd) / opening_odd
+                    self.logger.debug(
+                        f"V11.1: Calculated {market_lower} odds drop: "
+                        f"{opening_odd:.2f} → {current_odd:.2f} ({odds_drop * 100:.1f}%)"
+                    )
+
+        # Return warning if drop >= 15% (but DO NOT veto)
+        if odds_drop >= MARKET_VETO_THRESHOLD:
+            self.logger.warning(
+                f"⚠️ LATE TO MARKET: Odds dropped {odds_drop * 100:.1f}% "
+                f"(>={MARKET_VETO_THRESHOLD * 100:.0f}%) - Adding warning instead of veto"
+            )
+            return "⚠️ LATE TO MARKET: Odds already dropped >15%. Value might be compromised."
 
         return None
 
@@ -671,6 +749,7 @@ class BettingQuant:
             veto_reason=VetoReason.NO_VALUE,
             safety_violation=reason,
             volatility_adjusted=False,
+            market_warning=None,  # V11.1: No warning for no-bet decisions
             poisson_result=poisson_result,
             balanced_prob=0.0,
             ai_prob=None,
@@ -702,6 +781,7 @@ class BettingQuant:
             veto_reason=veto_reason,
             safety_violation=veto_detail,
             volatility_adjusted=False,
+            market_warning=None,  # V11.1: No warning for vetoed decisions
             poisson_result=poisson_result,
             balanced_prob=(edge_result.math_prob / 100.0 + ai_prob) / 2
             if ai_prob
@@ -733,6 +813,7 @@ class BettingQuant:
             veto_reason=VetoReason.NO_VALUE,
             safety_violation="No edge detected",
             volatility_adjusted=False,
+            market_warning=None,  # V11.1: No warning for no-value decisions
             poisson_result=poisson_result,
             balanced_prob=(edge_result.math_prob / 100.0 + ai_prob) / 2
             if ai_prob

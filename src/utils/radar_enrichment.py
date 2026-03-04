@@ -20,13 +20,24 @@ Author: EarlyBird AI
 """
 
 import logging
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
 # Configuration
-MATCH_LOOKAHEAD_HOURS = 48  # Cerca partite nelle prossime 48h
+# FIX: Use ANALYSIS_WINDOW_HOURS from settings (72h) instead of hardcoded 48h
+# This ensures Radar finds matches within the full 72-hour window as required
+try:
+    from config.settings import ANALYSIS_WINDOW_HOURS
+
+    MATCH_LOOKAHEAD_HOURS = ANALYSIS_WINDOW_HOURS
+except ImportError:
+    # Fallback if settings not available
+    MATCH_LOOKAHEAD_HOURS = 72  # Default to 72h (3 days)
+    logger.warning("⚠️ [RADAR-ENRICH] Could not import ANALYSIS_WINDOW_HOURS, using default 72h")
+
 END_OF_SEASON_ROUNDS = 5  # Ultime 5 giornate = fine stagione
 
 
@@ -203,8 +214,19 @@ class RadarLightEnricher:
 
                 # Cerca match che coinvolge la squadra
                 for match in matches:
-                    home_lower = (match.home_team or "").lower()
-                    away_lower = (match.away_team or "").lower()
+                    # VPS FIX: Extract Match attributes safely to prevent session detachment
+                    # This prevents "Trust validation error" when Match object becomes detached
+                    # from session due to connection pool recycling under high load
+                    home_team = getattr(match, "home_team", None)
+                    away_team = getattr(match, "away_team", None)
+                    match_id = getattr(match, "id", None)
+                    start_time = getattr(match, "start_time", None)
+                    league = getattr(match, "league", None)
+                    current_draw_odd = getattr(match, "current_draw_odd", None)
+                    opening_draw_odd = getattr(match, "opening_draw_odd", None)
+
+                    home_lower = (home_team or "").lower()
+                    away_lower = (away_team or "").lower()
 
                     # Match fuzzy: controlla se team_name è contenuto
                     if (
@@ -213,18 +235,16 @@ class RadarLightEnricher:
                         or team_lower in away_lower
                         or away_lower in team_lower
                     ):
-                        logger.info(
-                            f"🔍 [RADAR-ENRICH] Found match: {match.home_team} vs {match.away_team}"
-                        )
+                        logger.info(f"🔍 [RADAR-ENRICH] Found match: {home_team} vs {away_team}")
 
                         return {
-                            "match_id": match.id,
-                            "home_team": match.home_team,
-                            "away_team": match.away_team,
-                            "start_time": match.start_time,
-                            "league": match.league,
-                            "current_draw_odd": match.current_draw_odd,
-                            "opening_draw_odd": match.opening_draw_odd,
+                            "match_id": match_id,
+                            "home_team": home_team,
+                            "away_team": away_team,
+                            "start_time": start_time,
+                            "league": league,
+                            "current_draw_odd": current_draw_odd,
+                            "opening_draw_odd": opening_draw_odd,
                             "is_home": team_lower in home_lower,
                         }
 
@@ -397,11 +417,15 @@ class RadarLightEnricher:
 
 # Singleton instance
 _enricher_instance: RadarLightEnricher | None = None
+_enricher_instance_init_lock = threading.Lock()  # Lock for thread-safe initialization
 
 
 def get_radar_enricher() -> RadarLightEnricher:
     """
     Get singleton instance of RadarLightEnricher.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
 
     Returns:
         RadarLightEnricher instance
@@ -409,8 +433,11 @@ def get_radar_enricher() -> RadarLightEnricher:
     global _enricher_instance
 
     if _enricher_instance is None:
-        _enricher_instance = RadarLightEnricher()
-        logger.info("✅ [RADAR-ENRICH] Enricher initialized")
+        with _enricher_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _enricher_instance is None:
+                _enricher_instance = RadarLightEnricher()
+                logger.info("✅ [RADAR-ENRICH] Enricher initialized")
 
     return _enricher_instance
 

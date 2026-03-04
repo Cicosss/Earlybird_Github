@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/services/odds_capture.py
+# hypothesis_version: 6.151.4
+
+[100, '__main__', 'current_away_odd', 'current_draw_odd', 'current_home_odd', 'kickoff_capture_rate', 'match_id', 'scheduled', 'total_sent', 'with_alert_odds', 'with_kickoff_odds', 'without_kickoff_odds']

@@ -460,15 +460,35 @@ class FotMobProvider:
         self._team_cache: dict[str, tuple[int, str]] = {}
         self._last_request_time = 0.0
 
-        # V2.0: Initialize SWR cache for FotMob data
+        # V7.0: Initialize aggressive cache for FotMob data (24h TTL)
+        # This reduces FotMob requests by 80-90%
         try:
             from src.utils.smart_cache import SmartCache
 
             self._swr_cache = SmartCache(name="fotmob_swr", max_size=1000, swr_enabled=True)
-            logger.info("✅ FotMob Provider initialized (UA rotation + SWR caching enabled)")
+            logger.info(
+                "✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)"
+            )
         except ImportError:
             self._swr_cache = None
             logger.warning("⚠️ SWR cache not available - using standard cache only")
+
+        # V7.0: Cache metrics for monitoring
+        self._cache_hits = 0
+        self._cache_misses = 0
+        self._playwright_fallback_count = 0
+
+        # V7.0: Playwright resources (lazy initialization)
+        self._playwright = None
+        self._browser = None
+        self._playwright_available = False
+
+        # V7.0: Lock for thread-safe Playwright initialization
+        self._playwright_lock = threading.Lock()
+
+        # V7.0: Browser restart mechanism for long-running processes
+        self._playwright_request_count = 0
+        self._max_requests_per_browser = 1000  # Restart browser every 1000 requests
 
     def _get_with_swr(
         self,
@@ -478,20 +498,60 @@ class FotMobProvider:
         stale_ttl: int | None = None,
     ) -> tuple[Any | None, bool]:
         """
-        V2.0: Get data with Stale-While-Revalidate caching.
+        V7.0: Get data with Stale-While-Revalidate caching + metrics tracking.
 
         Returns (value, is_fresh) tuple where is_fresh indicates if data is fresh.
         """
         if self._swr_cache is None:
             # SWR not available - fetch directly
+            self._cache_misses += 1
             return fetch_func(), True
 
-        return self._swr_cache.get_with_swr(
+        result, is_fresh = self._swr_cache.get_with_swr(
             key=cache_key,
             fetch_func=fetch_func,
             ttl=ttl,
             stale_ttl=stale_ttl,
         )
+
+        # V7.0: Track cache metrics using SmartCache's internal metrics
+        # Note: is_fresh=True means data is fresh (could be cache hit OR fresh fetch)
+        # is_fresh=False means data is stale (stale cache hit) OR fetch failed
+        # We use SmartCache's internal metrics to get accurate hit/miss counts
+        if self._swr_cache is not None:
+            cache_metrics = self._swr_cache.get_swr_metrics()
+            self._cache_hits = cache_metrics.hits
+            self._cache_misses = cache_metrics.misses
+
+        return result, is_fresh
+
+    def log_cache_metrics(self):
+        """
+        V7.0: Log cache performance metrics for monitoring.
+
+        This helps track the effectiveness of the aggressive caching strategy.
+        """
+        total_requests = self._cache_hits + self._cache_misses
+        if total_requests > 0:
+            hit_rate = (self._cache_hits / total_requests) * 100
+            logger.info(
+                f"📊 [FOTMOB] Cache Metrics - "
+                f"Hits: {self._cache_hits}, "
+                f"Misses: {self._cache_misses}, "
+                f"Hit Rate: {hit_rate:.1f}%, "
+                f"Playwright Fallbacks: {self._playwright_fallback_count}"
+            )
+        else:
+            logger.info("📊 [FOTMOB] Cache Metrics - No requests yet")
+
+    def cleanup(self):
+        """
+        V7.0: Cleanup resources when shutting down.
+
+        Ensures Playwright resources are properly released.
+        """
+        self._shutdown_playwright()
+        logger.info("✅ [FOTMOB] Cleanup completed")
 
     def _rotate_user_agent(self):
         """Rotate User-Agent header for anti-bot evasion."""
@@ -531,9 +591,10 @@ class FotMobProvider:
         """
         V6.3: Make HTTP request with retry logic and specific error handling.
 
-        CRITICAL FIX V6.3: HTTP request is now made INSIDE the rate limiting lock
-        to prevent multiple threads from making simultaneous requests that trigger FotMob's
-        anti-bot detection. This fixes the burst pattern issue identified in COVE analysis.
+        CRITICAL FIX V6.3: Rate limiting ensures proper timing between requests.
+        The lock establishes timing windows in _rate_limit(), but HTTP requests are made
+        after lock release. Use max_workers=1 to prevent burst patterns that trigger
+        FotMob's anti-bot detection.
 
         Key improvements:
         - Rotates User-Agent on EVERY request attempt (not just retries)
@@ -576,8 +637,8 @@ class FotMobProvider:
 
                 if resp.status_code == 403:
                     if attempt < retries - 1:
-                        # V6.2: Longer backoff for 403 errors to avoid rapid retries
-                        delay = 5 ** (attempt + 1)  # 5s, 25s, 125s (was 2s, 4s, 8s)
+                        # V6.2: Reasonable backoff for 403 errors to avoid rapid retries
+                        delay = 3 ** (attempt + 1)  # 3s, 9s, 27s (was 5s, 25s, 125s)
                         logger.warning(
                             f"⚠️ FotMob 403 - rotating UA and retrying in {delay}s ({attempt + 1}/{retries})"
                         )
@@ -610,13 +671,257 @@ class FotMobProvider:
         logger.error(f"❌ FotMob fallito dopo {retries} tentativi")
         return None
 
+    # ============================================
+    # V7.0: PLAYWRIGHT FALLBACK (Hybrid Approach)
+    # ============================================
+
+    def _initialize_playwright(self) -> tuple[bool, str | None]:
+        """
+        V7.0: Initialize Playwright for fallback when requests get 403.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        # V7.0: Use lock to prevent concurrent initialization
+        with self._playwright_lock:
+            # Double-check after acquiring lock
+            if self._playwright_available and self._browser is not None:
+                return True, None
+
+            try:
+                from playwright.sync_api import sync_playwright
+
+                logger.info("🌐 [FOTMOB] Initializing Playwright for fallback...")
+
+                self._playwright = sync_playwright().start()
+                self._browser = self._playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                    ],
+                )
+
+                self._playwright_available = True
+                logger.info("✅ [FOTMOB] Playwright initialized successfully")
+                return True, None
+
+            except ImportError:
+                error_msg = "playwright package not installed"
+                logger.warning(f"⚠️ [FOTMOB] {error_msg}")
+                self._playwright_available = False
+                return False, error_msg
+            except Exception as e:
+                error_msg = f"Playwright initialization failed: {e}"
+                logger.error(f"❌ [FOTMOB] {error_msg}")
+                self._playwright_available = False
+                self._playwright = None
+                self._browser = None
+                return False, error_msg
+
+    def _shutdown_playwright(self):
+        """V7.0: Shutdown Playwright and release resources."""
+        if self._browser:
+            try:
+                self._browser.close()
+            except Exception as e:
+                logger.warning(f"⚠️ [FOTMOB] Error closing browser: {e}")
+            self._browser = None
+
+        if self._playwright:
+            try:
+                self._playwright.stop()
+            except Exception as e:
+                logger.warning(f"⚠️ [FOTMOB] Error stopping Playwright: {e}")
+            self._playwright = None
+
+        self._playwright_available = False
+
+    def _fetch_with_playwright(self, url: str) -> dict | None:
+        """
+        V7.0: Fetch data using Playwright as fallback when requests get 403.
+
+        This bypasses FotMob's anti-bot detection by using a real browser.
+
+        Args:
+            url: The FotMob API URL to fetch
+
+        Returns:
+            JSON data as dict or None if failed
+        """
+        if not self._playwright_available:
+            # Try to initialize Playwright on-demand
+            success, _ = self._initialize_playwright()
+            if not success:
+                logger.error("❌ [FOTMOB] Playwright not available for fallback")
+                return None
+
+        # V7.0: Check if browser needs restart (every 1000 requests)
+        self._playwright_request_count += 1
+        if self._playwright_request_count >= self._max_requests_per_browser:
+            with self._playwright_lock:
+                # Double-check after acquiring lock to prevent race condition
+                if self._playwright_request_count >= self._max_requests_per_browser:
+                    logger.info(
+                        f"🔄 [FOTMOB] Restarting browser after {self._max_requests_per_browser} requests..."
+                    )
+                    self._shutdown_playwright()
+                    success, _ = self._initialize_playwright()
+                    if not success:
+                        return None
+                    self._playwright_request_count = 0
+
+        page = None
+        try:
+            # Create a new page for each request
+            page = self._browser.new_page()
+
+            # Set realistic headers
+            page.set_extra_http_headers(self.BASE_HEADERS)
+
+            # Navigate to the URL
+            page.goto(url, timeout=30000)
+
+            # Wait for response
+            page.wait_for_load_state("networkidle", timeout=15000)
+
+            # Get the response body
+            content = page.content()
+
+            # Parse JSON
+            data = json.loads(content)
+
+            self._playwright_fallback_count += 1
+            logger.info(
+                f"✅ [FOTMOB] Playwright fallback successful (count: {self._playwright_fallback_count})"
+            )
+
+            return data
+
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ [FOTMOB] Playwright JSON decode error: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ [FOTMOB] Playwright fetch error: {e}")
+            return None
+        finally:
+            # V7.0: Always close the page, even if exception occurred
+            if page is not None:
+                try:
+                    page.close()
+                except Exception as e:
+                    logger.warning(f"⚠️ [FOTMOB] Error closing page: {e}")
+
+    def _make_request_with_fallback(
+        self, url: str, retries: int = FOTMOB_MAX_RETRIES
+    ) -> requests.Response | None:
+        """
+        V7.0: Hybrid approach - Try requests first, fallback to Playwright on 403.
+
+        This reduces VPS load by using requests for 90% of requests (low load)
+        and only using Playwright when necessary (high load but bypasses anti-bot).
+
+        Args:
+            url: The FotMob API URL to fetch
+            retries: Number of retry attempts for requests
+
+        Returns:
+            Response object or None if all attempts failed
+        """
+        # Phase 1: Try requests (low load)
+        for attempt in range(retries):
+            # Rate limit BEFORE each request attempt
+            self._rate_limit()
+
+            # Rotate UA on EVERY request attempt
+            self._rotate_user_agent()
+
+            try:
+                resp = self.session.get(url, timeout=FOTMOB_REQUEST_TIMEOUT)
+
+                if resp.status_code == 200:
+                    return resp
+
+                if resp.status_code == 429:
+                    delay = 3 ** (attempt + 1)
+                    logger.warning(
+                        f"⚠️ [FOTMOB] Rate limit (429). Attesa {delay}s prima del retry {attempt + 1}/{retries}"
+                    )
+                    time.sleep(delay)
+                    continue
+
+                if resp.status_code in (502, 503, 504):
+                    delay = 2 ** (attempt + 1)
+                    logger.warning(
+                        f"⚠️ [FOTMOB] Server error ({resp.status_code}). Retry {attempt + 1}/{retries} in {delay}s"
+                    )
+                    time.sleep(delay)
+                    continue
+
+                if resp.status_code == 403:
+                    if attempt < retries - 1:
+                        delay = 5 ** (attempt + 1)
+                        logger.warning(
+                            f"⚠️ [FOTMOB] 403 - rotating UA and retrying in {delay}s ({attempt + 1}/{retries})"
+                        )
+                        time.sleep(delay)
+                        continue
+                    # All retries failed with 403 - trigger Playwright fallback
+                    logger.warning(
+                        "⚠️ [FOTMOB] All request retries failed with 403 - trying Playwright fallback"
+                    )
+                    break
+
+                logger.error(f"❌ [FOTMOB] HTTP error {resp.status_code}")
+                return None
+
+            except requests.exceptions.Timeout:
+                delay = 2 ** (attempt + 1)
+                logger.warning(f"⚠️ [FOTMOB] Timeout. Retry {attempt + 1}/{retries} in {delay}s")
+                time.sleep(delay)
+
+            except requests.exceptions.ConnectionError as e:
+                delay = 2 ** (attempt + 1)
+                logger.warning(
+                    f"⚠️ [FOTMOB] Connection error: {e}. Retry {attempt + 1}/{retries} in {delay}s"
+                )
+                time.sleep(delay)
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"❌ [FOTMOB] Request error: {e}")
+                return None
+
+        # Phase 2: Fallback to Playwright (high load but bypasses anti-bot)
+        logger.info("🔄 [FOTMOB] Falling back to Playwright...")
+        data = self._fetch_with_playwright(url)
+
+        if data is not None:
+            # Create a mock response object
+            class MockResponse:
+                def __init__(self, data):
+                    self.status_code = 200
+                    self._data = data
+
+                def json(self):
+                    return self._data
+
+            return MockResponse(data)
+
+        logger.error("❌ [FOTMOB] Both requests and Playwright failed")
+        return None
+
     def search_team(self, team_name: str) -> list[dict]:
-        """Search for teams on FotMob with robust error handling."""
+        """
+        V7.0: Search for teams on FotMob with robust error handling and Playwright fallback.
+        """
         try:
             encoded_name = urllib.parse.quote(team_name)
             url = f"{self.BASE_URL}/search/suggest?term={encoded_name}"
 
-            resp = self._make_request(url)
+            # V7.0: Use hybrid approach (requests + Playwright fallback)
+            resp = self._make_request_with_fallback(url)
 
             if resp is None:
                 logger.debug(f"FotMob search fallito per: {team_name}")
@@ -877,15 +1182,21 @@ class FotMobProvider:
         return None, None
 
     def get_team_details(self, team_id: int, match_time: datetime = None) -> dict | None:
-        """Get team details including squad and next match."""
+        """
+        V7.0: Get team details including squad and next match with aggressive caching.
+
+        Uses 24h TTL to reduce FotMob requests by 80-90%.
+        Falls back to Playwright when requests get 403.
+        """
         cache_key = f"team_details:{team_id}"
 
-        # V2.0: Use SWR caching
+        # V7.0: Use SWR caching with aggressive TTL (24 hours)
         if self._swr_cache is not None:
 
             def fetch_team_details():
                 url = f"{self.BASE_URL}/teams?id={team_id}"
-                resp = self._make_request(url)
+                # V7.0: Use hybrid approach (requests + Playwright fallback)
+                resp = self._make_request_with_fallback(url)
 
                 if resp is None:
                     logger.warning(f"⚠️ FotMob team details non disponibili per ID {team_id}")
@@ -910,13 +1221,12 @@ class FotMobProvider:
                         "fixtures": {},
                     }
 
-            # Use SWR with appropriate TTL values
-            # Team details: 24h fresh, 72h stale
+            # V7.0: Use aggressive TTL (24h fresh, 72h stale)
             result, is_fresh = self._get_with_swr(
                 cache_key=cache_key,
                 fetch_func=fetch_team_details,
-                ttl=24 * 3600,  # 24 hours
-                stale_ttl=72 * 3600,  # 72 hours
+                ttl=24 * 3600,  # 24 hours - aggressive caching
+                stale_ttl=72 * 3600,  # 72 hours stale
             )
 
             if result is not None:
@@ -928,12 +1238,14 @@ class FotMobProvider:
         if _SMART_CACHE_AVAILABLE:
             cached = get_team_cache().get(cache_key)
             if cached is not None:
+                self._cache_hits += 1
                 return cached
 
         # Fetch without cache (shouldn't reach here)
+        self._cache_misses += 1
         try:
             url = f"{self.BASE_URL}/teams?id={team_id}"
-            resp = self._make_request(url)
+            resp = self._make_request_with_fallback(url)
 
             if resp is None:
                 logger.warning(f"⚠️ FotMob team details non disponibili per ID {team_id}")
@@ -1342,15 +1654,18 @@ class FotMobProvider:
         return result
 
     def get_match_lineup(self, match_id: int) -> dict | None:
-        """Get match lineup and detailed match data using match ID."""
+        """
+        V7.0: Get match lineup and detailed match data using match ID with Playwright fallback.
+        """
         cache_key = f"match_lineup:{match_id}"
 
-        # V2.0: Use SWR caching
+        # V7.0: Use SWR caching with aggressive TTL
         if self._swr_cache is not None:
 
             def fetch_match_lineup():
                 url = f"{self.BASE_URL}/matchDetails?matchId={match_id}"
-                resp = self._make_request(url)
+                # V7.0: Use hybrid approach (requests + Playwright fallback)
+                resp = self._make_request_with_fallback(url)
 
                 if resp is None:
                     logger.warning(f"⚠️ FotMob match lineup non disponibili per ID {match_id}")
@@ -1363,13 +1678,12 @@ class FotMobProvider:
                     logger.error(f"❌ FotMob match lineup JSON non valido: {e}")
                     return None
 
-            # Use SWR with appropriate TTL values
-            # Match lineup: 10min fresh, 30min stale
+            # V7.0: Use aggressive TTL (24h fresh, 72h stale)
             result, is_fresh = self._get_with_swr(
                 cache_key=cache_key,
                 fetch_func=fetch_match_lineup,
-                ttl=10 * 60,  # 10 minutes
-                stale_ttl=30 * 60,  # 30 minutes
+                ttl=24 * 3600,  # 24 hours - aggressive caching
+                stale_ttl=72 * 3600,  # 72 hours stale
             )
 
             if result is not None:
@@ -1381,12 +1695,15 @@ class FotMobProvider:
         if _SMART_CACHE_AVAILABLE:
             cached = get_match_cache().get(cache_key)
             if cached is not None:
+                self._cache_hits += 1
                 return cached
 
         # Fetch without cache (shouldn't reach here)
+        self._cache_misses += 1
         try:
             url = f"{self.BASE_URL}/matchDetails?matchId={match_id}"
-            resp = self._make_request(url)
+            # V7.0: Use hybrid approach (requests + Playwright fallback)
+            resp = self._make_request_with_fallback(url)
 
             if resp is None:
                 logger.warning(f"⚠️ FotMob match lineup non disponibili per ID {match_id}")
