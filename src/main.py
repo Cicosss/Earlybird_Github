@@ -58,6 +58,15 @@ import signal
 
 import config.settings as settings
 
+# Import intelligent error tracking from orchestration_metrics
+try:
+    from src.alerting.orchestration_metrics import record_error_intelligent
+
+    ERROR_TRACKING_AVAILABLE = True
+except ImportError:
+    ERROR_TRACKING_AVAILABLE = False
+    record_error_intelligent = None
+
 
 def cleanup_on_exit():
     """Cleanup function called on program exit."""
@@ -90,6 +99,23 @@ def cleanup_on_exit():
             logging.info("✅ Cleanup completed: FotMob provider (Playwright)")
     except Exception as e:
         logging.warning(f"⚠️ Failed to cleanup FotMob provider: {e}")
+
+    # V13.0: Cleanup budget intelligence monitoring
+    try:
+        import asyncio
+
+        from src.ingestion.budget_intelligence_integration import stop_budget_intelligence
+
+        # Create a new event loop for cleanup
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(stop_budget_intelligence())
+            logging.info("✅ Cleanup completed: budget intelligence monitoring stopped")
+        finally:
+            loop.close()
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to stop budget intelligence monitoring: {e}")
 
 
 # Register cleanup hooks
@@ -655,16 +681,99 @@ def is_biscotto_suspect(match) -> dict:
 
     V6.1: Added edge case protection for invalid odds values.
     VPS FIX: Extract Match attributes safely to prevent session detachment
+    V13.0: MIGRATED to Advanced Biscotto Engine V2.0 with multi-factor analysis
 
     Returns:
-        dict with 'is_suspect', 'reason', 'draw_odd', 'drop_pct'
+        dict with 'is_suspect', 'reason', 'draw_odd', 'drop_pct', 'severity', 'confidence', 'factors'
     """
+    # Try to use advanced biscotto engine if available
+    if _BISCOTTO_ENGINE_AVAILABLE:
+        try:
+            from src.analysis.biscotto_engine import get_enhanced_biscotto_analysis
+
+            # Try to fetch motivation data from FotMob for enhanced analysis
+            home_motivation = None
+            away_motivation = None
+
+            try:
+                from src.ingestion.data_provider import get_data_provider
+
+                provider = get_data_provider()
+
+                # Get team names safely
+                home_team = getattr(match, "home_team", None)
+                away_team = getattr(match, "away_team", None)
+
+                if home_team and away_team:
+                    # Fetch motivation context for both teams
+                    home_context = provider.get_table_context(home_team)
+                    away_context = provider.get_table_context(away_team)
+
+                    # Build motivation dicts for biscotto engine
+                    if home_context and not home_context.get("error"):
+                        home_motivation = {
+                            "zone": home_context.get("zone", "Unknown"),
+                            "position": home_context.get("position", 0),
+                            "total_teams": home_context.get("total_teams", 20),
+                            "points": home_context.get("points", 0),
+                            "matches_remaining": home_context.get("matches_remaining"),
+                        }
+
+                    if away_context and not away_context.get("error"):
+                        away_motivation = {
+                            "zone": away_context.get("zone", "Unknown"),
+                            "position": away_context.get("position", 0),
+                            "total_teams": away_context.get("total_teams", 20),
+                            "points": away_context.get("points", 0),
+                            "matches_remaining": away_context.get("matches_remaining"),
+                        }
+
+            except Exception as e:
+                # If motivation data fetch fails, continue without it (advanced engine has fallbacks)
+                logger.debug(f"⚠️ Could not fetch motivation data for biscotto analysis: {e}")
+
+            # Use advanced biscotto engine with available motivation data
+            analysis, _ = get_enhanced_biscotto_analysis(
+                match_obj=match,
+                home_motivation=home_motivation,
+                away_motivation=away_motivation,
+            )
+
+            # Convert BiscottoAnalysis to legacy dict format for backward compatibility
+            result = {
+                "is_suspect": analysis.is_suspect,
+                "severity": analysis.severity.value,
+                "reason": analysis.reasoning,
+                "draw_odd": analysis.current_draw_odd,
+                "drop_pct": analysis.drop_percentage,
+                # New fields from advanced engine
+                "confidence": analysis.confidence,
+                "factors": analysis.factors,
+                "pattern": analysis.pattern.value,
+                "zscore": analysis.zscore,
+                "mutual_benefit": analysis.mutual_benefit,
+                "betting_recommendation": analysis.betting_recommendation,
+            }
+
+            return result
+
+        except Exception as e:
+            # If advanced engine fails, fall back to legacy implementation
+            logger.warning(f"⚠️ Advanced biscotto engine failed, falling back to legacy: {e}")
+
+    # Legacy implementation (fallback)
     result = {
         "is_suspect": False,
         "reason": None,
         "draw_odd": None,
         "drop_pct": 0,
         "severity": "NONE",
+        "confidence": 0,
+        "factors": [],
+        "pattern": "STABLE",
+        "zscore": 0.0,
+        "mutual_benefit": False,
+        "betting_recommendation": "AVOID",
     }
 
     # VPS FIX: Extract Match attributes safely to prevent session detachment
@@ -698,10 +807,16 @@ def is_biscotto_suspect(match) -> dict:
         result["is_suspect"] = True
         result["severity"] = "EXTREME"
         result["reason"] = f"🍪 EXTREME: Draw @ {draw_odd:.2f} (below {BISCOTTO_EXTREME_LOW})"
+        result["confidence"] = 90
+        result["factors"] = [f"🟠 Quota X estrema: {draw_odd:.2f}"]
+        result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT" if drop_pct > 8 else "STABLE"
     elif draw_odd < BISCOTTO_SUSPICIOUS_LOW:
         result["is_suspect"] = True
         result["severity"] = "HIGH"
         result["reason"] = f"🍪 SUSPICIOUS: Draw @ {draw_odd:.2f} (below {BISCOTTO_SUSPICIOUS_LOW})"
+        result["confidence"] = 75
+        result["factors"] = [f"🟡 Quota X sospetta: {draw_odd:.2f}"]
+        result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT" if drop_pct > 8 else "STABLE"
     elif drop_pct > BISCOTTO_SIGNIFICANT_DROP and opening_draw:
         # V6.1: Extra check that opening_draw exists before using in message
         result["is_suspect"] = True
@@ -709,6 +824,9 @@ def is_biscotto_suspect(match) -> dict:
         result["reason"] = (
             f"🍪 DROPPING: Draw dropped {drop_pct:.1f}% ({opening_draw:.2f} → {draw_odd:.2f})"
         )
+        result["confidence"] = 60
+        result["factors"] = [f"📉 Drop significativo: -{drop_pct:.1f}%"]
+        result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT"
 
     return result
 
@@ -832,6 +950,13 @@ def check_biscotto_suspects():
                         "reason": result["reason"],
                         "draw_odd": result["draw_odd"],
                         "drop_pct": result["drop_pct"],
+                        # Enhanced fields from advanced engine
+                        "confidence": result.get("confidence", 0),
+                        "factors": result.get("factors", []),
+                        "pattern": result.get("pattern", "STABLE"),
+                        "zscore": result.get("zscore", 0.0),
+                        "mutual_benefit": result.get("mutual_benefit", False),
+                        "betting_recommendation": result.get("betting_recommendation", "AVOID"),
                     }
                 )
 
@@ -842,7 +967,21 @@ def check_biscotto_suspects():
                 # VPS FIX: Extract team names safely to prevent session detachment
                 home_team = getattr(match, "home_team", "Unknown")
                 away_team = getattr(match, "away_team", "Unknown")
-                logging.info(f"   🍪 {home_team} vs {away_team}: {suspect['reason']}")
+
+                # Enhanced logging with confidence and factors
+                confidence = suspect.get("confidence", 0)
+                factors = suspect.get("factors", [])
+                pattern = suspect.get("pattern", "STABLE")
+
+                logging.info(
+                    f"   🍪 {home_team} vs {away_team}: {suspect['reason']} "
+                    f"| Confidence: {confidence}% | Pattern: {pattern}"
+                )
+
+                # Log factors if available
+                if factors:
+                    for factor in factors[:3]:  # Log top 3 factors
+                        logging.info(f"      - {factor}")
 
                 # Send alert for EXTREME suspects
                 if suspect["severity"] == "EXTREME":
@@ -867,6 +1006,13 @@ def check_biscotto_suspects():
                                     draw_odd=suspect["draw_odd"],
                                     drop_pct=suspect["drop_pct"],
                                     final_verification_info=final_verification_info,
+                                    # Enhanced fields
+                                    confidence=suspect.get("confidence"),
+                                    factors=suspect.get("factors"),
+                                    pattern=suspect.get("pattern"),
+                                    zscore=suspect.get("zscore"),
+                                    mutual_benefit=suspect.get("mutual_benefit"),
+                                    betting_recommendation=suspect.get("betting_recommendation"),
                                 )
                             else:
                                 logging.warning(
@@ -880,6 +1026,13 @@ def check_biscotto_suspects():
                                 reason=suspect["reason"],
                                 draw_odd=suspect["draw_odd"],
                                 drop_pct=suspect["drop_pct"],
+                                # Enhanced fields
+                                confidence=suspect.get("confidence"),
+                                factors=suspect.get("factors"),
+                                pattern=suspect.get("pattern"),
+                                zscore=suspect.get("zscore"),
+                                mutual_benefit=suspect.get("mutual_benefit"),
+                                betting_recommendation=suspect.get("betting_recommendation"),
                             )
                     except Exception as e:
                         logging.error(f"Failed to send Biscotto alert: {e}")
@@ -1218,6 +1371,13 @@ def run_pipeline():
                             draw_odd=suspect["draw_odd"],
                             drop_pct=suspect["drop_pct"],
                             final_verification_info=final_verification_info,
+                            # Enhanced fields from Advanced Biscotto Engine V2.0
+                            confidence=suspect.get("confidence"),
+                            factors=suspect.get("factors"),
+                            pattern=suspect.get("pattern"),
+                            zscore=suspect.get("zscore"),
+                            mutual_benefit=suspect.get("mutual_benefit"),
+                            betting_recommendation=suspect.get("betting_recommendation"),
                         )
                     else:
                         logging.warning(
@@ -1231,6 +1391,13 @@ def run_pipeline():
                         reason=suspect["reason"],
                         draw_odd=suspect["draw_odd"],
                         drop_pct=suspect["drop_pct"],
+                        # Enhanced fields from Advanced Biscotto Engine V2.0
+                        confidence=suspect.get("confidence"),
+                        factors=suspect.get("factors"),
+                        pattern=suspect.get("pattern"),
+                        zscore=suspect.get("zscore"),
+                        mutual_benefit=suspect.get("mutual_benefit"),
+                        betting_recommendation=suspect.get("betting_recommendation"),
                     )
             except Exception as e:
                 logging.error(f"Failed to send Biscotto alert: {e}")
@@ -1461,7 +1628,8 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
 
         tavily = get_tavily_provider()
         tavily_budget = get_tavily_budget()
-        tavily_available = tavily.is_available() and tavily_budget.can_call("intelligence_queue")
+        # FIX: Use "news_radar" component instead of "intelligence_queue" (not in budget allocation)
+        tavily_available = tavily.is_available() and tavily_budget.can_call("news_radar")
     except ImportError:
         logging.debug("⚠️ [INTELLIGENCE-QUEUE] Tavily not available")
 
@@ -1471,7 +1639,8 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
 
         brave = get_brave_provider()
         brave_budget = get_brave_budget()
-        brave_available = brave.is_available() and brave_budget.can_call("intelligence_queue")
+        # FIX: Use "news_radar" component instead of "intelligence_queue" (not in budget allocation)
+        brave_available = brave.is_available() and brave_budget.can_call("news_radar")
     except ImportError:
         logging.debug("⚠️ [INTELLIGENCE-QUEUE] Brave not available")
 
@@ -1521,35 +1690,42 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
                         try:
                             from src.ingestion.tavily_query_builder import TavilyQueryBuilder
 
-                            tavily_query = TavilyQueryBuilder.build_news_intelligence_query(
+                            # FIX: Replace non-existent build_news_intelligence_query() with build_news_verification_query()
+                            tavily_query = TavilyQueryBuilder.build_news_verification_query(
+                                news_title=title[:200],
                                 team_name=team_name,
-                                news_title=title,
-                                news_url=url,
-                                category=category,
+                                additional_context=f"category:{category} url:{url[:100] if url else ''}",
                             )
 
                             tavily_result = tavily.search(query=tavily_query, max_results=3)
                             if tavily_result and tavily_result.get("results"):
+                                # FIX: Record the budget call after successful Tavily API call
+                                tavily_budget.record_call("news_radar")
                                 logging.info(
                                     f"📊 [INTELLIGENCE-QUEUE] Tavily enrichment for {team_name}: {len(tavily_result['results'])} results"
                                 )
                                 # Could save enriched data to database here
                         except Exception as e:
-                            logging.debug(f"Tavily enrichment failed: {e}")
+                            # FIX: Change from logging.debug() to logging.error() for better visibility
+                            logging.error(f"❌ [INTELLIGENCE-QUEUE] Tavily enrichment failed: {e}")
 
                     # Use Brave for additional context if available
                     if brave_available:
                         try:
+                            # FIX: Use "news_radar" component instead of "intelligence_queue"
                             brave_result = brave.search_news(
-                                query=query, limit=3, component="intelligence_queue"
+                                query=query, limit=3, component="news_radar"
                             )
                             if brave_result and len(brave_result) > 0:
+                                # FIX: Record the budget call after successful Brave API call
+                                brave_budget.record_call("news_radar")
                                 logging.info(
                                     f"🔍 [INTELLIGENCE-QUEUE] Brave context for {team_name}: {len(brave_result)} results"
                                 )
                                 # Could save enriched data to database here
                         except Exception as e:
-                            logging.debug(f"Brave enrichment failed: {e}")
+                            # FIX: Change from logging.debug() to logging.error() for better visibility
+                            logging.error(f"❌ [INTELLIGENCE-QUEUE] Brave enrichment failed: {e}")
 
                     # Note: We don't remove items from queue here
                     # Items remain available for pop_for_match() during match analysis
@@ -1608,6 +1784,17 @@ def run_nightly_settlement(optimizer=None):
         settlement_service = get_settlement_service(optimizer=optimizer)
         settlement_service.run_settlement(lookback_hours=48)
         logging.info("✅ Nightly settlement completed")
+
+        # V13.0: Send CLV strategy performance report to Telegram
+        try:
+            from src.alerting.notifier import send_clv_strategy_report
+
+            logging.info("📊 Sending CLV strategy performance report...")
+            send_clv_strategy_report()
+            logging.info("✅ CLV strategy report sent")
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to send CLV report: {e}")
+
     except Exception as e:
         logging.error(f"❌ Nightly settlement failed: {e}")
 
@@ -1668,8 +1855,16 @@ def refresh_twitter_intel_sync():
             if _DEEPSEEK_PROVIDER_AVAILABLE:
                 try:
                     deepseek_provider = get_deepseek_provider()
-                    # Run async method synchronously
-                    stats = asyncio.run(
+                    # V12.6 COVE FIX: Use get_event_loop().run_until_complete()
+                    # instead of asyncio.run(). asyncio.run() creates a NEW event
+                    # loop that ignores the nest_asyncio patch, causing RuntimeError
+                    # when other async components (browser_monitor, news_hunter) are
+                    # running. run_until_complete() reuses the patched loop.
+                    loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                    stats = loop.run_until_complete(
                         cache.refresh_twitter_intel(
                             gemini_service=deepseek_provider, max_posts_per_account=5
                         )
@@ -1813,6 +2008,47 @@ def run_continuous():
         except Exception as e:
             logging.warning(f"⚠️ [BROWSER-MONITOR] Startup error: {e}")
 
+    # V13.0: Start budget intelligence monitoring
+    budget_intelligence_loop = None
+    budget_intelligence_thread = None
+    try:
+        import asyncio
+        import threading
+
+        from src.ingestion.budget_intelligence_integration import start_budget_intelligence
+
+        # Create a dedicated event loop for budget intelligence
+        budget_intelligence_loop = asyncio.new_event_loop()
+
+        def run_budget_intelligence_loop():
+            """Run the budget intelligence event loop in a dedicated thread."""
+            asyncio.set_event_loop(budget_intelligence_loop)
+            try:
+                budget_intelligence_loop.run_until_complete(start_budget_intelligence())
+                # Keep the loop running for the monitoring task
+                budget_intelligence_loop.run_forever()
+            except Exception as e:
+                logging.error(f"❌ [BUDGET-INTELLIGENCE] Loop error: {e}")
+            finally:
+                try:
+                    budget_intelligence_loop.close()
+                except Exception:
+                    pass
+
+        # Non-daemon thread for graceful shutdown
+        budget_intelligence_thread = threading.Thread(
+            target=run_budget_intelligence_loop,
+            name="BudgetIntelligenceThread",
+            daemon=False,
+        )
+        budget_intelligence_thread.start()
+
+        # Wait a bit for startup
+        time.sleep(2)
+        logging.info("🔍 [BUDGET-INTELLIGENCE] Started - monitoring budget usage 24/7")
+    except Exception as e:
+        logging.warning(f"⚠️ [BUDGET-INTELLIGENCE] Startup error: {e}")
+
     # V6.0: Register high-priority callback for event-driven processing
     # When Browser Monitor discovers high-confidence news (INJURY, SUSPENSION, LINEUP),
     # this callback triggers immediate analysis instead of waiting 120 minutes
@@ -1835,13 +2071,18 @@ def run_continuous():
                 1. Filters matches for this specific league
                 2. Runs analysis with optimizer, analyzer, notifier
                 3. Sends immediate alerts
+
+                V12.6: Create new database session for each callback to prevent
+                connection pool exhaustion on VPS. Session is properly closed in finally block.
                 """
-                nonlocal _analysis_engine_ref, _fotmob_ref, _db_ref
+                nonlocal _analysis_engine_ref, _fotmob_ref
 
                 logging.info(
                     f"🚨 [HIGH-PRIORITY] News discovered for {league_key} - triggering immediate analysis"
                 )
 
+                # Create new database session for this callback
+                db = None
                 try:
                     # Initialize components if not already done
                     if _analysis_engine_ref is None:
@@ -1854,8 +2095,8 @@ def run_continuous():
 
                         _fotmob_ref = get_data_provider()
 
-                    if _db_ref is None:
-                        _db_ref = SessionLocal()
+                    # Create new session for this callback (prevents connection pool exhaustion)
+                    db = SessionLocal()
 
                     # Get current time
                     now_utc = datetime.now(timezone.utc)
@@ -1864,7 +2105,7 @@ def run_continuous():
 
                     # Filter matches for this specific league (within analysis window)
                     league_matches = (
-                        _db_ref.query(Match)
+                        db.query(Match)
                         .filter(
                             Match.start_time > now_naive,
                             Match.start_time <= end_window_naive,
@@ -1914,7 +2155,7 @@ def run_continuous():
                                 match=match,
                                 fotmob=_fotmob_ref,
                                 now_utc=now_utc,
-                                db_session=_db_ref,
+                                db_session=db,
                                 context_label="HIGH_PRIORITY",
                                 nitter_intel=nitter_intel,
                             )
@@ -1942,6 +2183,15 @@ def run_continuous():
                     logging.error(
                         f"❌ [HIGH-PRIORITY] Failed to trigger analysis for {league_key}: {e}"
                     )
+                finally:
+                    # Always close the database session to prevent connection pool exhaustion
+                    if db is not None:
+                        try:
+                            db.close()
+                        except Exception as e:
+                            logging.error(
+                                f"❌ [HIGH-PRIORITY] Failed to close database session: {e}"
+                            )
 
             queue = get_discovery_queue()
             queue.register_high_priority_callback(
@@ -1962,7 +2212,40 @@ def run_continuous():
                 provider = get_supabase()
                 cache_metrics = provider.get_cache_metrics()
             except Exception as e:
-                logging.warning(f"⚠️ Failed to get cache metrics: {e}")
+                logging.warning(f"⚠️ Failed to get Supabase cache metrics: {e}")
+
+        # V2.0: Add SmartCache SWR metrics
+        try:
+            from src.utils.smart_cache import get_all_cache_stats
+
+            swr_stats = get_all_cache_stats()
+            # Merge SWR metrics into cache_metrics
+            if cache_metrics is None:
+                cache_metrics = {}
+
+            # Add SWR metrics for each cache instance
+            for cache_name, stats in swr_stats.items():
+                if stats.get("swr_enabled"):
+                    cache_metrics[f"swr_{cache_name}_hit_rate"] = stats.get("swr_hit_rate_pct", 0.0)
+                    cache_metrics[f"swr_{cache_name}_stale_hit_rate"] = stats.get(
+                        "swr_stale_hit_rate_pct", 0.0
+                    )
+                    cache_metrics[f"swr_{cache_name}_avg_cached_latency"] = stats.get(
+                        "avg_cached_latency_ms", 0.0
+                    )
+                    cache_metrics[f"swr_{cache_name}_avg_uncached_latency"] = stats.get(
+                        "avg_uncached_latency_ms", 0.0
+                    )
+                    cache_metrics[f"swr_{cache_name}_background_refreshes"] = stats.get(
+                        "background_refreshes", 0
+                    )
+                    cache_metrics[f"swr_{cache_name}_background_refresh_failures"] = stats.get(
+                        "background_refresh_failures", 0
+                    )
+                    cache_metrics[f"swr_{cache_name}_size"] = stats.get("size", 0)
+                    cache_metrics[f"swr_{cache_name}_max_size"] = stats.get("max_size", 0)
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to get SWR cache metrics: {e}")
 
         startup_msg = health.get_heartbeat_message(cache_metrics=cache_metrics)
         startup_msg = startup_msg.replace("✅ System operational", "🚀 System starting up...")
@@ -1983,10 +2266,21 @@ def run_continuous():
             logging.info(f"\n⏰ CYCLE {cycle_count} START: {current_time}")
 
             # V9.5: Refresh local mirror with social_sources and news_sources at start of each cycle
+            # V12.5: Check and reconnect to Supabase before refresh (COVE FIX)
             if _SUPABASE_PROVIDER_AVAILABLE:
                 try:
+                    from src.database.supabase_provider import get_supabase, refresh_mirror
+
+                    # V12.5: Check connection and reconnect if necessary (COVE FIX)
+                    supabase = get_supabase()
+                    if not supabase.is_connected():
+                        logging.warning("⚠️ Supabase disconnected, attempting to reconnect...")
+                        if supabase.reconnect():
+                            logging.info("✅ Supabase reconnected successfully")
+                        else:
+                            logging.warning("⚠️ Supabase reconnection failed, using mirror")
+
                     logging.info("🔄 Refreshing Supabase mirror at start of cycle...")
-                    from src.database.supabase_provider import refresh_mirror
 
                     success = refresh_mirror()
 
@@ -2090,6 +2384,14 @@ def run_continuous():
         except MemoryError as e:
             error_count += 1
             health.record_error(str(e))
+            # Intelligent error tracking integration
+            if ERROR_TRACKING_AVAILABLE and record_error_intelligent:
+                record_error_intelligent(
+                    error_type="database_errors",
+                    error_message=str(e),
+                    severity="CRITICAL",
+                    component="main_loop",
+                )
             logging.critical(f"💀 CRITICAL MEMORY ERROR in cycle {cycle_count}: {e}")
             logging.critical("System may be running out of memory. Consider restarting.")
 
@@ -2110,6 +2412,14 @@ def run_continuous():
         except ConnectionError as e:
             error_count += 1
             health.record_error(str(e))
+            # Intelligent error tracking integration
+            if ERROR_TRACKING_AVAILABLE and record_error_intelligent:
+                record_error_intelligent(
+                    error_type="api_errors",
+                    error_message=str(e),
+                    severity="ERROR",
+                    component="main_loop",
+                )
             logging.error(f"🌐 CONNECTION ERROR in cycle {cycle_count}: {e}")
             logging.warning(f"Network issue detected. Retry {error_count}/5")
 
@@ -2397,13 +2707,17 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # ✅ NEW: Pre-flight validation BEFORE entering main loop
-    try:
-        from src.utils.startup_validator import validate_startup_or_exit
+    # Fail-fast: If validator cannot be imported, system should not start
+    from src.utils.startup_validator import validate_startup_or_exit
 
-        validate_startup_or_exit()
-    except ImportError as e:
-        logging.warning(f"⚠️ Startup validator not available: {e}")
-        logging.warning("⚠️ Proceeding without validation checks")
+    validation_report = validate_startup_or_exit()
+
+    # Intelligent decision-making based on validation results
+    if validation_report.disabled_features:
+        logging.info(
+            f"⚙️  Disabled features: {', '.join(sorted(validation_report.disabled_features))}"
+        )
+        logging.info("🔧 System will operate with reduced functionality")
 
     # Emergency cleanup BEFORE any DB operation
     try:

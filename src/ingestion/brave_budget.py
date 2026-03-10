@@ -38,6 +38,9 @@ class BudgetManager(BaseBudgetManager):
         self,
         monthly_limit: int = BRAVE_MONTHLY_BUDGET,
         allocations: dict[str, int] | None = None,
+        enable_persistence: bool = True,
+        enable_monitoring: bool = True,
+        enable_reporting: bool = True,
     ):
         """
         Initialize BudgetManager.
@@ -45,11 +48,17 @@ class BudgetManager(BaseBudgetManager):
         Args:
             monthly_limit: Total monthly API call limit (default 6000)
             allocations: Per-component budget allocations
+            enable_persistence: Enable budget persistence to SQLite
+            enable_monitoring: Enable intelligent monitoring and state change detection
+            enable_reporting: Enable intelligent reporting with trend analysis
         """
         super().__init__(
             monthly_limit=monthly_limit,
             allocations=allocations or BRAVE_BUDGET_ALLOCATION,
             provider_name="Brave",
+            enable_persistence=enable_persistence,
+            enable_monitoring=enable_monitoring,
+            enable_reporting=enable_reporting,
         )
 
     def get_degraded_threshold(self) -> float:
@@ -60,54 +69,14 @@ class BudgetManager(BaseBudgetManager):
         """Get disabled threshold for Brave (95%)."""
         return BRAVE_DISABLED_THRESHOLD
 
-    def can_call(self, component: str, is_critical: bool = False) -> bool:
-        """
-        Check if component can make a Brave call.
-
-        Args:
-            component: Component name (e.g., 'main_pipeline', 'news_radar')
-            is_critical: Whether this is a critical call
-
-        Returns:
-            True if call is allowed, False otherwise
-        """
-        self._check_daily_reset()
-
-        usage_pct = self._monthly_used / self._monthly_limit if self._monthly_limit > 0 else 0
-
-        # Disabled mode (>95%): Only critical calls
-        if usage_pct >= BRAVE_DISABLED_THRESHOLD:
-            if is_critical or component in self._critical_components:
-                logger.debug(
-                    f"📊 [BRAVE-BUDGET] Critical call allowed for {component} in disabled mode"
-                )
-                return True
-            logger.warning(
-                f"⚠️ [BRAVE-BUDGET] Call blocked for {component}: budget disabled (>{BRAVE_DISABLED_THRESHOLD * 100:.0f}%)"
-            )
-            return False
-
-        # V10.0: Fix - Ensure degraded mode check returns False (not True) when at threshold
-        # The degraded mode check was incorrectly returning True when usage_pct == BRAVE_DEGRADED_THRESHOLD
-        # This caused test_can_call_degraded_mode to fail
-        if usage_pct >= BRAVE_DEGRADED_THRESHOLD:
-            # In degraded mode (>90%), non-critical calls should be THROTTLED (return False)
-            # NOT allowed (return True)
-            if not is_critical and component not in self._critical_components:
-                logger.debug("📊 [BRAVE-BUDGET] Throttling non-critical call in degraded mode")
-                return False
-
-        # Normal mode: Check component allocation
-        component_used = self._component_usage.get(component, 0)
-        component_limit = self._allocations.get(component, 0)
-
-        if component_limit > 0 and component_used >= component_limit:
-            logger.warning(
-                f"⚠️ [BRAVE-BUDGET] Component {component} at allocation limit ({component_limit})"
-            )
-            return False
-
-        return True
+    # V13.0: Removed can_call() override to use BaseBudgetManager's intelligent features
+    # The base class implementation includes:
+    # - Intelligent monitoring and state change detection
+    # - Alert triggering on threshold crossings
+    # - Proper integration with budget persistence
+    # - Component allocation checks
+    # - Critical component handling
+    # - Degraded and disabled mode logic
 
 
 # ============================================

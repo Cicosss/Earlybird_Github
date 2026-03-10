@@ -200,10 +200,9 @@ class TestRadarLightEnricher:
 
         enricher = RadarLightEnricher()
 
-        match_info = {"current_draw_odd": 2.50}
-        team_context = {"matches_remaining": 15}  # Not end of season
+        match_info = {"current_draw_odd": 2.50, "home_team": "Team A", "away_team": "Team B"}
 
-        is_suspect, severity = enricher.check_biscotto_light(match_info, team_context)
+        is_suspect, severity = enricher.check_biscotto_light(match_info)
 
         assert is_suspect is False
         assert severity is None
@@ -214,10 +213,9 @@ class TestRadarLightEnricher:
 
         enricher = RadarLightEnricher()
 
-        match_info = {"current_draw_odd": None}
-        team_context = {"matches_remaining": 3}  # End of season
+        match_info = {"current_draw_odd": None, "home_team": "Team A", "away_team": "Team B"}
 
-        is_suspect, severity = enricher.check_biscotto_light(match_info, team_context)
+        is_suspect, severity = enricher.check_biscotto_light(match_info)
 
         assert is_suspect is False
         assert severity is None

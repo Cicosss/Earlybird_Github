@@ -2,21 +2,22 @@
 Match Helper Utilities
 
 This module provides helper functions for safely extracting Match object attributes
-to prevent SQLAlchemy session detachment issues on VPS deployment.
+to reduce SQLAlchemy session detachment vulnerability on VPS deployment.
 
 The "Trust validation error: Instance <Match at 0x...> is not bound to Session"
 occurs when a Match object becomes detached from its SQLAlchemy session due to:
 1. Connection pool recycling (after pool_recycle seconds)
 2. Multiple threads accessing the database concurrently
 
-This module provides a centralized solution to extract Match attributes safely
-using getattr() with default values, which prevents the error even if the
-Match object becomes detached.
+This module provides a centralized solution to extract Match attributes immediately
+using getattr() with default values. Note: getattr() doesn't prevent DetachedInstanceError,
+but extracting attributes immediately when needed reduces the window of vulnerability.
+The current approach works as long as the session is still active.
 """
 
-from typing import Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Optional
 
 # Try to import Match model, but handle gracefully if not available
 try:
@@ -58,11 +59,12 @@ class MatchAttributes:
 
 def extract_match_attributes(match: Any, attributes: Optional[list[str]] = None) -> MatchAttributes:
     """
-    Safely extract Match attributes to prevent session detachment issues.
+    Safely extract Match attributes to reduce session detachment vulnerability window.
 
-    This function uses getattr() with default values to extract Match attributes,
-    which prevents the "Trust validation error" even if the Match object
-    becomes detached from its SQLAlchemy session.
+    This function uses getattr() with default values to extract Match attributes
+    immediately when needed. Note: getattr() doesn't prevent DetachedInstanceError,
+    but extracting attributes immediately reduces the window of vulnerability.
+    The current approach works as long as the session is still active.
 
     Args:
         match: Match database object (or any object with Match-like attributes)

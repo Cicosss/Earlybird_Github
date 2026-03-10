@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/base_budget_manager.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.5, 100, 3600, 'Provider', 'alert_type', 'component_usage', 'daily_used', 'is_degraded', 'is_disabled', 'last_reset_day', 'last_reset_month', 'last_updated', 'main_pipeline', 'monthly_used', 'settlement_clv', 'status', 'timestamp', 'usage_percentage']

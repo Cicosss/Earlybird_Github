@@ -32,6 +32,21 @@ CIRCUIT_BREAKER_CONFIG = {
     "half_open_max_calls": 1,  # Number of calls allowed in HALF_OPEN state
 }
 
+# FIX #2: VPS Timeout Handling - Distinguish between transient and permanent failures
+# Transient errors (network issues, temporary timeouts) should have higher threshold
+# Permanent errors (403, 429, blocked) should use standard threshold
+TRANSIENT_ERROR_CONFIG = {
+    "failure_threshold": 5,  # Higher threshold for transient errors (VPS network instability)
+    "recovery_timeout": 300,  # Shorter recovery timeout for transient errors (5 minutes)
+    "error_types": [
+        "TimeoutError",
+        "asyncio.TimeoutError",
+        "ConnectionRefusedError",
+        "ConnectionResetError",
+        "ConnectionAbortedError",
+    ],
+}
+
 # Round-robin configuration
 ROUND_ROBIN_CONFIG = {
     "initial_index": 0,  # Starting index for round-robin rotation

@@ -17,6 +17,7 @@ Requirements: 1.1-1.4, 2.1-2.4, 3.1-3.5, 4.1-4.4, 5.1-5.4, 6.1-6.5, 7.1-7.4, 8.1
 """
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
@@ -24,7 +25,34 @@ from typing import Any, Optional
 # Import safe dictionary access utilities
 from src.utils.validators import safe_dict_get
 
+# V11.0: Import Contract Validation
+try:
+    from src.utils.contracts import VERIFICATION_RESULT_CONTRACT, ContractViolation
+
+    _CONTRACTS_AVAILABLE = True
+except ImportError:
+    _CONTRACTS_AVAILABLE = False
+    logging.debug("Contracts module not available for verification_layer")
+
 logger = logging.getLogger(__name__)
+
+# Import CardsSignal enum for type consistency
+try:
+    from src.schemas.perplexity_schemas import CardsSignal
+
+    CARDS_SIGNAL_AVAILABLE = True
+except ImportError:
+    CARDS_SIGNAL_AVAILABLE = False
+    logger.warning("⚠️ CardsSignal enum not available")
+
+# Import DataConfidence enum for type consistency
+try:
+    from src.schemas.perplexity_schemas import DataConfidence
+
+    DATA_CONFIDENCE_AVAILABLE = True
+except ImportError:
+    DATA_CONFIDENCE_AVAILABLE = False
+    logger.warning("⚠️ DataConfidence enum not available")
 
 # Import referee cache for V9.0
 try:
@@ -186,8 +214,8 @@ class VerificationRequest:
     league: str
 
     # Preliminary alert data (required)
-    preliminary_score: float
     suggested_market: str  # "Over 2.5 Goals", "1", "X2", etc.
+    preliminary_score: float | None = None
 
     # Injury data from FotMob (required)
     home_missing_players: list[str] = field(default_factory=list)
@@ -218,6 +246,9 @@ class VerificationRequest:
             raise ValueError("match_date is required")
         if not self.league:
             raise ValueError("league is required")
+        # Ensure preliminary_score is not None before comparison
+        if self.preliminary_score is None:
+            self.preliminary_score = 0.0
         if self.preliminary_score < 0:
             raise ValueError("preliminary_score must be non-negative")
         if not self.suggested_market:
@@ -484,21 +515,29 @@ class VerifiedData:
     # Form stats
     home_form: FormStats | None = None
     away_form: FormStats | None = None
-    form_confidence: str = "LOW"  # HIGH, MEDIUM, LOW
+    form_confidence: str = "Low"  # Title Case: High, Medium, Low
 
     # H2H stats
     h2h: H2HStats | None = None
-    h2h_confidence: str = "LOW"
+    h2h_confidence: str = "Low"
 
     # Referee stats
     referee: RefereeStats | None = None
-    referee_confidence: str = "LOW"
+    referee_confidence: str = "Low"
 
     # Corner stats
     home_corner_avg: float | None = None
     away_corner_avg: float | None = None
     h2h_corner_avg: float | None = None
-    corner_confidence: str = "LOW"
+    corner_confidence: str = "Low"
+
+    # Cards stats (V13.1: Added for intelligent cards market decisions)
+    home_cards_avg: float | None = None
+    away_cards_avg: float | None = None
+    cards_total_avg: float | None = None
+    cards_signal: CardsSignal = CardsSignal.UNKNOWN  # Type-consistent enum usage
+    cards_reasoning: str = ""
+    cards_confidence: str = "Low"
 
     # V7.2: Goals per game (season average from team stats)
     # Separate from FormStats.goals_scored which is total in last 5 matches
@@ -510,10 +549,12 @@ class VerifiedData:
     away_xg: float | None = None
     home_xga: float | None = None  # Expected goals against per game
     away_xga: float | None = None
-    xg_confidence: str = "LOW"
+    xg_confidence: str = "Low"
 
     # Overall metadata
-    data_confidence: str = "LOW"  # Aggregated confidence
+    # Type annotation uses Union to handle both Enum and str for backward compatibility
+    # When DATA_CONFIDENCE_AVAILABLE is True, DataConfidence enum is preferred
+    data_confidence: str = "Low"  # Aggregated confidence (Title Case to match DataConfidence enum)
     source: str = "unknown"  # "tavily" or "perplexity"
 
     def get_home_key_players(self) -> list[PlayerImpact]:
@@ -563,6 +604,28 @@ class VerifiedData:
             return self.home_form.is_low_scoring() and self.away_form.is_low_scoring()
         return False
 
+    # V13.1: Cards-related helper methods for intelligent market decisions
+    def get_combined_cards_avg(self) -> float | None:
+        """Get combined cards average for both teams."""
+        if self.home_cards_avg is not None and self.away_cards_avg is not None:
+            return self.home_cards_avg + self.away_cards_avg
+        return None
+
+    def suggests_over_cards(self) -> bool:
+        """Check if cards data suggests Over 4.5 Cards market."""
+        combined = self.get_combined_cards_avg()
+        if combined is not None:
+            return combined >= 4.5
+        return False
+
+    def is_cards_aggressive(self) -> bool:
+        """Check if cards signal indicates aggressive play."""
+        return self.cards_signal == CardsSignal.AGGRESSIVE
+
+    def is_cards_disciplined(self) -> bool:
+        """Check if cards signal indicates disciplined play."""
+        return self.cards_signal == CardsSignal.DISCIPLINED
+
 
 # ============================================
 # OUTPUT DTO: VerificationResult
@@ -594,7 +657,7 @@ class VerificationResult:
     inconsistencies: list[str] = field(default_factory=list)
 
     # Confidence
-    overall_confidence: str = "LOW"  # HIGH, MEDIUM, LOW
+    overall_confidence: str = "Low"  # Title Case: High, Medium, Low
 
     # Human-readable reasoning (in Italian)
     reasoning: str = ""
@@ -696,7 +759,7 @@ def create_skip_result(request: VerificationRequest, reason: str) -> Verificatio
         recommended_market=None,
         alternative_markets=[],
         inconsistencies=[],
-        overall_confidence="LOW",
+        overall_confidence="Low",
         reasoning=f"Verifica saltata: {reason}",
         verified_data=None,
         rejection_reason=None,
@@ -726,7 +789,7 @@ def create_fallback_result(
             recommended_market=None,
             alternative_markets=[],
             inconsistencies=["Verification timeout - troppo rischioso procedere senza conferma"],
-            overall_confidence="LOW",
+            overall_confidence="Low",
             reasoning=f"Alert respinto: {reason}. Score troppo alto ({request.preliminary_score}) per procedere senza verifica.",
             verified_data=None,
             rejection_reason=f"Verification failed for critical alert (score >= 9.0): {reason}",
@@ -742,7 +805,7 @@ def create_fallback_result(
         recommended_market=None,
         alternative_markets=[],
         inconsistencies=[],
-        overall_confidence="LOW",
+        overall_confidence="Low",
         reasoning=f"Verifica non completata: {reason}. Procedo con dati esistenti (score < 9.0).",
         verified_data=None,
         rejection_reason=None,
@@ -766,7 +829,7 @@ def create_rejection_result(
         recommended_market=None,
         alternative_markets=[],
         inconsistencies=inconsistencies or [],
-        overall_confidence="HIGH",
+        overall_confidence="High",
         reasoning=f"Alert respinto: {reason}",
         verified_data=None,
         rejection_reason=reason,
@@ -1201,7 +1264,7 @@ class OptimizedResponseParser:
         verified.home_corner_avg = safe_dict_get(home_stats, "corners", default=None)
         verified.away_corner_avg = safe_dict_get(away_stats, "corners", default=None)
         verified.corner_confidence = (
-            "MEDIUM" if verified.home_corner_avg or verified.away_corner_avg else "LOW"
+            "Medium" if verified.home_corner_avg or verified.away_corner_avg else "Low"
         )
 
         # V7.2: Set goals per game (season average) - separate from form goals_scored
@@ -1216,7 +1279,7 @@ class OptimizedResponseParser:
         verified.away_xg = safe_dict_get(away_xg_stats, "xg", default=None)
         verified.home_xga = safe_dict_get(home_xg_stats, "xga", default=None)
         verified.away_xga = safe_dict_get(away_xg_stats, "xga", default=None)
-        verified.xg_confidence = "MEDIUM" if (verified.home_xg or verified.away_xg) else "LOW"
+        verified.xg_confidence = "Medium" if (verified.home_xg or verified.away_xg) else "Low"
 
         if verified.home_xg or verified.away_xg:
             logger.info(f"   📊 xG extracted: Home={verified.home_xg}, Away={verified.away_xg}")
@@ -1231,7 +1294,7 @@ class OptimizedResponseParser:
                 avg_corners=safe_dict_get(h2h_data, "corners", default=0.0),
             )
             verified.h2h_corner_avg = safe_dict_get(h2h_data, "corners", default=None)
-            verified.h2h_confidence = "MEDIUM" if verified.h2h.has_data() else "LOW"
+            verified.h2h_confidence = "Medium" if verified.h2h.has_data() else "Low"
 
         # 4. Parse referee stats
         ref_data = self._parse_referee_stats(text, combined_text)
@@ -1241,7 +1304,7 @@ class OptimizedResponseParser:
                 name=request.fotmob_referee_name or self.referee_original,
                 cards_per_game=cards_per_game,
             )
-            verified.referee_confidence = "MEDIUM"
+            verified.referee_confidence = "Medium"
 
         # 5. Parse form stats (multi-language)
         # V7.1: First try FotMob form data if available (most reliable)
@@ -1273,25 +1336,30 @@ class OptimizedResponseParser:
                     losses=safe_dict_get(away_form, "losses", default=0),
                 )
 
-        # V7.1: HIGH confidence if FotMob form available, MEDIUM if parsed from text
+        # V7.1: High confidence if FotMob form available, Medium if parsed from text
         has_fotmob_form = request.home_form_last5 or request.away_form_last5
         verified.form_confidence = (
-            "HIGH"
+            "High"
             if has_fotmob_form
-            else ("MEDIUM" if verified.home_form or verified.away_form else "LOW")
+            else ("Medium" if verified.home_form or verified.away_form else "Low")
         )
 
-        # Calculate overall confidence
+        # Calculate overall confidence (unified algorithm across all providers)
         confidence_scores = [
             verified.form_confidence,
             verified.h2h_confidence,
             verified.referee_confidence,
             verified.corner_confidence,
         ]
-        medium_count = sum(1 for c in confidence_scores if c in ["HIGH", "MEDIUM"])
-        verified.data_confidence = (
-            "HIGH" if medium_count >= 3 else ("MEDIUM" if medium_count >= 2 else "LOW")
-        )
+        high_count = sum(1 for c in confidence_scores if c == "High")
+        medium_count = sum(1 for c in confidence_scores if c == "Medium")
+
+        if high_count >= 2:
+            verified.data_confidence = "High"
+        elif high_count >= 1 or medium_count >= 2:
+            verified.data_confidence = "Medium"
+        else:
+            verified.data_confidence = "Low"
 
         return verified
 
@@ -1956,6 +2024,7 @@ class TavilyVerifier:
         self._provider = tavily_provider
         self._call_count = 0
         self._last_call_time: float | None = None
+        self._call_count_lock = threading.Lock()  # Thread safety for counter
 
     @property
     def provider(self) -> TavilyProvider | None:
@@ -2052,7 +2121,8 @@ class TavilyVerifier:
             )
 
             latency_ms = int((time.time() - start_time) * 1000)
-            self._call_count += 1
+            with self._call_count_lock:
+                self._call_count += 1
             self._last_call_time = time.time()
 
             logger.info(f"🔍 [VERIFICATION] Tavily response in {latency_ms}ms")
@@ -2106,7 +2176,7 @@ class TavilyVerifier:
         verified = VerifiedData(source="tavily")
 
         if not response:
-            verified.data_confidence = "LOW"
+            verified.data_confidence = "Low"
             return verified
 
         # Get AI answer and search results
@@ -2140,14 +2210,14 @@ class TavilyVerifier:
             request.away_form_last5
         ) or self._parse_form_stats(all_text, request.away_team)
         verified.form_confidence = (
-            "HIGH"
+            "High"
             if (request.home_form_last5 or request.away_form_last5)
-            else ("MEDIUM" if verified.home_form or verified.away_form else "LOW")
+            else ("Medium" if verified.home_form or verified.away_form else "Low")
         )
 
         # Parse H2H stats
         verified.h2h = self._parse_h2h_stats(all_text)
-        verified.h2h_confidence = "MEDIUM" if verified.h2h and verified.h2h.has_data() else "LOW"
+        verified.h2h_confidence = "Medium" if verified.h2h and verified.h2h.has_data() else "Low"
 
         # Parse referee stats with cache integration (V9.0)
         referee_name = request.fotmob_referee_name or "Unknown"
@@ -2159,8 +2229,8 @@ class TavilyVerifier:
             if cached_stats:
                 logger.debug(f"✅ Cache hit for referee: {referee_name}")
                 verified.referee = RefereeStats(**cached_stats)
-                verified.referee_confidence = "HIGH"  # Cached data is trusted
-                
+                verified.referee_confidence = "High"  # Cached data is trusted
+
                 # Record cache hit if monitor is available
                 if REFEREE_CACHE_MONITOR_AVAILABLE:
                     try:
@@ -2174,7 +2244,7 @@ class TavilyVerifier:
                     f"❌ Cache miss for referee: {referee_name}, fetching from Tavily/Perplexity"
                 )
                 verified.referee = self._parse_referee_stats(all_text, referee_name)
-                verified.referee_confidence = "MEDIUM" if verified.referee else "LOW"
+                verified.referee_confidence = "Medium" if verified.referee else "Low"
 
                 # Record cache miss if monitor is available
                 if REFEREE_CACHE_MONITOR_AVAILABLE:
@@ -2198,32 +2268,32 @@ class TavilyVerifier:
         else:
             # Fallback to parsing without cache
             verified.referee = self._parse_referee_stats(all_text, referee_name)
-            verified.referee_confidence = "MEDIUM" if verified.referee else "LOW"
+            verified.referee_confidence = "Medium" if verified.referee else "Low"
 
         # Parse corner stats
         verified.home_corner_avg = self._parse_corner_avg(all_text, request.home_team)
         verified.away_corner_avg = self._parse_corner_avg(all_text, request.away_team)
         verified.h2h_corner_avg = verified.h2h.avg_corners if verified.h2h else None
         verified.corner_confidence = (
-            "MEDIUM" if verified.home_corner_avg or verified.away_corner_avg else "LOW"
+            "Medium" if verified.home_corner_avg or verified.away_corner_avg else "Low"
         )
 
-        # Calculate overall confidence
+        # Calculate overall confidence (unified algorithm across all providers)
         confidence_scores = [
             verified.form_confidence,
             verified.h2h_confidence,
             verified.referee_confidence,
             verified.corner_confidence,
         ]
-        high_count = sum(1 for c in confidence_scores if c == "HIGH")
-        medium_count = sum(1 for c in confidence_scores if c == "MEDIUM")
+        high_count = sum(1 for c in confidence_scores if c == "High")
+        medium_count = sum(1 for c in confidence_scores if c == "Medium")
 
         if high_count >= 2:
-            verified.data_confidence = "HIGH"
+            verified.data_confidence = "High"
         elif high_count >= 1 or medium_count >= 2:
-            verified.data_confidence = "MEDIUM"
+            verified.data_confidence = "Medium"
         else:
-            verified.data_confidence = "LOW"
+            verified.data_confidence = "Low"
 
         return verified
 
@@ -2824,12 +2894,12 @@ class TavilyVerifier:
         Requirements: 1.4, 2.4, 3.5, 4.4, 5.4
         """
         if not response:
-            return VerifiedData(source="tavily_v2", data_confidence="LOW")
+            return VerifiedData(source="tavily_v2", data_confidence="Low")
 
         combined_text = safe_dict_get(response, "answer", default="")
 
         if not combined_text:
-            return VerifiedData(source="tavily_v2", data_confidence="LOW")
+            return VerifiedData(source="tavily_v2", data_confidence="Low")
 
         # Use optimized parser
         all_missing = request.home_missing_players + request.away_missing_players
@@ -2915,7 +2985,7 @@ class TavilyVerifier:
 
             # V2.6: Try Perplexity as last resort when Tavily completely fails
             # Create empty verified data to trigger Perplexity fallback
-            empty_verified = VerifiedData(source="tavily_failed", data_confidence="LOW")
+            empty_verified = VerifiedData(source="tavily_failed", data_confidence="Low")
             perplexity_data = self._execute_perplexity_fallback(request, empty_verified)
 
             if perplexity_data:
@@ -3092,7 +3162,7 @@ class TavilyVerifier:
 
         # Check team stats (goals, cards)
         # If we have corners but no other team stats, we might need more
-        if verified.corner_confidence == "LOW":
+        if verified.corner_confidence == "Low":
             missing.append("team_stats")
 
         return missing
@@ -3242,6 +3312,11 @@ class TavilyVerifier:
             corners_signal = safe_dict_get(betting_stats, "corners_signal", default="Unknown")
             data_confidence = safe_dict_get(betting_stats, "data_confidence", default="Low")
 
+            # Extract cards data
+            home_cards = safe_dict_get(betting_stats, "home_cards_avg", default=None)
+            away_cards = safe_dict_get(betting_stats, "away_cards_avg", default=None)
+            cards_signal = safe_dict_get(betting_stats, "cards_signal", default=CardsSignal.UNKNOWN)
+
             # V7.1: Extract form data
             home_form_wins = safe_dict_get(betting_stats, "home_form_wins", default=None)
             home_form_draws = safe_dict_get(betting_stats, "home_form_draws", default=None)
@@ -3265,7 +3340,7 @@ class TavilyVerifier:
             else:
                 logger.info(
                     f"✅ [V2.6] Perplexity corners: home={home_corners}, away={away_corners}, "
-                    f"signal={corners_signal}, confidence={data_confidence} ({elapsed:.2f}s)"
+                    f"signal={corners_signal}, cards={cards_signal.value if isinstance(cards_signal, Enum) else cards_signal}, confidence={data_confidence} ({elapsed:.2f}s)"
                 )
 
             result = {
@@ -3276,6 +3351,11 @@ class TavilyVerifier:
                 ),
                 "corners_signal": corners_signal,
                 "corners_reasoning": safe_dict_get(betting_stats, "corners_reasoning", default=""),
+                "home_cards_avg": home_cards,
+                "away_cards_avg": away_cards,
+                "cards_total_avg": safe_dict_get(betting_stats, "cards_total_avg", default=None),
+                "cards_signal": cards_signal,
+                "cards_reasoning": safe_dict_get(betting_stats, "cards_reasoning", default=""),
                 "data_confidence": data_confidence,
                 "sources_found": safe_dict_get(
                     betting_stats, "sources_found", default="Perplexity search"
@@ -3351,6 +3431,7 @@ class PerplexityVerifier:
         """
         self._provider = perplexity_provider
         self._call_count = 0
+        self._call_count_lock = threading.Lock()  # Thread safety for counter
 
     @property
     def provider(self) -> Optional["PerplexityProvider"]:
@@ -3436,7 +3517,8 @@ class PerplexityVerifier:
             result = self.provider._query_api(prompt)
 
             latency_ms = int((time.time() - start_time) * 1000)
-            self._call_count += 1
+            with self._call_count_lock:
+                self._call_count += 1
 
             logger.info(f"🔮 [VERIFICATION] Perplexity response in {latency_ms}ms")
 
@@ -3466,7 +3548,7 @@ class PerplexityVerifier:
         verified = VerifiedData(source="perplexity")
 
         if not response:
-            verified.data_confidence = "LOW"
+            verified.data_confidence = "Low"
             return verified
 
         # Parse player impacts from response
@@ -3511,7 +3593,7 @@ class PerplexityVerifier:
                 losses=away_form_data.get("losses", 0),
             )
 
-        verified.form_confidence = "MEDIUM" if verified.home_form or verified.away_form else "LOW"
+        verified.form_confidence = "Medium" if verified.home_form or verified.away_form else "Low"
 
         # Parse H2H stats
         h2h_data = safe_dict_get(response, "h2h", default={})
@@ -3522,7 +3604,7 @@ class PerplexityVerifier:
                 avg_cards=h2h_data.get("avg_cards", 0.0),
                 avg_corners=h2h_data.get("avg_corners", 0.0),
             )
-            verified.h2h_confidence = "MEDIUM" if verified.h2h.has_data() else "LOW"
+            verified.h2h_confidence = "Medium" if verified.h2h.has_data() else "Low"
 
         # Parse referee stats
         referee_data = safe_dict_get(response, "referee", default={})
@@ -3532,24 +3614,41 @@ class PerplexityVerifier:
                 verified.referee = RefereeStats(
                     name=request.fotmob_referee_name, cards_per_game=cards_avg
                 )
-                verified.referee_confidence = "MEDIUM"
+                verified.referee_confidence = "Medium"
 
         # Parse corner stats
         corners_data = safe_dict_get(response, "corners", default={})
         if isinstance(corners_data, dict):
             verified.home_corner_avg = corners_data.get("home", None)
             verified.away_corner_avg = corners_data.get("away", None)
-            verified.corner_confidence = "MEDIUM" if verified.home_corner_avg else "LOW"
+            verified.corner_confidence = "Medium" if verified.home_corner_avg else "Low"
 
-        # Calculate overall confidence
+        # V13.1: Parse cards stats for intelligent market decisions
+        cards_data = safe_dict_get(response, "cards", default={})
+        if isinstance(cards_data, dict):
+            verified.home_cards_avg = cards_data.get("home_cards_avg", None)
+            verified.away_cards_avg = cards_data.get("away_cards_avg", None)
+            verified.cards_total_avg = cards_data.get("cards_total_avg", None)
+            verified.cards_signal = cards_data.get("cards_signal", CardsSignal.UNKNOWN)
+            verified.cards_reasoning = cards_data.get("cards_reasoning", "")
+            verified.cards_confidence = "Medium" if verified.home_cards_avg else "Low"
+
+        # Calculate overall confidence (unified algorithm across all providers)
         confidence_scores = [
             verified.form_confidence,
             verified.h2h_confidence,
             verified.referee_confidence,
             verified.corner_confidence,
         ]
-        medium_count = sum(1 for c in confidence_scores if c in ["HIGH", "MEDIUM"])
-        verified.data_confidence = "MEDIUM" if medium_count >= 2 else "LOW"
+        high_count = sum(1 for c in confidence_scores if c == "High")
+        medium_count = sum(1 for c in confidence_scores if c == "Medium")
+
+        if high_count >= 2:
+            verified.data_confidence = "High"
+        elif high_count >= 1 or medium_count >= 2:
+            verified.data_confidence = "Medium"
+        else:
+            verified.data_confidence = "Low"
 
         return verified
 
@@ -3597,6 +3696,9 @@ class VerificationOrchestrator:
         self._tavily_failures = 0
         self._perplexity_failures = 0
         self._use_optimized = use_optimized_queries
+        # Thread safety for counters
+        self._tavily_failures_lock = threading.Lock()
+        self._perplexity_failures_lock = threading.Lock()
 
     def should_skip_verification(self, request: VerificationRequest) -> bool:
         """
@@ -3667,7 +3769,7 @@ class VerificationOrchestrator:
                                 perplexity_data, "data_confidence", default="Low"
                             )
                             verified.corner_confidence = (
-                                "MEDIUM" if perplexity_confidence in ["High", "Medium"] else "LOW"
+                                "Medium" if perplexity_confidence in ["High", "Medium"] else "Low"
                             )
                             verified.source = f"{verified.source}+perplexity_v2.6"
                             logger.info(
@@ -3696,7 +3798,7 @@ class VerificationOrchestrator:
                                 losses=safe_dict_get(perplexity_data, "home_form_losses", default=0)
                                 or 0,
                             )
-                            verified.form_confidence = "MEDIUM"
+                            verified.form_confidence = "Medium"
                             logger.info(
                                 f"✅ [V7.1] Perplexity home form integrated: W{verified.home_form.wins} D{verified.home_form.draws} L{verified.home_form.losses}"
                             )
@@ -3722,7 +3824,7 @@ class VerificationOrchestrator:
                                 losses=safe_dict_get(perplexity_data, "away_form_losses", default=0)
                                 or 0,
                             )
-                            verified.form_confidence = "MEDIUM"
+                            verified.form_confidence = "Medium"
                             logger.info(
                                 f"✅ [V7.1] Perplexity away form integrated: W{verified.away_form.wins} D{verified.away_form.draws} L{verified.away_form.losses}"
                             )
@@ -3742,7 +3844,7 @@ class VerificationOrchestrator:
                                     )
                                     or 0.0,
                                 )
-                                verified.referee_confidence = "MEDIUM"
+                                verified.referee_confidence = "Medium"
                                 logger.info(
                                     f"✅ [V7.1] Perplexity referee integrated: {referee_name} ({verified.referee.cards_per_game} cards/game)"
                                 )
@@ -3756,7 +3858,7 @@ class VerificationOrchestrator:
                         verified.home_corner_avg is not None or verified.away_corner_avg is not None
                     )
 
-                    if verified.data_confidence in ["HIGH", "MEDIUM"]:
+                    if verified.data_confidence in ["High", "Medium"]:
                         logger.info(
                             f"✅ [VERIFICATION] V2.4 queries successful: {verified.data_confidence} confidence"
                         )
@@ -3776,10 +3878,12 @@ class VerificationOrchestrator:
             response = self._tavily.query(request)
 
             if response:
-                self._tavily_failures = 0
+                with self._tavily_failures_lock:
+                    self._tavily_failures = 0
                 return self._tavily.parse_response(response, request)
             else:
-                self._tavily_failures += 1
+                with self._tavily_failures_lock:
+                    self._tavily_failures += 1
                 logger.warning(f"⚠️ [VERIFICATION] Tavily failed (attempt {self._tavily_failures})")
 
         # Fallback to Perplexity
@@ -3788,17 +3892,19 @@ class VerificationOrchestrator:
             response = self._perplexity.query(request)
 
             if response:
-                self._perplexity_failures = 0
+                with self._perplexity_failures_lock:
+                    self._perplexity_failures = 0
                 return self._perplexity.parse_response(response, request)
             else:
-                self._perplexity_failures += 1
+                with self._perplexity_failures_lock:
+                    self._perplexity_failures += 1
                 logger.warning(
                     f"⚠️ [VERIFICATION] Perplexity failed (attempt {self._perplexity_failures})"
                 )
 
         # Both providers failed
         logger.error("❌ [VERIFICATION] All providers failed, returning empty data")
-        return VerifiedData(source="none", data_confidence="LOW")
+        return VerifiedData(source="none", data_confidence="Low")
 
     def get_provider_status(self) -> dict[str, Any]:
         """Get status of verification providers."""
@@ -3933,7 +4039,7 @@ class LogicValidator:
         # Build rejection reason if applicable
         rejection_reason = None
         if status == VerificationStatus.REJECT:
-            if verified.data_confidence == "LOW" and len(inconsistencies) >= 2:
+            if verified.data_confidence == "Low" and len(inconsistencies) >= 2:
                 rejection_reason = "insufficient_data"
             elif len(inconsistencies) >= 3:
                 rejection_reason = "multiple_inconsistencies"
@@ -4153,7 +4259,7 @@ class LogicValidator:
 
         # Suggest Under 2.5 if xG is very low and not already suggested
         if combined_xg < 2.0 and "under" not in market:
-            if verified.xg_confidence in ("MEDIUM", "HIGH"):
+            if verified.xg_confidence in ("Medium", "High"):
                 if "Under 2.5 Goals" not in alternatives:
                     alternatives.append("Under 2.5 Goals")
 
@@ -4166,6 +4272,7 @@ class LogicValidator:
         Suggest alternative markets based on verified data.
 
         Requirements: 8.2
+        V13.1: Enhanced with intelligent cards market suggestions
         """
         alternatives = []
 
@@ -4181,6 +4288,22 @@ class LogicValidator:
 
         # If referee is strict, suggest Over Cards
         if verified.referee and verified.referee.is_strict():
+            if not request.is_cards_market():
+                alternatives.append("Over 4.5 Cards")
+
+        # V13.1: Intelligent cards market suggestions based on cards_signal
+        # Suggest Over 4.5 Cards if signal is Aggressive and combined average supports it
+        if verified.is_cards_aggressive() and verified.suggests_over_cards():
+            if not request.is_cards_market():
+                alternatives.append("Over 4.5 Cards")
+
+        # Suggest Under 4.5 Cards if signal is Disciplined and not already a cards market
+        if verified.is_cards_disciplined():
+            if not request.is_cards_market():
+                alternatives.append("Under 4.5 Cards")
+
+        # Suggest Over 4.5 Cards if combined average is high (>5.0) regardless of signal
+        if verified.cards_total_avg and verified.cards_total_avg > 5.0:
             if not request.is_cards_market():
                 alternatives.append("Over 4.5 Cards")
 
@@ -4223,8 +4346,8 @@ class LogicValidator:
 
         Requirements: 6.1, 6.2, 6.3
         """
-        # REJECT if confidence is LOW and multiple inconsistencies
-        if verified.data_confidence == "LOW" and len(inconsistencies) >= 2:
+        # REJECT if confidence is Low and multiple inconsistencies
+        if verified.data_confidence == "Low" and len(inconsistencies) >= 2:
             return VerificationStatus.REJECT
 
         # REJECT if too many inconsistencies
@@ -4255,9 +4378,9 @@ class LogicValidator:
         Calculate overall confidence level.
         """
         # Start with data confidence
-        if verified.data_confidence == "HIGH":
+        if verified.data_confidence == "High":
             base = 3
-        elif verified.data_confidence == "MEDIUM":
+        elif verified.data_confidence == "Medium":
             base = 2
         else:
             base = 1
@@ -4346,21 +4469,30 @@ class LogicValidator:
 # Singleton instances
 _orchestrator: VerificationOrchestrator | None = None
 _validator: LogicValidator | None = None
+# Thread safety for singleton creation
+_orchestrator_lock = threading.Lock()
+_validator_lock = threading.Lock()
 
 
 def get_verification_orchestrator() -> VerificationOrchestrator:
-    """Get or create singleton VerificationOrchestrator."""
+    """Get or create singleton VerificationOrchestrator (thread-safe)."""
     global _orchestrator
+    # Double-checked locking pattern for thread safety
     if _orchestrator is None:
-        _orchestrator = VerificationOrchestrator()
+        with _orchestrator_lock:
+            if _orchestrator is None:
+                _orchestrator = VerificationOrchestrator()
     return _orchestrator
 
 
 def get_logic_validator() -> LogicValidator:
-    """Get or create singleton LogicValidator."""
+    """Get or create singleton LogicValidator (thread-safe)."""
     global _validator
+    # Double-checked locking pattern for thread safety
     if _validator is None:
-        _validator = LogicValidator()
+        with _validator_lock:
+            if _validator is None:
+                _validator = LogicValidator()
     return _validator
 
 
@@ -4421,6 +4553,20 @@ def verify_alert(request: VerificationRequest) -> VerificationResult:
             logger.info(f"   Inconsistencies: {len(result.inconsistencies)}")
         if result.recommended_market:
             logger.info(f"   Recommended market: {result.recommended_market}")
+
+        # V11.0: Validate against contract
+        if _CONTRACTS_AVAILABLE:
+            try:
+                # Convert VerificationResult to dict for validation
+                result_dict = result.to_dict()
+                VERIFICATION_RESULT_CONTRACT.assert_valid(
+                    result_dict,
+                    context=f"verify_alert(match_id={request.match_id})",
+                )
+            except ContractViolation as e:
+                logging.warning(f"⚠️ Contract violation in VerificationResult: {e}")
+                # Return result anyway to avoid breaking the verification flow
+                # The violation is logged for debugging purposes
 
         return result
 
@@ -4486,7 +4632,8 @@ def create_verification_request_from_match(
         match_date = start_time.strftime("%Y-%m-%d")
 
     # Extract analysis info
-    preliminary_score = float(getattr(analysis, "score", 0))
+    analysis_score = getattr(analysis, "score", None)
+    preliminary_score = float(analysis_score or 0) if analysis_score is not None else 0.0
     suggested_market = getattr(analysis, "recommended_market", "") or getattr(
         analysis, "primary_market", "Unknown"
     )
@@ -4626,9 +4773,9 @@ def build_italian_reasoning(
         parts.append("🔄 Mercato da modificare.")
 
     # Data quality
-    if verified.data_confidence == "HIGH":
+    if verified.data_confidence == "High":
         parts.append("Dati verificati con alta confidenza.")
-    elif verified.data_confidence == "MEDIUM":
+    elif verified.data_confidence == "Medium":
         parts.append("Dati verificati con confidenza media.")
     else:
         parts.append("⚠️ Dati verificati con bassa confidenza.")

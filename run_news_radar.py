@@ -203,13 +203,17 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # ✅ NEW: Pre-flight validation BEFORE starting news radar
-    try:
-        from src.utils.startup_validator import validate_startup_or_exit
+    # Fail-fast: If validator cannot be imported, system should not start
+    from src.utils.startup_validator import validate_startup_or_exit
 
-        validate_startup_or_exit()
-    except ImportError as e:
-        logger.warning(f"⚠️ Startup validator not available: {e}")
-        logger.warning("⚠️ Proceeding without validation checks")
+    validation_report = validate_startup_or_exit()
+
+    # Intelligent decision-making based on validation results
+    if validation_report.disabled_features:
+        logger.info(
+            f"⚙️  Disabled features: {', '.join(sorted(validation_report.disabled_features))}"
+        )
+        logger.info("🔧 System will operate with reduced functionality")
 
     # Setup signal handlers
     signal.signal(signal.SIGINT, signal_handler)

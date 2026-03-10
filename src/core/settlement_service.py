@@ -40,6 +40,14 @@ from src.utils.validators import safe_get
 
 logger = logging.getLogger(__name__)
 
+# Import Tavily line movement verification (V14.0)
+# Note: This is a private function in clv_tracker, imported for settlement integration
+try:
+    from src.analysis.clv_tracker import _tavily_verify_line_movement
+except ImportError:
+    _tavily_verify_line_movement = None
+    logger.warning("⚠️ [SETTLEMENT] _tavily_verify_line_movement not available")
+
 # Result status constants
 RESULT_WIN = "WIN"
 RESULT_LOSS = "LOSS"
@@ -250,6 +258,8 @@ class SettlementService:
                 try:
                     fotmob = get_data_provider()
                     match_stats = fotmob.get_match_stats(fotmob_match_id)
+                    if not match_stats:
+                        logger.warning(f"⚠️ Could not get match stats for {fotmob_match_id}")
                 except Exception as e:
                     logger.warning(f"⚠️ Could not fetch stats: {e}")
 
@@ -348,6 +358,18 @@ class SettlementService:
                             news_log.combo_explanation = combo_explanation
                             news_log.expansion_type = expansion_type
 
+                    # V13.0: Save primary bet outcome to database
+                    # This is critical for CLV and ROI analysis
+                    if outcome != RESULT_PENDING:
+                        news_log = (
+                            db.query(NewsLog)
+                            .filter(NewsLog.id == match_data["news_log_id"])
+                            .first()
+                        )
+                        if news_log:
+                            news_log.outcome = outcome
+                            news_log.outcome_explanation = explanation
+
                     # Skip pending outcomes
                     if outcome == RESULT_PENDING:
                         stats["pending"] += 1
@@ -398,6 +420,53 @@ class SettlementService:
                     # V8.3 FIX: Use odds_at_alert and odds_at_kickoff for CLV calculation
                     clv_value = self._calculate_clv_for_bet(match_data, bet_odds)
 
+                    # V14.0: Get line movement explanation via Tavily for significant CLV
+                    line_movement_explanation = None
+                    if (
+                        _tavily_verify_line_movement
+                        and clv_value is not None
+                        and abs(clv_value) >= 2.0
+                    ):  # Significant movement: |CLV| >= 2%
+                        try:
+                            # Get odds for line movement description
+                            odds_taken = match_data.get("odds_at_alert") or match_data.get(
+                                "odds_taken"
+                            )
+                            closing_odds = match_data.get("odds_at_kickoff") or match_data.get(
+                                "closing_odds"
+                            )
+
+                            if odds_taken and closing_odds:
+                                # Build line movement description
+                                line_movement = f"Odds moved from {odds_taken:.2f} to {closing_odds:.2f} (CLV: {clv_value:+.2f}%)"
+
+                                # Get match date from match_data
+                                match_date = (
+                                    match_data.get("start_time") or match.get("start_time")
+                                    if match
+                                    else None
+                                )
+
+                                # Call Tavily for explanation (V14.0: Pass clv_value for priority system)
+                                line_movement_explanation = _tavily_verify_line_movement(
+                                    home_team=match_data["home_team"],
+                                    away_team=match_data["away_team"],
+                                    match_date=match_date,
+                                    line_movement=line_movement,
+                                    clv_value=clv_value,  # V14.0: Pass CLV value for intelligent priority
+                                )
+
+                                if line_movement_explanation:
+                                    logger.info(
+                                        f"🔍 [SETTLEMENT] Line movement explanation for "
+                                        f"{match_data['home_team']} vs {match_data['away_team']}: "
+                                        f"{line_movement_explanation[:100]}..."
+                                    )
+                        except Exception as e:
+                            logger.warning(
+                                f"⚠️ [SETTLEMENT] Failed to get line movement explanation: {e}"
+                            )
+
                     # Record detail
                     stats["details"].append(
                         {
@@ -411,6 +480,7 @@ class SettlementService:
                             "odds": bet_odds,
                             "driver": match_data["primary_driver"],
                             "clv": clv_value,
+                            "line_movement_explanation": line_movement_explanation,
                             "combo_suggestion": match_data.get("combo_suggestion"),
                             "combo_outcome": combo_outcome,
                             "combo_explanation": combo_explanation,
@@ -427,6 +497,9 @@ class SettlementService:
                         )
                         if news_log:
                             news_log.clv_percent = clv_value
+                            # V14.0: Save line movement explanation
+                            if line_movement_explanation:
+                                news_log.line_movement_explanation = line_movement_explanation
 
                 db.commit()
 

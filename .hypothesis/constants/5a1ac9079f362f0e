@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/mediastack_query_builder.py
+# hypothesis_version: 6.151.4
+
+[500, ' OR ', '=', 'Juventus news', 'Milan Inter lineup', 'Serie A injury', '\\s+', '__main__', 'american football', 'baloncesto', 'basket', 'basketball', 'data', 'euroleague', 'femenino', 'feminine', 'femminile', 'futsal', 'handball', 'it,gb,us', 'ladies', 'nba', 'nfl', 'pallacanestro', 'rugby', 'super bowl', 'title', 'touchdown', 'volleyball', 'woman', 'women']

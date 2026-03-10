@@ -21,6 +21,7 @@ V4.2 Enhancements:
 import logging
 import math
 from dataclasses import dataclass
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +70,26 @@ class PoissonResult:
 
 @dataclass
 class EdgeResult:
-    """Result of edge calculation."""
+    """
+    Result of edge calculation.
 
-    market: str  # "HOME", "DRAW", "AWAY", "OVER_25", "BTTS"
+    This dataclass represents the mathematical analysis of a betting opportunity,
+    containing all calculated metrics needed for the betting decision pipeline.
+
+    Thread Safety:
+        EdgeResult instances are immutable after creation (dataclass with frozen=False
+        but fields should not be modified after initialization). For thread safety,
+        create new instances rather than modifying existing ones.
+
+    Lifecycle:
+        EdgeResult is a transient object created during analysis and passed through
+        the betting decision pipeline. It is NOT stored in the database. Its lifecycle
+        is limited to the duration of a single bet evaluation.
+    """
+
+    market: (
+        str  # "HOME", "DRAW", "AWAY", "OVER_25", "UNDER_25", "BTTS", "1X", "X2", "UNKNOWN", or ""
+    )
     math_prob: float  # Mathematical probability (0-100)
     implied_prob: float  # Bookmaker implied probability (0-100)
     edge: float  # Edge percentage (math - implied)
@@ -79,6 +97,64 @@ class EdgeResult:
     actual_odd: float  # Actual bookmaker odd
     kelly_stake: float  # Recommended stake % (Kelly/4)
     has_value: bool  # True if edge > 0
+
+    def __post_init__(self):
+        """
+        Ensure all field values are within valid ranges.
+
+        This validation prevents invalid data from propagating through the system,
+        which could lead to incorrect betting decisions or calculation errors.
+
+        Valid market values are:
+        - "HOME", "DRAW", "AWAY": 1X2 markets
+        - "OVER_25", "UNDER_25": Over/Under 2.5 goals markets
+        - "BTTS": Both Teams To Score market
+        - "1X", "X2": Double chance markets
+        - "UNKNOWN": Used when odds are too low (< 1.05)
+        - "": Empty string used as placeholder before market assignment
+
+        All numeric fields are clamped to reasonable ranges to prevent
+        calculation errors downstream.
+        """
+        # Validate market field
+        valid_markets = {
+            "HOME",
+            "DRAW",
+            "AWAY",
+            "OVER_25",
+            "UNDER_25",
+            "BTTS",
+            "1X",
+            "X2",
+            "UNKNOWN",
+            "",
+        }
+        if self.market not in valid_markets:
+            logger.warning(
+                f"Invalid market value '{self.market}' in EdgeResult. "
+                f"Valid values: {sorted(valid_markets)}. Setting to 'UNKNOWN'."
+            )
+            # Use object.__setattr__ because dataclass may be frozen in future
+            object.__setattr__(self, "market", "UNKNOWN")
+
+        # Validate and clamp probability fields (0-100)
+        object.__setattr__(self, "math_prob", max(0.0, min(100.0, self.math_prob)))
+        object.__setattr__(self, "implied_prob", max(0.0, min(100.0, self.implied_prob)))
+
+        # Validate and clamp odds (must be >= 0)
+        object.__setattr__(self, "fair_odd", max(0.0, self.fair_odd))
+        object.__setattr__(self, "actual_odd", max(0.0, self.actual_odd))
+
+        # Validate and clamp Kelly stake (0-100)
+        object.__setattr__(self, "kelly_stake", max(0.0, min(100.0, self.kelly_stake)))
+
+        # Edge can be negative (no value) or positive (value), so no clamping needed
+        # However, we can log if it's unusually extreme
+        if abs(self.edge) > 100:
+            logger.warning(
+                f"Unusual edge value {self.edge}% in EdgeResult for market {self.market}. "
+                "This may indicate calculation errors."
+            )
 
 
 class MathPredictor:
@@ -92,7 +168,7 @@ class MathPredictor:
     V4.3: Now supports league-specific Home Advantage for more accurate predictions.
     """
 
-    def __init__(self, league_avg: float = DEFAULT_LEAGUE_AVG, league_key: str = None):
+    def __init__(self, league_avg: float = DEFAULT_LEAGUE_AVG, league_key: Optional[str] = None):
         """
         Initialize predictor.
 
@@ -359,7 +435,7 @@ class MathPredictor:
         bookmaker_odd: float,
         sample_size: int = 10,
         use_shrinkage: bool = True,
-        ai_prob: float = None,
+        ai_prob: Optional[float] = None,
     ) -> EdgeResult:
         """
         Calculate edge between mathematical probability and bookmaker odds.
@@ -486,9 +562,9 @@ class MathPredictor:
         home_odd: float,
         draw_odd: float,
         away_odd: float,
-        over_25_odd: float = None,
-        under_25_odd: float = None,
-        btts_odd: float = None,
+        over_25_odd: Optional[float] = None,
+        under_25_odd: Optional[float] = None,
+        btts_odd: Optional[float] = None,
     ) -> dict:
         """
         Full match analysis with edge calculation for all markets.
@@ -669,7 +745,7 @@ def quick_poisson(
     home_conceded: float,
     away_scored: float,
     away_conceded: float,
-    league_key: str = None,
+    league_key: Optional[str] = None,
 ) -> PoissonResult | None:
     """Quick Poisson simulation without edge calculation.
 

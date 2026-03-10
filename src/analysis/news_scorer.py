@@ -336,8 +336,43 @@ def score_news_item(news_item: dict[str, Any]) -> NewsScore:
     freshness_points, news_age_hours = _score_freshness(date_str)
     specificity_points, players = _score_specificity(text)
 
+    # V14.0: Apply BeatWriter reliability adjustment
+    # If news comes from a verified beat writer, boost the score based on their reliability
+    beat_writer_reliability = news_item.get("beat_writer_reliability")
+    beat_writer_specialty = news_item.get("beat_writer_specialty")
+    avg_lead_time_min = news_item.get("avg_lead_time_min")
+    reliability_adjustment = 0.0
+    lead_time_adjustment = 0.0
+
+    if beat_writer_reliability is not None:
+        # Convert reliability (0.0-1.0) to points (0.0-1.0)
+        # High reliability beat writers get a small boost
+        reliability_adjustment = beat_writer_reliability * 1.0
+        logger.debug(
+            f"📊 BeatWriter reliability adjustment: {reliability_adjustment:.2f} "
+            f"(reliability: {beat_writer_reliability:.2f}, specialty: {beat_writer_specialty})"
+        )
+
+    # V14.0: Apply lead time-based freshness adjustment
+    # Beat writers with faster lead times (more early information) get a freshness boost
+    if avg_lead_time_min is not None and avg_lead_time_min > 0:
+        # Normalize lead time: 60+ minutes = 1.0 point, 0 minutes = 0 points
+        # This rewards beat writers who consistently break news early
+        lead_time_adjustment = min(avg_lead_time_min / 60.0, 1.0)
+        logger.debug(
+            f"⏱️ BeatWriter lead time adjustment: {lead_time_adjustment:.2f} "
+            f"(lead time: {avg_lead_time_min}min)"
+        )
+
     # Calculate total
-    raw_score = source_points + content_points + freshness_points + specificity_points
+    raw_score = (
+        source_points
+        + content_points
+        + freshness_points
+        + specificity_points
+        + reliability_adjustment
+        + lead_time_adjustment
+    )
 
     # Determine tier and driver
     tier = _determine_tier(raw_score)

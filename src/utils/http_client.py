@@ -199,7 +199,6 @@ class EarlyBirdHTTPClient:
 
     def __init__(self):
         """Initialize HTTP client (called only once via singleton)."""
-        self._async_client: Any | None = None
         self._sync_client: Any | None = None
         self._fingerprint: Any | None = None
         self._rate_limiters: dict[str, RateLimiter] = {}
@@ -233,18 +232,12 @@ class EarlyBirdHTTPClient:
         """Reset singleton instance (for testing)."""
         with cls._lock:
             if cls._instance is not None:
-                # Close clients if open
+                # Close sync client if open
                 if cls._instance._sync_client:
                     try:
                         cls._instance._sync_client.close()
                     except Exception as e:
                         logger.debug(f"Error closing sync_client: {e}")
-                if cls._instance._async_client:
-                    try:
-                        # Async client needs to be closed in async context
-                        pass
-                    except Exception as e:
-                        logger.debug(f"Error closing async_client: {e}")
                 cls._instance = None
 
     def _get_rate_limiter(self, key: str) -> RateLimiter:

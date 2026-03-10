@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/budget_status.py
+# hypothesis_version: 6.151.4
+
+['DEGRADED', 'DISABLED', 'HEALTHY', 'Provider']

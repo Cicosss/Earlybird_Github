@@ -23,6 +23,7 @@ import logging
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -51,17 +52,17 @@ class EnrichmentContext:
     """
 
     # Match info
-    match_id: str | None = None
-    home_team: str | None = None
-    away_team: str | None = None
-    match_time: datetime | None = None
-    league: str | None = None
+    match_id: Optional[str] = None
+    home_team: Optional[str] = None
+    away_team: Optional[str] = None
+    match_time: Optional[datetime] = None
+    league: Optional[str] = None
 
     # Classifica context
-    team_zone: str | None = None  # "Title Race", "Relegation", etc.
-    team_position: int | None = None
-    total_teams: int | None = None
-    matches_remaining: int | None = None
+    team_zone: Optional[str] = None  # "Title Race", "Relegation", etc.
+    team_position: Optional[int] = None
+    total_teams: Optional[int] = None
+    matches_remaining: Optional[int] = None
 
     # Biscotto context
     is_biscotto_suspect: bool = False
@@ -305,13 +306,12 @@ class RadarLightEnricher:
 
         return result
 
-    def check_biscotto_light(self, match_info: dict, team_context: dict) -> tuple[bool, str | None]:
+    def check_biscotto_light(self, match_info: dict) -> tuple[bool, str | None]:
         """
         Check biscotto in modo light usando dati già disponibili.
 
         Args:
             match_info: Dict dal find_upcoming_match
-            team_context: Dict dal get_team_context_light
 
         Returns:
             Tuple (is_suspect, severity_string)
@@ -319,8 +319,22 @@ class RadarLightEnricher:
         if not self._biscotto_available:
             return False, None
 
+        # Get team names from match info
+        home_team = match_info.get("home_team", "")
+        away_team = match_info.get("away_team", "")
+
+        if not home_team or not away_team:
+            logger.debug("⚠️ [RADAR-ENRICH] Missing team names in match_info")
+            return False, None
+
+        # Get context for BOTH teams (critical for mutual benefit detection)
+        home_team_context = self.get_team_context_light(home_team)
+        away_team_context = self.get_team_context_light(away_team)
+
+        # Use matches_remaining from either team (should be the same)
+        matches_remaining = home_team_context.get("matches_remaining")
+
         # Solo se fine stagione
-        matches_remaining = team_context.get("matches_remaining")
         if matches_remaining is None or matches_remaining > END_OF_SEASON_ROUNDS:
             return False, None
 
@@ -332,21 +346,28 @@ class RadarLightEnricher:
         try:
             from src.analysis.biscotto_engine import analyze_biscotto
 
-            # Crea motivation dict dal context
-            motivation = {
-                "zone": team_context.get("zone", "Unknown"),
-                "position": team_context.get("position", 0),
-                "total_teams": team_context.get("total_teams", 20),
-                "matches_remaining": matches_remaining,
+            # Crea motivation dict per AMBE le squadre
+            home_motivation = {
+                "zone": home_team_context.get("zone", "Unknown"),
+                "position": home_team_context.get("position", 0),
+                "total_teams": home_team_context.get("total_teams", 20),
+                "matches_remaining": home_team_context.get("matches_remaining"),
+            }
+
+            away_motivation = {
+                "zone": away_team_context.get("zone", "Unknown"),
+                "position": away_team_context.get("position", 0),
+                "total_teams": away_team_context.get("total_teams", 20),
+                "matches_remaining": away_team_context.get("matches_remaining"),
             }
 
             analysis = analyze_biscotto(
-                home_team=match_info.get("home_team", ""),
-                away_team=match_info.get("away_team", ""),
+                home_team=home_team,
+                away_team=away_team,
                 current_draw_odd=current_draw,
                 opening_draw_odd=match_info.get("opening_draw_odd"),
-                home_motivation=motivation if match_info.get("is_home") else None,
-                away_motivation=motivation if not match_info.get("is_home") else None,
+                home_motivation=home_motivation,
+                away_motivation=away_motivation,
                 matches_remaining=matches_remaining,
                 league_key=match_info.get("league"),
             )
@@ -403,7 +424,7 @@ class RadarLightEnricher:
 
         # Step 3: Check biscotto se fine stagione
         if context.is_end_of_season():
-            is_suspect, severity = self.check_biscotto_light(match_info, team_context)
+            is_suspect, severity = self.check_biscotto_light(match_info)
             context.is_biscotto_suspect = is_suspect
             context.biscotto_severity = severity
 

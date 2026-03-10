@@ -30,6 +30,16 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Import analyze_single_match directly to avoid fragile importlib usage
+# This is imported at module level to prevent circular imports
+_analyze_single_match = None
+try:
+    from src.main import analyze_single_match as _analyze_single_match_import
+
+    _analyze_single_match = _analyze_single_match_import
+except ImportError:
+    logger.warning("Could not import analyze_single_match from src.main at module level")
+
 # ============================================
 # RADAR SOURCES - SUPER-LIST (Global + Local Insider)
 # ============================================
@@ -286,15 +296,18 @@ class OpportunityRadar:
     def __init__(self):
         self.processed_urls = self._load_processed_urls()
         self._fotmob = None
+        self._fotmob_lock = threading.Lock()  # Thread-safe lock for fotmob lazy loading
         logger.info("🎯 Opportunity Radar initialized")
 
     @property
     def fotmob(self):
-        """Lazy load FotMob provider."""
+        """Lazy load FotMob provider (thread-safe with double-checked locking)."""
         if self._fotmob is None:
-            from src.ingestion.data_provider import get_data_provider
+            with self._fotmob_lock:
+                if self._fotmob is None:  # Double-check
+                    from src.ingestion.data_provider import get_data_provider
 
-            self._fotmob = get_data_provider()
+                    self._fotmob = get_data_provider()
         return self._fotmob
 
     def _load_processed_urls(self) -> dict:
@@ -606,8 +619,10 @@ RULES:
                 logger.info(f"📋 Found existing match: {existing.id}")
                 return existing.id
 
+            # Use granular timestamp (YYYYMMDD_HHMMSS) to ensure uniqueness
+            # This prevents duplicate IDs when same teams play twice in one day (e.g., cup matches)
             match_id = (
-                f"radar_{home_team}_{away_team}_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+                f"radar_{home_team}_{away_team}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             )
             match_id = match_id.replace(" ", "_").lower()
 
@@ -663,20 +678,15 @@ RULES:
             narrative_type, summary, url, canonical_name
         )
 
-        try:
-            import importlib
-
-            main_module = importlib.import_module("src.main")
-            analyze_fn = getattr(main_module, "analyze_single_match", None)
-            if analyze_fn and callable(analyze_fn):
-                analyze_fn(match_id, forced_narrative=forced_narrative)
+        # Use module-level import instead of fragile importlib
+        if _analyze_single_match and callable(_analyze_single_match):
+            try:
+                _analyze_single_match(match_id, forced_narrative=forced_narrative)
                 logger.info(f"✅ Pipeline triggered for {canonical_name}")
-            else:
-                logger.warning("analyze_single_match not found or not callable in main.py")
-        except ImportError as e:
-            logger.warning(f"Could not import main.py: {e}")
-        except Exception as e:
-            logger.error(f"Pipeline trigger failed: {e}")
+            except Exception as e:
+                logger.error(f"Pipeline trigger failed: {e}")
+        else:
+            logger.warning("analyze_single_match not available (import failed at module level)")
 
     def _build_forced_narrative(
         self, narrative_type: str, summary: str, url: str, team_name: str

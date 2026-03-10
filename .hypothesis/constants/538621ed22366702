@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/brave_provider.py
+# hypothesis_version: 6.151.4
+
+[200, 350, 429, 'Accept', 'X-Subscription-Token', 'application/json', 'brave', 'budget', 'count', 'description', 'freshness', 'key_rotation_enabled', 'key_rotator', 'link', 'pw', 'q', 'rate_limited', 'results', 'snippet', 'source', 'summary', 'title', 'unknown', 'url', 'web']

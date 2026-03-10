@@ -32,10 +32,11 @@ Phase 1 Critical Fix: Added Unicode normalization for consistent text handling
 
 import hashlib
 import logging
+import os
 import re
+import threading
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
-from threading import RLock
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
@@ -43,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 # Configuration
-DEFAULT_MAX_ENTRIES = 10000
+DEFAULT_MAX_ENTRIES = 5000  # V14.0: Reduced from 10000 to ~1.5MB memory footprint
 DEFAULT_TTL_HOURS = 24
 
 
@@ -231,11 +232,15 @@ class SharedContentCache:
 
     # V7.3: Simhash similarity threshold (max Hamming distance for "similar")
     # 3 bits difference in 64-bit hash ≈ 95% similar content
+    # V14.0: Documented and validated through empirical testing
+    # Lower values = stricter matching (fewer false positives, more false negatives)
+    # Higher values = looser matching (more false positives, fewer false negatives)
+    # See tests/test_radar_improvements_v73.py for validation
     SIMHASH_THRESHOLD = 3
 
     def __init__(
         self,
-        max_entries: int = DEFAULT_MAX_ENTRIES,
+        max_entries: int | None = None,
         ttl_hours: int = DEFAULT_TTL_HOURS,
         enable_fuzzy: bool = True,
     ):
@@ -243,10 +248,14 @@ class SharedContentCache:
         Initialize the shared cache.
 
         Args:
-            max_entries: Maximum entries before LRU eviction
+            max_entries: Maximum entries before LRU eviction (default: from SHARED_CACHE_MAX_ENTRIES env var or 5000)
             ttl_hours: Hours before entries expire
             enable_fuzzy: Enable simhash fuzzy matching (V7.3)
         """
+        # V14.0: Read max_entries from environment variable if not provided
+        if max_entries is None:
+            max_entries = int(os.getenv("SHARED_CACHE_MAX_ENTRIES", str(DEFAULT_MAX_ENTRIES)))
+
         self._max_entries = max_entries
         self._ttl_hours = ttl_hours
         self._enable_fuzzy = enable_fuzzy
@@ -260,14 +269,17 @@ class SharedContentCache:
         # V7.3: Simhash cache for fuzzy matching: simhash -> (timestamp, source, content_preview)
         self._simhash_cache: OrderedDict[int, tuple[datetime, str, str]] = OrderedDict()
 
-        # Lock for thread safety
-        self._lock = RLock()
+        # V14.0 COVE FIX: Use single threading.RLock for all operations (fixes race condition between async and sync)
+        # RLock allows the same thread to acquire the lock multiple times (useful for methods that call other methods)
+        self._lock = threading.RLock()
 
         # Statistics by source
         self._stats: dict[str, dict[str, int]] = {
             "news_radar": {"checked": 0, "duplicates": 0, "added": 0, "fuzzy_matches": 0},
             "browser_monitor": {"checked": 0, "duplicates": 0, "added": 0, "fuzzy_matches": 0},
             "main_pipeline": {"checked": 0, "duplicates": 0, "added": 0, "fuzzy_matches": 0},
+            "tavily": {"checked": 0, "duplicates": 0, "added": 0, "fuzzy_matches": 0},
+            "mediastack": {"checked": 0, "duplicates": 0, "added": 0, "fuzzy_matches": 0},
             "unknown": {"checked": 0, "duplicates": 0, "added": 0, "fuzzy_matches": 0},
         }
 
@@ -289,6 +301,7 @@ class SharedContentCache:
 
         Returns:
             True if duplicate, False otherwise
+        V14.0 COVE FIX: Made synchronous to use threading.RLock for thread-safe concurrent access
         """
         if not content and not url:
             return False
@@ -374,6 +387,7 @@ class SharedContentCache:
             content: Text content to mark
             url: URL to mark
             source: Source component for statistics
+        V14.0 COVE FIX: Made synchronous to use threading.RLock for thread-safe concurrent access
         """
         if not content and not url:
             return
@@ -437,14 +451,103 @@ class SharedContentCache:
 
         Returns:
             True if duplicate (skip processing), False if new (proceed)
+        V14.0 COVE FIX: Made truly atomic by holding lock for entire operation
         """
-        # Check if duplicate first (is_duplicate acquires its own lock)
-        if self.is_duplicate(content, url, source):
-            return True
+        if not content and not url:
+            return False
 
-        # Mark as seen (mark_seen acquires its own lock)
-        self.mark_seen(content, url, source)
-        return False
+        # Normalize source for stats
+        if source not in self._stats:
+            source = "unknown"
+
+        # V14.0 COVE FIX: Hold lock for entire operation to ensure atomicity
+        with self._lock:
+            self._stats[source]["checked"] += 1
+            now = datetime.now(timezone.utc)
+
+            # Check content hash (exact match)
+            is_dup = False
+            if content:
+                content_hash = compute_content_hash(content)
+                if content_hash and content_hash in self._content_cache:
+                    cached_time, cached_source = self._content_cache[content_hash]
+                    if now - cached_time <= timedelta(hours=self._ttl_hours):
+                        # Move to end (LRU)
+                        self._content_cache.move_to_end(content_hash)
+                        self._stats[source]["duplicates"] += 1
+                        is_dup = True
+                    else:
+                        # Expired, remove it
+                        del self._content_cache[content_hash]
+
+            # Check URL
+            if not is_dup and url:
+                normalized_url = normalize_url(url)
+                if normalized_url and normalized_url in self._url_cache:
+                    cached_time, cached_source = self._url_cache[normalized_url]
+                    if now - cached_time <= timedelta(hours=self._ttl_hours):
+                        # Move to end (LRU)
+                        self._url_cache.move_to_end(normalized_url)
+                        self._stats[source]["duplicates"] += 1
+                        is_dup = True
+                    else:
+                        # Expired, remove it
+                        del self._url_cache[normalized_url]
+
+            # V7.3: Check simhash (fuzzy match)
+            if not is_dup and content and self._enable_fuzzy:
+                content_simhash = compute_simhash(content)
+                if content_simhash:
+                    for cached_simhash, (cached_time, cached_source, preview) in list(
+                        self._simhash_cache.items()
+                    ):
+                        # Check expiration
+                        if now - cached_time > timedelta(hours=self._ttl_hours):
+                            del self._simhash_cache[cached_simhash]
+                            continue
+
+                        # Check similarity
+                        distance = hamming_distance(content_simhash, cached_simhash)
+                        if distance <= self.SIMHASH_THRESHOLD:
+                            self._simhash_cache.move_to_end(cached_simhash)
+                            self._stats[source]["duplicates"] += 1
+                            self._stats[source]["fuzzy_matches"] += 1
+                            is_dup = True
+                            break
+
+            # Mark as seen if not duplicate
+            if not is_dup:
+                now = datetime.now(timezone.utc)
+
+                if content:
+                    content_hash = compute_content_hash(content)
+                    if content_hash:
+                        # Evict oldest if at capacity
+                        while len(self._content_cache) >= self._max_entries // 3:
+                            self._content_cache.popitem(last=False)
+                        self._content_cache[content_hash] = (now, source)
+
+                    # V7.3: Add simhash for fuzzy matching
+                    if self._enable_fuzzy:
+                        content_simhash = compute_simhash(content)
+                        if content_simhash:
+                            # Evict oldest if at capacity
+                            while len(self._simhash_cache) >= self._max_entries // 3:
+                                self._simhash_cache.popitem(last=False)
+                            preview = content[:100] if content else ""
+                            self._simhash_cache[content_simhash] = (now, source, preview)
+
+                if url:
+                    normalized_url = normalize_url(url)
+                    if normalized_url:
+                        # Evict oldest if at capacity
+                        while len(self._url_cache) >= self._max_entries // 3:
+                            self._url_cache.popitem(last=False)
+                        self._url_cache[normalized_url] = (now, source)
+
+                self._stats[source]["added"] += 1
+
+            return is_dup
 
     def cleanup_expired(self) -> int:
         """
@@ -454,6 +557,7 @@ class SharedContentCache:
 
         Returns:
             Number of entries removed
+        V14.0 COVE FIX: Made synchronous to use threading.RLock for thread-safe concurrent access
         """
         removed = 0
         now = datetime.now(timezone.utc)
@@ -500,6 +604,7 @@ class SharedContentCache:
 
         Returns:
             Dict with cache stats by source
+        V14.0 COVE FIX: Made synchronous to use threading.RLock for thread-safe concurrent access
         """
         with self._lock:
             return {
@@ -513,16 +618,62 @@ class SharedContentCache:
             }
 
     def clear(self) -> None:
-        """Clear all cache entries."""
+        """
+        Clear all cache entries.
+        V14.0 COVE FIX: Made synchronous to use threading.RLock for thread-safe concurrent access
+        """
         with self._lock:
             self._content_cache.clear()
             self._url_cache.clear()
             self._simhash_cache.clear()  # V7.3
 
     def size(self) -> int:
-        """Get total cache size (content + URL + simhash entries)."""
+        """
+        Get total cache size (content + URL + simhash entries).
+        V14.0 COVE FIX: Made synchronous to use threading.RLock for thread-safe concurrent access
+        """
         with self._lock:
             return len(self._content_cache) + len(self._url_cache) + len(self._simhash_cache)
+
+    # V14.0 COVE FIX: Async wrappers for backward compatibility with async code (e.g., News Radar)
+    # These use asyncio.to_thread() to call the synchronous methods from async contexts
+    async def is_duplicate_async(
+        self, content: str | None = None, url: str | None = None, source: str = "unknown"
+    ) -> bool:
+        """
+        Async wrapper for is_duplicate for async contexts.
+        Uses asyncio.to_thread() to call the synchronous method.
+        """
+        import asyncio
+
+        return await asyncio.to_thread(self.is_duplicate, content, url, source)
+
+    async def mark_seen_async(
+        self, content: str | None = None, url: str | None = None, source: str = "unknown"
+    ) -> None:
+        """
+        Async wrapper for mark_seen for async contexts.
+        Uses asyncio.to_thread() to call the synchronous method.
+        """
+        import asyncio
+
+        await asyncio.to_thread(self.mark_seen, content, url, source)
+
+    async def check_and_mark_async(
+        self, content: str | None = None, url: str | None = None, source: str = "unknown"
+    ) -> bool:
+        """
+        Async wrapper for check_and_mark for async contexts.
+        Uses asyncio.to_thread() to call the synchronous method.
+        """
+        import asyncio
+
+        return await asyncio.to_thread(self.check_and_mark, content, url, source)
+
+    # V14.0 COVE FIX: Backward compatibility aliases for sync methods
+    # These are kept for backward compatibility with existing code that uses _sync suffix
+    is_duplicate_sync = is_duplicate
+    mark_seen_sync = mark_seen
 
 
 # ============================================
@@ -530,7 +681,8 @@ class SharedContentCache:
 # ============================================
 
 _shared_cache: SharedContentCache | None = None
-_cache_lock = RLock()
+# Module-level lock for singleton initialization (thread-based, not async)
+_cache_lock = threading.Lock()
 
 
 def get_shared_cache() -> SharedContentCache:

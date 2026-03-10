@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/enhanced_verifier.py
+# hypothesis_version: 6.151.4
+
+['CONFIRMED', 'HIGH', 'LOW', 'MEDIUM', 'Over', 'SEND', 'Under', 'bookings', 'cards', 'confidence_level', 'contradicts', 'corner kicks', 'corners', 'data_accuracy_score', 'data_discrepancies', 'different', 'discrepancy_summary', "doesn't match", 'final_recommendation', 'form', 'goal average', 'goals', 'goals conceded', 'goals scored', 'high_impact', 'higher than', 'inconsistent', 'indicates', 'injured', 'injuries', 'key_weaknesses', 'last 5', 'logic_score', 'low_impact', 'lower score', 'lower than', 'medium_impact', 'original_confidence', 'over', 'over 2.5', 'performance', 'position', 'rank', 'recent matches', 'recommended_market', 'red cards', 'rejection_reason', 'score', 'scoring', 'set pieces', 'should_send', 'shows', 'standing', 'suggests', 'suspended', 'table', 'total_count', 'unavailable', 'under 2.5', 'verification_status', 'yellow cards']

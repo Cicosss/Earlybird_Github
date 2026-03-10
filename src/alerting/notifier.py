@@ -33,6 +33,15 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 # Import centralized version tracking
 from src.version import get_version_with_module
 
+# V11.0: Import Contract Validation
+try:
+    from src.utils.contracts import ALERT_PAYLOAD_CONTRACT, ContractViolation
+
+    _CONTRACTS_AVAILABLE = True
+except ImportError:
+    _CONTRACTS_AVAILABLE = False
+    logging.debug("Contracts module not available for notifier")
+
 # Log version on import
 logger = logging.getLogger(__name__)
 logger.info(f"📦 {get_version_with_module('Notifier')}")
@@ -718,8 +727,10 @@ def _build_final_verification_section(final_verification_info: dict[str, Any] | 
     """
     Build the final verification section (FinalAlertVerifier results).
 
-    Displays the final verification status from the Perplexity API fact-checking
+    Displays the final verification status from the IntelligenceRouter fact-checking
     that happens right before sending alerts to Telegram.
+
+    V3.0: Now displays DATA DISCREPANCIES with real values from IntelligenceRouter.
 
     Args:
         final_verification_info: Dict with status, confidence, reasoning from final verifier
@@ -769,6 +780,57 @@ def _build_final_verification_section(final_verification_info: dict[str, Any] | 
     if reasoning:
         reasoning_clean = html.escape(reasoning[:150])
         final_section += f"   <i>{reasoning_clean}...</i>\n"
+
+    # V3.0: Display DATA DISCREPANCIES with REAL values
+    data_discrepancies = final_verification_info.get("data_discrepancies", [])
+    if data_discrepancies:
+        final_section += "\n"
+        final_section += "⚠️ <b>DISCREPANZE DATI RILEVATE:</b>\n"
+
+        for i, discrepancy in enumerate(data_discrepancies, 1):
+            # Handle both dict and DataDiscrepancy objects
+            if isinstance(discrepancy, dict):
+                field = discrepancy.get("field", "unknown")
+                fotmob_value = discrepancy.get("fotmob_value", "N/A")
+                intelligence_value = discrepancy.get(
+                    "intelligence_value", discrepancy.get("perplexity_value", "N/A")
+                )
+                impact = discrepancy.get("impact", "LOW")
+                description = discrepancy.get("description", "")
+            else:
+                # DataDiscrepancy object
+                field = discrepancy.field
+                fotmob_value = discrepancy.fotmob_value
+                intelligence_value = discrepancy.intelligence_value
+                impact = discrepancy.impact
+                description = discrepancy.description
+
+            # Impact emoji
+            impact_emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(impact, "⚪")
+
+            # Format values for display (truncate if too long)
+            fotmob_display = (
+                str(fotmob_value)[:50] + "..." if len(str(fotmob_value)) > 50 else str(fotmob_value)
+            )
+            intelligence_display = (
+                str(intelligence_value)[:50] + "..."
+                if len(str(intelligence_value)) > 50
+                else str(intelligence_value)
+            )
+
+            final_section += f"   {impact_emoji} <b>{i}. {field.upper()}</b>\n"
+            final_section += f"      📊 FotMob: <code>{html.escape(fotmob_display)}</code>\n"
+            final_section += (
+                f"      🧠 Intelligence: <code>{html.escape(intelligence_display)}</code>\n"
+            )
+            if description:
+                desc_display = description[:80] + "..." if len(description) > 80 else description
+                final_section += f"      📝 {html.escape(desc_display)}\n"
+
+        # Show confidence adjustment if present
+        confidence_adjustment = final_verification_info.get("confidence_adjustment", "")
+        if confidence_adjustment:
+            final_section += f"\n   📉 <i>Confidence adjusted: {confidence_adjustment}</i>\n"
 
     return final_section
 
@@ -1224,6 +1286,57 @@ def send_alert(
         convergence_sources: V9.5 - Dict with web and social signal details (optional)
         market_warning: V11.1 - Warning message for late-to-market alerts (optional)
     """
+    # V11.0: Validate against contract
+    if _CONTRACTS_AVAILABLE:
+        try:
+            # Build alert payload dict for validation
+            alert_payload = {
+                "match_obj": match_obj,
+                "news_summary": news_summary,
+                "news_url": news_url,
+                "score": score,
+                "league": league,
+                "combo_suggestion": combo_suggestion,
+                "combo_reasoning": combo_reasoning,
+                "recommended_market": recommended_market,
+                "math_edge": math_edge,
+                "is_update": is_update,
+                "financial_risk": financial_risk,
+                "intel_source": intel_source,
+                "referee_intel": referee_intel,
+                "twitter_intel": twitter_intel,
+                "validated_home_team": validated_home_team,
+                "validated_away_team": validated_away_team,
+                "verification_info": verification_info,
+                "final_verification_info": final_verification_info,
+                "injury_intel": injury_intel,
+                "confidence_breakdown": confidence_breakdown,
+                "is_convergent": is_convergent,
+                "convergence_sources": convergence_sources,
+                "market_warning": market_warning,
+            }
+
+            # Validate against contract
+            ALERT_PAYLOAD_CONTRACT.assert_valid(
+                alert_payload,
+                context=f"send_alert(match_obj={getattr(match_obj, 'id', 'unknown')})",
+            )
+        except ContractViolation as e:
+            # V14.0 FIX: Enhanced logging with context details
+            match_id = getattr(match_obj, "id", "N/A")
+            score = score if score is not None else "N/A"
+            news_summary_preview = news_summary[:50] if news_summary else "N/A"
+
+            logging.warning(
+                f"⚠️ Contract violation in alert payload (context: send_alert(match_obj={match_id})):\n"
+                f"  Score: {score}\n"
+                f"  Summary: {news_summary_preview}...\n"
+                f"  League: {league}\n"
+                f"  Error: {e}"
+            )
+            # Continue anyway to avoid breaking alert delivery
+            # The violation is logged for debugging purposes
+
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping alert.")
         return
@@ -1478,6 +1591,102 @@ def send_status_message(text: str) -> bool:
 
 
 # ============================================
+# CLV STRATEGY REPORT FUNCTION
+# ============================================
+
+
+def send_clv_strategy_report(days_back: int = 30) -> bool:
+    """
+    V13.0: Send CLV (Closing Line Value) strategy performance report to Telegram.
+
+    This function generates and sends a comprehensive report showing:
+    - Win rate and ROI for each strategy
+    - CLV statistics (average, positive rate)
+    - Edge validation status
+    - Breakdown of wins/losses by CLV sign
+
+    Args:
+        days_back: Number of days to look back for CLV data (default: 30)
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    try:
+        from src.analysis.clv_tracker import get_clv_tracker
+
+        clv_tracker = get_clv_tracker()
+        strategies = ["INJURY_INTEL", "SHARP_MONEY", "MATH_VALUE", "CONTEXT_PLAY", "CONTRARIAN"]
+
+        # Build report message
+        lines = []
+        lines.append("📊 <b>STRATEGY PERFORMANCE REPORT (CLV Analysis)</b>")
+        lines.append("")
+
+        for strategy in strategies:
+            report = clv_tracker.get_strategy_edge_report(strategy, days_back=days_back)
+
+            if report and report.clv_stats.bets_with_clv >= 10:
+                # Strategy emoji based on validation status
+                status_emoji = "✅" if report.is_validated else "⚠️"
+                status_text = "VALIDATED" if report.is_validated else "NOT VALIDATED"
+
+                lines.append(f"{status_emoji} <b>{strategy}</b>")
+                lines.append(f"   Win Rate: {report.win_rate:.1f}%")
+                lines.append(f"   ROI: {report.roi:+.1f}%")
+                lines.append(f"   CLV Avg: {report.clv_stats.avg_clv:+.2f}%")
+                lines.append(f"   CLV Positive Rate: {report.clv_stats.positive_clv_rate:.1f}%")
+                lines.append(f"   Edge Quality: {report.clv_stats.edge_quality}")
+                lines.append(f"   Status: {status_text}")
+                lines.append(f"   Sample: {report.clv_stats.bets_with_clv} bets")
+                lines.append("")
+                lines.append("   <i>Breakdown:</i>")
+                lines.append(f"   ✅ Wins with +CLV (True Edge): {report.wins_with_positive_clv}")
+                lines.append(f"   🍀 Wins with -CLV (Lucky): {report.wins_with_negative_clv}")
+                lines.append(
+                    f"   📉 Losses with +CLV (Variance): {report.losses_with_positive_clv}"
+                )
+                lines.append(f"   ❌ Losses with -CLV (No Edge): {report.losses_with_negative_clv}")
+                lines.append("")
+
+        # V14.0: Add significant line movements section
+        lines.append("🔍 <b>SIGNIFICANT LINE MOVEMENTS</b>")
+        lines.append("")
+
+        # Get significant movements across all strategies
+        significant_movements = clv_tracker.get_significant_line_movements(days_back=days_back)
+
+        if significant_movements:
+            # Show top 5 most significant movements
+            for movement in significant_movements[:5]:
+                clv_emoji = "📈" if movement["clv"] > 0 else "📉"
+                lines.append(f"{clv_emoji} <b>{movement['match']}</b>")
+                lines.append(f"   Strategy: {movement['strategy']}")
+                lines.append(f"   Market: {movement['market']}")
+                lines.append(f"   CLV: {movement['clv']:+.2f}%")
+                lines.append(
+                    f"   Odds: {movement['odds_at_alert']:.2f} → {movement['odds_at_kickoff']:.2f}"
+                )
+                if movement["line_movement_explanation"]:
+                    lines.append(f"   💡 {movement['line_movement_explanation'][:120]}...")
+                else:
+                    lines.append("   💡 Explanation: Not available")
+                lines.append("")
+        else:
+            lines.append("No significant line movements found (|CLV| ≥ 2%)")
+            lines.append("")
+
+        if not lines:
+            lines.append("⏳ No CLV data available yet (need 10+ settled bets)")
+
+        message = "\n".join(lines)
+        return send_status_message(message)
+
+    except Exception as e:
+        logging.error(f"Error sending CLV strategy report: {e}", exc_info=True)
+        return False
+
+
+# ============================================
 # BISCOTTO ALERT FUNCTION
 # ============================================
 
@@ -1492,9 +1701,18 @@ def send_biscotto_alert(
     league: str | None = None,
     financial_risk: str | None = None,
     final_verification_info: dict[str, Any] | None = None,
+    # Enhanced fields from Advanced Biscotto Engine V2.0
+    confidence: int | None = None,
+    factors: list[str] | None = None,
+    pattern: str | None = None,
+    zscore: float | None = None,
+    mutual_benefit: bool | None = None,
+    betting_recommendation: str | None = None,
 ) -> None:
     """
     Send a specialized alert for Biscotto (mutual draw benefit) detection.
+
+    V13.0: Enhanced with Advanced Biscotto Engine V2.0 fields
 
     Args:
         match_obj: Match database object with team info and odds
@@ -1506,6 +1724,12 @@ def send_biscotto_alert(
         league: League name (optional)
         financial_risk: B-Team risk level from Financial Intelligence (optional)
         final_verification_info: Final Alert Verifier result from Perplexity API (optional)
+        confidence: Confidence score 0-100 from Advanced Biscotto Engine (optional)
+        factors: List of detected factors from Advanced Biscotto Engine (optional)
+        pattern: Pattern type (STABLE/DRIFT/CRASH/REVERSE) from Advanced Biscotto Engine (optional)
+        zscore: Z-score statistical anomaly from Advanced Biscotto Engine (optional)
+        mutual_benefit: Whether both teams benefit from draw from Advanced Biscotto Engine (optional)
+        betting_recommendation: Betting recommendation from Advanced Biscotto Engine (optional)
     """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping biscotto alert.")
@@ -1562,6 +1786,31 @@ def send_biscotto_alert(
         safe_url = html.escape(news_url)
         news_link = f"\n\n🔗 <a href='{safe_url}'>Leggi la fonte originale</a>"
 
+    # Build enhanced analysis section (if available from Advanced Biscotto Engine)
+    enhanced_section = ""
+    if confidence is not None and confidence > 0:
+        enhanced_section = f"   📊 <b>Confidence:</b> {confidence}%\n"
+
+    if pattern and pattern != "STABLE":
+        pattern_emoji = {"DRIFT": "📉", "CRASH": "⚡", "REVERSE": "🔄"}.get(pattern, "")
+        enhanced_section += f"   {pattern_emoji} <b>Pattern:</b> {pattern}\n"
+
+    if zscore is not None and abs(zscore) > 0:
+        enhanced_section += f"   📈 <b>Z-Score:</b> {zscore:.1f}\n"
+
+    if mutual_benefit:
+        enhanced_section += "   🤝 <b>Mutual Benefit:</b> Confirmed\n"
+
+    if betting_recommendation and betting_recommendation != "AVOID":
+        enhanced_section += f"   💰 <b>Recommendation:</b> {betting_recommendation}\n"
+
+    # Build factors section (if available)
+    factors_section = ""
+    if factors and len(factors) > 0:
+        factors_section = "   🔍 <b>Factors:</b>\n"
+        for factor in factors[:5]:  # Show top 5 factors
+            factors_section += f"      • {factor}\n"
+
     # Build the message
     message = (
         f"🍪 <b>BISCOTTO ALERT</b> | {league}\n"
@@ -1570,7 +1819,9 @@ def send_biscotto_alert(
         f"{severity_emoji} <b>Severità:</b> {severity_normalized}\n"
         f"\n"
         f"{odds_section}"
+        f"{enhanced_section}"
         f"{reasoning_section}"
+        f"{factors_section}"
         f"{risk_section}"
         f"{final_verification_section}"
         f"{news_link}"

@@ -356,6 +356,16 @@ def check_and_migrate():
             cursor.execute("CREATE INDEX idx_match_time_league ON matches (start_time, league)")
             migrations_applied += 1
 
+        # V14.0: Add index for CLV query optimization (clv_percent)
+        # Check if index exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_news_logs_clv_percent'"
+        )
+        if not cursor.fetchone():
+            logger.info("   📝 Creating index: idx_news_logs_clv_percent (clv_percent)")
+            cursor.execute("CREATE INDEX idx_news_logs_clv_percent ON news_logs (clv_percent)")
+            migrations_applied += 1
+
         # Commit all changes
         conn.commit()
         conn.close()

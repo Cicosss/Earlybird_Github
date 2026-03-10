@@ -591,6 +591,37 @@ pytest tests/ --cov=src --cov-report=html
 | **Banda** | 200 Mbit/s |
 | **OS** | Ubuntu Linux |
 
+### 🔧 System Requirements for Python Packages
+
+Some Python packages require C extensions that need build tools. Install these before running `pip install -r requirements.txt`:
+
+```bash
+# Update package lists
+sudo apt-get update
+
+# Install build tools and development headers
+sudo apt-get install -y \
+    build-essential \
+    python3-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    libcurl4-openssl-dev
+```
+
+**Explanation:**
+- `build-essential` - GCC compiler and build tools for compiling C extensions
+- `python3-dev` - Python development headers
+- `libxml2-dev` - Required by lxml (used by Trafilatura)
+- `libxslt1-dev` - Required by lxml (used by Trafilatura)
+- `libcurl4-openssl-dev` - Required by curl_cffi (used by Scrapling)
+
+**Affected packages:**
+- `scrapling==0.4` - Requires curl_cffi with C extensions
+- `trafilatura==1.12.0` - Requires lxml with C extensions
+- `lxml>=6.0.2` - C-based HTML parser
+
+Without these system packages, `pip install` will fail with compilation errors.
+
 ---
 
 ## 1️⃣ [DEPRECATED] Preparazione Locale (Manuale)

@@ -289,18 +289,23 @@ def analyze_classifica_context(
     # Relegation zone analysis
     if "relegation" in zone_lower or "danger" in zone_lower:
         # Team fighting relegation - 1 point could be crucial
-        if matches_remaining and matches_remaining <= END_OF_SEASON_ROUNDS:
+        if matches_remaining is not None and matches_remaining <= END_OF_SEASON_ROUNDS:
             needs_point = True
 
     # Safe but close to danger
     elif "mid" in zone_lower or "safe" in zone_lower:
         # Check if mathematically safe
-        if matches_remaining and matches_remaining <= 3:
-            # In final 3 matches, even mid-table teams might settle for draw
+        if matches_remaining is not None and matches_remaining <= END_OF_SEASON_ROUNDS:
+            # In final matches, even mid-table teams might settle for draw
             needs_point = True
 
     # Promotion/Title race
-    elif "title" in zone_lower or "promotion" in zone_lower or "european" in zone_lower:
+    elif (
+        "title" in zone_lower
+        or "promotion" in zone_lower
+        or "european" in zone_lower
+        or "champions" in zone_lower
+    ):
         # Teams chasing something usually DON'T want draws
         # Unless they're so far ahead that 1 point clinches it
         needs_point = False

@@ -131,39 +131,59 @@ Focus on:
 Provide specific numbers and trends."""
 
 
-def build_news_verification_prompt(news_title: str, news_summary: str, source_url: str) -> str:
+def build_news_verification_prompt(
+    news_title: str,
+    news_snippet: str,
+    team_name: str,
+    news_source: str,
+    match_context: str,
+) -> str:
     """
-    Build the news verification prompt for Gemini news confirmation.
+    Build the news verification prompt for AI news confirmation.
 
     Args:
         news_title: Title of the news article
-        news_summary: Summary of the news
-        source_url: URL of the source
+        news_snippet: Snippet or summary of the news content
+        team_name: Name of the football team to verify against
+        news_source: Source of the news (e.g., Twitter handle, website)
+        match_context: Context about the match (optional, for additional verification)
 
     Returns:
         Formatted prompt string for news verification
     """
-    # This is a placeholder - the actual template would be defined above
-    return f"""TASK: Verify the following news article for authenticity and relevance.
+    # Build intelligent verification prompt using all available context
+    context_section = f"\nMatch Context: {match_context}" if match_context else ""
+
+    return f"""TASK: Verify the following news article for authenticity and relevance to {team_name}.
 
 Title: {news_title}
-Summary: {news_summary}
-Source: {source_url}
+Snippet: {news_snippet}
+Source: {news_source}{context_section}
 
 Please verify:
-1. Is this news current and relevant?
-2. Is the source reliable?
-3. Does the news actually refer to the football match in question?
+1. Is this news current and relevant to {team_name}?
+2. Is the source reliable and trustworthy?
+3. Does the news actually refer to the MEN'S FIRST TEAM (not women's or youth)?
+4. Is the news about FOOTBALL (soccer), not basketball or other sports?
+5. Does this news impact the upcoming match (injuries, motivation, tactics)?
 
-Return your verification status and confidence level."""
+Return your verification with:
+- status: "VERIFIED" or "REJECTED" or "UNCERTAIN"
+- confidence: 0.0 to 1.0
+- reasoning: Brief explanation
+- impact: "HIGH" or "MEDIUM" or "LOW" (if verified)"""
 
 
 def build_biscotto_confirmation_prompt(
     home_team: str,
     away_team: str,
+    match_date: str,
     league: str,
-    league_position_home: int,
-    league_position_away: int,
+    draw_odds: float,
+    implied_prob: float,
+    odds_pattern: str,
+    season_context: str,
+    detected_factors: str,
 ) -> str:
     """
     Build the biscotto confirmation prompt for uncertain biscotto signals.
@@ -171,50 +191,104 @@ def build_biscotto_confirmation_prompt(
     Args:
         home_team: Home team name
         away_team: Away team name
+        match_date: Date of the match
         league: League name
-        league_position_home: Home team's league position
-        league_position_away: Away team's league position
+        draw_odds: Current draw odds
+        implied_prob: Implied probability of draw (0.0 to 1.0)
+        odds_pattern: Pattern in odds movement (e.g., "dropping", "stable", "rising")
+        season_context: Context about the season (e.g., "final matchday", "mid-season")
+        detected_factors: Factors that triggered biscotto detection
 
     Returns:
         Formatted prompt string for biscotto confirmation
     """
-    # This is a placeholder - the actual template would be defined above
+    # Build intelligent analysis prompt using all available data
+    factors_section = f"\nDetected Factors: {detected_factors}" if detected_factors else ""
+
     return f"""TASK: Analyze the potential for a "Biscotto" (mutual draw benefit) in this match.
 
-Match: {home_team} vs {away_team}
-League: {league}
-Home Team Position: {league_position_home}
-Away Team Position: {league_position_away}
+Match Details:
+- Teams: {home_team} vs {away_team}
+- Date: {match_date}
+- League: {league}
+- Draw Odds: {draw_odds}
+- Implied Probability: {implied_prob:.1%}
+- Odds Pattern: {odds_pattern}
+- Season Context: {season_context}{factors_section}
 
 Please analyze:
-1. Does a draw benefit both teams?
-2. What are each team's current objectives?
-3. Is there historical evidence of such arrangements?
-4. What is the confidence level of this being a true biscotto?
+1. Does a draw benefit BOTH teams equally?
+2. What are each team's current objectives (title race, relegation, European spots)?
+3. Is this a critical matchday (final round, decisive moment)?
+4. Are there historical precedents of biscotto in this league?
+5. Does the odds pattern suggest suspicious activity?
+6. What is the motivation level for each team (HIGH/MEDIUM/LOW)?
+7. Are there any external factors (injuries, suspensions, manager issues)?
 
-Return your analysis with severity level and confidence."""
+Return your analysis with:
+- biscotto_confidence: 0.0 to 1.0 (probability of true biscotto)
+- severity: "CRITICAL" or "HIGH" or "MEDIUM" or "LOW"
+- reasoning: Detailed explanation of your analysis
+- recommendation: "ALERT" or "MONITOR" or "IGNORE" """
 
 
-def build_match_context_enrichment_prompt(home_team: str, away_team: str, league: str) -> str:
+def build_match_context_enrichment_prompt(
+    home_team: str,
+    away_team: str,
+    match_date: str,
+    league: str,
+    existing_context: str,
+) -> str:
     """
     Build the match context enrichment prompt.
 
     Args:
         home_team: Home team name
         away_team: Away team name
+        match_date: Date of the match
         league: League name
+        existing_context: Existing context to build upon (if any)
 
     Returns:
         Formatted prompt string for match context enrichment
     """
-    # This is a placeholder - the actual template would be defined above
-    return f"""TASK: Enrich the context for the match {home_team} vs {away_team} in {league}.
+    # Build intelligent enrichment prompt using all available data
+    context_section = f"\nExisting Context:\n{existing_context}" if existing_context else ""
 
-Please provide:
-1. Recent form trends for both teams
-2. Head-to-head history
-3. Key player news
-4. Any tactical considerations
-5. Weather forecast if available
+    return f"""TASK: Enrich the context for the match {home_team} vs {away_team}.
 
-Return structured data for each category."""
+Match Details:
+- Date: {match_date}
+- League: {league}{context_section}
+
+Please provide comprehensive analysis:
+
+1. **Recent Form Trends**:
+   - Last 5 matches for {home_team} (results, goals scored/conceded)
+   - Last 5 matches for {away_team} (results, goals scored/conceded)
+   - Home/away performance patterns
+
+2. **Head-to-Head History**:
+   - Last 5 meetings between these teams
+   - Common patterns (high scoring, draws, etc.)
+   - Home advantage factor
+
+3. **Key Player News**:
+   - Injuries for both teams (key players only)
+   - Suspensions
+   - Recent transfers or returns
+   - Player form/momentum
+
+4. **Tactical Considerations**:
+   - Playing styles of both teams
+   - Tactical matchups
+   - Managerial approaches
+   - Formation preferences
+
+5. **External Factors**:
+   - Weather forecast (if available)
+   - Pitch conditions
+   - Crowd atmosphere expectations
+   - Motivation levels (title race, relegation, etc.)
+
+Return structured JSON with all categories filled."""

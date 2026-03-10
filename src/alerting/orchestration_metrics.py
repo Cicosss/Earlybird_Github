@@ -171,16 +171,28 @@ class OrchestrationMetricsCollector:
                 ON {METRICS_TABLE}(metric_type)
             """)
 
-            # Create news_log table if it doesn't exist
+            # Create errors table for intelligent error tracking
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS news_log (
+                CREATE TABLE IF NOT EXISTS orchestration_errors (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    url TEXT NOT NULL,
-                    title TEXT,
-                    summary TEXT,
-                    sent BOOLEAN DEFAULT 0,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    error_type TEXT NOT NULL,
+                    error_message TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    severity TEXT DEFAULT 'ERROR',
+                    component TEXT,
+                    match_id TEXT
                 )
+            """)
+
+            # Create index for faster error queries
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_orchestration_errors_timestamp
+                ON orchestration_errors(timestamp)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_orchestration_errors_type
+                ON orchestration_errors(error_type)
             """)
 
             conn.commit()
@@ -380,10 +392,11 @@ class OrchestrationMetricsCollector:
             cursor = conn.cursor()
 
             # Count alerts sent in the last N hours
+            # FIXED: Changed table name from 'news_log' to 'news_logs' (plural)
             cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
             cursor.execute(
                 """
-                SELECT COUNT(*) FROM news_log
+                SELECT COUNT(*) FROM news_logs
                 WHERE sent = 1 AND created_at > ?
             """,
                 (cutoff_time,),
@@ -398,16 +411,23 @@ class OrchestrationMetricsCollector:
             return 0
 
     def _get_matches_analyzed_count(self, hours: int) -> int:
-        """Get the number of matches analyzed in the last N hours."""
+        """
+        Get the number of matches analyzed in the last N hours.
+
+        FIXED: Uses COUNT(DISTINCT match_id) to correctly count unique matches
+        instead of counting all NewsLog entries (which overcounts).
+        """
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
             # Count matches analyzed in the last N hours
+            # FIXED: Changed table name from 'news_log' to 'news_logs' (plural)
+            # FIXED: Uses COUNT(DISTINCT match_id) to count unique matches
             cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
             cursor.execute(
                 """
-                SELECT COUNT(*) FROM news_log
+                SELECT COUNT(DISTINCT match_id) FROM news_logs
                 WHERE created_at > ?
             """,
                 (cutoff_time,),
@@ -421,16 +441,100 @@ class OrchestrationMetricsCollector:
             logger.error(f"❌ Failed to get matches analyzed count: {e}")
             return 0
 
+    def record_error(
+        self,
+        error_type: str,
+        error_message: str,
+        severity: str = "ERROR",
+        component: str | None = None,
+        match_id: str | None = None,
+    ):
+        """
+        Record an error occurrence in the database for intelligent tracking.
+
+        Args:
+            error_type: Type of error (database_errors, api_errors, analysis_errors, notification_errors)
+            error_message: Error message
+            severity: Error severity (ERROR, CRITICAL, WARNING)
+            component: Component that generated the error
+            match_id: Optional match ID if error is related to a specific match
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Insert error into database
+            cursor.execute(
+                """
+                INSERT INTO orchestration_errors
+                (error_type, error_message, timestamp, severity, component, match_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    error_type,
+                    error_message[:500],  # Limit error message length
+                    datetime.now(timezone.utc).isoformat(),
+                    severity,
+                    component,
+                    match_id,
+                ),
+            )
+
+            conn.commit()
+            conn.close()
+
+            logger.debug(f"📊 Recorded error: {error_type} - {error_message[:100]}")
+        except Exception as e:
+            logger.error(f"❌ Failed to record error: {e}")
+
     def _get_errors_by_type(self) -> dict[str, int]:
-        """Get errors by type from logs."""
-        # This is a simplified implementation
-        # In a real scenario, we would parse log files
-        return {
-            "database_errors": 0,
-            "api_errors": 0,
-            "analysis_errors": 0,
-            "notification_errors": 0,
-        }
+        """
+        Get errors by type from the database in the last 24 hours.
+
+        Returns:
+            Dictionary with error counts by type
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Get error counts from the last 24 hours
+            cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+            cursor.execute(
+                """
+                SELECT error_type, COUNT(*)
+                FROM orchestration_errors
+                WHERE timestamp > ?
+                GROUP BY error_type
+            """,
+                (cutoff_time,),
+            )
+
+            errors = {}
+            for row in cursor.fetchall():
+                errors[row[0]] = row[1]
+
+            conn.close()
+
+            # Ensure all error types are present with default 0
+            default_errors = {
+                "database_errors": 0,
+                "api_errors": 0,
+                "analysis_errors": 0,
+                "notification_errors": 0,
+            }
+            default_errors.update(errors)
+
+            return default_errors
+        except Exception as e:
+            logger.error(f"❌ Failed to get errors by type: {e}")
+            return {
+                "database_errors": 0,
+                "api_errors": 0,
+                "analysis_errors": 0,
+                "notification_errors": 0,
+            }
 
     def _collect_lock_contention_metrics(self) -> LockContentionMetrics:
         """Collect lock contention metrics from cache components."""
@@ -518,11 +622,8 @@ class OrchestrationMetricsCollector:
         }
         self._store_metrics("cache_corruption", corruption_event)
         logger.error(
-            f"❌ [ORCHESTRATION-METRICS] Cache corruption recorded: "
-            f"{cache_name} - {error}"
+            f"❌ [ORCHESTRATION-METRICS] Cache corruption recorded: {cache_name} - {error}"
         )
-
-
 
     def _check_system_alerts(self, metrics: SystemMetrics):
         """Check system metrics against thresholds and send alerts."""
@@ -620,6 +721,37 @@ class OrchestrationMetricsCollector:
         except Exception as e:
             logger.error(f"❌ Failed to get metrics summary: {e}")
             return "❌ Failed to get metrics summary"
+
+
+# ============================================
+# ERROR TRACKING INTEGRATION
+# ============================================
+def record_error_intelligent(
+    error_type: str,
+    error_message: str,
+    severity: str = "ERROR",
+    component: str | None = None,
+    match_id: str | None = None,
+):
+    """
+    Intelligent error recording that integrates with orchestration metrics.
+
+    This function provides a centralized way to record errors across the entire bot.
+    It automatically categorizes errors and stores them in the database for tracking.
+
+    Args:
+        error_type: Type of error (database_errors, api_errors, analysis_errors, notification_errors)
+        error_message: Error message
+        severity: Error severity (ERROR, CRITICAL, WARNING)
+        component: Component that generated the error
+        match_id: Optional match ID if error is related to a specific match
+    """
+    try:
+        collector = get_metrics_collector()
+        collector.record_error(error_type, error_message, severity, component, match_id)
+    except Exception as e:
+        # Don't fail if metrics collector is not available
+        logger.debug(f"Failed to record error in metrics: {e}")
 
 
 # ============================================

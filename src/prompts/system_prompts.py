@@ -20,8 +20,8 @@ STRICT FORMAT RULES:
 - The JSON MUST match EXACTLY this schema:
   {
     "internal_crisis": "High/Medium/Low - Explanation",
-    "turnover_risk": "High/Medium/Low - Explanation", 
-    "referee_intel": "Strict/Lenient/Unknown - Explanation or Avg cards",
+    "turnover_risk": "High/Medium/Low - Explanation",
+    "referee_intel": "Strict/Medium/Lenient/Unknown - Explanation or Avg cards",
     "biscotto_potential": "Yes/No/Unknown - Reasoning",
     "injury_impact": "Critical/Manageable/Unknown - Assessment of missing players impact",
     "btts_impact": "Positive/Negative/Neutral - Impact on Both Teams To Score",
@@ -39,8 +39,8 @@ CONSTRAINTS:
 
 FIELD REQUIREMENTS:
 - internal_crisis: Must start with "High", "Medium", "Low", or "Unknown"
-- turnover_risk: Must start with "High", "Medium", "Low", or "Unknown" 
-- referee_intel: Must start with "Strict", "Lenient", or "Unknown"
+- turnover_risk: Must start with "High", "Medium", "Low", or "Unknown"
+- referee_intel: Must start with "Strict", "Medium", "Lenient", or "Unknown"
 - biscotto_potential: Must start with "Yes", "No", or "Unknown"
 - injury_impact: Must start with "Critical", "Manageable", or "Unknown"
 - btts_impact: Must start with "Positive", "Negative", "Neutral", or "Unknown"
@@ -85,7 +85,6 @@ STRICT FORMAT RULES:
     "match_intensity": "High/Medium/Low",
     "is_derby": true or false,
     "recommended_corner_line": "Over/Under/No bet + line",
-    "recommended_cards_line": "Over/Under/No bet + line",
     "data_confidence": "High/Medium/Low",
     "sources_found": "Short note on data sources"
   }

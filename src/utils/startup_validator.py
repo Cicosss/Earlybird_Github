@@ -12,7 +12,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Set
@@ -77,7 +77,39 @@ class StartupValidationReport:
     summary: str
     api_connectivity_results: List[APIConnectivityResult]
     config_file_results: List[ConfigFileValidationResult]
+    disabled_features: Set[str]
     timestamp: str
+
+
+# Global storage for the most recent validation report
+# This allows bot components to access validation results for intelligent decision-making
+_global_validation_report: Optional[StartupValidationReport] = None
+
+
+def get_validation_report() -> Optional[StartupValidationReport]:
+    """
+    Get the most recent startup validation report.
+
+    Returns:
+        StartupValidationReport if validation has been run, None otherwise
+    """
+    return _global_validation_report
+
+
+def is_feature_disabled(feature: str) -> bool:
+    """
+    Check if a feature is disabled based on validation results.
+
+    Args:
+        feature: Feature name to check (e.g., 'telegram_monitor', 'perplexity_fallback')
+
+    Returns:
+        True if feature is disabled, False otherwise
+    """
+    report = get_validation_report()
+    if report is None:
+        return False
+    return feature in report.disabled_features
 
 
 class StartupValidator:
@@ -342,8 +374,10 @@ class StartupValidator:
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }
+            # Read model from environment variable to avoid hardcoding deprecated models
+            model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
             payload = {
-                "model": "deepseek/deepseek-chat-v3-0324",
+                "model": model,
                 "messages": [{"role": "user", "content": "Say OK"}],
                 "max_tokens": 10,
             }
@@ -681,7 +715,8 @@ class StartupValidator:
             summary=summary,
             api_connectivity_results=self.api_connectivity_results,
             config_file_results=self.config_file_results,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            disabled_features=self.disabled_features,
+            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         )
 
     def print_handshake_report(self, report: StartupValidationReport) -> None:
@@ -714,8 +749,8 @@ class StartupValidator:
             print(f"{icon} {result.message}")
 
         # Print disabled features
-        if self.disabled_features:
-            print(f"\n⚙️  DISABLED FEATURES: {', '.join(sorted(self.disabled_features))}")
+        if report.disabled_features:
+            print(f"\n⚙️  DISABLED FEATURES: {', '.join(sorted(report.disabled_features))}")
 
         # Print API connectivity summary
         if report.api_connectivity_results:
@@ -832,11 +867,11 @@ class StartupValidator:
                 print()
 
         # Section 4: Disabled Features
-        if self.disabled_features:
+        if report.disabled_features:
             print("=" * 70)
             print("⚙️  DISABLED FEATURES")
             print("=" * 70)
-            for feature in sorted(self.disabled_features):
+            for feature in sorted(report.disabled_features):
                 print(f"   • {feature}")
             print()
 
@@ -918,7 +953,7 @@ def validate_startup(
 
 def validate_startup_or_exit(
     include_connectivity: bool = True, include_config_files: bool = True
-) -> None:
+) -> StartupValidationReport:
     """
     Validate startup configuration and exit if critical failures found.
 
@@ -928,12 +963,19 @@ def validate_startup_or_exit(
     Args:
         include_connectivity: Whether to run API connectivity tests
         include_config_files: Whether to validate configuration files
+
+    Returns:
+        StartupValidationReport with validation results (for intelligent decision-making)
     """
     validator = StartupValidator()
     report = validator.validate_all(
         include_connectivity=include_connectivity, include_config_files=include_config_files
     )
     validator.print_handshake_report(report)
+
+    # Store report globally for intelligent decision-making
+    global _global_validation_report
+    _global_validation_report = report
 
     if validator.should_exit(report):
         print("\n❌ STARTUP ABORTED: Fix critical configuration errors before retrying")
@@ -944,6 +986,7 @@ def validate_startup_or_exit(
         sys.exit(1)
 
     print("\n✅ STARTUP VALIDATION PASSED: System ready to launch")
+    return report
 
 
 def validate_startup_detailed() -> None:

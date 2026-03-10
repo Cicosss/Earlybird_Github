@@ -25,6 +25,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+# Import settings for contract validation control
+try:
+    from config.settings import CONTRACT_VALIDATION_ENABLED
+except ImportError:
+    # Fallback if settings module not available (e.g., during testing)
+    CONTRACT_VALIDATION_ENABLED = True
+
 
 class ContractViolation(Exception):
     """Raised when a contract is violated."""
@@ -128,7 +135,24 @@ class Contract:
     def assert_valid(self, data: dict[str, Any], context: str = "") -> None:
         """
         Assert that data is valid. Raises ContractViolation if not.
+
+        V14.0 FIX: Refined performance optimization - Skip only expensive operations when disabled
+        When CONTRACT_VALIDATION_ENABLED is False:
+        - Skip field validation (expensive)
+        - Skip logging (expensive)
+        - Still check for None data and non-dict data (cheap, prevents crashes)
         """
+        # V14.0 FIX: Cheap checks always run (prevent crashes)
+        if data is None:
+            raise ContractViolation(f"Contract '{self.name}': data is None")
+
+        if not isinstance(data, dict):
+            raise ContractViolation(f"Contract '{self.name}': data is not a dict")
+
+        # V14.0 FIX: Skip expensive validation when disabled
+        if not CONTRACT_VALIDATION_ENABLED:
+            return
+
         is_valid, errors = self.validate(data)
         if not is_valid:
             ctx = f" ({context})" if context else ""
@@ -215,6 +239,74 @@ NEWS_ITEM_CONTRACT = Contract(
             required=False,
             field_type=(int, float),
             description="Età della news in minuti",
+        ),
+        # V14.0 FIX: Added missing fields used by news_hunter
+        FieldSpec(
+            "keyword",
+            required=False,
+            field_type=str,
+            description="Keyword usato per la ricerca (es. 'browser_monitor', 'beat_writer_priority')",
+        ),
+        FieldSpec(
+            "category",
+            required=False,
+            field_type=str,
+            description="Categoria della news (es. 'INJURY', 'SUSPENSION')",
+        ),
+        FieldSpec(
+            "source_type",
+            required=False,
+            field_type=str,
+            description="Tipo di fonte (es. 'beat_writer', 'twitter_intel', 'browser_monitor')",
+        ),
+        FieldSpec(
+            "league_key",
+            required=False,
+            field_type=str,
+            description="API league key (es. 'soccer_turkey_super_league')",
+        ),
+        FieldSpec(
+            "gemini_confidence",
+            required=False,
+            field_type=(int, float),
+            description="Confidenza Gemini (0-1) per Browser Monitor",
+        ),
+        FieldSpec(
+            "discovered_at",
+            required=False,
+            field_type=str,
+            description="Timestamp di scoperta (ISO format)",
+        ),
+        FieldSpec(
+            "topics",
+            required=False,
+            field_type=list,
+            description="Lista di topic rilevati (es. ['injury', 'lineup'])",
+        ),
+        # Beat writer metadata (optional)
+        FieldSpec(
+            "beat_writer_name",
+            required=False,
+            field_type=str,
+            description="Nome del beat writer",
+        ),
+        FieldSpec(
+            "beat_writer_outlet",
+            required=False,
+            field_type=str,
+            description="Outlet del beat writer",
+        ),
+        FieldSpec(
+            "beat_writer_specialty",
+            required=False,
+            field_type=str,
+            description="Specialità del beat writer",
+        ),
+        FieldSpec(
+            "beat_writer_reliability",
+            required=False,
+            field_type=(int, float),
+            description="Affidabilità del beat writer (0-1)",
         ),
     ],
 )
@@ -327,6 +419,130 @@ ANALYSIS_RESULT_CONTRACT = Contract(
             allowed_values=VALID_DRIVERS + [None],
             description="Driver principale della scommessa",
         ),
+        # V14.0 FIX: Added missing fields used by analyzer
+        FieldSpec(
+            "match_id",
+            required=False,
+            field_type=str,
+            description="ID del match",
+        ),
+        FieldSpec(
+            "url",
+            required=False,
+            field_type=str,
+            validator=_is_valid_url,
+            description="URL della fonte della news",
+        ),
+        FieldSpec(
+            "affected_team",
+            required=False,
+            field_type=str,
+            description="Team interessato dalla news",
+        ),
+        FieldSpec(
+            "confidence",
+            required=False,
+            field_type=(int, float),
+            description="Confidenza AI (0-100) per BettingQuant",
+        ),
+        FieldSpec(
+            "odds_taken",
+            required=False,
+            field_type=(int, float),
+            description="Quota presa per CLV tracking",
+        ),
+        FieldSpec(
+            "confidence_breakdown",
+            required=False,
+            field_type=str,
+            description="Breakdown della confidenza (stringa JSON)",
+        ),
+        FieldSpec(
+            "is_convergent",
+            required=False,
+            field_type=bool,
+            description="V9.5: True se segnale confermato da Web e Social",
+        ),
+        FieldSpec(
+            "convergence_sources",
+            required=False,
+            field_type=str,
+            description="V9.5: Dettagli fonti convergenti (stringa JSON)",
+        ),
+    ],
+)
+
+
+# ============================================
+# CONTRACT: content_analyzer → news_radar (News Radar AnalysisResult)
+# ============================================
+
+VALID_CATEGORIES = [
+    "INJURY",
+    "SUSPENSION",
+    "NATIONAL_TEAM",
+    "CUP_ABSENCE",
+    "YOUTH_CALLUP",
+    "OTHER",
+]
+VALID_BETTING_IMPACTS = ["HIGH", "MEDIUM", "LOW", "CRITICAL"]
+
+
+def _is_valid_confidence(confidence: Any) -> bool:
+    """Validate confidence is in range 0.0-1.0."""
+    if confidence is None:
+        return True
+    try:
+        return 0.0 <= float(confidence) <= 1.0
+    except (TypeError, ValueError):
+        return False
+
+
+NEWS_RADAR_ANALYSIS_RESULT_CONTRACT = Contract(
+    name="NewsRadarAnalysisResult",
+    producer="content_analyzer",
+    consumer="news_radar",
+    description="Output di RelevanceAnalyzer.analyze() e DeepSeekAnalyzer._parse_response() (COVE FIX 2026-03-07)",
+    fields=[
+        FieldSpec(
+            "is_relevant",
+            required=True,
+            field_type=bool,
+            description="True se il contenuto è rilevante per le scommesse",
+        ),
+        FieldSpec(
+            "category",
+            required=True,
+            field_type=str,
+            allowed_values=VALID_CATEGORIES,
+            description="Categoria: INJURY, SUSPENSION, NATIONAL_TEAM, CUP_ABSENCE, YOUTH_CALLUP, OTHER",
+        ),
+        FieldSpec(
+            "affected_team",
+            required=False,
+            field_type=str,
+            description="Nome della squadra interessata (può essere None)",
+        ),
+        FieldSpec(
+            "confidence",
+            required=True,
+            field_type=(int, float),
+            validator=_is_valid_confidence,
+            description="Confidenza 0.0-1.0",
+        ),
+        FieldSpec(
+            "summary",
+            required=True,
+            field_type=str,
+            description="Breve riassunto del contenuto",
+        ),
+        FieldSpec(
+            "betting_impact",
+            required=False,
+            field_type=str,
+            allowed_values=VALID_BETTING_IMPACTS + [None],
+            description="V1.4: HIGH, MEDIUM, LOW, CRITICAL (opzionale, da DeepSeek)",
+        ),
     ],
 )
 
@@ -397,6 +613,26 @@ VERIFICATION_RESULT_CONTRACT = Contract(
             field_type=list,
             description="Lista incongruenze rilevate",
         ),
+        # V14.0 FIX: Added missing fields from VerificationResult.to_dict()
+        FieldSpec(
+            "score_adjustment_reason",
+            required=False,
+            field_type=str,
+            description="Motivazione dell'aggiustamento dello score",
+        ),
+        FieldSpec(
+            "alternative_markets",
+            required=False,
+            field_type=list,
+            description="Lista di mercati alternativi suggeriti",
+        ),
+        # V14.0 FIX: Added verified_data field (complex nested structure)
+        FieldSpec(
+            "verified_data",
+            required=False,
+            field_type=dict,
+            description="VerifiedData object con statistiche verificate (form, H2H, referee, etc.)",
+        ),
     ],
 )
 
@@ -445,6 +681,79 @@ ALERT_PAYLOAD_CONTRACT = Contract(
             field_type=dict,
             description="V9.5: Dettagli fonti convergenti (web/social)",
         ),
+        # V14.0 FIX: Added missing fields from notifier.send_alert()
+        FieldSpec(
+            "math_edge",
+            required=False,
+            field_type=dict,
+            description="Dict con 'market', 'edge', 'kelly_stake' dal Poisson model",
+        ),
+        FieldSpec(
+            "is_update",
+            required=False,
+            field_type=bool,
+            description="True se questo è un aggiornamento a un alert precedente",
+        ),
+        FieldSpec(
+            "financial_risk",
+            required=False,
+            field_type=str,
+            description="Livello rischio finanziario da Financial Intelligence",
+        ),
+        FieldSpec(
+            "intel_source",
+            required=False,
+            field_type=str,
+            description="Sorgente intelligence - 'web', 'telegram', 'ocr'",
+        ),
+        FieldSpec(
+            "referee_intel",
+            required=False,
+            field_type=dict,
+            description="Dict con statistiche arbitro per mercato cards",
+        ),
+        FieldSpec(
+            "twitter_intel",
+            required=False,
+            field_type=dict,
+            description="Dict con Twitter insider intel",
+        ),
+        FieldSpec(
+            "validated_home_team",
+            required=False,
+            field_type=str,
+            description="Nome team casa corretto se FotMob ha rilevato inversione",
+        ),
+        FieldSpec(
+            "validated_away_team",
+            required=False,
+            field_type=str,
+            description="Nome team trasferta corretto se FotMob ha rilevato inversione",
+        ),
+        FieldSpec(
+            "final_verification_info",
+            required=False,
+            field_type=dict,
+            description="V11.1: Risultati Final Alert Verifier da Perplexity API",
+        ),
+        FieldSpec(
+            "injury_intel",
+            required=False,
+            field_type=dict,
+            description="Analisi impatto infortuni",
+        ),
+        FieldSpec(
+            "confidence_breakdown",
+            required=False,
+            field_type=dict,
+            description="Breakdown confidenza (news_weight, odds_weight, form_weight, injuries_weight)",
+        ),
+        FieldSpec(
+            "market_warning",
+            required=False,
+            field_type=str,
+            description="V11.1: Warning message per alert late-to-market",
+        ),
     ],
 )
 
@@ -457,6 +766,7 @@ ALL_CONTRACTS = {
     "news_item": NEWS_ITEM_CONTRACT,
     "snippet_data": SNIPPET_DATA_CONTRACT,
     "analysis_result": ANALYSIS_RESULT_CONTRACT,
+    "news_radar_analysis_result": NEWS_RADAR_ANALYSIS_RESULT_CONTRACT,
     "verification_result": VERIFICATION_RESULT_CONTRACT,
     "alert_payload": ALERT_PAYLOAD_CONTRACT,
 }

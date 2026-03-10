@@ -121,17 +121,6 @@
 
 ### src/analysis
 
-#### `alert_feedback_loop.py`
-
-**Classes:**
-- `class AlertFeedbackLoop`
-- `class AlertModification`
-- `class FeedbackLoopStatus`
-- `class SimpleNewsLog`
-
-**Functions:**
-- `def get_alert_feedback_loop()`
-
 
 #### `analyzer.py`
 

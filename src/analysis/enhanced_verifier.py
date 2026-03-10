@@ -2,11 +2,19 @@
 Enhanced Final Alert Verifier with Data Discrepancy Handling
 
 This module extends the Final Alert Verifier to handle data discrepancies
-between FotMob extraction and Perplexity verification more intelligently.
+between FotMob extraction and IntelligenceRouter verification more intelligently.
+
+V3.0: COMPLETE REWRITE - Uses real data from IntelligenceRouter instead of placeholders
+- Extracts actual fotmob_value and intelligence_value from AI response
+- Displays discrepancies in Telegram alerts
+- Integrates with intelligent modification loop
+- Configurable confidence penalties
+- Comprehensive logging
 """
 
 import logging
-from dataclasses import dataclass
+import os
+from dataclasses import asdict, dataclass
 
 from src.analysis.final_alert_verifier import FinalAlertVerifier
 from src.database.models import Match, NewsLog
@@ -16,29 +24,56 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DataDiscrepancy:
-    """Represents a discrepancy between extracted and verified data."""
+    """Represents a discrepancy between extracted and verified data.
+
+    V3.0: Now uses REAL values from IntelligenceRouter instead of placeholders.
+    """
 
     field: str
-    fotmob_value: any
-    intelligence_value: any  # V2.0: Changed from perplexity_value
+    fotmob_value: any  # Actual value from FotMob extraction
+    intelligence_value: any  # Actual value from IntelligenceRouter web search
     impact: str  # "LOW", "MEDIUM", "HIGH"
     description: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 class EnhancedFinalVerifier(FinalAlertVerifier):
     """
     Enhanced Final Alert Verifier with intelligent discrepancy handling.
 
-    Instead of outright rejecting alerts with data differences,
-    it evaluates the impact and can suggest modifications or
-    adjust confidence scores accordingly.
+    V3.0: COMPLETE REWRITE - Uses real data from IntelligenceRouter instead of placeholders.
+
+    Key improvements:
+    - Extracts ACTUAL fotmob_value and intelligence_value from AI response
+    - Displays discrepancies in Telegram alerts with real values
+    - Integrates with intelligent modification loop
+    - Configurable confidence penalties via environment variables
+    - Comprehensive logging for debugging
+    - Semantic understanding of discrepancy impact
     """
+
+    def __init__(self):
+        super().__init__()
+        # Load configurable confidence penalties from environment
+        self._high_impact_penalty = int(os.getenv("DISCREPANCY_HIGH_PENALTY", "3"))
+        self._medium_impact_penalty = int(os.getenv("DISCREPANCY_MEDIUM_PENALTY", "2"))
+        self._low_impact_penalty = int(os.getenv("DISCREPANCY_LOW_PENALTY", "1"))
+
+        logger.info(
+            f"🔧 [ENHANCED VERIFIER] Configured penalties: "
+            f"HIGH={self._high_impact_penalty}, MEDIUM={self._medium_impact_penalty}, LOW={self._low_impact_penalty}"
+        )
 
     def verify_final_alert_with_discrepancy_handling(
         self, match: Match, analysis: NewsLog, alert_data: dict, context_data: dict | None = None
     ) -> tuple[bool, dict]:
         """
         Enhanced verification that handles data discrepancies intelligently.
+
+        V3.0: Now uses REAL data from IntelligenceRouter instead of placeholders.
 
         Args:
             match: Match database object
@@ -49,114 +84,103 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
         Returns:
             Tuple of (should_send, enhanced_verification_result)
         """
-        # First, run standard verification
+        # First, run standard verification (which includes IntelligenceRouter)
         should_send, verification_result = super().verify_final_alert(
             match, analysis, alert_data, context_data
         )
 
-        if not should_send and verification_result.get("final_recommendation") == "MODIFY":
-            # Handle MODIFY case - check if we can adjust the alert
-            return self._handle_modify_case(
-                match, analysis, alert_data, context_data, verification_result
-            )
+        # V3.0: Extract REAL discrepancies from IntelligenceRouter response
+        # The parent class already extracts discrepancies with real values from the AI response
+        # We just need to convert them to DataDiscrepancy objects for consistency
+        raw_discrepancies = verification_result.get("data_discrepancies", [])
 
-        # Check for data discrepancies even in confirmed alerts
-        if should_send:
-            discrepancies = self._detect_data_discrepancies(verification_result)
+        if raw_discrepancies:
+            # Convert dict discrepancies to DataDiscrepancy objects with REAL values
+            discrepancies = self._convert_discrepancies(raw_discrepancies)
+
             if discrepancies:
+                # Log each discrepancy with real values
+                self._log_discrepancies(discrepancies)
+
+                # Store as DataDiscrepancy objects
                 verification_result["data_discrepancies"] = discrepancies
-                # Adjust confidence based on discrepancies
+
+                # Adjust confidence based on discrepancies (using configurable penalties)
                 verification_result = self._adjust_confidence_for_discrepancies(
                     verification_result, discrepancies
                 )
 
+                logger.info(
+                    f"✅ [ENHANCED VERIFIER] Processed {len(discrepancies)} discrepancies with REAL values"
+                )
+        else:
+            logger.debug("[ENHANCED VERIFIER] No discrepancies found in verification result")
+
         return should_send, verification_result
 
-    def _detect_data_discrepancies(self, verification_result: dict) -> list[DataDiscrepancy]:
+    def _convert_discrepancies(self, raw_discrepancies: list[dict]) -> list[DataDiscrepancy]:
         """
-        Detect data discrepancies from IntelligenceRouter response.
+        Convert raw discrepancy dicts from IntelligenceRouter to DataDiscrepancy objects.
 
-        Looks for patterns indicating data differences between sources.
+        V3.0: Extracts REAL values from AI response instead of using placeholders.
 
-        V2.0: Updated to use IntelligenceRouter instead of Perplexity
+        Args:
+            raw_discrepancies: List of discrepancy dicts from IntelligenceRouter
+
+        Returns:
+            List of DataDiscrepancy objects with real values
         """
         discrepancies = []
-        rejection_reason = verification_result.get("rejection_reason", "")
-        key_weaknesses = verification_result.get("key_weaknesses", [])
 
-        # Common discrepancy patterns
-        discrepancy_patterns = {
-            "goals": ["goals scored", "goals conceded", "goal average", "scoring"],
-            "corners": ["corners", "corner kicks", "set pieces"],
-            "cards": ["cards", "yellow cards", "red cards", "bookings"],
-            "injuries": ["injuries", "injured", "unavailable", "suspended"],
-            "form": ["form", "last 5", "recent matches", "performance"],
-            "position": ["position", "standing", "table", "rank"],
-        }
+        for raw in raw_discrepancies:
+            try:
+                # Extract real values from IntelligenceRouter response
+                field = raw.get("field", "unknown")
+                fotmob_value = raw.get("fotmob_value", "not provided")
+                intelligence_value = raw.get(
+                    "perplexity_value", raw.get("intelligence_value", "not provided")
+                )
+                impact = raw.get("impact", "LOW")
+                description = raw.get("description", "No description provided")
 
-        # Analyze rejection reason for discrepancy indicators
-        for field, keywords in discrepancy_patterns.items():
-            field_discrepancy = self._check_field_discrepancy(
-                field, keywords, rejection_reason, key_weaknesses
-            )
-            if field_discrepancy:
-                discrepancies.append(field_discrepancy)
+                # Create DataDiscrepancy with REAL values
+                discrepancy = DataDiscrepancy(
+                    field=field,
+                    fotmob_value=fotmob_value,
+                    intelligence_value=intelligence_value,
+                    impact=impact,
+                    description=description,
+                )
+                discrepancies.append(discrepancy)
+
+            except Exception as e:
+                logger.warning(f"⚠️ [ENHANCED VERIFIER] Failed to convert discrepancy: {e}")
 
         return discrepancies
 
-    def _check_field_discrepancy(
-        self, field: str, keywords: list[str], rejection_reason: str, weaknesses: list[str]
-    ) -> DataDiscrepancy | None:
-        """Check if there's a discrepancy for a specific field."""
-        combined_text = f"{rejection_reason} {' '.join(weaknesses)}".lower()
+    def _log_discrepancies(self, discrepancies: list[DataDiscrepancy]) -> None:
+        """
+        Log discrepancies with real values for debugging.
 
-        # Look for discrepancy indicators
-        discrepancy_indicators = [
-            "different",
-            "contradicts",
-            "doesn't match",
-            "inconsistent",
-            "higher than",
-            "lower than",
-            "shows",
-            "indicates",
-            "suggests",
-        ]
+        V3.0: Comprehensive logging with actual values.
+        """
+        logger.info(f"📊 [DISCREPANCY LOG] Found {len(discrepancies)} discrepancies:")
 
-        for keyword in keywords:
-            if keyword in combined_text:
-                for indicator in discrepancy_indicators:
-                    if indicator in combined_text:
-                        # Determine impact based on field importance
-                        impact = self._determine_field_impact(field)
-
-                        return DataDiscrepancy(
-                            field=field,
-                            fotmob_value="extracted_from_fotmob",
-                            intelligence_value="found_by_intelligence_router",  # V2.0: Changed from perplexity_value
-                            impact=impact,
-                            description=f"IntelligenceRouter found different {field} data",  # V2.0: Changed from Perplexity
-                        )
-
-        return None
-
-    def _determine_field_impact(self, field: str) -> str:
-        """Determine the impact level of a data discrepancy."""
-        high_impact_fields = ["goals", "injuries", "form"]
-        medium_impact_fields = ["corners", "cards", "position"]
-
-        if field in high_impact_fields:
-            return "HIGH"
-        elif field in medium_impact_fields:
-            return "MEDIUM"
-        else:
-            return "LOW"
+        for i, d in enumerate(discrepancies, 1):
+            emoji = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(d.impact, "⚪")
+            logger.info(f"   {emoji} Discrepancy #{i}: {d.field.upper()}")
+            logger.info(f"      FotMob value:      {d.fotmob_value}")
+            logger.info(f"      Intelligence value: {d.intelligence_value}")
+            logger.info(f"      Impact:           {d.impact}")
+            logger.info(f"      Description:      {d.description}")
 
     def _adjust_confidence_for_discrepancies(
         self, verification_result: dict, discrepancies: list[DataDiscrepancy]
     ) -> dict:
         """
         Adjust confidence scores based on detected discrepancies.
+
+        V3.0: Uses CONFIGURABLE penalties instead of hardcoded values.
         """
         original_confidence = verification_result.get("confidence_level", "HIGH")
         original_scores = {
@@ -165,21 +189,27 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
             "reasoning_quality_score": verification_result.get("reasoning_quality_score", 8),
         }
 
-        # Calculate penalty based on discrepancy impacts
+        # Calculate penalty using CONFIGURABLE values
         total_penalty = 0
         for discrepancy in discrepancies:
             if discrepancy.impact == "HIGH":
-                total_penalty += 3
+                total_penalty += self._high_impact_penalty
             elif discrepancy.impact == "MEDIUM":
-                total_penalty += 2
+                total_penalty += self._medium_impact_penalty
             else:
-                total_penalty += 1
+                total_penalty += self._low_impact_penalty
+
+        logger.info(
+            f"📉 [CONFIDENCE ADJUSTMENT] Total penalty: {total_penalty} "
+            f"(HIGH={self._high_impact_penalty}, MEDIUM={self._medium_impact_penalty}, LOW={self._low_impact_penalty})"
+        )
 
         # Adjust scores
         adjusted_scores = {}
         for score_type, original_score in original_scores.items():
             adjusted_score = max(1, original_score - total_penalty)
             adjusted_scores[score_type] = adjusted_score
+            logger.debug(f"   {score_type}: {original_score} → {adjusted_score}")
 
         # Adjust confidence level
         avg_score = sum(adjusted_scores.values()) / len(adjusted_scores)
@@ -206,70 +236,12 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
             "low_impact": len([d for d in discrepancies if d.impact == "LOW"]),
         }
 
-        return verification_result
-
-    def _handle_modify_case(
-        self,
-        match: Match,
-        analysis: NewsLog,
-        alert_data: dict,
-        context_data: dict,
-        verification_result: dict,
-    ) -> tuple[bool, dict]:
-        """
-        Handle the MODIFY recommendation case.
-
-        Attempts to adjust the alert based on Perplexity suggestions.
-        """
-        suggested_modifications = verification_result.get("suggested_modifications", "")
-
-        if not suggested_modifications:
-            logger.warning("MODIFY recommendation without specific suggestions")
-            return False, verification_result
-
-        logger.info(f"🔧 [ENHANCED VERIFIER] Attempting to modify alert: {suggested_modifications}")
-
-        # Try to apply common modifications
-        modifications_applied = []
-
-        # Check for market change suggestions
-        if (
-            "over 2.5" in suggested_modifications.lower()
-            and "under 2.5" in suggested_modifications.lower()
-        ):
-            # Suggest market change
-            current_market = alert_data.get("recommended_market", "")
-            if "over" in current_market.lower():
-                new_market = current_market.replace("Over", "Under")
-                alert_data["recommended_market"] = new_market
-                modifications_applied.append(f"Market changed: {current_market} → {new_market}")
-
-        # Check for score adjustment suggestions
-        if "lower score" in suggested_modifications.lower():
-            original_score = alert_data.get("score", 8)
-            new_score = max(5, original_score - 2)
-            alert_data["score"] = new_score
-            modifications_applied.append(f"Score adjusted: {original_score} → {new_score}")
-
-        if modifications_applied:
-            verification_result["modifications_applied"] = modifications_applied
-            verification_result["verification_status"] = "CONFIRMED"
-            verification_result["should_send"] = True
-            verification_result["final_recommendation"] = "SEND"
-            verification_result["confidence_level"] = (
-                "MEDIUM"  # Reduced confidence for modified alerts
-            )
-
-            logger.info(
-                f"✅ [ENHANCED VERIFIER] Alert modified and approved: {', '.join(modifications_applied)}"
-            )
-            return True, verification_result
-
-        # If we can't apply modifications automatically, reject but provide clear reason
-        verification_result["rejection_reason"] = (
-            f"Manual review required: {suggested_modifications}"
+        logger.info(
+            f"📊 [CONFIDENCE ADJUSTMENT] {original_confidence} → {new_confidence} "
+            f"(avg score: {avg_score:.1f})"
         )
-        return False, verification_result
+
+        return verification_result
 
 
 def get_enhanced_final_verifier() -> EnhancedFinalVerifier:

@@ -150,18 +150,12 @@ class TestBettingStatsResponse:
             "corners_total_avg": 9.3,
             "corners_signal": "High",
             "corners_reasoning": "Home team attacks wide, high crossing volume",
-            "home_cards_avg": 1.8,
-            "away_cards_avg": 2.1,
-            "cards_total_avg": 3.9,
-            "cards_signal": "Medium",
-            "cards_reasoning": "Away team more aggressive, home disciplined",
             "referee_name": "Maurizio Mariani",
             "referee_cards_avg": 4.2,
             "referee_strictness": "Medium",
             "match_intensity": "High",
             "is_derby": False,
             "recommended_corner_line": "Over 9.5 Corners",
-            "recommended_cards_line": "Over 3.5 Cards",
             "data_confidence": "High",
             "sources_found": "Serie A official stats, SofaScore",
         }
@@ -170,7 +164,6 @@ class TestBettingStatsResponse:
         assert response.home_form_wins == 3
         assert response.home_corners_avg == 5.2
         assert response.corners_signal == "High"
-        assert response.cards_signal == "Medium"
         assert response.referee_strictness == "Medium"
         assert response.match_intensity == "High"
         assert response.is_derby is False
@@ -183,12 +176,10 @@ class TestBettingStatsResponse:
             "home_corners_avg": None,
             "referee_cards_avg": None,
             "corners_signal": "Unknown",
-            "cards_signal": "Unknown",
             "referee_strictness": "Unknown",
             "match_intensity": "Unknown",
             "is_derby": False,
             "recommended_corner_line": "No bet",
-            "recommended_cards_line": "No bet",
             "data_confidence": "Low",
             "sources_found": "",
         }
@@ -207,12 +198,10 @@ class TestBettingStatsResponse:
             "home_form_draws": 1,
             "home_form_losses": 1,
             "corners_signal": "High",
-            "cards_signal": "Medium",
             "referee_strictness": "Medium",
             "match_intensity": "High",
             "is_derby": False,
             "recommended_corner_line": "No bet",
-            "recommended_cards_line": "No bet",
             "data_confidence": "High",
             "sources_found": "Test",
         }
@@ -249,12 +238,10 @@ class TestBettingStatsResponse:
         """Test that enum fields validate correctly."""
         invalid_data = {
             "corners_signal": "InvalidSignal",  # Should be High/Medium/Low/Unknown
-            "cards_signal": "Medium",
             "referee_strictness": "Medium",
             "match_intensity": "High",
             "is_derby": False,
             "recommended_corner_line": "No bet",
-            "recommended_cards_line": "No bet",
             "data_confidence": "High",
             "sources_found": "Test",
         }
@@ -275,7 +262,6 @@ class TestBettingStatsResponse:
         assert "home_form_wins" in schema["properties"]
         assert "home_corners_avg" in schema["properties"]
         assert "corners_signal" in schema["properties"]
-        assert "cards_signal" in schema["properties"]
         assert "referee_strictness" in schema["properties"]
         assert "match_intensity" in schema["properties"]
         assert "is_derby" in schema["properties"]
@@ -326,7 +312,6 @@ class TestModelIntegration:
             "home_form_losses": 1,
             "home_corners_avg": 5.5,
             "corners_signal": "High",
-            "cards_signal": "Medium",
             "referee_strictness": "Strict",
             "match_intensity": "High",
             "is_derby": True,
@@ -376,7 +361,6 @@ class TestModelIntegration:
         # Test BettingStatsResponse
         betting_data = {
             "corners_signal": "Low",
-            "cards_signal": "Disciplined",
             "referee_strictness": "Lenient",
             "match_intensity": "Low",
             "is_derby": False,

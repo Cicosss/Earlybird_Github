@@ -27,7 +27,9 @@ VPS Compatibility:
 """
 
 import hashlib
+import json
 import logging
+import threading
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -290,6 +292,7 @@ def calculate_timestamp_lag(
 _recent_messages_cache: dict[str, tuple[str, datetime]] = {}
 _CACHE_MAX_SIZE = 1000
 _CACHE_TTL_SECONDS = 3600  # FIX: 1 hour TTL to prevent memory leak
+_cache_lock = threading.Lock()  # FIX: Thread safety for concurrent access
 
 
 def _normalize_text_for_echo(text: str) -> str:
@@ -335,48 +338,50 @@ def check_echo_chamber(
     if message_time.tzinfo is None:
         message_time = message_time.replace(tzinfo=timezone.utc)
 
-    # Check if we've seen this text recently from another channel
-    if text_hash in _recent_messages_cache:
-        original_channel, original_time = _recent_messages_cache[text_hash]
+    # FIX: Thread-safe cache access with lock
+    with _cache_lock:
+        # Check if we've seen this text recently from another channel
+        if text_hash in _recent_messages_cache:
+            original_channel, original_time = _recent_messages_cache[text_hash]
 
-        # Normalize original_time timezone
-        if original_time.tzinfo is None:
-            original_time = original_time.replace(tzinfo=timezone.utc)
+            # Normalize original_time timezone
+            if original_time.tzinfo is None:
+                original_time = original_time.replace(tzinfo=timezone.utc)
 
-        # Different channel posted same content?
-        if original_channel != channel_id:
-            time_diff = abs((message_time - original_time).total_seconds())
+            # Different channel posted same content?
+            if original_channel != channel_id:
+                time_diff = abs((message_time - original_time).total_seconds())
 
-            if time_diff <= ECHO_CHAMBER_WINDOW_SECONDS:
-                logger.debug(f"Echo detected: {channel_id} copied from {original_channel}")
-                return True, original_channel
+                if time_diff <= ECHO_CHAMBER_WINDOW_SECONDS:
+                    logger.debug(f"Echo detected: {channel_id} copied from {original_channel}")
+                    return True, original_channel
 
-    # Add to cache
-    _recent_messages_cache[text_hash] = (channel_id, message_time)
+        # Add to cache
+        _recent_messages_cache[text_hash] = (channel_id, message_time)
 
-    # FIX: Cleanup expired entries (TTL-based) + size limit
-    now = datetime.now(timezone.utc)
-    expired_keys = []
+        # FIX: Cleanup expired entries (TTL-based) + size limit
+        now = datetime.now(timezone.utc)
+        expired_keys = []
 
-    for key, (_, entry_time) in _recent_messages_cache.items():
-        if entry_time.tzinfo is None:
-            entry_time = entry_time.replace(tzinfo=timezone.utc)
-        age_seconds = (now - entry_time).total_seconds()
-        if age_seconds > _CACHE_TTL_SECONDS:
-            expired_keys.append(key)
+        for key, (_, entry_time) in _recent_messages_cache.items():
+            if entry_time.tzinfo is None:
+                entry_time = entry_time.replace(tzinfo=timezone.utc)
+            age_seconds = (now - entry_time).total_seconds()
+            if age_seconds > _CACHE_TTL_SECONDS:
+                expired_keys.append(key)
 
-    # Remove expired entries
-    for key in expired_keys:
-        del _recent_messages_cache[key]
-
-    # If still too large after TTL cleanup, remove oldest 20%
-    if len(_recent_messages_cache) > _CACHE_MAX_SIZE:
-        sorted_items = sorted(
-            _recent_messages_cache.items(),
-            key=lambda x: x[1][1] if x[1][1].tzinfo else x[1][1].replace(tzinfo=timezone.utc),
-        )
-        for key, _ in sorted_items[: int(_CACHE_MAX_SIZE * 0.2)]:
+        # Remove expired entries
+        for key in expired_keys:
             del _recent_messages_cache[key]
+
+        # If still too large after TTL cleanup, remove oldest 20%
+        if len(_recent_messages_cache) > _CACHE_MAX_SIZE:
+            sorted_items = sorted(
+                _recent_messages_cache.items(),
+                key=lambda x: x[1][1] if x[1][1].tzinfo else x[1][1].replace(tzinfo=timezone.utc),
+            )
+            for key, _ in sorted_items[: int(_CACHE_MAX_SIZE * 0.2)]:
+                del _recent_messages_cache[key]
 
     return False, None
 
@@ -795,19 +800,43 @@ def get_channel_trust_metrics(channel_id: str) -> ChannelMetrics | None:
             )
             trust_level = TrustLevel.NEUTRAL
 
+        # FIX: Deserialize red_flag_types from JSON string to list[str]
+        red_flag_types_json = metrics_dict.get("red_flag_types")
+        if red_flag_types_json:
+            try:
+                red_flag_types = json.loads(red_flag_types_json)
+                if not isinstance(red_flag_types, list):
+                    logger.warning(
+                        f"red_flag_types is not a list for channel {channel_id}, defaulting to empty list"
+                    )
+                    red_flag_types = []
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"Failed to parse red_flag_types JSON for channel {channel_id}, defaulting to empty list"
+                )
+                red_flag_types = []
+        else:
+            red_flag_types = []
+
         return ChannelMetrics(
             channel_id=metrics_dict.get("channel_id", channel_id),
             channel_name=metrics_dict.get("channel_name", "unknown"),
             total_messages=metrics_dict.get("total_messages", 0),
-            messages_with_odds_impact=metrics_dict.get("insider_hits", 0)
-            + metrics_dict.get("late_messages", 0),
+            messages_with_odds_impact=metrics_dict.get("messages_with_odds_impact", 0),
             avg_timestamp_lag_minutes=metrics_dict.get("avg_timestamp_lag", 0.0),
             insider_hits=metrics_dict.get("insider_hits", 0),
             late_messages=metrics_dict.get("late_messages", 0),
+            total_edits=metrics_dict.get("total_edits", 0),
+            total_deletes=metrics_dict.get("total_deletes", 0),
+            predictions_made=metrics_dict.get("predictions_made", 0),
+            predictions_correct=metrics_dict.get("predictions_correct", 0),
             echo_messages=metrics_dict.get("echo_messages", 0),
             red_flags_count=metrics_dict.get("red_flags_count", 0),
+            red_flag_types=red_flag_types,  # Deserialized from JSON
             trust_score=metrics_dict.get("trust_score", 0.5),
             trust_level=trust_level,
+            first_seen=metrics_dict.get("first_seen"),
+            last_updated=metrics_dict.get("last_updated"),
         )
 
     except ImportError:

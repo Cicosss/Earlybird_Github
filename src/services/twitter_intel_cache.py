@@ -12,9 +12,8 @@ configured accounts as fallback.
 FLUSSO:
 1. All'inizio del ciclo: refresh_twitter_intel()
 2. Durante il ciclo: get_cached_intel() per consultare i dati
-3. Per alert: enrich_alert_with_twitter_intel() per arricchire contesto
-4. Fine ciclo: cache viene invalidata automaticamente al prossimo refresh
-5. V7.0: Se Gemini fallisce, usa Tavily per recuperare intel
+3. Fine ciclo: cache viene invalidata automaticamente al prossimo refresh
+4. V7.0: Se Gemini fallisce, usa Tavily per recuperare intel
 
 UTILIZZO:
     from src.services.twitter_intel_cache import TwitterIntelCache
@@ -33,14 +32,17 @@ import json
 import logging
 import os
 import pickle
+import sys
 
 # Import configurazione account
-import sys
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
+
+# V13.0: Pickle format version for backward compatibility
+PICKLE_FORMAT_VERSION = 1
 
 # V11.1 FIX: Import nest_asyncio at module level for better performance
 # Call once at module level (idempotent) instead of before every asyncio.run()
@@ -288,10 +290,13 @@ class TwitterIntelCache:
 
     def _load_from_disk(self) -> None:
         """
-        V10.5: Load cached tweets from disk using pickle.
+        V13.0: Load cached tweets from disk using pickle with version control.
 
         Wraps disk operations in try/except to prevent crashes on corrupted files.
         Loads CachedTweet objects from data/twitter_cache.pkl.
+
+        V13.0: Added version control to prevent crashes when Python version changes
+        or pickle format becomes incompatible.
         """
         try:
             if not os.path.exists(self._cache_file_path):
@@ -299,11 +304,30 @@ class TwitterIntelCache:
                 return
 
             with open(self._cache_file_path, "rb") as f:
-                loaded_cache = pickle.load(f)
+                loaded_data = pickle.load(f)
 
-            # Validate loaded data structure
-            if not isinstance(loaded_cache, dict):
-                logging.warning("🐦 [PERSISTENCE] Invalid cache structure, starting fresh")
+            # V13.0: Check pickle format version
+            if isinstance(loaded_data, dict) and "__version__" in loaded_data:
+                version = loaded_data.get("__version__")
+                loaded_cache = loaded_data.get("__cache__")
+
+                if version != PICKLE_FORMAT_VERSION:
+                    logging.warning(
+                        f"🐦 [PERSISTENCE] Cache format version mismatch: "
+                        f"expected {PICKLE_FORMAT_VERSION}, got {version}. "
+                        f"Starting with empty cache"
+                    )
+                    return
+
+                if not isinstance(loaded_cache, dict):
+                    logging.warning("🐦 [PERSISTENCE] Invalid cache structure, starting fresh")
+                    return
+            else:
+                # Legacy format without version (pre-V13.0)
+                logging.warning(
+                    "🐦 [PERSISTENCE] Legacy cache format detected. "
+                    "Starting with empty cache for compatibility"
+                )
                 return
 
             # Restore cache entries
@@ -318,7 +342,8 @@ class TwitterIntelCache:
             file_size_kb = os.path.getsize(self._cache_file_path) / 1024
             logging.info(
                 f"🐦 [PERSISTENCE] Loaded {len(self._cache)} accounts, "
-                f"{total_tweets} tweets from disk ({file_size_kb:.1f} KB)"
+                f"{total_tweets} tweets from disk ({file_size_kb:.1f} KB) "
+                f"[v{PICKLE_FORMAT_VERSION}]"
             )
 
         except pickle.PickleError as e:
@@ -333,33 +358,64 @@ class TwitterIntelCache:
 
     def _save_to_disk(self) -> None:
         """
-        V10.5: Save cached tweets to disk using pickle.
+        V13.0: Save cached tweets to disk using pickle with atomic write and version control.
 
         Wraps disk operations in try/except to prevent crashes on write errors.
         Saves CachedTweet objects to data/twitter_cache.pkl.
+
+        V13.0: Added atomic write to prevent corruption on crash and version control
+        for backward compatibility.
         """
         try:
             # Ensure data directory exists
             os.makedirs(os.path.dirname(self._cache_file_path), exist_ok=True)
 
-            # Save cache to disk
+            # V13.0: Use atomic write pattern
+            temp_path = self._cache_file_path + ".tmp"
+
+            # Prepare data with version control
+            data_to_save = {"__version__": PICKLE_FORMAT_VERSION, "__cache__": self._cache}
+
+            # Write to temporary file first
             with self._cache_lock:
-                with open(self._cache_file_path, "wb") as f:
-                    pickle.dump(self._cache, f)
+                with open(temp_path, "wb") as f:
+                    pickle.dump(data_to_save, f)
+
+                # Atomic rename (guaranteed to be atomic on POSIX systems)
+                os.rename(temp_path, self._cache_file_path)
 
             total_tweets = sum(len(e.tweets) for e in self._cache.values())
             file_size_kb = os.path.getsize(self._cache_file_path) / 1024
             logging.info(
                 f"🐦 [PERSISTENCE] Saved {len(self._cache)} accounts, "
-                f"{total_tweets} tweets to disk ({file_size_kb:.1f} KB)"
+                f"{total_tweets} tweets to disk ({file_size_kb:.1f} KB) "
+                f"[v{PICKLE_FORMAT_VERSION}]"
             )
 
         except (OSError, IOError) as e:
-            logging.error(f"🐦 [PERSISTENCE] Failed to write cache file: {e}")
+            logging.error(f"🐦 [PERSISTENCE] Failed to save cache file: {e}")
+            # Clean up temporary file if it exists
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
         except pickle.PickleError as e:
             logging.error(f"🐦 [PERSISTENCE] Failed to pickle cache: {e}")
+            # Clean up temporary file if it exists
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
         except Exception as e:
             logging.error(f"🐦 [PERSISTENCE] Unexpected error saving cache: {e}")
+            # Clean up temporary file if it exists
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
 
     @property
     def is_fresh(self) -> bool:
@@ -1146,8 +1202,11 @@ class TwitterIntelCache:
         # V12.5 COVE FIX: Try NitterPool for ALL accounts still without data (not just when Tavily recovers 0)
         # This ensures maximum data recovery - Nitter is tried for any account that still lacks tweets
         # after Tavily attempt, regardless of how many accounts Tavily recovered
+        # V12.5.1 COVE FIX: Limit recovery to prevent excessive latency on VPS
+        MAX_NITTER_RECOVERY_ACCOUNTS = int(os.getenv("MAX_NITTER_RECOVERY_ACCOUNTS", "10"))
+
         handles_still_without_data = []
-        
+
         # Identify accounts that still don't have data after Tavily
         for handle in failed_handles:
             handle_key = self._normalize_handle(handle)
@@ -1155,7 +1214,15 @@ class TwitterIntelCache:
                 # Account has no data if: not in cache OR has empty tweets list
                 if handle_key not in self._cache or not self._cache[handle_key].tweets:
                     handles_still_without_data.append(handle)
-        
+
+        # Limit recovery to prevent excessive latency on VPS
+        if len(handles_still_without_data) > MAX_NITTER_RECOVERY_ACCOUNTS:
+            logging.warning(
+                f"⚠️ [NITTER-FALLBACK] Too many accounts without data ({len(handles_still_without_data)}), "
+                f"limiting Nitter recovery to {MAX_NITTER_RECOVERY_ACCOUNTS} accounts to prevent excessive latency"
+            )
+            handles_still_without_data = handles_still_without_data[:MAX_NITTER_RECOVERY_ACCOUNTS]
+
         if handles_still_without_data:
             logging.info(
                 f"🐦 [NITTER-FALLBACK] Attempting Nitter recovery for {len(handles_still_without_data)} "
@@ -1164,7 +1231,7 @@ class TwitterIntelCache:
             nitter_stats = self._nitter_recover_tweets_batch(handles_still_without_data, keywords)
             stats["recovered"] += nitter_stats.get("recovered", 0)
             stats["tweets_recovered"] += nitter_stats.get("tweets_recovered", 0)
-            
+
             if nitter_stats.get("recovered", 0) > 0:
                 logging.info(
                     f"🐦 [NITTER-FALLBACK] Nitter recovery complete: {nitter_stats.get('recovered', 0)} accounts, "
@@ -1218,11 +1285,13 @@ class TwitterIntelCache:
                         except RuntimeError as e:
                             logging.error(f"❌ [NITTER-RECOVERY] Failed to fetch tweets: {e}")
                             tweets_data = None
-                    
+
                     # V12.5 COVE FIX: Explicitly handle NoneType responses
                     # fetch_tweets_async should return a list, but defensive check prevents crashes
                     if tweets_data is None:
-                        logging.warning(f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned None for @{handle}")
+                        logging.warning(
+                            f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned None for @{handle}"
+                        )
                         tweets_data = []
                     elif not isinstance(tweets_data, list):
                         logging.warning(
@@ -1366,6 +1435,7 @@ class TwitterIntelCache:
 _twitter_intel_cache: Optional[TwitterIntelCache] = None
 _twitter_intel_cache_lock: Optional[threading.Lock] = None
 _twitter_intel_cache_init_lock = threading.Lock()  # Lock for thread-safe initialization
+
 
 def _get_cache_lock() -> threading.Lock:
     """

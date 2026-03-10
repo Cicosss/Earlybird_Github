@@ -249,6 +249,32 @@ class HealthMonitor:
                 lines.append(f"🔄 Cache Bypass: <b>{bypass_count}</b> requests")
             lines.append(f"⏱️ Cache TTL: <b>{ttl_seconds}s</b> ({cached_keys} keys cached)")
 
+            # V2.0: Add SWR cache metrics if available
+            swr_team_hit_rate = cache_metrics.get("swr_team_data_hit_rate", None)
+            swr_match_hit_rate = cache_metrics.get("swr_match_data_hit_rate", None)
+            swr_search_hit_rate = cache_metrics.get("swr_search_hit_rate", None)
+
+            if swr_team_hit_rate is not None:
+                lines.append(f"📦 Team Cache Hit Rate: <b>{swr_team_hit_rate:.1f}%</b>")
+            if swr_match_hit_rate is not None:
+                lines.append(f"📦 Match Cache Hit Rate: <b>{swr_match_hit_rate:.1f}%</b>")
+            if swr_search_hit_rate is not None:
+                lines.append(f"📦 Search Cache Hit Rate: <b>{swr_search_hit_rate:.1f}%</b>")
+
+            # Add background refresh metrics
+            swr_team_bg_refreshes = cache_metrics.get("swr_team_data_background_refreshes", 0)
+            swr_match_bg_refreshes = cache_metrics.get("swr_match_data_background_refreshes", 0)
+            swr_team_bg_failures = cache_metrics.get("swr_team_data_background_refresh_failures", 0)
+            swr_match_bg_failures = cache_metrics.get(
+                "swr_match_data_background_refresh_failures", 0
+            )
+
+            if swr_team_bg_refreshes > 0 or swr_match_bg_refreshes > 0:
+                lines.append(
+                    f"🔄 BG Refreshes: Team={swr_team_bg_refreshes} (failures: {swr_team_bg_failures}), "
+                    f"Match={swr_match_bg_refreshes} (failures: {swr_match_bg_failures})"
+                )
+
         # Add last scan time
         if self.stats.last_scan_time:
             time_ago = datetime.now(timezone.utc) - self.stats.last_scan_time

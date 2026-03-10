@@ -5,7 +5,7 @@ SupabaseProvider - Enterprise Database Bridge (V9.0)
 Provides a robust, cached connection to Supabase with:
 - Singleton Pattern: Single connection instance via get_supabase()
 - Hierarchical Fetching: Continental-Country-League-Sources map
-- Smart Cache: 1-hour in-memory cache for league configurations
+- Smart Cache: Configurable cache with default 5-minute TTL (300s)
 - Fail-Safe Mirror: Local fallback to data/supabase_mirror.json
 
 Author: Lead Architect
@@ -28,7 +28,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# V12.5: Use absolute path for .env file for consistency with main.py
+# This ensures environment variables are loaded correctly regardless of working directory
+env_file = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_file)
 
 # Type hint for Client (avoid import error if not installed)
 if TYPE_CHECKING:
@@ -66,11 +69,12 @@ class SupabaseProvider:
     Features:
     - Singleton pattern ensures only one connection instance
     - Hierarchical data fetching (Continents -> Countries -> Leagues -> Sources)
-    - Smart 1-hour cache to minimize API usage
+    - Smart configurable cache with default 5-minute TTL (300s) to minimize API usage
     - Fail-safe mirror: saves local copy and falls back on connection failure
     - Thread-safe operations (V11.1)
-    - Atomic mirror writes (V11.1)
+    - Atomic mirror writes with fallback (V11.1, V12.5)
     - Data completeness validation (V11.1)
+    - Connection retry logic with exponential backoff (V12.5)
     """
 
     _instance: Optional["SupabaseProvider"] = None
@@ -116,9 +120,10 @@ class SupabaseProvider:
 
     def _initialize_connection(self) -> None:
         """
-        Initialize Supabase client connection.
+        Initialize Supabase client connection with retry logic.
 
         V11.2: Added detailed timing logs for debugging timeout issues.
+        V12.5: Added retry logic with exponential backoff for VPS deployment.
         """
         logger.debug("🔄 Starting Supabase connection initialization...")
         init_start = time.time()
@@ -136,39 +141,75 @@ class SupabaseProvider:
             logger.error(self._connection_error)
             return
 
-        try:
-            # V11.1: Create Supabase client with explicit timeout to prevent indefinite hangs
-            # Use httpx.Client with timeout for all HTTP operations
-            import httpx
-            from supabase.lib.client_options import SyncClientOptions
+        # V12.5: Add retry logic with exponential backoff for VPS deployment
+        max_retries = 3
+        base_delay = 2.0  # seconds
 
-            logger.debug(f"🔄 Creating httpx client with timeout {SUPABASE_QUERY_TIMEOUT}s...")
-            httpx_timeout = httpx.Timeout(
-                connect=SUPABASE_QUERY_TIMEOUT,
-                read=SUPABASE_QUERY_TIMEOUT,
-                write=SUPABASE_QUERY_TIMEOUT,
-                pool=SUPABASE_QUERY_TIMEOUT,
-            )
-            httpx_client = httpx.Client(timeout=httpx_timeout)
-            logger.debug("✅ httpx client created")
+        for attempt in range(max_retries):
+            try:
+                # V11.1: Create Supabase client with explicit timeout to prevent indefinite hangs
+                # Use httpx.Client with timeout for all HTTP operations
+                import httpx
+                from supabase.lib.client_options import SyncClientOptions
 
-            # Create Supabase client with custom httpx client
-            logger.debug("🔄 Creating Supabase client with custom httpx client...")
-            options = SyncClientOptions(
-                postgrest_client_timeout=SUPABASE_QUERY_TIMEOUT,
-                httpx_client=httpx_client,
-            )
-            self._client = create_client(supabase_url, supabase_key, options=options)
-            self._connected = True
+                logger.debug(f"🔄 Creating httpx client with timeout {SUPABASE_QUERY_TIMEOUT}s...")
+                httpx_timeout = httpx.Timeout(
+                    connect=SUPABASE_QUERY_TIMEOUT,
+                    read=SUPABASE_QUERY_TIMEOUT,
+                    write=SUPABASE_QUERY_TIMEOUT,
+                    pool=SUPABASE_QUERY_TIMEOUT,
+                )
+                httpx_client = httpx.Client(timeout=httpx_timeout)
+                logger.debug("✅ httpx client created")
 
-            init_time = time.time() - init_start
-            logger.info(
-                f"✅ Supabase connection established successfully in {init_time:.2f}s (timeout: {SUPABASE_QUERY_TIMEOUT}s)"
-            )
-        except Exception as e:
-            self._connection_error = f"Failed to connect to Supabase: {e}"
-            logger.error(self._connection_error)
-            self._connected = False
+                # Create Supabase client with custom httpx client
+                logger.debug("🔄 Creating Supabase client with custom httpx client...")
+                options = SyncClientOptions(
+                    postgrest_client_timeout=SUPABASE_QUERY_TIMEOUT,
+                    httpx_client=httpx_client,
+                )
+                self._client = create_client(supabase_url, supabase_key, options=options)
+                self._connected = True
+
+                init_time = time.time() - init_start
+                logger.info(
+                    f"✅ Supabase connection established successfully in {init_time:.2f}s "
+                    f"(timeout: {SUPABASE_QUERY_TIMEOUT}s, attempt: {attempt + 1}/{max_retries})"
+                )
+                return  # Success - exit retry loop
+            except Exception as e:
+                self._connection_error = f"Failed to connect to Supabase: {e}"
+
+                if attempt < max_retries - 1:
+                    # Calculate delay with exponential backoff
+                    delay = base_delay * (2**attempt)
+                    logger.warning(
+                        f"⚠️ Connection attempt {attempt + 1}/{max_retries} failed. "
+                        f"Retrying in {delay}s... Error: {e}"
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.error(self._connection_error)
+                    self._connected = False
+                    logger.error(
+                        f"❌ All {max_retries} connection attempts failed. "
+                        f"Bot will use mirror data as fallback."
+                    )
+
+    def reconnect(self) -> bool:
+        """
+        Attempt to reconnect to Supabase.
+
+        V12.5: Added reconnection method for VPS deployment recovery.
+
+        Returns:
+            True if reconnection was successful, False otherwise
+        """
+        logger.info("🔄 Attempting to reconnect to Supabase...")
+        self._connected = False
+        self._connection_error = None
+        self._initialize_connection()
+        return self._connected
 
     def is_connected(self) -> bool:
         """Check if Supabase connection is active."""
@@ -255,6 +296,7 @@ class SupabaseProvider:
         Invalidate all league-related cache entries.
 
         V12.5: Convenience method to clear league cache when leagues are modified.
+        V12.5: Optimized to acquire lock ONCE for all keys (reduced lock contention).
 
         This clears cache for:
         - active_leagues_full
@@ -278,13 +320,23 @@ class SupabaseProvider:
         # Remove duplicates while preserving order
         league_related_keys = list(dict.fromkeys(league_related_keys))
 
-        cleared_count = 0
-        for key in league_related_keys:
-            if key in self._cache:
-                self.invalidate_cache(key)
-                cleared_count += 1
-
-        logger.info(f"🗑️ League cache invalidated ({cleared_count} entries)")
+        # V12.5: OPTIMIZATION - Acquire lock ONCE, invalidate all keys, then release
+        # This is much more efficient than calling invalidate_cache() for each key
+        # which would acquire/release the lock multiple times
+        if self._acquire_cache_lock_with_monitoring(timeout=CACHE_LOCK_TIMEOUT):
+            try:
+                cleared_count = 0
+                for key in league_related_keys:
+                    if key in self._cache:
+                        del self._cache[key]
+                        if key in self._cache_timestamps:
+                            del self._cache_timestamps[key]
+                        cleared_count += 1
+                logger.info(f"🗑️ League cache invalidated ({cleared_count} entries)")
+            finally:
+                self._cache_lock.release()
+        else:
+            logger.warning("Failed to acquire cache lock for league invalidation")
 
     def _acquire_cache_lock_with_monitoring(self, timeout: float = CACHE_LOCK_TIMEOUT) -> bool:
         """
@@ -381,22 +433,16 @@ class SupabaseProvider:
         # Note: We track bypass_count here before acquiring lock to avoid
         # unnecessary lock overhead for simple bypass operations
         if bypass_cache:
-            # Use atomic increment for thread safety (Python 3.10+)
-            import threading
-
-            threading.atomic_add = getattr(threading, "atomic_add", None)
-            if threading.atomic_add is not None:
-                threading.atomic_add(self._cache_bypass_count, 1)
-            else:
-                # Fallback for older Python: use lock for thread safety
-                with self._cache_lock:
-                    self._cache_bypass_count += 1
+            # V12.5: Simplified - use lock for thread safety (atomic_add doesn't exist in stdlib)
+            with self._cache_lock:
+                self._cache_bypass_count += 1
             logger.debug(f"🔄 Cache bypassed for key: {cache_key}")
             return None
 
         # V12.0: Fixed deadlock - use _is_cache_valid_unlocked() instead of _is_cache_valid()
         # V12.1: Use lock acquisition with monitoring
         # V12.2: Added retry logic for improved VPS compatibility
+        # V12.5: Added fallback to stale cache when lock acquisition fails
         for attempt in range(CACHE_LOCK_RETRIES):
             if self._acquire_cache_lock_with_monitoring(timeout=CACHE_LOCK_TIMEOUT):
                 try:
@@ -427,9 +473,29 @@ class SupabaseProvider:
                         f"Retry {attempt + 1}/{CACHE_LOCK_RETRIES} for cache lock: {cache_key}"
                     )
                 else:
-                    logger.warning(
-                        f"Failed to acquire cache lock after {CACHE_LOCK_RETRIES} retries: {cache_key}"
+                    # V12.5: All retries exhausted - try to return stale cache as fallback
+                    total_wait_time = CACHE_LOCK_TIMEOUT * CACHE_LOCK_RETRIES
+                    logger.error(
+                        f"❌ Cache lock acquisition failed after {CACHE_LOCK_RETRIES} retries "
+                        f"(total wait: {total_wait_time}s) for key: {cache_key}"
                     )
+                    # Fallback: Return stale cache if available to prevent bot timeout
+                    # V12.5: Add age check to prevent returning obsolete data (COVE FIX)
+                    MAX_STALE_CACHE_AGE = 3600  # 1 hour in seconds
+                    if cache_key in self._cache:
+                        cache_age = time.time() - self._cache_timestamps.get(cache_key, 0)
+                        # Don't return cache older than 1 hour
+                        if cache_age > MAX_STALE_CACHE_AGE:
+                            logger.warning(
+                                f"⚠️ Stale cache too old ({cache_age:.1f}s > {MAX_STALE_CACHE_AGE}s), "
+                                f"returning None for key: {cache_key}"
+                            )
+                            return None
+                        logger.warning(
+                            f"⚠️ Returning stale cache for {cache_key} (age: {cache_age:.1f}s) "
+                            f"as fallback to prevent bot timeout"
+                        )
+                        return self._cache[cache_key]
                     return None
         return None
 
@@ -455,13 +521,16 @@ class SupabaseProvider:
 
     def _validate_data_completeness(self, data: dict[str, Any]) -> bool:
         """
-        Validate data completeness before saving to mirror (V11.1).
+        Validate data completeness before saving to mirror.
+
+        V11.1: Check for required top-level keys.
+        V12.5: Added structural validation for nested data to prevent corruption.
 
         Args:
             data: Data to validate
 
         Returns:
-            True if data is complete, False otherwise
+            True if data is complete and structurally valid, False otherwise
         """
         # V11.1: Check for required top-level keys
         required_keys = ["continents", "countries", "leagues", "news_sources"]
@@ -471,11 +540,51 @@ class SupabaseProvider:
             logger.warning(f"⚠️ Missing required keys in mirror data: {missing_keys}")
             return False
 
-        # V11.1: Check if any required section is empty
+        # V12.5: Validate data types and structure
         for key in required_keys:
-            if not data[key] or (isinstance(data[key], list) and len(data[key]) == 0):
+            value = data[key]
+
+            # Check that value is a list
+            if not isinstance(value, list):
+                logger.error(
+                    f"❌ Invalid data type for {key}: expected list, got {type(value).__name__}"
+                )
+                return False
+
+            # Check if section is empty
+            if len(value) == 0:
                 logger.warning(f"⚠️ Empty section in mirror data: {key}")
                 # Don't fail on empty sections, just warn
+                continue
+
+            # V12.5: Validate structure of first item (if list is not empty)
+            if len(value) > 0:
+                first_item = value[0]
+                if not isinstance(first_item, dict):
+                    logger.error(
+                        f"❌ Invalid structure for {key}: expected dict items, got {type(first_item).__name__}"
+                    )
+                    return False
+
+                # Check for required fields based on key type
+                if key == "continents":
+                    required_fields = ["id", "name"]
+                elif key == "countries":
+                    required_fields = ["id", "name", "continent_id"]
+                elif key == "leagues":
+                    required_fields = ["id", "api_key", "tier_name", "country_id"]
+                elif key == "news_sources":
+                    required_fields = ["id", "name", "league_id"]
+                else:
+                    required_fields = []
+
+                if required_fields:
+                    missing_fields = [f for f in required_fields if f not in first_item]
+                    if missing_fields:
+                        logger.warning(
+                            f"⚠️ {key} items missing required fields: {missing_fields}. "
+                            f"First item keys: {list(first_item.keys())}"
+                        )
 
         return True
 
@@ -511,16 +620,38 @@ class SupabaseProvider:
             }
 
             # V11.1: Atomic write pattern - write to temp file, then rename
+            # V12.5: Added error handling and fallback for VPS filesystem compatibility
             temp_file = MIRROR_FILE_PATH.with_suffix(".tmp")
             with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(mirror_data, f, indent=2, ensure_ascii=False)
 
-            # Atomic rename (POSIX guarantees atomicity)
-            temp_file.replace(MIRROR_FILE_PATH)
-
-            logger.info(
-                f"✅ Supabase data mirrored to {MIRROR_FILE_PATH} (v{version}, checksum: {checksum[:8]}...)"
-            )
+            # Atomic rename (POSIX guarantees atomicity on same filesystem)
+            # V12.5: Added fallback for Docker overlay and container filesystems
+            try:
+                temp_file.replace(MIRROR_FILE_PATH)
+                logger.info(
+                    f"✅ Atomic mirror write successful to {MIRROR_FILE_PATH} (v{version}, checksum: {checksum[:8]}...)"
+                )
+            except Exception as e:
+                logger.error(f"❌ Atomic write failed: {e}")
+                # Fallback: Create backup and write directly
+                if MIRROR_FILE_PATH.exists():
+                    backup_path = MIRROR_FILE_PATH.with_suffix(".bak")
+                    try:
+                        MIRROR_FILE_PATH.replace(backup_path)
+                        logger.info(f"📦 Created backup at {backup_path}")
+                    except Exception as backup_err:
+                        logger.warning(f"⚠️ Failed to create backup: {backup_err}")
+                # Write directly with UTF-8 encoding
+                try:
+                    with open(MIRROR_FILE_PATH, "w", encoding="utf-8") as f:
+                        json.dump(mirror_data, f, indent=2, ensure_ascii=False)
+                    logger.info(
+                        f"✅ Direct mirror write successful to {MIRROR_FILE_PATH} (v{version}, checksum: {checksum[:8]}...)"
+                    )
+                except Exception as direct_err:
+                    logger.error(f"❌ Direct write also failed: {direct_err}")
+                    raise
         except Exception as e:
             logger.error(f"❌ Failed to save mirror: {e}")
 
@@ -605,13 +736,35 @@ class SupabaseProvider:
             data = mirror_data.get("data", {})
 
             # Validate checksum if present
+            # V12.5: Enhanced checksum validation with structural checks and fallback
             if checksum:
                 calculated_checksum = self._calculate_checksum(data)
                 if calculated_checksum != checksum:
                     logger.error(
                         f"❌ Mirror checksum mismatch! Expected: {checksum[:8]}..., Got: {calculated_checksum[:8]}..."
                     )
-                    logger.warning("⚠️ Mirror data may be corrupted, using anyway")
+                    # V12.5: Try to validate JSON structure before deciding to use or reject
+                    try:
+                        # Validate JSON structure - check for required top-level keys
+                        if isinstance(data, dict) and all(
+                            k in data
+                            for k in ["continents", "countries", "leagues", "news_sources"]
+                        ):
+                            logger.warning(
+                                "⚠️ Mirror checksum failed but JSON structure is valid - using with caution"
+                            )
+                            logger.info(
+                                f"✅ Loaded mirror from {timestamp} (v{version}) - checksum warning"
+                            )
+                            return data
+                        else:
+                            logger.error(
+                                "❌ Mirror JSON structure is invalid - returning empty data"
+                            )
+                            return {}
+                    except Exception as e:
+                        logger.error(f"❌ Mirror data is corrupted: {e} - returning empty data")
+                        return {}
                 else:
                     logger.info(f"✅ Mirror checksum validated: {checksum[:8]}...")
 
@@ -674,6 +827,7 @@ class SupabaseProvider:
                         query = query.eq(key, value)
 
                 # V11.1: Execute query (timeout configured at client creation)
+                # V12.5: Added explicit timeout verification to detect slow queries
                 logger.debug(f"🔄 Calling query.execute() for {table_name}...")
                 execute_start = time.time()
                 response = query.execute()
@@ -681,6 +835,13 @@ class SupabaseProvider:
                 logger.debug(
                     f"✅ query.execute() completed in {execute_time:.2f}s for {table_name}"
                 )
+
+                # V12.5: Explicit timeout verification to detect slow queries
+                if execute_time > SUPABASE_QUERY_TIMEOUT * 0.9:  # 90% of timeout threshold
+                    logger.warning(
+                        f"⚠️ Query for {table_name} took {execute_time:.2f}s "
+                        f"(close to timeout threshold of {SUPABASE_QUERY_TIMEOUT}s)"
+                    )
 
                 data = response.data if hasattr(response, "data") else []
 
@@ -1021,6 +1182,8 @@ class SupabaseProvider:
         """
         Determine which continental blocks are active based on current UTC time.
 
+        V12.5: Added validation for empty active_hours_utc arrays to detect configuration errors.
+
         Args:
             current_utc_hour: Current hour in UTC (0-23)
 
@@ -1030,10 +1193,24 @@ class SupabaseProvider:
         continents = self.fetch_continents()
 
         active_blocks = []
+        continents_without_hours = []
+
         for continent in continents:
             active_hours = continent.get("active_hours_utc", [])
+            if not active_hours:
+                # V12.5: Log warning for continents without active hours
+                continents_without_hours.append(continent.get("name", "Unknown"))
+                continue
+
             if current_utc_hour in active_hours:
                 active_blocks.append(continent["name"])
+
+        # V12.5: Log warning if any continents have empty active_hours_utc
+        if continents_without_hours:
+            logger.warning(
+                f"⚠️ {len(continents_without_hours)} continents have empty active_hours_utc: "
+                f"{continents_without_hours}. These continents will never be active."
+            )
 
         logger.debug(f"Active continental blocks at {current_utc_hour}:00 UTC: {active_blocks}")
         return active_blocks
@@ -1289,7 +1466,10 @@ class SupabaseProvider:
 
     def _load_social_sources_from_cache(self) -> dict[str, Any] | None:
         """
-        Load social sources from Nitter cache.
+        Load social sources from Nitter cache with file locking.
+
+        V12.5: Added file locking to prevent race conditions when multiple threads
+        access the Nitter cache file simultaneously.
 
         This function reads the Nitter cache file and extracts tweet data
         with V9.5 fields for inclusion in the mirror.
@@ -1306,8 +1486,25 @@ class SupabaseProvider:
                 logger.debug("Nitter cache file not found")
                 return None
 
-            with open(cache_file, encoding="utf-8") as f:
-                cache_data = json.load(f)
+            # V12.5: Try to use file locking (Linux-specific)
+            # Fall back to non-blocking read if fcntl is not available
+            try:
+                import fcntl
+
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    # Acquire exclusive lock (non-blocking)
+                    try:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        cache_data = json.load(f)
+                        logger.debug("✅ Nitter cache loaded with file locking")
+                    except BlockingIOError:
+                        logger.warning("⚠️ Nitter cache file is locked by another process, skipping")
+                        return None
+            except ImportError:
+                # fcntl not available (e.g., Windows), fall back to simple read
+                logger.debug("fcntl not available, loading cache without file locking")
+                with open(cache_file, encoding="utf-8") as f:
+                    cache_data = json.load(f)
 
             # Extract tweets from cache with V9.5 fields
             tweets = []

@@ -228,6 +228,9 @@ class NewsLog(Base):
         Float, nullable=True, comment="Closing odds for CLV analysis (legacy - use odds_at_kickoff)"
     )
     clv_percent = Column(Float, nullable=True, comment="Calculated CLV percentage")
+    line_movement_explanation = Column(
+        Text, nullable=True, comment="AI-generated explanation of line movement cause (via Tavily)"
+    )
 
     # V8.3: Proper historical odds tracking for accurate ROI calculation
     odds_at_alert = Column(
@@ -249,6 +252,12 @@ class NewsLog(Base):
     )
     expansion_type = Column(
         String, nullable=True, comment="Type: over/under, gg/ng, corners, cards"
+    )
+
+    # V13.0: Primary bet outcome tracking (for CLV and ROI analysis)
+    outcome = Column(String, nullable=True, comment="WIN/LOSS/PUSH/PENDING for primary bet")
+    outcome_explanation = Column(
+        Text, nullable=True, comment="Detailed explanation of primary bet result"
     )
 
     # V11.1: AI confidence (0-100) - Used by BettingQuant for market warning generation
@@ -412,6 +421,159 @@ class TeamAlias(Base):
 
     def __repr__(self) -> str:
         return f"<TeamAlias(id={self.id}, api_name='{self.api_name}', search_name='{self.search_name}')>"
+
+
+class ModificationHistory(Base):
+    """
+    ModificationHistory model for tracking all modifications applied by the intelligent feedback loop.
+
+    Stores the complete history of modifications for learning and analysis.
+    """
+
+    __tablename__ = "modification_history"
+
+    # Primary identification
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    alert_id = Column(Integer, ForeignKey("news_logs.id", ondelete="CASCADE"), nullable=False)
+    match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+
+    # Modification details
+    modification_type = Column(
+        String,
+        nullable=False,
+        comment="Type: market_change, score_adjustment, data_correction, reasoning_update",
+    )
+    original_value = Column(Text, nullable=True, comment="Original value before modification")
+    suggested_value = Column(Text, nullable=True, comment="Suggested value after modification")
+    reason = Column(Text, nullable=True, comment="Reason for the modification")
+    priority = Column(String, nullable=False, comment="Priority: critical, high, medium, low")
+
+    # Execution details
+    applied = Column(Boolean, default=False, comment="Whether modification was applied")
+    success = Column(Boolean, nullable=True, comment="Whether modification was successful")
+    error_message = Column(Text, nullable=True, comment="Error message if failed")
+
+    # Context
+    verification_context = Column(Text, nullable=True, comment="JSON with verification context")
+    component_communications = Column(
+        Text, nullable=True, comment="JSON with component communication results"
+    )
+
+    # Timestamps
+    created_at = Column(
+        DateTime, default=datetime.utcnow, comment="When modification was suggested"
+    )
+    applied_at = Column(DateTime, nullable=True, comment="When modification was applied")
+
+    # Relationships
+    alert = relationship("NewsLog", backref="modifications")
+    match = relationship("Match", backref="modifications")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_modification_alert_id", "alert_id"),
+        Index("idx_modification_match_id", "match_id"),
+        Index("idx_modification_type", "modification_type"),
+        Index("idx_modification_applied", "applied"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ModificationHistory(id={self.id}, type='{self.modification_type}', applied={self.applied})>"
+
+
+class ManualReview(Base):
+    """
+    ManualReview model for logging alerts that require manual review.
+
+    Stores alerts that need human intervention for complex modifications.
+    """
+
+    __tablename__ = "manual_reviews"
+
+    # Primary identification
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    alert_id = Column(Integer, ForeignKey("news_logs.id", ondelete="CASCADE"), nullable=False)
+    match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+
+    # Review details
+    modification_plan = Column(Text, nullable=False, comment="JSON with modification plan")
+    original_alert_data = Column(Text, nullable=True, comment="JSON with original alert data")
+    context_data = Column(Text, nullable=True, comment="JSON with context data")
+
+    # Status tracking
+    status = Column(
+        String,
+        default="pending_review",
+        comment="Status: pending_review, reviewed, approved, rejected",
+    )
+    reviewed_by = Column(String, nullable=True, comment="Username of reviewer")
+    review_timestamp = Column(DateTime, nullable=True, comment="When review was completed")
+    review_decision = Column(String, nullable=True, comment="Decision: approve, reject, modify")
+    review_notes = Column(Text, nullable=True, comment="Notes from reviewer")
+
+    # Risk assessment
+    risk_level = Column(String, nullable=False, comment="Risk level: LOW, MEDIUM, HIGH")
+    modification_count = Column(Integer, nullable=False, comment="Number of modifications needed")
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, comment="When review was queued")
+
+    # Relationships
+    alert = relationship("NewsLog", backref="manual_reviews")
+    match = relationship("Match", backref="manual_reviews")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_manual_review_alert_id", "alert_id"),
+        Index("idx_manual_review_match_id", "match_id"),
+        Index("idx_manual_review_status", "status"),
+        Index("idx_manual_review_created", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ManualReview(id={self.id}, alert_id={self.alert_id}, status='{self.status}')>"
+
+
+class LearningPattern(Base):
+    """
+    LearningPattern model for storing learned patterns from modification history.
+
+    Enables the system to learn from past modifications and improve decision making.
+    """
+
+    __tablename__ = "learning_patterns"
+
+    # Primary identification
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pattern_key = Column(String, unique=True, nullable=False, comment="Unique pattern identifier")
+
+    # Pattern data
+    modification_count = Column(
+        Integer, nullable=False, comment="Number of modifications in pattern"
+    )
+    confidence_level = Column(String, nullable=False, comment="Confidence level: HIGH, MEDIUM, LOW")
+    discrepancy_count = Column(Integer, nullable=False, comment="Number of data discrepancies")
+
+    # Decision tracking
+    total_occurrences = Column(Integer, default=0, comment="Total times pattern occurred")
+    auto_apply_count = Column(Integer, default=0, comment="Times AUTO_APPLY was chosen")
+    manual_review_count = Column(Integer, default=0, comment="Times MANUAL_REVIEW was chosen")
+    ignore_count = Column(Integer, default=0, comment="Times IGNORE was chosen")
+
+    # Success metrics
+    success_rate = Column(Float, nullable=True, comment="Success rate when applied")
+    last_updated = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="Last update time"
+    )
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_learning_pattern_key", "pattern_key"),
+        Index("idx_learning_pattern_confidence", "confidence_level"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<LearningPattern(id={self.id}, key='{self.pattern_key}', occurrences={self.total_occurrences})>"
 
 
 # ============================================

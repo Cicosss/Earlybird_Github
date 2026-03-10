@@ -11,11 +11,13 @@ Used by:
 - src/services/browser_monitor.py
 
 V1.0: Extracted from news_radar.py for DRY compliance and shared usage.
+V1.1: Fixed Python version compatibility - using Optional[str] instead of str | None (COVE FIX 2026-03-07)
 """
 
 import logging
 import re
 from dataclasses import dataclass
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +38,10 @@ class AnalysisResult:
 
     is_relevant: bool
     category: str
-    affected_team: str | None
+    affected_team: Optional[str]
     confidence: float
     summary: str
-    betting_impact: str | None = None  # V1.4: HIGH, MEDIUM, LOW
+    betting_impact: Optional[str] = None  # V1.4: HIGH, MEDIUM, LOW
 
 
 class PositiveNewsFilter:

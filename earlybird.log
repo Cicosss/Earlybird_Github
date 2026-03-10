@@ -1,0 +1,161 @@
+2026-03-05 00:35:54,554 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-05 00:35:54,556 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-05 00:35:54,556 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-05 00:35:54,557 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-05 00:35:54,557 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-05 00:35:54,557 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-05 00:58:30,963 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-05 00:58:36,883 - INFO - ✅ Exact match: Juventus (ID: 9885)
+2026-03-05 00:58:52,637 - INFO - 📖 Manual mapping: Inter Milan → Internazionale
+2026-03-05 00:59:02,890 - INFO - Biscotto Alert sent for AC Milan vs Napoli | Severity: HIGH | senza link
+2026-03-05 00:59:03,434 - INFO - ✅ Exact match: Atalanta (ID: 8524)
+2026-03-05 00:59:07,961 - INFO - ✅ Exact match: Udinese (ID: 8600)
+2026-03-05 00:59:11,152 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 00:59:11,540 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 00:59:13,600 - INFO - ✅ Exact match: Sassuolo (ID: 7943)
+2026-03-05 00:59:16,940 - INFO - ✅ Exact match: Empoli (ID: 8534)
+2026-03-05 00:59:21,850 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-05 00:59:22,601 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-05 00:59:22,697 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-05 00:59:22,698 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-05 00:59:22,698 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-05 01:01:18,576 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-05 01:01:18,740 - INFO - ✅ Exact match: Juventus (ID: 9885)
+2026-03-05 01:01:21,384 - INFO - 📖 Manual mapping: Inter Milan → Internazionale
+2026-03-05 01:01:28,032 - INFO - Biscotto Alert sent for AC Milan vs Napoli | Severity: HIGH | senza link
+2026-03-05 01:01:29,715 - INFO - ✅ Exact match: Atalanta (ID: 8524)
+2026-03-05 01:01:33,699 - INFO - ✅ Exact match: Udinese (ID: 8600)
+2026-03-05 01:01:36,473 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 01:01:36,475 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 01:01:38,224 - INFO - ✅ Exact match: Sassuolo (ID: 7943)
+2026-03-05 01:01:42,229 - INFO - ✅ Exact match: Empoli (ID: 8534)
+2026-03-05 01:01:44,831 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-05 01:01:44,841 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-05 01:01:44,841 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-05 01:01:44,841 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-05 01:01:44,842 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-05 01:02:51,841 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-05 01:02:52,006 - INFO - ✅ Exact match: Juventus (ID: 9885)
+2026-03-05 01:02:54,438 - INFO - 📖 Manual mapping: Inter Milan → Internazionale
+2026-03-05 01:03:00,991 - INFO - Biscotto Alert sent for AC Milan vs Napoli | Severity: HIGH | senza link
+2026-03-05 01:03:02,382 - INFO - ✅ Exact match: Atalanta (ID: 8524)
+2026-03-05 01:03:06,366 - INFO - ✅ Exact match: Udinese (ID: 8600)
+2026-03-05 01:03:08,881 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 01:03:08,882 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 01:03:10,403 - INFO - ✅ Exact match: Sassuolo (ID: 7943)
+2026-03-05 01:03:14,860 - INFO - ✅ Exact match: Empoli (ID: 8534)
+2026-03-05 01:03:17,975 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-05 01:03:17,985 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-05 01:03:17,986 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-05 01:03:17,986 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-05 01:03:17,986 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-05 01:03:47,856 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-05 01:03:47,969 - INFO - ✅ Exact match: Juventus (ID: 9885)
+2026-03-05 01:03:50,819 - INFO - 📖 Manual mapping: Inter Milan → Internazionale
+2026-03-05 01:03:57,036 - INFO - Biscotto Alert sent for AC Milan vs Napoli | Severity: HIGH | senza link
+2026-03-05 01:03:58,509 - INFO - ✅ Exact match: Atalanta (ID: 8524)
+2026-03-05 01:04:02,641 - INFO - ✅ Exact match: Udinese (ID: 8600)
+2026-03-05 01:04:05,155 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 01:04:05,156 - INFO - Biscotto Alert sent for Fiorentina vs Torino | Severity: MEDIUM | senza link
+2026-03-05 01:04:06,681 - INFO - ✅ Exact match: Sassuolo (ID: 7943)
+2026-03-05 01:04:10,859 - INFO - ✅ Exact match: Empoli (ID: 8534)
+2026-03-05 01:04:13,309 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-05 01:04:13,310 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-05 01:04:13,310 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-05 01:04:13,310 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-05 01:04:13,310 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-08 23:06:53,393 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-08 23:06:53,394 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-08 23:06:53,394 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-08 23:06:53,394 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-08 23:06:53,394 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-08 23:06:53,394 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-08 23:06:53,395 - INFO - 🔍 BudgetIntelligenceIntegration initialized: 3600s monitoring, 24h reporting
+2026-03-08 23:06:53,395 - WARNING - 🔍 Budget monitoring not active
+2026-03-08 23:06:53,395 - INFO - ✅ Cleanup completed: budget intelligence monitoring stopped
+2026-03-08 23:07:05,608 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-08 23:07:05,609 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-08 23:07:05,609 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-08 23:07:05,609 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-08 23:07:05,609 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-08 23:07:05,609 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-08 23:07:05,610 - INFO - 🔍 BudgetIntelligenceIntegration initialized: 3600s monitoring, 24h reporting
+2026-03-08 23:07:05,610 - WARNING - 🔍 Budget monitoring not active
+2026-03-08 23:07:05,610 - INFO - ✅ Cleanup completed: budget intelligence monitoring stopped
+2026-03-09 07:56:03,683 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,684 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,685 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,686 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,686 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,688 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,689 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:03,690 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 07:56:04,099 - WARNING - 🔍 Budget monitoring not active
+2026-03-09 08:04:33,126 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,128 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,128 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,129 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,130 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,132 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,132 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,133 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:04:33,507 - WARNING - 🔍 Budget monitoring not active
+2026-03-09 08:05:26,236 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,237 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,238 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,239 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,239 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,242 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,242 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,243 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:05:26,610 - WARNING - 🔍 Budget monitoring not active
+2026-03-09 08:29:58,118 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,120 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,120 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,121 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,122 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,124 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,125 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,127 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-09 08:29:58,533 - WARNING - 🔍 Budget monitoring not active
+2026-03-09 13:29:56,930 - WARNING - 🔍 Budget monitoring not active
+2026-03-10 20:21:12,838 - INFO - Simulating first callback invocation...
+2026-03-10 20:21:12,838 - INFO - ✅ Created session #0
+2026-03-10 20:21:12,838 - INFO - ✅ Closed session #0
+2026-03-10 20:21:12,838 - INFO - Simulating second callback invocation...
+2026-03-10 20:21:12,838 - INFO - ✅ Created session #1
+2026-03-10 20:21:12,839 - INFO - ✅ Closed session #1
+2026-03-10 20:21:12,839 - INFO - ✅ PASSED: Created 2 sessions
+2026-03-10 20:21:12,839 - INFO - ✅ PASSED: Closed 2 sessions
+2026-03-10 20:21:12,839 - INFO - ✅ PASSED: All sessions were properly closed
+2026-03-10 20:21:12,839 - INFO - ✅ Test 3 PASSED: Database session management verified
+
+2026-03-10 20:21:12,839 - INFO - Test 4: Callback overwriting warning
+2026-03-10 20:21:12,839 - INFO - ✅ Registered first callback
+2026-03-10 20:21:12,839 - WARNING - ⚠️ [QUEUE] Overwriting existing high-priority callback (threshold=0.85, categories={'INJURY'})
+2026-03-10 20:21:12,840 - INFO - ✅ Registered second callback
+2026-03-10 20:21:12,840 - INFO - ✅ PASSED: Warning logged when callback overwritten
+2026-03-10 20:21:12,840 - INFO - ✅ PASSED: Callback was updated to new callback
+2026-03-10 20:21:12,840 - INFO - ✅ Test 4 PASSED: Callback overwriting warning verified
+
+2026-03-10 20:21:12,840 - INFO - 
+2026-03-10 20:21:12,840 - INFO - ======================================================================
+2026-03-10 20:21:12,840 - INFO - TEST SUMMARY
+2026-03-10 20:21:12,840 - INFO - ======================================================================
+2026-03-10 20:21:12,840 - INFO - ✅ PASSED: Test 1: GlobalRadar Singleton
+2026-03-10 20:21:12,840 - INFO - ✅ PASSED: Test 2: Lock Hold Optimization
+2026-03-10 20:21:12,840 - INFO - ✅ PASSED: Test 3: Database Session Management
+2026-03-10 20:21:12,840 - INFO - ✅ PASSED: Test 4: Callback Overwriting Warning
+2026-03-10 20:21:12,840 - INFO - 
+2026-03-10 20:21:12,840 - INFO - Total: 4/4 tests passed
+2026-03-10 20:21:12,840 - INFO - 
+2026-03-10 20:21:12,840 - INFO - 🎉 ALL TESTS PASSED! All fixes verified successfully.
+2026-03-10 20:21:12,841 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-10 20:21:12,843 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-10 20:21:12,843 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-10 20:21:12,843 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-10 20:21:12,843 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-10 20:21:12,843 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-10 20:21:12,844 - INFO - 🔍 BudgetIntelligenceIntegration initialized: 3600s monitoring, 24h reporting
+2026-03-10 20:21:12,844 - WARNING - 🔍 Budget monitoring not active
+2026-03-10 20:21:12,845 - INFO - ✅ Cleanup completed: budget intelligence monitoring stopped

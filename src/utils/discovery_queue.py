@@ -185,6 +185,12 @@ class DiscoveryQueue:
             The callback is invoked OUTSIDE the lock to prevent deadlocks.
             The callback should be thread-safe and non-blocking.
         """
+        # Warn if overwriting an existing callback
+        if self._high_priority_callback is not None:
+            logger.warning(
+                f"⚠️ [QUEUE] Overwriting existing high-priority callback (threshold={self._high_priority_threshold}, categories={self._high_priority_categories})"
+            )
+
         self._high_priority_callback = callback
         self._high_priority_threshold = threshold
         if categories:
@@ -343,6 +349,7 @@ class DiscoveryQueue:
 
         results = []
         now = datetime.now(timezone.utc)
+        matching_items = []
 
         with self._lock:
             # Get UUIDs for this league
@@ -355,7 +362,7 @@ class DiscoveryQueue:
             if not all_uuids:
                 return []
 
-            # Find matching items
+            # Find matching items (minimal work inside lock)
             for item in self._queue:
                 if item.uuid not in all_uuids:
                     continue
@@ -368,42 +375,47 @@ class DiscoveryQueue:
                 if not item.matches_team(team_names):
                     continue
 
-                # Build result dict (compatible with existing code)
-                result = item.data.copy()
-                result["match_id"] = match_id
-                result["_uuid"] = item.uuid
-
-                # Ensure core fields are present (may not be in data dict)
-                result["team"] = item.team
-                result["title"] = item.title
-                result["snippet"] = item.snippet
-                result["link"] = item.url
-                result["url"] = item.url
-                result["source"] = item.source_name
-                result["category"] = item.category
-                result["confidence"] = item.confidence
-                result["discovered_at"] = item.discovered_at.isoformat()
-
-                # Recalculate freshness at retrieval time
-                minutes_old = int((now - item.discovered_at).total_seconds() / 60)
-                result["minutes_old"] = minutes_old
-
-                # Import freshness function
-                try:
-                    from src.utils.freshness import get_freshness_tag
-
-                    result["freshness_tag"] = get_freshness_tag(minutes_old)
-                except ImportError:
-                    # Fallback
-                    if minutes_old < 60:
-                        result["freshness_tag"] = "🔥 FRESH"
-                    elif minutes_old < 360:
-                        result["freshness_tag"] = "⏰ AGING"
-                    else:
-                        result["freshness_tag"] = "📜 STALE"
-
-                results.append(result)
+                # Collect matching items for processing outside lock
+                matching_items.append(item)
                 self._total_popped += 1
+
+        # Process items outside lock to reduce contention
+        for item in matching_items:
+            # Build result dict (compatible with existing code)
+            result = item.data.copy()
+            result["match_id"] = match_id
+            result["_uuid"] = item.uuid
+
+            # Ensure core fields are present (may not be in data dict)
+            result["team"] = item.team
+            result["title"] = item.title
+            result["snippet"] = item.snippet
+            result["link"] = item.url
+            result["url"] = item.url
+            result["source"] = item.source_name
+            result["category"] = item.category
+            result["confidence"] = item.confidence
+            result["discovered_at"] = item.discovered_at.isoformat()
+
+            # Recalculate freshness at retrieval time
+            minutes_old = int((now - item.discovered_at).total_seconds() / 60)
+            result["minutes_old"] = minutes_old
+
+            # Import freshness function
+            try:
+                from src.utils.freshness import get_freshness_tag
+
+                result["freshness_tag"] = get_freshness_tag(minutes_old)
+            except ImportError:
+                # Fallback
+                if minutes_old < 60:
+                    result["freshness_tag"] = "🔥 FRESH"
+                elif minutes_old < 360:
+                    result["freshness_tag"] = "⏰ AGING"
+                else:
+                    result["freshness_tag"] = "📜 STALE"
+
+            results.append(result)
 
         if results:
             logger.info(

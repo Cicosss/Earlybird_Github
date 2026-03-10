@@ -10,11 +10,24 @@ Strategy:
 3. Cleanup: Pass HTML to Trafilatura for clean text extraction
 
 Requirements: scrapling, trafilatura (both already in requirements.txt)
+
+VPS System Requirements:
+    The following system packages are required for VPS deployment:
+    - build-essential (gcc, g++, make)
+    - python3-dev
+    - libxml2-dev (for lxml/Trafilatura)
+    - libxslt1-dev (for lxml/Trafilatura)
+    - libcurl4-openssl-dev (for curl_cffi/Scrapling)
+
+    Install on Ubuntu/Debian:
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev libxml2-dev libxslt1-dev libcurl4-openssl-dev
 """
 
 import asyncio
 import logging
 from typing import Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +86,25 @@ class ArticleReader:
 
     This module will replace direct Playwright calls in NewsHunter and BrowserMonitor.
 
+    Thread Safety:
+        This class is NOT thread-safe. Each thread or concurrent task should create
+        its own ArticleReader instance. Do not share instances across concurrent calls.
+        The browser fetcher creates new Fetcher instances on each call, which is
+        safe only when each ArticleReader instance is used by a single thread/task.
+
+    Resource Management:
+        Call the close() method when done to properly clean up resources.
+        Use async context manager pattern for automatic cleanup:
+            async with ArticleReader() as reader:
+                result = await reader.fetch_and_extract(url)
+
     Example:
         >>> reader = ArticleReader()
         >>> result = await reader.fetch_and_extract("https://example.com/article")
         >>> if result["success"]:
         ...     print(f"Title: {result['title']}")
         ...     print(f"Text: {result['text'][:200]}...")
+        >>> await reader.close()
     """
 
     def __init__(self):
@@ -90,8 +116,16 @@ class ArticleReader:
         """
         self.async_fetcher: Optional[AsyncFetcher] = None
         if _SCRAPLING_AVAILABLE and AsyncFetcher is not None:
-            self.async_fetcher = AsyncFetcher()
-            logger.debug("✅ [ARTICLE-READER] AsyncFetcher initialized")
+            try:
+                self.async_fetcher = AsyncFetcher()
+                logger.debug("✅ [ARTICLE-READER] AsyncFetcher initialized")
+            except Exception as e:
+                logger.warning(f"⚠️ [ARTICLE-READER] Failed to initialize AsyncFetcher: {e}")
+                self.async_fetcher = None
+        else:
+            logger.debug(
+                "⏭️ [ARTICLE-READER] AsyncFetcher not available, will use browser-only mode"
+            )
 
     def _browser_fetch(self, url: str, timeout: int = 15) -> str:
         """
@@ -116,6 +150,53 @@ class ArticleReader:
         fetcher = Fetcher()
         response = fetcher.get(url, timeout=timeout, impersonate="chrome", stealthy_headers=True)
         return response.text
+
+    async def close(self):
+        """
+        Clean up resources used by the ArticleReader.
+
+        This method should be called when the ArticleReader instance is no longer needed.
+        It properly closes the AsyncFetcher connection pool if available.
+
+        Example:
+            >>> reader = ArticleReader()
+            >>> result = await reader.fetch_and_extract(url)
+            >>> await reader.close()
+        """
+        if self.async_fetcher:
+            try:
+                # Check if AsyncFetcher has a close method
+                if hasattr(self.async_fetcher, "close"):
+                    await self.async_fetcher.close()
+                    logger.debug("✅ [ARTICLE-READER] AsyncFetcher closed")
+                else:
+                    logger.debug(
+                        "✅ [ARTICLE-READER] AsyncFetcher cleanup completed (no close method)"
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ [ARTICLE-READER] Failed to close AsyncFetcher: {e}")
+
+    async def __aenter__(self):
+        """
+        Async context manager entry.
+
+        Returns:
+            Self for use in async with statement
+        """
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Async context manager exit.
+
+        Automatically calls close() when exiting the context.
+
+        Args:
+            exc_type: Exception type if an exception occurred
+            exc_val: Exception value if an exception occurred
+            exc_tb: Exception traceback if an exception occurred
+        """
+        await self.close()
 
     async def fetch_and_extract(self, url: str, timeout: int = 15) -> dict:
         """
@@ -147,6 +228,16 @@ class ArticleReader:
         # Validate URL
         if not url:
             logger.warning("⚠️ [ARTICLE-READER] Empty URL provided")
+            return result
+
+        # Validate URL format
+        try:
+            parsed = urlparse(url)
+            if not all([parsed.scheme, parsed.netloc]):
+                logger.warning(f"⚠️ [ARTICLE-READER] Invalid URL format: {url[:60]}...")
+                return result
+        except Exception as e:
+            logger.warning(f"⚠️ [ARTICLE-READER] URL parsing failed: {e}")
             return result
 
         # Check dependencies

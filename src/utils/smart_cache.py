@@ -31,7 +31,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from threading import Lock, Thread
-from typing import Any
+from typing import Any, Optional
+
+# V2.1: Import tenacity for retry logic
+try:
+    from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+    TENACITY_AVAILABLE = True
+except ImportError:
+    TENACITY_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️ tenacity not available - retry logic disabled")
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +73,8 @@ TTL_TIERS = {
 DEFAULT_TTL_SECONDS = 30 * 60  # 30 minutes
 
 # Maximum cache size (entries)
-MAX_CACHE_SIZE = 500
+# Increased from 500 to 2000 to handle peak load (100+ matches)
+MAX_CACHE_SIZE = 2000
 
 # V2.0: Stale-While-Revalidate (SWR) Configuration
 # Stale TTL is typically 2-4x the fresh TTL
@@ -81,7 +92,7 @@ class CacheEntry:
     data: Any
     created_at: float  # Unix timestamp
     ttl_seconds: int
-    match_time: datetime | None = None
+    match_time: Optional[datetime] = None
     cache_key: str = ""
     is_stale: bool = False  # V2.0: Track if this is a stale entry
 
@@ -111,6 +122,7 @@ class CacheMetrics:
     sets: int = 0
     gets: int = 0
     invalidations: int = 0
+    evictions: int = 0  # V2.1: Track evictions (consolidated from _stats)
 
     # Background refresh
     background_refreshes: int = 0
@@ -122,9 +134,8 @@ class CacheMetrics:
         return (self.hits / total * 100) if total > 0 else 0.0
 
     def stale_hit_rate(self) -> float:
-        """Calculate stale hit rate percentage."""
-        total = self.hits + self.misses
-        return (self.stale_hits / total * 100) if total > 0 else 0.0
+        """Calculate stale hit rate as percentage of cache hits."""
+        return (self.stale_hits / self.hits * 100) if self.hits > 0 else 0.0
 
     def update_avg_latency(self, avg: float, new_value: float, count: int) -> float:
         """Update running average."""
@@ -155,15 +166,14 @@ class SmartCache:
         self.max_size = max_size
         self._cache: dict[str, CacheEntry] = {}
         self._lock = Lock()
-        self._stats = {"hits": 0, "misses": 0, "evictions": 0}
 
         # V2.0: SWR support
         self.swr_enabled = swr_enabled
-        self._metrics = CacheMetrics()
+        self._metrics = CacheMetrics()  # V2.1: Consolidated all metrics here (removed _stats)
         self._background_refresh_threads: set[threading.Thread] = set()
         self._background_lock = Lock()
 
-    def _calculate_ttl(self, match_time: datetime | None) -> int:
+    def _calculate_ttl(self, match_time: Optional[datetime]) -> int:
         """
         Calculate TTL based on match proximity.
 
@@ -219,7 +229,7 @@ class SmartCache:
             del self._cache[key]
 
         if expired_keys:
-            self._stats["evictions"] += len(expired_keys)
+            self._metrics.evictions += len(expired_keys)
             logger.debug(f"🧹 Evicted {len(expired_keys)} expired entries from {self.name}")
 
         return len(expired_keys)
@@ -246,7 +256,7 @@ class SmartCache:
             del self._cache[key]
             removed += 1
 
-        self._stats["evictions"] += removed
+        self._metrics.evictions += removed
         return removed
 
     def get(self, key: str) -> Any | None:
@@ -263,16 +273,16 @@ class SmartCache:
             entry = self._cache.get(key)
 
             if entry is None:
-                self._stats["misses"] += 1
+                self._metrics.misses += 1
                 return None
 
             if entry.is_expired():
                 del self._cache[key]
-                self._stats["misses"] += 1
+                self._metrics.misses += 1
                 logger.debug(f"📦 Cache EXPIRED: {key[:50]}...")
                 return None
 
-            self._stats["hits"] += 1
+            self._metrics.hits += 1
             remaining = entry.time_remaining()
             logger.debug(f"📦 Cache HIT: {key[:50]}... (TTL: {remaining // 60:.0f}min)")
             return entry.data
@@ -281,7 +291,7 @@ class SmartCache:
         self,
         key: str,
         value: Any,
-        match_time: datetime | None = None,
+        match_time: Optional[datetime] = None,
         ttl_override: int | None = None,
         cache_none: bool = False,
     ) -> bool:
@@ -348,6 +358,7 @@ class SmartCache:
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
+                self._metrics.invalidations += 1
                 return True
             return False
 
@@ -366,6 +377,9 @@ class SmartCache:
 
             for key in keys_to_remove:
                 del self._cache[key]
+
+            if keys_to_remove:
+                self._metrics.invalidations += len(keys_to_remove)
 
             return len(keys_to_remove)
 
@@ -388,7 +402,7 @@ class SmartCache:
         fetch_func: Callable[[], Any],
         ttl: int,
         stale_ttl: int | None = None,
-        match_time: datetime | None = None,
+        match_time: Optional[datetime] = None,
     ) -> tuple[Any | None, bool]:
         """
         V2.0: Get value with Stale-While-Revalidate.
@@ -415,12 +429,12 @@ class SmartCache:
                 start_time = time.time()
                 value = fetch_func()
                 latency_ms = (time.time() - start_time) * 1000
+                self._metrics.misses += 1  # Increment first for clarity
                 self._metrics.avg_uncached_latency_ms = self._metrics.update_avg_latency(
-                    self._metrics.avg_uncached_latency_ms, latency_ms, self._metrics.misses + 1
+                    self._metrics.avg_uncached_latency_ms, latency_ms, self._metrics.misses
                 )
-                self._metrics.misses += 1
                 self._metrics.gets += 1
-                self.set(key, value, match_time=match_time, ttl=ttl)
+                self.set(key, value, match_time=match_time, ttl_override=ttl)
                 return value, True
             return cached, True
 
@@ -429,6 +443,10 @@ class SmartCache:
             stale_ttl = ttl * SWR_TTL_MULTIPLIER
 
         start_time = time.time()
+
+        # Track if we need to trigger background refresh
+        need_background_refresh = False
+        stale_data = None
 
         with self._lock:
             self._metrics.gets += 1
@@ -456,21 +474,43 @@ class SmartCache:
                 )
                 logger.debug(f"📦 [SWR] STALE HIT: {key[:50]}... ({latency_ms:.1f}ms)")
 
-                # Trigger background refresh
-                self._trigger_background_refresh(key, fetch_func, ttl, stale_ttl, match_time)
-                return stale_entry.data, False
+                # Store stale data and flag for background refresh
+                stale_data = stale_entry.data
+                need_background_refresh = True
+
+        # Trigger background refresh OUTSIDE lock to prevent potential deadlock
+        if need_background_refresh:
+            self._trigger_background_refresh(key, fetch_func, ttl, stale_ttl, match_time)
+            return stale_data, False
 
         # 3. No value available - fetch synchronously
         self._metrics.misses += 1
         try:
-            value = fetch_func()
+            # V2.1: Use retry logic if tenacity is available
+            if TENACITY_AVAILABLE:
+                # Define retry wrapper for transient failures
+                @retry(
+                    stop=stop_after_attempt(3),
+                    wait=wait_exponential(multiplier=1, min=1, max=10),
+                    retry=retry_if_exception_type((Exception,)),
+                    reraise=True,
+                )
+                def fetch_with_retry():
+                    return fetch_func()
+
+                value = fetch_with_retry()
+            else:
+                # Fallback: no retry logic
+                value = fetch_func()
+
             latency_ms = (time.time() - start_time) * 1000
             self._metrics.avg_uncached_latency_ms = self._metrics.update_avg_latency(
                 self._metrics.avg_uncached_latency_ms, latency_ms, self._metrics.misses
             )
-            self._set_with_swr(key, value, ttl, stale_ttl, match_time)
+            # Check if value was cached (None values are not cached)
+            was_cached = self._set_with_swr(key, value, ttl, stale_ttl, match_time)
             logger.debug(f"📦 [SWR] MISS & FETCH: {key[:50]}... ({latency_ms:.1f}ms)")
-            return value, True
+            return value, was_cached
         except Exception as e:
             logger.warning(f"⚠️ [SWR] Fetch failed for {key[:50]}...: {e}")
             return None, False
@@ -481,7 +521,7 @@ class SmartCache:
         value: Any,
         ttl: int,
         stale_ttl: int | None = None,
-        match_time: datetime | None = None,
+        match_time: Optional[datetime] = None,
     ) -> bool:
         """
         V2.0: Store value with SWR support (fresh + stale entries).
@@ -511,7 +551,6 @@ class SmartCache:
                 cache_key=key,
                 is_stale=False,
             )
-            self._metrics.sets += 1
 
             # Store stale entry (with longer TTL)
             stale_key = f"{key}:stale"
@@ -523,6 +562,8 @@ class SmartCache:
                 cache_key=stale_key,
                 is_stale=True,
             )
+
+            # Increment sets counter once per SWR operation (creates 2 entries: fresh + stale)
             self._metrics.sets += 1
 
             logger.debug(f"📦 [SWR] SET: {key[:50]}... (fresh: {ttl}s, stale: {stale_ttl}s)")
@@ -534,7 +575,7 @@ class SmartCache:
         fetch_func: Callable[[], Any],
         ttl: int,
         stale_ttl: int,
-        match_time: datetime | None = None,
+        match_time: Optional[datetime] = None,
     ):
         """
         V2.0: Trigger background refresh in separate thread.
@@ -553,10 +594,12 @@ class SmartCache:
                 value = fetch_func()
                 if value is not None:
                     self._set_with_swr(key, value, ttl, stale_ttl, match_time)
-                    self._metrics.background_refreshes += 1
+                    with self._lock:  # Thread-safe metrics update
+                        self._metrics.background_refreshes += 1
                     logger.debug(f"🔄 [SWR] Background refresh completed: {key[:50]}...")
             except Exception as e:
-                self._metrics.background_refresh_failures += 1
+                with self._lock:  # Thread-safe metrics update
+                    self._metrics.background_refresh_failures += 1
                 logger.warning(f"❌ [SWR] Background refresh failed for {key[:50]}...: {e}")
             finally:
                 # Remove thread from active set
@@ -592,20 +635,20 @@ class SmartCache:
 
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
-        with self._lock:
-            total = self._stats["hits"] + self._stats["misses"]
-            hit_rate = (self._stats["hits"] / total * 100) if total > 0 else 0
+        # V2.0: Get SWR metrics BEFORE acquiring lock to avoid deadlock
+        swr_metrics = self.get_swr_metrics()
 
-            # V2.0: Include SWR metrics
-            swr_metrics = self.get_swr_metrics()
+        with self._lock:
+            total = swr_metrics.hits + swr_metrics.misses
+            hit_rate = (swr_metrics.hits / total * 100) if total > 0 else 0
 
             return {
                 "name": self.name,
                 "size": len(self._cache),
                 "max_size": self.max_size,
-                "hits": self._stats["hits"],
-                "misses": self._stats["misses"],
-                "evictions": self._stats["evictions"],
+                "hits": swr_metrics.hits,
+                "misses": swr_metrics.misses,
+                "evictions": swr_metrics.evictions,
                 "hit_rate_pct": round(hit_rate, 1),
                 "swr_enabled": self.swr_enabled,
                 "swr_hit_rate_pct": round(swr_metrics.hit_rate(), 1),
@@ -614,6 +657,7 @@ class SmartCache:
                 "avg_uncached_latency_ms": round(swr_metrics.avg_uncached_latency_ms, 1),
                 "background_refreshes": swr_metrics.background_refreshes,
                 "background_refresh_failures": swr_metrics.background_refresh_failures,
+                "invalidations": swr_metrics.invalidations,
             }
 
 
@@ -622,13 +666,16 @@ class SmartCache:
 # ============================================
 
 # Cache for FotMob team data (team details, squad info)
-_team_cache = SmartCache(name="team_data", max_size=200, swr_enabled=True)
+# Increased from 200 to 500 to handle peak load
+_team_cache = SmartCache(name="team_data", max_size=500, swr_enabled=True)
 
 # Cache for FotMob match data (fixtures, lineups)
-_match_cache = SmartCache(name="match_data", max_size=300, swr_enabled=True)
+# Increased from 300 to 800 to handle peak load (100+ matches)
+_match_cache = SmartCache(name="match_data", max_size=800, swr_enabled=True)
 
 # Cache for search results (team ID lookups)
-_search_cache = SmartCache(name="search", max_size=500, swr_enabled=True)
+# Increased from 500 to 1000 to handle peak load
+_search_cache = SmartCache(name="search", max_size=1000, swr_enabled=True)
 
 
 def get_team_cache() -> SmartCache:
@@ -741,7 +788,8 @@ def log_cache_stats():
                 f"{data['swr_stale_hit_rate_pct']}% stale | "
                 f"Latency: {data['avg_cached_latency_ms']:.1f}ms cached, "
                 f"{data['avg_uncached_latency_ms']:.1f}ms uncached | "
-                f"BG refresh: {data['background_refreshes']} ({data['background_refresh_failures']} failed)"
+                f"BG refresh: {data['background_refreshes']} ({data['background_refresh_failures']} failed) | "
+                f"Invalidations: {data.get('invalidations', 0)}"
             )
         logger.info(
             f"📊 Cache [{name}]: {data['size']}/{data['max_size']} entries, "

@@ -72,6 +72,10 @@ def _inject_default_env_vars():
     if not os.getenv("OPENROUTER_API_KEY"):
         os.environ["OPENROUTER_API_KEY"] = ""
 
+    # OPENROUTER Model (default model to use)
+    if not os.getenv("OPENROUTER_MODEL"):
+        os.environ["OPENROUTER_MODEL"] = "deepseek/deepseek-chat-v3-0324"
+
     # ODDS API Key (placeholder default - critical for operation)
     if not os.getenv("ODDS_API_KEY"):
         os.environ["ODDS_API_KEY"] = ""
@@ -116,6 +120,7 @@ NATIVE_KEYWORDS: dict[str, list[str]] = {
 # API CONFIGURATION
 # ========================================
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
 # SERPER_API_KEY removed - migrating to Brave
 # SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
@@ -175,6 +180,15 @@ ODDS_SMART_FREQUENCY_ENABLED = os.getenv("ODDS_SMART_FREQUENCY_ENABLED", "true")
 BROWSER_MONITOR_ENABLED = os.getenv("BROWSER_MONITOR_ENABLED", "True").lower() == "true"
 NEWS_RADAR_ENABLED = os.getenv("NEWS_RADAR_ENABLED", "True").lower() == "true"
 HEALTH_MONITOR_ENABLED = os.getenv("HEALTH_MONITOR_ENABLED", "True").lower() == "true"
+
+# ========================================
+# CONTRACT VALIDATION CONTROL (V1.0)
+# ========================================
+# Runtime control for contract validation to manage performance
+# Contracts validate data flow between components to prevent data corruption
+# Can be disabled in production for performance (~46ms per validation)
+
+CONTRACT_VALIDATION_ENABLED = os.getenv("CONTRACT_VALIDATION_ENABLED", "True").lower() == "true"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY", "")
@@ -309,12 +323,8 @@ MATCH_LOOKAHEAD_HOURS = 96  # Extended to 4 days for early odds tracking
 ANALYSIS_WINDOW_HOURS = 72  # 72h = 3 days (captures weekend fixtures early)
 
 # Alert thresholds
-ALERT_THRESHOLD_HIGH = (
-    8.5  # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY (V11.1: Relaxed from 9.0)
-)
-ALERT_THRESHOLD_RADAR = (
-    7.0  # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY (V11.1: Relaxed from 7.5)
-)
+ALERT_THRESHOLD_HIGH = 8.5  # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY (V11.1: Relaxed from 9.0)
+ALERT_THRESHOLD_RADAR = 7.0  # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY (V11.1: Relaxed from 7.5)
 SETTLEMENT_MIN_SCORE = 7.0  # Minimum highest_score_sent to include in settlement
 
 # ========================================
@@ -601,14 +611,18 @@ TAVILY_RATE_LIMIT_SECONDS = 1.0
 # Cache TTL: 30 minutes to avoid duplicate queries
 TAVILY_CACHE_TTL_SECONDS = 1800
 
+# V12.6: DeepSeek Cache TTL - 1 hour for AI responses (longer than Tavily)
+# AI responses are more stable than web search results
+DEEPSEEK_CACHE_TTL_SECONDS = 3600
+
 # Budget allocation per component (calls/month)
 TAVILY_BUDGET_ALLOCATION = {
     "main_pipeline": 2100,  # 30% - Match enrichment
     "news_radar": 1500,  # 21% - Pre-enrichment for ambiguous content
     "browser_monitor": 750,  # 11% - Short content expansion
     "telegram_monitor": 450,  # 6% - Intel verification
-    "settlement_clv": 225,  # 3% - Post-match analysis
-    "twitter_recovery": 1975,  # 29% - Buffer/recovery
+    "settlement_clv": 350,  # 5% - Post-match analysis (increased from 3% to handle more CLV movements)
+    "twitter_recovery": 1850,  # 26% - Buffer/recovery (reduced to accommodate settlement_clv increase)
 }
 
 # Total monthly budget (7 keys × 1000 calls)
@@ -778,6 +792,7 @@ __all__ = [
     "FATIGUE_LATE_GAME_THRESHOLD",
     # Providers
     "DEEPSEEK_INTEL_ENABLED",
+    "DEEPSEEK_CACHE_TTL_SECONDS",
     "PERPLEXITY_ENABLED",
     "TAVILY_ENABLED",
     # Tavily Config

@@ -56,6 +56,15 @@ from src.analysis.verifier_integration import (
 # V11.1 FIX: Import BettingQuant for market warning generation
 from src.core.betting_quant import BettingQuant
 
+# Import intelligent error tracking from orchestration_metrics
+try:
+    from src.alerting.orchestration_metrics import record_error_intelligent
+
+    ERROR_TRACKING_AVAILABLE = True
+except ImportError:
+    ERROR_TRACKING_AVAILABLE = False
+    record_error_intelligent = None
+
 # Database
 from src.database.models import Match, NewsLog, SessionLocal
 
@@ -242,19 +251,102 @@ class AnalysisEngine:
         🍪 BISCOTTO DETECTION: Check if Draw odds indicate a "mutually beneficial draw".
 
         V6.1: Added edge case protection for invalid odds values.
+        V13.0: MIGRATED to Advanced Biscotto Engine V2.0 with multi-factor analysis
 
         Args:
             match: Match object with current_draw_odd and opening_draw_odd
 
         Returns:
-            dict with 'is_suspect', 'reason', 'draw_odd', 'drop_pct', 'severity'
+            dict with 'is_suspect', 'reason', 'draw_odd', 'drop_pct', 'severity',
+                 'confidence', 'factors', 'pattern', 'zscore', 'mutual_benefit', 'betting_recommendation'
         """
+        # Try to use advanced biscotto engine if available
+        try:
+            from src.analysis.biscotto_engine import get_enhanced_biscotto_analysis
+
+            # Try to fetch motivation data from FotMob for enhanced analysis
+            home_motivation = None
+            away_motivation = None
+
+            try:
+                from src.ingestion.data_provider import get_data_provider
+
+                provider = get_data_provider()
+
+                # Get team names safely
+                home_team = getattr(match, "home_team", None)
+                away_team = getattr(match, "away_team", None)
+
+                if home_team and away_team:
+                    # Fetch motivation context for both teams
+                    home_context = provider.get_table_context(home_team)
+                    away_context = provider.get_table_context(away_team)
+
+                    # Build motivation dicts for biscotto engine
+                    if home_context and not home_context.get("error"):
+                        home_motivation = {
+                            "zone": home_context.get("zone", "Unknown"),
+                            "position": home_context.get("position", 0),
+                            "total_teams": home_context.get("total_teams", 20),
+                            "points": home_context.get("points", 0),
+                            "matches_remaining": home_context.get("matches_remaining"),
+                        }
+
+                    if away_context and not away_context.get("error"):
+                        away_motivation = {
+                            "zone": away_context.get("zone", "Unknown"),
+                            "position": away_context.get("position", 0),
+                            "total_teams": away_context.get("total_teams", 20),
+                            "points": away_context.get("points", 0),
+                            "matches_remaining": away_context.get("matches_remaining"),
+                        }
+
+            except Exception:
+                # If motivation data fetch fails, continue without it (advanced engine has fallbacks)
+                pass
+
+            # Use advanced biscotto engine with available motivation data
+            analysis, _ = get_enhanced_biscotto_analysis(
+                match_obj=match,
+                home_motivation=home_motivation,
+                away_motivation=away_motivation,
+            )
+
+            # Convert BiscottoAnalysis to legacy dict format for backward compatibility
+            result = {
+                "is_suspect": analysis.is_suspect,
+                "severity": analysis.severity.value,
+                "reason": analysis.reasoning,
+                "draw_odd": analysis.current_draw_odd,
+                "drop_pct": analysis.drop_percentage,
+                # New fields from advanced engine
+                "confidence": analysis.confidence,
+                "factors": analysis.factors,
+                "pattern": analysis.pattern.value,
+                "zscore": analysis.zscore,
+                "mutual_benefit": analysis.mutual_benefit,
+                "betting_recommendation": analysis.betting_recommendation,
+            }
+
+            return result
+
+        except Exception:
+            # If advanced engine fails, fall back to legacy implementation
+            pass
+
+        # Legacy implementation (fallback)
         result = {
             "is_suspect": False,
             "reason": None,
             "draw_odd": None,
             "drop_pct": 0,
             "severity": "NONE",
+            "confidence": 0,
+            "factors": [],
+            "pattern": "STABLE",
+            "zscore": 0.0,
+            "mutual_benefit": False,
+            "betting_recommendation": "AVOID",
         }
 
         # VPS FIX: Extract Match attributes safely to prevent session detachment
@@ -291,12 +383,18 @@ class AnalysisEngine:
             result["is_suspect"] = True
             result["severity"] = "EXTREME"
             result["reason"] = f"🍪 EXTREME: Draw @ {draw_odd:.2f} (below {BISCOTTO_EXTREME_LOW})"
+            result["confidence"] = 90
+            result["factors"] = [f"🟠 Quota X estrema: {draw_odd:.2f}"]
+            result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT" if drop_pct > 8 else "STABLE"
         elif draw_odd < BISCOTTO_SUSPICIOUS_LOW:
             result["is_suspect"] = True
             result["severity"] = "HIGH"
             result["reason"] = (
                 f"🍪 SUSPICIOUS: Draw @ {draw_odd:.2f} (below {BISCOTTO_SUSPICIOUS_LOW})"
             )
+            result["confidence"] = 75
+            result["factors"] = [f"🟡 Quota X sospetta: {draw_odd:.2f}"]
+            result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT" if drop_pct > 8 else "STABLE"
         elif drop_pct > BISCOTTO_SIGNIFICANT_DROP and opening_draw:
             # V6.1: Extra check that opening_draw exists before using in message
             result["is_suspect"] = True
@@ -304,6 +402,9 @@ class AnalysisEngine:
             result["reason"] = (
                 f"🍪 DROPPING: Draw dropped {drop_pct:.1f}% ({opening_draw:.2f} → {draw_odd:.2f})"
             )
+            result["confidence"] = 60
+            result["factors"] = [f"📉 Drop significativo: -{drop_pct:.1f}%"]
+            result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT"
 
         return result
 
@@ -342,6 +443,13 @@ class AnalysisEngine:
                             "reason": result["reason"],
                             "draw_odd": result["draw_odd"],
                             "drop_pct": result["drop_pct"],
+                            # Enhanced fields from Advanced Biscotto Engine V2.0
+                            "confidence": result.get("confidence", 0),
+                            "factors": result.get("factors", []),
+                            "pattern": result.get("pattern", "STABLE"),
+                            "zscore": result.get("zscore", 0.0),
+                            "mutual_benefit": result.get("mutual_benefit", False),
+                            "betting_recommendation": result.get("betting_recommendation", "AVOID"),
                         }
                     )
 
@@ -492,33 +600,69 @@ class AnalysisEngine:
                 tweets = cache.search_intel(
                     team, league_key=league, topics=["injury", "lineup", "squad"]
                 )
-                relevant_tweets.extend(tweets)
+                # V13.1: Add relevance score to each tweet
+                for tweet in tweets:
+                    relevance = self._calculate_tweet_relevance(tweet, team)
+                    relevant_tweets.append({"tweet": tweet, "relevance": relevance, "team": team})
 
             if not relevant_tweets:
                 return None
 
-            # Take top 3 most relevant tweets
+            # V13.1: Sort by relevance (high > medium > low > none)
+            relevance_order = {"high": 0, "medium": 1, "low": 2, "none": 3}
+            relevant_tweets.sort(key=lambda x: relevance_order.get(x["relevance"], 3))
+
+            # Take top 5 most relevant tweets (was 3, now 5 for better intelligence)
             twitter_intel_data = {
                 "tweets": [
                     {
-                        "handle": t.handle,
-                        "content": t.content[:150],  # Truncate for display
-                        "topics": t.topics,
+                        "handle": item["tweet"].handle,
+                        "content": item["tweet"].content[:150],  # Truncate for display
+                        "topics": item["tweet"].topics,
                     }
-                    for t in relevant_tweets[:3]
+                    for item in relevant_tweets[:5]
                 ],
                 "cache_age_minutes": cache.cache_age_minutes,
             }
 
             label = f"[{context_label}] " if context_label else ""
             self.logger.info(
-                f"   🐦 {label}Twitter Intel: {len(relevant_tweets)} relevant tweets found"
+                f"   🐦 {label}Twitter Intel: {len(relevant_tweets)} relevant tweets found (top 5 by relevance)"
             )
             return twitter_intel_data
 
         except Exception as e:
             self.logger.debug(f"Twitter Intel enrichment failed: {e}")
             return None
+
+    def _calculate_tweet_relevance(self, tweet, team: str) -> str:
+        """
+        V13.1: Calculate relevance of a tweet for a team.
+
+        Similar to _calculate_relevance() in TwitterIntelCache but adapted for AnalysisEngine.
+
+        Args:
+            tweet: CachedTweet object
+            team: Team name to check relevance for
+
+        Returns:
+            Relevance level: "high", "medium", "low", or "none"
+        """
+        content_lower = tweet.content.lower()
+        team_lower = team.lower()
+
+        # HIGH: mentions team + critical topic (injury, lineup, squad)
+        if team_lower in content_lower:
+            if any(t in tweet.topics for t in ["injury", "lineup", "squad"]):
+                return "high"
+            return "medium"
+
+        # MEDIUM: related topic
+        if any(t in tweet.topics for t in ["injury", "lineup", "transfer"]):
+            return "medium"
+
+        # LOW: generic
+        return "low"
 
     def get_twitter_intel_for_ai(
         self, match: Match, official_data: str = "", context_label: str = ""
@@ -737,7 +881,8 @@ class AnalysisEngine:
         Returns:
             Dict with keys: home_context, away_context, home_turnover, away_turnover,
                            referee_info, stadium_coords, home_stats, away_stats,
-                           enrichment_time_ms, failed_calls
+                           weather_impact, tactical, enrichment_time_ms, failed_calls,
+                           successful_calls, error_details
         """
         if not _PARALLEL_ENRICHMENT_AVAILABLE:
             # Fallback: return empty dict, caller will use sequential approach
@@ -772,6 +917,7 @@ class AnalysisEngine:
                 "enrichment_time_ms": result.enrichment_time_ms,
                 "failed_calls": result.failed_calls,
                 "successful_calls": result.successful_calls,
+                "error_details": result.error_details,  # Added for VPS debugging
             }
         except Exception as e:
             self.logger.warning(f"⚠️ Parallel enrichment failed: {e}, falling back to sequential")
@@ -843,7 +989,7 @@ class AnalysisEngine:
             # Run verification
             result = verify_alert(request)
 
-            if result.status == VerificationStatus.CONFIRMED:
+            if result.status == VerificationStatus.CONFIRM:
                 self.logger.info(f"✅ {label}Alert CONFIRMED by Verification Layer")
                 return True, result.adjusted_score, result.original_market, result
             elif result.status == VerificationStatus.CHANGE_MARKET:
@@ -851,14 +997,11 @@ class AnalysisEngine:
                     f"🔄 {label}Verification Layer changed market from {analysis.recommended_market} to {result.suggested_market}"
                 )
                 return True, result.adjusted_score, result.suggested_market, result
-            elif result.status == VerificationStatus.DENIED:
+            elif result.status == VerificationStatus.REJECT:
                 self.logger.warning(
                     f"❌ {label}Alert DENIED by Verification Layer: {result.reason}"
                 )
                 return False, result.adjusted_score, result.suggested_market, result
-            elif result.status == VerificationStatus.NO_CHANGE:
-                self.logger.info(f"✅ {label}Alert CONFIRMED by Verification Layer")
-                return True, result.adjusted_score, result.original_market, result
 
         except Exception as e:
             self.logger.error(f"❌ {label}Verification Layer error: {e}")
@@ -920,7 +1063,6 @@ class AnalysisEngine:
         result = {"alert_sent": False, "score": 0.0, "market": None, "error": None}
 
         try:
-
             # VPS FIX: Extract Match attributes safely to prevent session detachment.
             # This prevents "Trust validation error" when Match object becomes detached
             # from session due to connection pool recycling under high load.
@@ -946,9 +1088,7 @@ class AnalysisEngine:
                     # If we have both IDs, validate the order
                     if fotmob_home_id and fotmob_away_id:
                         # Get FotMob match data to validate order
-                        fotmob_match = fotmob.get_match(
-                            fotmob_home_id, fotmob_away_id, start_time
-                        )
+                        fotmob_match = fotmob.get_match(fotmob_home_id, fotmob_away_id, start_time)
 
                         if fotmob_match:
                             # Check if FotMob has the teams in the same order
@@ -976,9 +1116,7 @@ class AnalysisEngine:
             # Skip analysis if match is on cooldown (already investigated recently)
             is_closed, cooldown_reason = self.is_case_closed(match, now_utc)
             if is_closed:
-                self.logger.info(
-                    f"⏸️  Skipping {home_team} vs {away_team}: {cooldown_reason}"
-                )
+                self.logger.info(f"⏸️  Skipping {home_team} vs {away_team}: {cooldown_reason}")
                 return result
 
             # --- STEP 1: PARALLEL ENRICHMENT (V6.0) ---
@@ -1191,6 +1329,14 @@ class AnalysisEngine:
                         )
                     except Exception as e:
                         self.logger.error(f"❌ V8.3: Failed to save analysis_result: {e}")
+                        # Intelligent error tracking integration
+                        if ERROR_TRACKING_AVAILABLE and record_error_intelligent:
+                            record_error_intelligent(
+                                error_type="database_errors",
+                                error_message=str(e),
+                                severity="ERROR",
+                                component="analysis_engine",
+                            )
                         # Continue anyway - don't block alert sending
 
                 # --- STEP 9: VERIFICATION LAYER (V7.0) ---
@@ -1252,10 +1398,122 @@ class AnalysisEngine:
                             )
 
                     except Exception as e:
-                        self.logger.error(f"❌ Final Verifier error: {e}")
+                        self.logger.error(f"❌ Enhanced Final Verifier error: {e}")
                         # Fail-safe: allow alert to proceed if verifier fails
                         should_send = should_send  # Keep original decision
                         final_verification_info = {"status": "error", "reason": str(e)}
+
+                    # --- STEP 9.6: INTELLIGENT MODIFICATION LOOP (Feedback Loop Integration) ---
+                    # Handle MODIFY recommendations from Final Verifier using intelligent feedback loop
+                    # VPS FIX: Use upper().strip() to handle case-insensitive comparison and whitespace
+                    # V3.0: Now passes DATA DISCREPANCIES to modification loop for intelligent decisions
+                    if (
+                        final_verification_info
+                        and final_verification_info.get("final_recommendation", "").upper().strip()
+                        == "MODIFY"
+                    ):
+                        try:
+                            self.logger.info(
+                                "🔄 [INTELLIGENT LOOP] Final Verifier recommends modification"
+                            )
+
+                            # V3.0: Log data discrepancies if present
+                            data_discrepancies = final_verification_info.get(
+                                "data_discrepancies", []
+                            )
+                            if data_discrepancies:
+                                self.logger.info(
+                                    f"📊 [INTELLIGENT LOOP] Passing {len(data_discrepancies)} data discrepancies to modification system"
+                                )
+                                for i, d in enumerate(data_discrepancies, 1):
+                                    if isinstance(d, dict):
+                                        field = d.get("field", "unknown")
+                                        impact = d.get("impact", "LOW")
+                                    else:
+                                        field = getattr(d, "field", "unknown")
+                                        impact = getattr(d, "impact", "LOW")
+                                    self.logger.info(f"   {i}. {field.upper()} (impact: {impact})")
+
+                            # Import components
+                            from src.analysis.intelligent_modification_logger import (
+                                get_intelligent_modification_logger,
+                            )
+                            from src.analysis.step_by_step_feedback import (
+                                get_step_by_step_feedback_loop,
+                            )
+
+                            # Get singleton instances
+                            intelligent_logger = get_intelligent_modification_logger()
+                            feedback_loop = get_step_by_step_feedback_loop()
+
+                            # Step 1: Analyze verifier suggestions and create modification plan
+                            # V3.0: Passes data_discrepancies for intelligent modification decisions
+                            modification_plan = intelligent_logger.analyze_verifier_suggestions(
+                                match=match,
+                                analysis=analysis_result,
+                                verification_result=final_verification_info,
+                                alert_data=alert_data,
+                                context_data=context_data,
+                            )
+
+                            # Step 2: Process modification plan step-by-step
+                            should_send_final, final_result, modified_analysis = (
+                                feedback_loop.process_modification_plan(
+                                    match=match,
+                                    original_analysis=analysis_result,
+                                    modification_plan=modification_plan,
+                                    alert_data=alert_data,
+                                    context_data=context_data,
+                                )
+                            )
+
+                            # Step 3: Update final verification info with feedback loop results
+                            final_verification_info["feedback_loop_used"] = True
+                            final_verification_info["feedback_loop_result"] = final_result
+
+                            # Step 4: Update should_send based on feedback loop result
+                            # VPS FIX: Check for database errors before using modified analysis
+                            if (
+                                modified_analysis is not None
+                                and final_result.get("status") != "database_error"
+                            ):
+                                # Use modified analysis for alert sending
+                                analysis_result = modified_analysis
+                                should_send = should_send_final
+                                final_score = getattr(modified_analysis, "score", final_score)
+                                final_market = getattr(
+                                    modified_analysis, "recommended_market", final_market
+                                )
+
+                                self.logger.info(
+                                    "✅ [INTELLIGENT LOOP] Feedback loop completed successfully"
+                                )
+                                self.logger.info(
+                                    f"   Modified score: {final_score:.1f}/10 | Market: {final_market}"
+                                )
+                            else:
+                                self.logger.warning(
+                                    "⚠️  [INTELLIGENT LOOP] Feedback loop failed or database error, using original analysis"
+                                )
+                                should_send = False
+
+                        except Exception as e:
+                            error_type = type(e).__name__
+                            self.logger.error(
+                                f"❌ [INTELLIGENT LOOP] Technical error during feedback loop: {error_type}: {e}",
+                                exc_info=True,
+                            )
+                            self.logger.warning(
+                                "⚠️  [INTELLIGENT LOOP] Alert rejected due to technical error (not verification failure)"
+                            )
+                            # Fail-safe: reject alert if feedback loop fails due to technical error
+                            should_send = False
+                            # VPS FIX: Add error context to final_verification_info
+                            final_verification_info["feedback_loop_error"] = {
+                                "error_type": error_type,
+                                "error_message": str(e),
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            }
 
                 # --- STEP 10: SEND ALERT (if threshold met AND verification passed) ---
                 if should_send and final_score >= ALERT_THRESHOLD_HIGH:

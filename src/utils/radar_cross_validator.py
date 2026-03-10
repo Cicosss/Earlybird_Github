@@ -139,10 +139,11 @@ class CrossSourceValidator:
         """Generate cache key from team and category."""
         # Normalize team name for matching
         team_normalized = team.lower().strip()
-        # Remove common suffixes
-        for suffix in [" fc", " sc", " cf", " ac", " as", " fk", " sk"]:
+        # Remove common suffixes (both with and without space)
+        for suffix in [" fc", "fc", " sc", "sc", " cf", "cf", " ac", "ac", " as", "as", " fk", "fk", " sk", "sk"]:
             if team_normalized.endswith(suffix):
                 team_normalized = team_normalized[: -len(suffix)].strip()
+                # Don't break - continue to check for multiple suffixes (e.g., "afc fc")
 
         key_str = f"{team_normalized}:{category}"
         return hashlib.md5(key_str.encode()).hexdigest()[:12]
@@ -290,7 +291,7 @@ class CrossSourceValidator:
         """Remove expired entries. Returns count removed."""
         now = datetime.now(timezone.utc)
         expired_keys = [
-            k for k, v in self._pending_alerts.items() if now - v.last_seen > self._cache_ttl
+            k for k, v in self._pending_alerts.items() if now - v.first_seen > self._cache_ttl
         ]
 
         for k in expired_keys:

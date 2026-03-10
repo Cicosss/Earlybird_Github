@@ -22,7 +22,6 @@ from sqlalchemy import and_
 
 from src.database.db import get_db_context
 from src.database.models import Match, NewsLog
-from src.ingestion.data_provider import get_data_provider
 from src.utils.odds_utils import get_market_odds
 
 logger = logging.getLogger(__name__)
@@ -97,71 +96,9 @@ def capture_kickoff_odds() -> int:
                     continue
 
                 # Refresh match odds from data provider
-                # V8.3 FIX: Add retry mechanism for data provider unavailability
-                max_retries = 3
-                retry_delay_seconds = 2
-                provider_available = False
-
-                for attempt in range(max_retries):
-                    try:
-                        provider = get_data_provider()
-                        if not provider:
-                            if attempt < max_retries - 1:
-                                logger.warning(
-                                    f"⚠️  Data provider not available (attempt {attempt + 1}/{max_retries}). "
-                                    f"Retrying in {retry_delay_seconds}s..."
-                                )
-                                import time
-
-                                time.sleep(retry_delay_seconds)
-                                continue
-                            else:
-                                logger.warning(
-                                    f"⚠️  Data provider not available after {max_retries} attempts. "
-                                    f"Skipping odds refresh for {match_info['home_team']} vs {match_info['away_team']}."
-                                )
-                                break
-
-                        provider_available = True
-
-                        # Fetch latest odds for this match
-                        updated_match = provider.get_match_by_id(match_info["match_id"])
-                        if updated_match:
-                            # VPS FIX: Extract odds safely from updated_match to prevent session detachment
-                            # This prevents "Trust validation error" when Match object becomes detached
-                            # from session due to connection pool recycling under high load
-                            updated_home_odd = getattr(updated_match, "current_home_odd", None)
-                            updated_away_odd = getattr(updated_match, "current_away_odd", None)
-                            updated_draw_odd = getattr(updated_match, "current_draw_odd", None)
-
-                            # Update match with latest odds
-                            match.current_home_odd = updated_home_odd
-                            match.current_away_odd = updated_away_odd
-                            match.current_draw_odd = updated_draw_odd
-                            db.add(match)
-                            logger.info(
-                                f"📊 Refreshed odds for {match_info['home_team']} vs {match_info['away_team']}"
-                            )
-                        break  # Success, exit retry loop
-
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            logger.warning(
-                                f"⚠️  Could not refresh odds for {match_info['match_id']} (attempt {attempt + 1}/{max_retries}): {e}. "
-                                f"Retrying in {retry_delay_seconds}s..."
-                            )
-                            import time
-
-                            time.sleep(retry_delay_seconds)
-                        else:
-                            logger.warning(
-                                f"⚠️  Could not refresh odds for {match_info['match_id']} after {max_retries} attempts: {e}. "
-                                f"Continuing with existing odds."
-                            )
-
-                if not provider_available:
-                    # Continue with existing odds if provider unavailable after retries
-                    pass
+                # V8.3 NOTE: Odds are already stored in Match object from Odds API ingestion.
+                # No need to refresh odds from FotMob (FotMob doesn't provide odds data).
+                # Match object contains: current_home_odd, current_away_odd, current_draw_odd
 
                 # Capture kickoff odds for each NewsLog
                 for news_log in news_logs:

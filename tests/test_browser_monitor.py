@@ -669,7 +669,17 @@ def test_browser_monitor_parse_relevance_response_invalid():
 # ============================================
 
 # Valid categories as per design
-VALID_CATEGORIES = ["INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "OTHER"]
+VALID_CATEGORIES = [
+    "INJURY",
+    "LINEUP",
+    "SUSPENSION",
+    "TRANSFER",
+    "TACTICAL",
+    "NATIONAL_TEAM",
+    "YOUTH_CALLUP",
+    "CUP_ABSENCE",
+    "OTHER",
+]
 
 
 @settings(max_examples=100)
@@ -1392,7 +1402,17 @@ def test_regression_invalid_category_handling():
     Bug: Gemini might return unexpected category values
     Fix: Validate category against allowed values
     """
-    valid_categories = {"INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "OTHER"}
+    valid_categories = {
+        "INJURY",
+        "LINEUP",
+        "SUSPENSION",
+        "TRANSFER",
+        "TACTICAL",
+        "NATIONAL_TEAM",
+        "YOUTH_CALLUP",
+        "CUP_ABSENCE",
+        "OTHER",
+    }
 
     invalid_categories = ["injury", "UNKNOWN", "NEWS", "", None, "random_value"]
 

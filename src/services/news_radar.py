@@ -96,7 +96,7 @@ except ImportError:
     Stealth = None
 
 # V11.0: Import DiscoveryQueue for GlobalRadarMonitor intelligence queue
-from src.utils.discovery_queue import DiscoveryQueue
+from src.utils.discovery_queue import DiscoveryQueue, get_discovery_queue
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,7 @@ DEEPSEEK_MIN_INTERVAL_SECONDS = 2.0
 # Circuit breaker configuration
 CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
 CIRCUIT_BREAKER_RECOVERY_TIMEOUT = 300  # 5 minutes
+CIRCUIT_BREAKER_MAX_RETRIES = 20  # Give up after 20 total attempts (approx 100 min)
 
 # HTTP configuration
 HTTP_TIMEOUT = 15
@@ -410,6 +411,9 @@ class ContentCache:
         self._cache: OrderedDict[str, datetime] = OrderedDict()
         self._max_entries = max_entries
         self._ttl_hours = ttl_hours
+        self._lock = (
+            asyncio.Lock()
+        )  # V13.0 COVE FIX: Thread-safe cache operations for async concurrent access
 
     def compute_hash(self, content: str) -> str:
         """
@@ -425,64 +429,92 @@ class ContentCache:
         # Phase 1 Critical Fix: Add Unicode normalization before hashing
         return hashlib.sha256(content_prefix.encode("utf-8", errors="replace")).hexdigest()[:16]
 
-    def is_cached(self, content: str) -> bool:
+    async def is_cached(self, content: str) -> bool:
         """
         Check if content hash exists and is not expired.
 
         Requirements: 7.2, 7.4
+        V13.0 COVE FIX: Made async to use asyncio.Lock for thread safety
         """
         if not content:
             return False
 
         content_hash = self.compute_hash(content)
 
-        if content_hash not in self._cache:
-            return False
+        async with self._lock:
+            if content_hash not in self._cache:
+                return False
 
-        # Check expiration
-        cached_at = self._cache[content_hash]
-        if datetime.now(timezone.utc) - cached_at > timedelta(hours=self._ttl_hours):
-            del self._cache[content_hash]
-            return False
+            # Check expiration
+            cached_at = self._cache[content_hash]
+            if datetime.now(timezone.utc) - cached_at > timedelta(hours=self._ttl_hours):
+                del self._cache[content_hash]
+                return False
 
-        # Move to end (LRU)
-        self._cache.move_to_end(content_hash)
-        return True
+            # Move to end (LRU)
+            self._cache.move_to_end(content_hash)
+            return True
 
-    def add(self, content: str) -> None:
+    async def add(self, content: str) -> None:
         """
         Store content hash with current timestamp.
 
         Requirements: 7.3
+        V13.0 COVE FIX: Made async to use asyncio.Lock for thread safety
         """
         if not content:
             return
 
         content_hash = self.compute_hash(content)
 
-        # Evict oldest if at capacity
-        while len(self._cache) >= self._max_entries:
-            self._cache.popitem(last=False)
+        async with self._lock:
+            # Evict oldest if at capacity
+            while len(self._cache) >= self._max_entries:
+                self._cache.popitem(last=False)
 
-        self._cache[content_hash] = datetime.now(timezone.utc)
+            self._cache[content_hash] = datetime.now(timezone.utc)
 
-    def evict_expired(self) -> int:
-        """Remove all expired entries. Returns count of evicted entries."""
-        now = datetime.now(timezone.utc)
-        expired = [
-            h for h, ts in self._cache.items() if now - ts > timedelta(hours=self._ttl_hours)
-        ]
-        for h in expired:
-            del self._cache[h]
-        return len(expired)
+    async def evict_expired(self) -> int:
+        """
+        Remove all expired entries. Returns count of evicted entries.
+        V13.0 COVE FIX: Made async to use asyncio.Lock for thread safety
+        """
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            expired = [
+                h for h, ts in self._cache.items() if now - ts > timedelta(hours=self._ttl_hours)
+            ]
+            for h in expired:
+                del self._cache[h]
+            return len(expired)
 
-    def size(self) -> int:
-        """Return current cache size."""
+    async def size(self) -> int:
+        """
+        Return current cache size.
+        V13.0 COVE FIX: Made async to use asyncio.Lock for thread safety
+        """
+        async with self._lock:
+            return len(self._cache)
+
+    def size_sync(self) -> int:
+        """
+        Return current cache size (synchronous version for non-async contexts).
+        V13.0 COVE FIX: Added synchronous version for get_stats() and other non-async contexts
+
+        Note: While len() is atomic in Python (single bytecode operation), it may return
+        stale/inconsistent values during concurrent modifications. This is acceptable for
+        logging/stats purposes, but for critical decisions, use the async size() method
+        with proper locking.
+        """
         return len(self._cache)
 
-    def clear(self) -> None:
-        """Clear all cache entries."""
-        self._cache.clear()
+    async def clear(self) -> None:
+        """
+        Clear all cache entries.
+        V13.0 COVE FIX: Made async to use asyncio.Lock for thread safety
+        """
+        async with self._lock:
+            self._cache.clear()
 
 
 # ============================================
@@ -498,23 +530,35 @@ class CircuitBreaker:
     - CLOSED: Normal operation, requests pass through
     - OPEN: Source is failing, skip requests for recovery_timeout
     - HALF_OPEN: Testing if source recovered, allow one request
+    - PERMANENT_FAILURE: Source has failed too many times, give up permanently
 
     Requirements: 1.4
+    VPS FIX: Added max_retries to prevent infinite retry loops
     """
 
     def __init__(
         self,
         failure_threshold: int = CIRCUIT_BREAKER_FAILURE_THRESHOLD,
         recovery_timeout: int = CIRCUIT_BREAKER_RECOVERY_TIMEOUT,
+        max_retries: int = CIRCUIT_BREAKER_MAX_RETRIES,
     ):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
+        self.max_retries = max_retries
         self.failure_count = 0
+        self.total_attempts = 0  # VPS FIX: Track total attempts across all cycles
         self.last_failure_time: float | None = None
         self.state = "CLOSED"
 
     def can_execute(self) -> bool:
         """Check if request should be allowed."""
+        # VPS FIX: Block execution if in PERMANENT_FAILURE state
+        if self.state == "PERMANENT_FAILURE":
+            logger.debug(
+                f"🔴 [CIRCUIT-BREAKER] Source permanently failed after {self.total_attempts} attempts"
+            )
+            return False
+
         if self.state == "CLOSED":
             return True
 
@@ -545,20 +589,38 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """Record a failed request."""
         self.failure_count += 1
+        self.total_attempts += 1  # VPS FIX: Track total attempts
         self.last_failure_time = time.time()
+
+        # VPS FIX: Check if we've exceeded max_retries and give up permanently
+        if self.total_attempts >= self.max_retries:
+            self.state = "PERMANENT_FAILURE"
+            logger.error(
+                f"💀 [CIRCUIT-BREAKER] Source PERMANENTLY FAILED after {self.total_attempts} total attempts "
+                f"(max_retries={self.max_retries}). Giving up."
+            )
+            return
 
         if self.state == "HALF_OPEN":
             self.state = "OPEN"
-            logger.warning("⚠️ [CIRCUIT-BREAKER] Circuit OPEN (failed in HALF_OPEN)")
+            logger.warning(
+                f"⚠️ [CIRCUIT-BREAKER] Circuit OPEN (failed in HALF_OPEN). "
+                f"Total attempts: {self.total_attempts}/{self.max_retries}"
+            )
         elif self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
-            logger.warning(f"🔴 [CIRCUIT-BREAKER] Circuit OPEN after {self.failure_count} failures")
+            logger.warning(
+                f"🔴 [CIRCUIT-BREAKER] Circuit OPEN after {self.failure_count} failures. "
+                f"Total attempts: {self.total_attempts}/{self.max_retries}"
+            )
 
     def get_state(self) -> dict[str, Any]:
         """Get circuit breaker state for stats."""
         return {
             "state": self.state,
             "failure_count": self.failure_count,
+            "total_attempts": self.total_attempts,  # VPS FIX: Include total attempts
+            "max_retries": self.max_retries,  # VPS FIX: Include max_retries
             "last_failure": self.last_failure_time,
         }
 
@@ -1871,11 +1933,33 @@ class DeepSeekFallback:
         # Support both V1 (summary) and V2 (summary_italian)
         summary = result.get("summary_italian") or result.get("summary", "")
 
+        # Safe confidence conversion with error handling (COVE FIX 2026-03-07)
+        try:
+            confidence_raw = result.get("confidence", 0.0)
+            if isinstance(confidence_raw, str):
+                # Try to extract number from string (e.g., "0.85" or "85%")
+                import re
+
+                match = re.search(r"[\d.]+", confidence_raw)
+                if match:
+                    confidence = float(match.group())
+                    # If the value is a percentage (e.g., "85"), convert to 0.0-1.0 range
+                    if confidence > 1.0:
+                        confidence = confidence / 100.0
+                else:
+                    logger.warning(f"Invalid confidence value: {confidence_raw}, using default 0.0")
+                    confidence = 0.0
+            else:
+                confidence = float(confidence_raw)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to convert confidence to float: {e}, using default 0.0")
+            confidence = 0.0
+
         return AnalysisResult(
             is_relevant=is_relevant,
             category=result.get("category", "OTHER"),
             affected_team=affected_team,
-            confidence=float(result.get("confidence", 0.0)),
+            confidence=confidence,
             summary=summary,
             betting_impact=betting_impact,
         )
@@ -2255,8 +2339,12 @@ class NewsRadarMonitor:
         Main scan loop that runs continuously.
 
         Requirements: 1.2, 1.3
+        V13.0 COVE FIX: Added error classification and max retry logic with exponential backoff
         """
         logger.info("🔄 [NEWS-RADAR] Scan loop started")
+
+        consecutive_errors = 0
+        max_consecutive_errors = 10  # Stop after 10 consecutive errors
 
         while self._running and not self._stop_event.is_set():
             try:
@@ -2272,6 +2360,9 @@ class NewsRadarMonitor:
 
                 # Run scan cycle
                 alerts_sent = await self.scan_cycle()
+
+                # Reset error counter on success
+                consecutive_errors = 0
 
                 self._last_cycle_time = datetime.now(timezone.utc)
                 logger.info(
@@ -2289,10 +2380,120 @@ class NewsRadarMonitor:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"❌ [NEWS-RADAR] Scan loop error: {e}")
-                await asyncio.sleep(60)
+                # V13.0 COVE FIX: Classify error type for appropriate handling
+                error_class = self._classify_error(e)
+
+                if error_class == "PERMANENT":
+                    logger.error(
+                        f"💀 [NEWS-RADAR] Permanent error detected, stopping monitor: {type(e).__name__}: {e}"
+                    )
+                    self._running = False
+                    break
+
+                elif error_class == "RATE_LIMIT":
+                    # Longer backoff for rate limits (30 minutes)
+                    backoff_time = 1800
+                    logger.warning(
+                        f"⚠️ [NEWS-RADAR] Rate limited, waiting {backoff_time}s (30 minutes) before retry..."
+                    )
+                    await asyncio.sleep(backoff_time)
+                    # Reset error counter after rate limit backoff
+                    consecutive_errors = 0
+
+                else:  # TRANSIENT
+                    consecutive_errors += 1
+                    logger.error(
+                        f"❌ [NEWS-RADAR] Transient error ({consecutive_errors}/{max_consecutive_errors}): {type(e).__name__}: {e}"
+                    )
+
+                    # Check if we should stop due to too many consecutive errors
+                    if consecutive_errors >= max_consecutive_errors:
+                        logger.error(
+                            f"💀 [NEWS-RADAR] Too many consecutive errors ({consecutive_errors}). Stopping monitor."
+                        )
+                        self._running = False
+                        break
+
+                    # Exponential backoff: 60s, 120s, 240s, 480s, 600s (max)
+                    backoff_time = min(60 * (2 ** (consecutive_errors - 1)), 600)
+                    logger.warning(f"⚠️ [NEWS-RADAR] Waiting {backoff_time}s before retry...")
+                    await asyncio.sleep(backoff_time)
 
         logger.info("🛑 [NEWS-RADAR] Scan loop stopped")
+
+    def _classify_error(self, error: Exception) -> str:
+        """
+        Classify error type for appropriate handling in the scan loop.
+
+        This method determines whether an error is:
+        - PERMANENT: Cannot be resolved by retrying (stop immediately)
+        - RATE_LIMIT: API rate limit (long backoff required)
+        - TRANSIENT: Temporary issue (retry with exponential backoff)
+
+        Args:
+            error: The exception to classify
+
+        Returns:
+            Error classification: 'PERMANENT', 'RATE_LIMIT', or 'TRANSIENT'
+
+        V13.0 COVE FIX: Added intelligent error classification to prevent
+        unnecessary retries on permanent errors and appropriate backoff for rate limits.
+        """
+        error_type = type(error).__name__
+        error_msg = str(error).lower()
+
+        # Permanent errors - stop immediately
+        # These errors cannot be resolved by retrying
+        if error_type in ["FileNotFoundError", "JSONDecodeError", "SyntaxError"]:
+            return "PERMANENT"
+
+        # Configuration errors - typically permanent
+        if "config" in error_msg and ("invalid" in error_msg or "not found" in error_msg):
+            return "PERMANENT"
+
+        # Permission errors - typically permanent
+        if error_type in ["PermissionError"]:
+            return "PERMANENT"
+
+        # Rate limit errors - longer backoff (30 minutes)
+        # Check for HTTP 429 status
+        if error_type == "HTTPStatusError" and hasattr(error, "status"):
+            if error.status == 429:
+                return "RATE_LIMIT"
+
+        # Check for rate limit in error message
+        if "rate limit" in error_msg or "429" in error_msg or "too many requests" in error_msg:
+            return "RATE_LIMIT"
+
+        # Transient errors - retry with exponential backoff
+        # These are temporary issues that can be resolved by retrying
+        if error_type in [
+            "TimeoutError",
+            "ConnectionError",
+            "ConnectionRefusedError",
+            "ConnectionResetError",
+            "ConnectionAbortedError",
+            "OSError",
+            "RuntimeError",
+        ]:
+            return "TRANSIENT"
+
+        # Network-related errors
+        if "timeout" in error_msg or "connection" in error_msg or "network" in error_msg:
+            return "TRANSIENT"
+
+        # HTTP errors that might be transient
+        if error_type in ["HTTPError", "HTTPStatusError"]:
+            # 5xx errors are server-side and typically transient
+            if hasattr(error, "status") and error.status >= 500:
+                return "TRANSIENT"
+            # 4xx errors (except 429) are client-side and typically permanent
+            if hasattr(error, "status") and error.status >= 400 and error.status < 500:
+                return "PERMANENT"
+
+        # Default to TRANSIENT for unknown errors
+        # This is safer than stopping on unknown errors
+        return "TRANSIENT"
 
     async def scan_cycle(self) -> int:
         """
@@ -2581,32 +2782,43 @@ class NewsRadarMonitor:
             return None
 
         # V7.0: Check shared cache first (cross-component deduplication)
+        # V14.0 COVE FIX: Use atomic check_and_mark_async() for thread safety
         try:
             from src.utils.shared_cache import get_shared_cache
 
             shared_cache = get_shared_cache()
-            if shared_cache.is_duplicate(content=content, url=url, source="news_radar"):
+            # Atomic check-and-mark operation to prevent race conditions
+            if await shared_cache.check_and_mark_async(
+                content=content, url=url, source="news_radar"
+            ):
                 logger.debug(f"🔄 [NEWS-RADAR] Skipping cross-component duplicate: {url[:50]}...")
                 return None
         except ImportError:
             pass  # Shared cache not available, continue with local cache
+        except Exception as e:
+            # V14.0 COVE FIX: Cache error handling - continue processing despite cache failure
+            logger.warning(f"⚠️ [NEWS-RADAR] Shared cache check failed, continuing: {e}")
+            # Continue processing despite shared cache failure
 
         # Check local cache (deduplication)
-        if self._content_cache.is_cached(content):
-            logger.debug(f"🔄 [NEWS-RADAR] Skipping duplicate: {url[:50]}...")
-            return None
+        # V13.0 COVE FIX: Wrap in try/except for cache error handling
+        try:
+            if await self._content_cache.is_cached(content):
+                logger.debug(f"🔄 [NEWS-RADAR] Skipping duplicate: {url[:50]}...")
+                return None
+        except Exception as e:
+            # V13.0 COVE FIX: Cache error handling - continue processing despite cache failure
+            logger.warning(f"⚠️ [NEWS-RADAR] Local cache check failed, continuing: {e}")
+            # Continue processing despite cache failure
 
         # Cache content locally
-        self._content_cache.add(content)
-
-        # V7.0: Mark in shared cache
+        # V13.0 COVE FIX: Wrap in try/except for cache error handling
         try:
-            from src.utils.shared_cache import get_shared_cache
-
-            shared_cache = get_shared_cache()
-            shared_cache.mark_seen(content=content, url=url, source="news_radar")
-        except ImportError:
-            pass
+            await self._content_cache.add(content)
+        except Exception as e:
+            # V13.0 COVE FIX: Cache error handling - continue processing despite cache failure
+            logger.warning(f"⚠️ [NEWS-RADAR] Failed to cache content locally, continuing: {e}")
+            # Continue processing despite cache failure
 
         # ============================================
         # V2.0: NEW HIGH-VALUE PIPELINE
@@ -2758,7 +2970,8 @@ class NewsRadarMonitor:
                     alert.confidence = boosted_confidence
                     logger.info(f"✅ [NEWS-RADAR] Multi-source confirmation: {validation_tag}")
             except Exception as e:
-                logger.debug(f"⚠️ [NEWS-RADAR] Cross-validation failed: {e}")
+                logger.warning(f"⚠️ [NEWS-RADAR] Cross-validation failed: {e}")
+                validation_tag = "⚠️ Cross-validation failed"
 
         # Store validation info for alert message
         alert._odds_suffix = odds_suffix
@@ -2956,45 +3169,54 @@ class NewsRadarMonitor:
         try:
             from src.database.models import NewsLog, SessionLocal
 
-            db = SessionLocal()
-            try:
-                # Create NewsLog entry with PENDING_RADAR_TRIGGER status
-                news_log = NewsLog(
-                    match_id=alert.enrichment_context.match_id,
-                    url=alert.source_url,
-                    summary=f"RADAR HANDOFF: {alert.summary}",
-                    score=int(alert.confidence * 10)
-                    if alert.confidence is not None
-                    else 8,  # Convert 0.7-1.0 to 7-10, fallback to 8 if None
-                    category=alert.category,
-                    affected_team=alert.affected_team,
-                    status="PENDING_RADAR_TRIGGER",  # Special status for cross-process handoff
-                    sent=False,
-                    source="news_radar",
-                    source_confidence=alert.confidence,
-                    confidence=alert.confidence * 100
-                    if alert.confidence is not None
-                    else None,  # V11.1: Convert 0-1 to 0-100 for BettingQuant, handle None
-                    # Store original content as forced narrative
-                    # Use verification_reason to store the full content
-                    verification_reason=content[:10000],  # Limit to 10KB
-                )
+            # V13.0 COVE FIX: Wrap synchronous DB operations in asyncio.to_thread()
+            # to prevent event loop blocking
+            def db_operations():
+                db = SessionLocal()
+                try:
+                    # Create NewsLog entry with PENDING_RADAR_TRIGGER status
+                    news_log = NewsLog(
+                        match_id=alert.enrichment_context.match_id,
+                        url=alert.source_url,
+                        summary=f"RADAR HANDOFF: {alert.summary}",
+                        score=int(alert.confidence * 10)
+                        if alert.confidence is not None
+                        else 8,  # Convert 0.7-1.0 to 7-10, fallback to 8 if None
+                        category=alert.category,
+                        affected_team=alert.affected_team,
+                        status="PENDING_RADAR_TRIGGER",  # Special status for cross-process handoff
+                        sent=False,
+                        source="news_radar",
+                        source_confidence=alert.confidence,
+                        confidence=alert.confidence * 100
+                        if alert.confidence is not None
+                        else None,  # V11.1: Convert 0-1 to 0-100 for BettingQuant, handle None
+                        # Store original content as forced narrative
+                        # Use verification_reason to store the full content
+                        verification_reason=content[:10000],  # Limit to 10KB
+                    )
 
-                db.add(news_log)
-                db.commit()
+                    db.add(news_log)
+                    db.commit()
 
+                    return True, None
+                except Exception as e:
+                    db.rollback()
+                    return False, str(e)
+                finally:
+                    db.close()
+
+            success, error = await asyncio.to_thread(db_operations)
+
+            if success:
                 logger.info(
                     f"✅ [NEWS-RADAR] CROSS-PROCESS HANDOFF: "
                     f"Match {alert.enrichment_context.match_id} "
                     f"({alert.enrichment_context.home_team} vs {alert.enrichment_context.away_team}) "
                     f"queued for full AI analysis"
                 )
-
-            except Exception as e:
-                logger.error(f"❌ [NEWS-RADAR] Failed to save handoff to DB: {e}")
-                db.rollback()
-            finally:
-                db.close()
+            else:
+                logger.error(f"❌ [NEWS-RADAR] Failed to save handoff to DB: {error}")
 
         except ImportError:
             logger.warning("⚠️ [NEWS-RADAR] Database models not available for handoff")
@@ -3116,7 +3338,7 @@ class NewsRadarMonitor:
             "sources_count": len(self._config.sources),
             "urls_scanned": self._urls_scanned,
             "alerts_sent": self._alerts_sent,
-            "cache_size": self._content_cache.size() if self._content_cache else 0,
+            "cache_size": self._content_cache.size_sync() if self._content_cache else 0,
             "last_cycle_time": self._last_cycle_time.isoformat() if self._last_cycle_time else None,
             "extractor_stats": self._extractor.get_stats() if self._extractor else {},
             "alerter_stats": self._alerter.get_stats() if self._alerter else {},
@@ -3225,9 +3447,9 @@ class GlobalRadarMonitor:
             if not self._config.sources:
                 logger.warning("⚠️ [GLOBAL-RADAR] No sources configured")
 
-            # Initialize Intelligence Queue
-            self._discovery_queue = DiscoveryQueue(max_entries=1000, ttl_hours=24)
-            logger.info("✅ [GLOBAL-RADAR] Intelligence Queue initialized")
+            # Initialize Intelligence Queue (use global singleton for data sharing)
+            self._discovery_queue = get_discovery_queue()
+            logger.info("✅ [GLOBAL-RADAR] Intelligence Queue initialized (global singleton)")
 
             # Initialize components
             self._content_cache = ContentCache(
@@ -3626,7 +3848,7 @@ class GlobalRadarMonitor:
             Signal dict or None
         """
         # Check cache
-        if self._content_cache.is_cached(content):
+        if await self._content_cache.is_cached(content):
             return None
 
         # Apply exclusion filter
@@ -3645,12 +3867,12 @@ class GlobalRadarMonitor:
             return None
 
         # Add to cache
-        self._content_cache.add(content)
+        await self._content_cache.add(content)
 
         return {
-            "team": analysis.team,
-            "title": analysis.title,
-            "snippet": analysis.snippet,
+            "team": analysis.affected_team or "Unknown",  # COVE FIX 2026-03-07: Use correct field
+            "title": analysis.summary,  # COVE FIX 2026-03-07: Use summary as title
+            "snippet": analysis.summary,  # COVE FIX 2026-03-07: Use summary as snippet
             "url": source.url,
             "category": analysis.category,
             "confidence": analysis.confidence,
@@ -3670,9 +3892,10 @@ class GlobalRadarMonitor:
         """
         try:
             # Use shared content analysis utilities
-            from src.utils.content_analysis import analyze_content
+            from src.utils.content_analysis import get_relevance_analyzer
 
-            return analyze_content(content)
+            analyzer = get_relevance_analyzer()
+            return analyzer.analyze(content)
 
         except Exception as e:
             logger.error(f"❌ [GLOBAL-RADAR] Analysis failed: {e}")

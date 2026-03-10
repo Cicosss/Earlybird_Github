@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/version.py
+# hypothesis_version: 6.151.4
+
+['.', '2026-02-23', 'Alert Feedback Loop', 'Analysis Engine', 'Analyzer', 'Betting Quant', 'CLV Tracker', 'Fatigue Engine', 'Final Alert Verifier', 'Global Orchestrator', 'Health Monitor', 'Image OCR', 'Injury Impact Engine', 'Launcher', 'News Scorer', 'Notifier', 'Optimizer', 'Perplexity Schemas', 'Player Intel', 'Pydantic Schemas', 'Reporter', 'Settlement Service', 'Sources Config', 'Telegram Listener', 'Telegram Trust Score', 'V', 'V1.0', 'V11.0', 'V11.1', 'V2.0', 'V3.0', 'V3.2', 'V3.7', 'V4.1', 'V4.2', 'V4.3', 'V4.4', 'V5.0', 'V8.1', 'V8.2', 'VERSION', 'VERSION_DATE', 'VERSION_DESCRIPTION', 'VERSION_MAJOR', 'VERSION_MINOR', 'VERSION_NAME', 'VERSION_PATCH', 'Verification Layer', 'date', 'description', 'get_version', 'get_version_dict', 'get_version_info', 'get_version_tuple', 'is_at_least', 'major', 'minor', 'name', 'patch', 'v', 'version', 'version_matches']

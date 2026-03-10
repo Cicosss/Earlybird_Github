@@ -205,15 +205,15 @@ def main():
 
     try:
         # ✅ NEW: Use centralized startup validator instead of check_environment()
-        try:
-            from src.utils.startup_validator import validate_startup_or_exit
+        # Fail-fast: If validator cannot be imported, system should not start
+        from src.utils.startup_validator import validate_startup_or_exit
 
-            validate_startup_or_exit()
-        except ImportError as e:
-            print(f"⚠️ Startup validator not available: {e}")
-            print("⚠️ Falling back to legacy check_environment()")
-            if not check_environment():
-                sys.exit(1)
+        validation_report = validate_startup_or_exit()
+
+        # Intelligent decision-making based on validation results
+        if validation_report.disabled_features:
+            print(f"⚙️  Disabled features: {', '.join(sorted(validation_report.disabled_features))}")
+            print("🔧 System will operate with reduced functionality")
 
         if not init_database(args.skip_reset):
             sys.exit(1)

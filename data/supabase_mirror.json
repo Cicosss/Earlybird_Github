@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-03-04T22:57:19.567476",
+  "version": "V12.5_TEST",
+  "checksum": "2c9aac9b1e2f40c50262651b0506828fd27d25231f389940850071f290616628",
+  "data": {
+    "continents": [
+      {
+        "id": "eu",
+        "name": "Europe"
+      }
+    ],
+    "countries": [
+      {
+        "id": "it",
+        "name": "Italy"
+      }
+    ],
+    "leagues": [
+      {
+        "id": "serie_a",
+        "name": "Serie A"
+      }
+    ],
+    "news_sources": [
+      {
+        "id": "source1",
+        "name": "Test Source"
+      }
+    ]
+  }
+}

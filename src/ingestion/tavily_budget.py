@@ -38,6 +38,9 @@ class BudgetManager(BaseBudgetManager):
         self,
         monthly_limit: int = TAVILY_MONTHLY_BUDGET,
         allocations: dict[str, int] | None = None,
+        enable_persistence: bool = True,
+        enable_monitoring: bool = True,
+        enable_reporting: bool = True,
     ):
         """
         Initialize BudgetManager.
@@ -45,11 +48,17 @@ class BudgetManager(BaseBudgetManager):
         Args:
             monthly_limit: Total monthly API call limit (default 7000)
             allocations: Per-component budget allocations
+            enable_persistence: Enable budget persistence to SQLite
+            enable_monitoring: Enable intelligent monitoring and state change detection
+            enable_reporting: Enable intelligent reporting with trend analysis
         """
         super().__init__(
             monthly_limit=monthly_limit,
             allocations=allocations or TAVILY_BUDGET_ALLOCATION,
             provider_name="Tavily",
+            enable_persistence=enable_persistence,
+            enable_monitoring=enable_monitoring,
+            enable_reporting=enable_reporting,
         )
 
     def get_degraded_threshold(self) -> float:

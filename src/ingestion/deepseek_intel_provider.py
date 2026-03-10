@@ -24,12 +24,16 @@ Requirements:
 - Brave Search API (via BraveSearchProvider) as fallback
 """
 
+import hashlib
+import json
 import logging
 import os
 import threading
 import time
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
+from config.settings import DEEPSEEK_CACHE_TTL_SECONDS
 from src.ingestion.brave_provider import get_brave_provider
 from src.ingestion.prompts import (
     build_betting_stats_prompt,
@@ -43,6 +47,7 @@ from src.prompts.system_prompts import (
     BETTING_STATS_SYSTEM_PROMPT,
     DEEP_DIVE_SYSTEM_PROMPT,
 )
+from src.schemas.perplexity_schemas import DeepDiveResponse
 from src.utils.ai_parser import normalize_deep_dive_response, parse_ai_json
 from src.utils.http_client import get_http_client
 from src.utils.validators import safe_get, safe_list_get
@@ -80,6 +85,30 @@ DEEPSEEK_MODEL = os.getenv("OPENROUTER_MODEL", MODEL_A_STANDARD)
 DEEPSEEK_MIN_INTERVAL = 2.0  # Minimum seconds between requests (Requirements 4.2)
 
 
+@dataclass
+class DeepSeekCacheEntry:
+    """Cache entry for DeepSeek responses with TTL and LRU tracking."""
+
+    response: str
+    cached_at: datetime
+    ttl_seconds: int = DEEPSEEK_CACHE_TTL_SECONDS
+    last_accessed: datetime = None
+
+    def __post_init__(self):
+        """Initialize last_accessed if not provided."""
+        if self.last_accessed is None:
+            self.last_accessed = datetime.now(timezone.utc)
+
+    def is_expired(self) -> bool:
+        """Check if cache entry has expired."""
+        elapsed = (datetime.now(timezone.utc) - self.cached_at).total_seconds()
+        return elapsed > self.ttl_seconds
+
+    def touch(self):
+        """Update last_accessed timestamp for LRU tracking."""
+        self.last_accessed = datetime.now(timezone.utc)
+
+
 class DeepSeekIntelProvider:
     """
     Provider AI che usa DeepSeek via OpenRouter + Brave Search.
@@ -115,6 +144,12 @@ class DeepSeekIntelProvider:
         # V6.2: Cost tracking for both models
         self._model_a_calls = 0
         self._model_b_calls = 0
+
+        # V12.6: Response caching to reduce API costs
+        self._cache: dict[str, DeepSeekCacheEntry] = {}
+        self._cache_lock = threading.Lock()  # Thread-safe cache access
+        self._cache_hits = 0
+        self._cache_misses = 0
 
         if not self._api_key:
             logger.warning("⚠️ DeepSeek Intel Provider disabled: OPENROUTER_API_KEY not set")
@@ -159,6 +194,110 @@ class DeepSeekIntelProvider:
         Useful for checking if provider can be used once cooldown ends.
         """
         return self._enabled and bool(self._api_key)
+
+    # ============================================
+    # CACHE METHODS (V12.6)
+    # ============================================
+
+    def _generate_cache_key(self, model: str, messages: list) -> str:
+        """
+        Generate a unique cache key for a request.
+
+        Args:
+            model: Model ID being called
+            messages: List of message dicts
+
+        Returns:
+            SHA256 hash as cache key
+        """
+        # Create a deterministic string representation
+        key_data = f"{model}:{json.dumps(messages, sort_keys=True)}"
+        return hashlib.sha256(key_data.encode()).hexdigest()
+
+    def _get_from_cache(self, cache_key: str) -> str | None:
+        """
+        Retrieve response from cache if available and not expired.
+        Updates last_accessed timestamp for LRU tracking.
+
+        Args:
+            cache_key: Cache key to look up
+
+        Returns:
+            Cached response or None if not found/expired
+        """
+        with self._cache_lock:
+            if cache_key in self._cache:
+                entry = self._cache[cache_key]
+                if not entry.is_expired():
+                    # Update last_accessed for LRU tracking
+                    entry.touch()
+                    self._cache_hits += 1
+                    logger.debug(f"💾 [DEEPSEEK] Cache hit for {cache_key[:16]}...")
+                    return entry.response
+                else:
+                    # Clean up expired entry
+                    del self._cache[cache_key]
+                    logger.debug(f"🗑️  [DEEPSEEK] Cache expired for {cache_key[:16]}...")
+        self._cache_misses += 1
+        return None
+
+    def _store_in_cache(self, cache_key: str, response: str) -> None:
+        """
+        Store response in cache.
+
+        Args:
+            cache_key: Cache key to store under
+            response: Response to cache
+        """
+        with self._cache_lock:
+            self._cache[cache_key] = DeepSeekCacheEntry(
+                response=response,
+                cached_at=datetime.now(timezone.utc),
+            )
+
+            # Cleanup old entries (keep cache size reasonable)
+            if len(self._cache) > 1000:
+                self._cleanup_cache()
+
+    def _cleanup_cache(self) -> None:
+        """
+        Remove expired and oldest cache entries to enforce size limit.
+        Uses hybrid approach: removes expired entries first, then LRU eviction.
+        """
+        with self._cache_lock:
+            # First, remove expired entries
+            expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
+            for key in expired_keys:
+                del self._cache[key]
+
+            if expired_keys:
+                logger.debug(f"🧹 [DEEPSEEK] Cleaned up {len(expired_keys)} expired cache entries")
+
+            # If still over limit, remove oldest entries (by last_accessed) - LRU eviction
+            if len(self._cache) > 1000:
+                sorted_entries = sorted(self._cache.items(), key=lambda x: x[1].last_accessed)
+                num_to_remove = len(self._cache) - 1000
+                for i in range(num_to_remove):
+                    key, _ = sorted_entries[i]
+                    del self._cache[key]
+                logger.debug(f"🧹 [DEEPSEEK] LRU eviction: removed {num_to_remove} oldest entries")
+
+    def get_cache_stats(self) -> dict:
+        """
+        Get cache statistics for monitoring.
+
+        Returns:
+            Dict with cache stats
+        """
+        with self._cache_lock:
+            total_requests = self._cache_hits + self._cache_misses
+            hit_rate = (self._cache_hits / total_requests * 100) if total_requests > 0 else 0.0
+            return {
+                "cache_size": len(self._cache),
+                "cache_hits": self._cache_hits,
+                "cache_misses": self._cache_misses,
+                "hit_rate_percent": round(hit_rate, 2),
+            }
 
     # ============================================
     # INTERNAL METHODS
@@ -423,6 +562,12 @@ Be conservative in your assessments when lacking current data.
         # V6.0: CooldownManager check removed
         # OpenRouter/DeepSeek has much higher rate limits than Gemini Direct API
 
+        # V12.6: Check cache first
+        cache_key = self._generate_cache_key(model, messages)
+        cached_response = self._get_from_cache(cache_key)
+        if cached_response is not None:
+            return cached_response
+
         # Rate limiting (local, not shared)
         self._wait_for_rate_limit()
 
@@ -516,6 +661,9 @@ Be conservative in your assessments when lacking current data.
             logger.debug(f"🔍 [DEEPSEEK] Response preview: {content[:500] if content else 'EMPTY'}")
 
             logger.info(f"✅ [DEEPSEEK] {operation_name} complete")
+
+            # V12.6: Store response in cache
+            self._store_in_cache(cache_key, content)
 
             return content
 
@@ -649,46 +797,30 @@ Be conservative in your assessments when lacking current data.
         }
 
     def _normalize_betting_stats(self, data: dict) -> dict:
-        """Normalize betting stats response with safe defaults."""
+        """
+        Normalize betting stats response using Pydantic validation.
 
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
+        Uses BettingStatsResponse schema for type-safe validation and field name consistency.
+        Replaces legacy field name mapping with schema-based validation.
 
-        def safe_float(val, default=0.0):
-            if val is None:
-                return default
-            try:
-                return float(val)
-            except (ValueError, TypeError):
-                return default
+        Args:
+            data: Raw parsed JSON from DeepSeek API
 
-        def safe_int(val, default=0):
-            if val is None:
-                return default
-            try:
-                return int(val)
-            except (ValueError, TypeError):
-                return default
+        Returns:
+            Validated dict with correct field names matching BettingStatsResponse schema
+        """
+        from src.schemas.perplexity_schemas import BettingStatsResponse
 
-        return {
-            "avg_corners_home": safe_float(data.get("avg_corners_home")),
-            "avg_corners_away": safe_float(data.get("avg_corners_away")),
-            "avg_corners_total": safe_float(data.get("avg_corners_total")),
-            "avg_cards_home": safe_float(data.get("avg_cards_home")),
-            "avg_cards_away": safe_float(data.get("avg_cards_away")),
-            "avg_cards_total": safe_float(data.get("avg_cards_total")),
-            "recent_corners_trend": safe_str(data.get("recent_corners_trend")),
-            "recent_cards_trend": safe_str(data.get("recent_cards_trend")),
-            "h2h_corners_avg": safe_float(data.get("h2h_corners_avg")),
-            "h2h_cards_avg": safe_float(data.get("h2h_cards_avg")),
-            "over_corners_recommendation": safe_str(data.get("over_corners_recommendation")),
-            "over_cards_recommendation": safe_str(data.get("over_cards_recommendation")),
-            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
-            "data_freshness": safe_str(data.get("data_freshness"), "Unknown"),
-            "additional_context": safe_str(data.get("additional_context"), ""),
-        }
+        if not data:
+            return None
+
+        try:
+            # Validate with Pydantic schema
+            validated = BettingStatsResponse(**data)
+            return validated.model_dump()
+        except Exception as e:
+            logger.warning(f"[DEEPSEEK] Betting stats validation failed: {e}")
+            return None
 
     # ============================================
     # PUBLIC API METHODS (Same interface as GeminiAgentProvider)
@@ -754,9 +886,15 @@ Be conservative in your assessments when lacking current data.
             if not response_text:
                 return None
 
-            # Parse and normalize
-            parsed = parse_ai_json(response_text, None)
-            return normalize_deep_dive_response(parsed)
+            # Try Pydantic validation first for strict enum checking
+            try:
+                validated = DeepDiveResponse.model_validate_json(response_text)
+                return validated.model_dump()
+            except Exception as validation_error:
+                logger.debug(f"[DEEPSEEK] Pydantic validation failed: {validation_error}")
+                # Fallback to legacy parsing with normalization
+                parsed = parse_ai_json(response_text, None)
+                return normalize_deep_dive_response(parsed)
 
         except Exception as e:
             logger.error(f"❌ [DEEPSEEK] Deep dive error: {e}")

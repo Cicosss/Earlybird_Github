@@ -19,6 +19,9 @@ References:
 """
 
 import logging
+import math
+import statistics
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -35,18 +38,24 @@ CLV_CONFIDENCE_SAMPLE = 50  # Full confidence at 50+ bets
 
 
 def _tavily_verify_line_movement(
-    home_team: str, away_team: str, match_date: datetime, line_movement: str
+    home_team: str, away_team: str, match_date: datetime, line_movement: str, clv_value: float
 ) -> str | None:
     """
     V7.0: Use Tavily to verify causes of line movement.
 
     Called during CLV analysis to understand why odds moved.
 
+    V14.0: Intelligent priority system based on CLV significance:
+    - Very significant (|CLV| >= 5%): Always call Tavily
+    - Moderately significant (3% <= |CLV| < 5%): Call if budget allows
+    - Just significant (2% <= |CLV| < 3%): Call only if budget is abundant (>80%)
+
     Args:
         home_team: Home team name
         away_team: Away team name
         match_date: Match date
         line_movement: Description of line movement (e.g., "Home odds dropped 2.1 → 1.8")
+        clv_value: CLV value to determine priority
 
     Returns:
         Explanation of line movement cause or None
@@ -63,8 +72,38 @@ def _tavily_verify_line_movement(
         if not tavily or not tavily.is_available():
             return None
 
-        if not budget or not budget.can_call("settlement_clv"):
-            logger.debug("📊 [CLV] Tavily budget limit reached")
+        if not budget:
+            return None
+
+        # V14.0: Intelligent priority system based on CLV significance
+        clv_abs = abs(clv_value)
+        status = budget.get_status()
+
+        # Very significant CLV (>=5%): Always call
+        if clv_abs >= 5.0:
+            if not budget.can_call("settlement_clv"):
+                logger.debug("📊 [CLV] Tavily budget limit reached for very significant CLV")
+                return None
+
+        # Moderately significant CLV (3-5%): Call if budget allows
+        elif clv_abs >= 3.0:
+            if not budget.can_call("settlement_clv"):
+                logger.debug("📊 [CLV] Tavily budget limit reached for moderately significant CLV")
+                return None
+
+        # Just significant CLV (2-3%): Call only if budget is abundant (>80%)
+        elif clv_abs >= 2.0:
+            if status.is_disabled or status.is_degraded:
+                logger.debug(
+                    f"📊 [CLV] Skipping Tavily call for just significant CLV (budget at {status.usage_percentage:.1f}%)"
+                )
+                return None
+            if not budget.can_call("settlement_clv"):
+                logger.debug("📊 [CLV] Tavily budget limit reached for just significant CLV")
+                return None
+        else:
+            # CLV < 2%: Don't call Tavily
+            logger.debug(f"📊 [CLV] Skipping Tavily call for CLV {clv_value:.2f}% (<2%)")
             return None
 
         # Build query for line movement analysis
@@ -86,7 +125,7 @@ def _tavily_verify_line_movement(
 
             if response.answer:
                 logger.info(
-                    f"🔍 [CLV] Tavily found line movement cause for {home_team} vs {away_team}"
+                    f"🔍 [CLV] Tavily found line movement cause for {home_team} vs {away_team} (CLV: {clv_value:+.2f}%)"
                 )
                 return response.answer[:400]
 
@@ -177,6 +216,12 @@ class CLVTracker:
             return None
         if odds_taken <= 1.0 or closing_odds <= 1.0:
             return None
+        if math.isinf(odds_taken) or math.isinf(closing_odds):
+            return None
+        if math.isnan(odds_taken) or math.isnan(closing_odds):
+            return None
+        if odds_taken > 1000 or closing_odds > 1000:
+            return None
 
         try:
             # Convert closing odds to implied probability
@@ -244,7 +289,6 @@ class CLVTracker:
 
     def _calculate_stats(self, total_bets: int, clv_values: list[float]) -> CLVStats:
         """Calculate statistics from CLV values."""
-        import statistics
 
         if not clv_values:
             return CLVStats(
@@ -362,7 +406,21 @@ class CLVTracker:
                 wins_positive_clv + wins_negative_clv + losses_positive_clv + losses_negative_clv
             )
             win_rate = (total_wins / settled_bets * 100) if settled_bets > 0 else 0.0
-            roi = 0.0  # Would need actual P&L data
+
+            # V13.0: Calculate actual ROI from settled bets
+            # ROI = (total_return - total_stake) / total_stake * 100
+            total_stake = settled_bets * 1.0  # Assume 1 unit per bet
+            total_return = 0.0
+
+            for log in logs:
+                is_win = self._infer_outcome(log)
+                if is_win is True:
+                    # Get odds from database - use odds_at_alert first (V8.3)
+                    odds = log.odds_at_alert or log.odds_taken or log.closing_odds or 1.0
+                    if odds > 1.0:
+                        total_return += odds
+
+            roi = ((total_return - total_stake) / total_stake * 100) if total_stake > 0 else 0.0
 
             # Validate edge: positive CLV + reasonable win rate = real edge
             is_validated = (
@@ -387,16 +445,29 @@ class CLVTracker:
         """
         Infer bet outcome from NewsLog data.
 
-        Returns:
-            True = win, False = loss, None = unknown
-        """
-        # Check category for outcome hints
-        category = (log.category or "").upper()
+        V13.0: Now uses the dedicated 'outcome' field that is populated
+        by the settlement service, instead of fragile string matching on 'category'.
 
-        # These are set by settler
-        if "WIN" in category:
+        Returns:
+            True = win, False = loss, None = unknown/pending
+        """
+        # V13.0: Check for dedicated outcome field (populated by settlement service)
+        if hasattr(log, "outcome") and log.outcome:
+            outcome = log.outcome.upper()
+            if outcome == "WIN":
+                return True
+            elif outcome == "LOSS":
+                return False
+            elif outcome == "PUSH":
+                return None  # PUSH doesn't count as win/loss
+            # PENDING or other values return None
+
+        # Fallback: Check category for outcome hints (legacy support)
+        # This is less reliable but provides backward compatibility
+        category = (log.category or "").upper()
+        if category in ("WIN", "WON"):
             return True
-        if "LOSS" in category:
+        elif category in ("LOSS", "LOST", "LOSE"):
             return False
 
         # Can't determine
@@ -452,6 +523,28 @@ class CLVTracker:
                     f"      Losses with +CLV (variance): {report.losses_with_positive_clv}"
                 )
 
+        # V14.0: Significant line movements with explanations
+        lines.append("\n🔍 SIGNIFICANT LINE MOVEMENTS (|CLV| ≥ 2%):")
+        significant_movements = self.get_significant_line_movements(days_back=days_back)
+        if significant_movements:
+            for movement in significant_movements[:10]:  # Show top 10
+                clv_emoji = "📈" if movement["clv"] > 0 else "📉"
+                lines.append(f"\n   {clv_emoji} {movement['match']}")
+                lines.append(f"      Strategy: {movement['strategy']}")
+                lines.append(f"      Market: {movement['market']}")
+                lines.append(f"      CLV: {movement['clv']:+.2f}%")
+                lines.append(
+                    f"      Odds: {movement['odds_at_alert']:.2f} → {movement['odds_at_kickoff']:.2f}"
+                )
+                if movement["line_movement_explanation"]:
+                    lines.append(
+                        f"      Explanation: {movement['line_movement_explanation'][:150]}..."
+                    )
+                else:
+                    lines.append("      Explanation: Not available")
+        else:
+            lines.append("   No significant line movements found in this period.")
+
         lines.append("\n" + "=" * 60)
 
         return "\n".join(lines)
@@ -478,14 +571,85 @@ class CLVTracker:
             "is_validated": report.is_validated if report else False,
         }
 
+    def get_significant_line_movements(
+        self, strategy: str = None, days_back: int = 30, min_clv: float = 2.0
+    ) -> list[dict]:
+        """
+        Get significant line movements with explanations.
+
+        V14.0: Returns bets with |CLV| >= min_clv and their Tavily explanations.
+
+        Args:
+            strategy: Filter by primary_driver (optional)
+            days_back: Lookback period
+            min_clv: Minimum absolute CLV to consider significant (default 2.0%)
+
+        Returns:
+            List of dicts with match info, CLV, and line_movement_explanation
+        """
+        with get_db_context() as db:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+
+            # Build query
+            query = (
+                db.query(NewsLog, Match)
+                .join(Match)
+                .filter(
+                    NewsLog.sent == True,
+                    NewsLog.clv_percent.isnot(None),
+                    Match.start_time >= cutoff,
+                )
+            )
+
+            # Filter by strategy if provided
+            if strategy:
+                query = query.filter(NewsLog.primary_driver == strategy)
+
+            # Filter by significant CLV
+            query = query.filter(
+                (NewsLog.clv_percent >= min_clv) | (NewsLog.clv_percent <= -min_clv)
+            )
+
+            # Get results
+            results = query.all()
+
+            # Build list of significant movements
+            movements = []
+            for news_log, match in results:
+                movement = {
+                    "match": f"{match.home_team} vs {match.away_team}",
+                    "league": match.league,
+                    "strategy": news_log.primary_driver,
+                    "market": news_log.recommended_market,
+                    "clv": news_log.clv_percent,
+                    "odds_at_alert": news_log.odds_at_alert,
+                    "odds_at_kickoff": news_log.odds_at_kickoff,
+                    "match_date": match.start_time,
+                    "line_movement_explanation": news_log.line_movement_explanation,
+                }
+                movements.append(movement)
+
+            # Sort by absolute CLV (most significant first)
+            movements.sort(key=lambda x: abs(x["clv"]), reverse=True)
+
+            return movements
+
 
 # Singleton instance
 _clv_tracker: CLVTracker | None = None
+_clv_tracker_lock = threading.Lock()
 
 
 def get_clv_tracker() -> CLVTracker:
-    """Get or create singleton CLV tracker instance."""
+    """
+    Get or create singleton CLV tracker instance (thread-safe).
+
+    Uses double-check locking pattern to prevent race conditions
+    when multiple threads access the singleton simultaneously.
+    """
     global _clv_tracker
     if _clv_tracker is None:
-        _clv_tracker = CLVTracker()
+        with _clv_tracker_lock:
+            if _clv_tracker is None:  # Double-check pattern
+                _clv_tracker = CLVTracker()
     return _clv_tracker

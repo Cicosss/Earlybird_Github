@@ -86,6 +86,7 @@ _seen_articles_lock = threading.Lock()
 
 # Last scrape time
 _last_scrape_time: datetime | None = None
+_scrape_time_lock = threading.Lock()  # Protect _last_scrape_time
 SCRAPE_INTERVAL_MINUTES = 30  # Don't scrape more than every 30 min
 
 
@@ -107,21 +108,58 @@ def _is_article_seen(url: str) -> bool:
         return False
 
 
-def _should_scrape() -> bool:
-    """Check if enough time has passed since last scrape."""
+def _try_acquire_scrape_lock() -> bool:
+    """
+    Atomically check if we can scrape and mark as scraped if so.
+    This prevents race conditions where multiple threads could all
+    decide to scrape at the same time.
+
+    Returns:
+        True if scrape lock was acquired, False otherwise
+    """
     global _last_scrape_time
 
-    if _last_scrape_time is None:
-        return True
+    with _scrape_time_lock:
+        if _last_scrape_time is None:
+            # First scrape ever
+            _last_scrape_time = datetime.now()
+            return True
 
-    elapsed = datetime.now() - _last_scrape_time
-    return elapsed.total_seconds() >= SCRAPE_INTERVAL_MINUTES * 60
+        elapsed = datetime.now() - _last_scrape_time
+        if elapsed.total_seconds() >= SCRAPE_INTERVAL_MINUTES * 60:
+            # Enough time has passed, acquire lock
+            _last_scrape_time = datetime.now()
+            return True
+
+        # Not enough time has passed
+        return False
+
+
+def _should_scrape() -> bool:
+    """
+    Check if enough time has passed since last scrape.
+    DEPRECATED: Use _try_acquire_scrape_lock() for thread safety.
+    Kept for backward compatibility.
+    """
+    global _last_scrape_time
+
+    with _scrape_time_lock:
+        if _last_scrape_time is None:
+            return True
+
+        elapsed = datetime.now() - _last_scrape_time
+        return elapsed.total_seconds() >= SCRAPE_INTERVAL_MINUTES * 60
 
 
 def _mark_scraped():
-    """Mark current time as last scrape."""
+    """
+    Mark current time as last scrape.
+    DEPRECATED: Use _try_acquire_scrape_lock() for thread safety.
+    Kept for backward compatibility.
+    """
     global _last_scrape_time
-    _last_scrape_time = datetime.now()
+    with _scrape_time_lock:
+        _last_scrape_time = datetime.now()
 
 
 def _is_ins_outs_article(url: str, title: str) -> bool:
@@ -357,8 +395,8 @@ def search_aleague_news(team_name: str, match_id: str, force: bool = False) -> l
     team_name = team_name.strip()
     results = []
 
-    # Rate limiting
-    if not force and not _should_scrape():
+    # Rate limiting - use atomic check-and-mark to prevent race conditions
+    if not force and not _try_acquire_scrape_lock():
         logger.debug("A-League scraper: skipping (scraped recently)")
         return []
 
@@ -370,8 +408,6 @@ def search_aleague_news(team_name: str, match_id: str, force: bool = False) -> l
     if not articles:
         logger.debug("A-League scraper: no articles found")
         return []
-
-    _mark_scraped()
 
     # Process articles
     for article in articles:
@@ -466,12 +502,37 @@ class ALeagueScraper:
 
     def __init__(self):
         self._available = None
+        self._available_lock = threading.Lock()  # Protect _available cache
+        self._last_check_time = None  # Track last check time
+        self._CHECK_INTERVAL_MINUTES = 5  # Re-check every 5 minutes
 
     def is_available(self) -> bool:
-        """Check if scraper is available."""
-        if self._available is None:
-            self._available = is_aleague_scraper_available()
-        return self._available
+        """
+        Check if scraper is available with thread-safe caching and retry logic.
+
+        This method implements an atomic check-and-set pattern with automatic
+        retry after 5 minutes of unavailability. This prevents race conditions
+        where multiple threads could trigger simultaneous availability checks.
+
+        Returns:
+            True if aleagues.com.au is reachable, False otherwise
+        """
+        with self._available_lock:
+            # Re-check if unavailable for more than 5 minutes
+            if (
+                self._available is False
+                and self._last_check_time is not None
+                and (datetime.now() - self._last_check_time).total_seconds()
+                > self._CHECK_INTERVAL_MINUTES * 60
+            ):
+                logger.debug("A-League scraper: re-checking availability after 5 minutes")
+                self._available = None  # Force re-check
+
+            if self._available is None:
+                self._available = is_aleague_scraper_available()
+                self._last_check_time = datetime.now()
+
+            return self._available
 
     def search_team_news(self, team_name: str, match_id: str, force: bool = False) -> list[dict]:
         """Search for team news."""

@@ -8,7 +8,8 @@ Provides a clean interface for main.py to call the verifier.
 import logging
 from urllib.parse import urlparse
 
-from src.analysis.final_alert_verifier import get_final_verifier, is_final_verifier_available
+from src.analysis.enhanced_verifier import get_enhanced_final_verifier
+from src.analysis.final_alert_verifier import is_final_verifier_available
 from src.database.models import Match, NewsLog
 from src.processing.sources_config import get_source_weight, get_trust_score
 
@@ -48,8 +49,8 @@ def verify_alert_before_telegram(
         }
 
     try:
-        verifier = get_final_verifier()
-        should_send, verification_result = verifier.verify_final_alert(
+        verifier = get_enhanced_final_verifier()
+        should_send, verification_result = verifier.verify_final_alert_with_discrepancy_handling(
             match=match, analysis=analysis, alert_data=alert_data, context_data=context_data or {}
         )
 
@@ -62,6 +63,11 @@ def verify_alert_before_telegram(
                 "confidence": verification_result.get("confidence_level", "LOW"),
                 "reasoning": (verification_result.get("rejection_reason", "") or "")[:200],
                 "final_verifier": True,
+                # Enhanced fields from EnhancedFinalVerifier
+                "data_discrepancies": verification_result.get("data_discrepancies", []),
+                "confidence_adjustment": verification_result.get("confidence_adjustment", ""),
+                "discrepancy_summary": verification_result.get("discrepancy_summary", {}),
+                "modifications_applied": verification_result.get("modifications_applied", []),
             }
         else:
             verification_info = {"status": "error", "final_verifier": True}
@@ -69,7 +75,7 @@ def verify_alert_before_telegram(
         return should_send, verification_info
 
     except Exception as e:
-        logger.error(f"Final verification error: {e}")
+        logger.error(f"Enhanced Final Verifier error: {e}")
         # Fail-safe: allow alert to proceed if verifier fails
         return True, {"status": "error", "reason": str(e), "final_verifier": True}
 

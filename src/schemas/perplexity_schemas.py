@@ -9,7 +9,7 @@ V1.0: Deep Dive and Betting Stats schemas for Perplexity structured outputs.
 
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class RiskLevel(str, Enum):
@@ -139,13 +139,20 @@ class DeepDiveResponse(BaseModel):
     @field_validator("biscotto_potential")
     @classmethod
     def validate_biscotto_potential(cls, v):
-        """Ensure biscotto potential starts with valid enum."""
-        for potential in [BiscottoPotential.YES, BiscottoPotential.NO, BiscottoPotential.UNKNOWN]:
-            if v.startswith(potential.value):
-                return v
-        raise ValueError(
-            f"Must start with valid biscotto potential: {', '.join([p.value for p in BiscottoPotential])}"
-        )
+        """Ensure biscotto potential starts with valid enum (case-insensitive)."""
+        if isinstance(v, str):
+            v_lower = v.lower()
+            for potential in [
+                BiscottoPotential.YES,
+                BiscottoPotential.NO,
+                BiscottoPotential.UNKNOWN,
+            ]:
+                if v_lower.startswith(potential.value.lower()):
+                    # Normalize the case: preserve the explanation but use correct case for the potential
+                    return potential.value + v[len(potential.value) :]
+            raise ValueError(
+                f"Must start with valid biscotto potential: {', '.join([p.value for p in BiscottoPotential])}"
+            )
 
     @field_validator("injury_impact")
     @classmethod
@@ -161,18 +168,21 @@ class DeepDiveResponse(BaseModel):
     @field_validator("btts_impact")
     @classmethod
     def validate_btts_impact(cls, v):
-        """Ensure BTTS impact starts with valid enum."""
-        for impact in [
-            BTTSImpact.POSITIVE,
-            BTTSImpact.NEGATIVE,
-            BTTSImpact.NEUTRAL,
-            BTTSImpact.UNKNOWN,
-        ]:
-            if v.startswith(impact.value):
-                return v
-        raise ValueError(
-            f"Must start with valid BTTS impact: {', '.join([i.value for i in BTTSImpact])}"
-        )
+        """Ensure BTTS impact starts with valid enum (case-insensitive)."""
+        if isinstance(v, str):
+            v_lower = v.lower()
+            for impact in [
+                BTTSImpact.POSITIVE,
+                BTTSImpact.NEGATIVE,
+                BTTSImpact.NEUTRAL,
+                BTTSImpact.UNKNOWN,
+            ]:
+                if v_lower.startswith(impact.value.lower()):
+                    # Normalize the case: preserve the explanation but use correct case for the impact
+                    return impact.value + v[len(impact.value) :]
+            raise ValueError(
+                f"Must start with valid BTTS impact: {', '.join([i.value for i in BTTSImpact])}"
+            )
 
     @field_validator("motivation_home", "motivation_away")
     @classmethod
@@ -293,18 +303,24 @@ class BettingStatsResponse(BaseModel):
                 return SignalLevel.UNKNOWN
         return v
 
-    @field_validator("cards_signal")
+    @field_validator("cards_signal", mode="before")
     @classmethod
     def validate_cards_signal(cls, v):
-        """Validate cards signal is a valid enum."""
+        """Validate cards signal is a valid enum (case-insensitive)."""
         if isinstance(v, str):
-            try:
-                return CardsSignal(v)
-            except ValueError:
-                return CardsSignal.UNKNOWN
+            v_lower = v.lower()
+            for signal in [
+                CardsSignal.AGGRESSIVE,
+                CardsSignal.MEDIUM,
+                CardsSignal.DISCIPLINED,
+                CardsSignal.UNKNOWN,
+            ]:
+                if v_lower == signal.value.lower():
+                    return signal
+            return CardsSignal.UNKNOWN
         return v
 
-    @field_validator("referee_strictness")
+    @field_validator("referee_strictness", mode="before")
     @classmethod
     def validate_referee_strictness(cls, v):
         """Validate referee strictness is a valid enum (case-insensitive)."""
@@ -317,7 +333,7 @@ class BettingStatsResponse(BaseModel):
                 RefereeStrictness.UNKNOWN,
             ]:
                 if v_lower == strictness.value.lower():
-                    return strictness.value
+                    return strictness
             return RefereeStrictness.UNKNOWN
         return v
 
@@ -346,7 +362,19 @@ class BettingStatsResponse(BaseModel):
     @field_validator("home_form_wins", "home_form_draws", "home_form_losses")
     @classmethod
     def validate_home_form_consistency(cls, v, info):
-        """Ensure home form values are consistent (max 5 matches total)."""
+        """
+        Ensure home form values are consistent (max 5 matches total).
+
+        Auto-corrects totals exceeding 5 by reducing the largest field first,
+        then the second largest, until total equals exactly 5.
+
+        This approach guarantees the total is exactly 5, avoiding the issues
+        with proportional correction that can fail due to rounding.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         # Get all home form fields for validation
         data = info.data
         home_wins = data.get("home_form_wins")
@@ -357,41 +385,63 @@ class BettingStatsResponse(BaseModel):
         if home_wins is not None and home_draws is not None and home_losses is not None:
             total_matches = home_wins + home_draws + home_losses
             if total_matches > 5:
-                # Auto-correct by reducing losses first, then draws
+                # Calculate excess to remove
                 excess = total_matches - 5
-                if home_losses >= excess:
-                    home_losses_corrected = home_losses - excess
-                elif home_draws >= excess:
-                    home_draws_corrected = home_draws - excess
+
+                # Create a list of (field_name, current_value) sorted by value (descending)
+                # This ensures we reduce the largest values first
+                fields = [
+                    ("home_form_wins", home_wins),
+                    ("home_form_draws", home_draws),
+                    ("home_form_losses", home_losses),
+                ]
+                fields.sort(key=lambda x: x[1], reverse=True)
+
+                # Reduce fields until total equals exactly 5
+                remaining_excess = excess
+                for field_name, field_value in fields:
+                    if remaining_excess <= 0:
+                        break
+
+                    # Calculate how much to reduce from this field
+                    reduction = min(field_value, remaining_excess)
+                    data[field_name] = field_value - reduction
+                    remaining_excess -= reduction
+
+                # Verify the correction worked
+                corrected_total = (
+                    data["home_form_wins"] + data["home_form_draws"] + data["home_form_losses"]
+                )
+                if corrected_total != 5:
+                    logger.error(
+                        f"🔧 [FORM_VALIDATION] Home form correction failed: "
+                        f"original={total_matches}, expected=5, got={corrected_total}"
+                    )
                 else:
-                    home_wins_corrected = max(0, home_wins - excess)
-
-                # Log the correction
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"🔧 [FORM_VALIDATION] Home form total exceeded 5 ({total_matches} matches). "
-                    f"Auto-corrected: W={home_wins_corrected}, D={home_draws_corrected}, L={home_losses_corrected}"
-                )
-
-                # Update the data
-                info.data["home_form_wins"] = (
-                    home_wins_corrected if "home_wins_corrected" in locals() else home_wins
-                )
-                info.data["home_form_draws"] = (
-                    home_draws_corrected if "home_draws_corrected" in locals() else home_draws
-                )
-                info.data["home_form_losses"] = (
-                    home_losses_corrected if "home_losses_corrected" in locals() else home_losses
-                )
+                    logger.warning(
+                        f"🔧 [FORM_VALIDATION] Home form total exceeded 5 ({total_matches} matches). "
+                        f"Auto-corrected: W={data['home_form_wins']}, "
+                        f"D={data['home_form_draws']}, L={data['home_form_losses']}"
+                    )
 
         return v
 
     @field_validator("away_form_wins", "away_form_draws", "away_form_losses")
     @classmethod
     def validate_away_form_consistency(cls, v, info):
-        """Ensure away form values are consistent (max 5 matches total)."""
+        """
+        Ensure away form values are consistent (max 5 matches total).
+
+        Auto-corrects totals exceeding 5 by reducing the largest field first,
+        then the second largest, until total equals exactly 5.
+
+        This approach guarantees total is exactly 5, avoiding issues
+        with proportional correction that can fail due to rounding.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         # Get all away form fields for validation
         data = info.data
         away_wins = data.get("away_form_wins")
@@ -402,36 +452,158 @@ class BettingStatsResponse(BaseModel):
         if away_wins is not None and away_draws is not None and away_losses is not None:
             total_matches = away_wins + away_draws + away_losses
             if total_matches > 5:
-                # Auto-correct by reducing losses first, then draws
+                # Calculate excess to remove
                 excess = total_matches - 5
-                if away_losses >= excess:
-                    away_losses_corrected = away_losses - excess
-                elif away_draws >= excess:
-                    away_draws_corrected = away_draws - excess
+
+                # Create a list of (field_name, current_value) sorted by value (descending)
+                # This ensures we reduce the largest values first
+                fields = [
+                    ("away_form_wins", away_wins),
+                    ("away_form_draws", away_draws),
+                    ("away_form_losses", away_losses),
+                ]
+                fields.sort(key=lambda x: x[1], reverse=True)
+
+                # Reduce fields until total equals exactly 5
+                remaining_excess = excess
+                for field_name, field_value in fields:
+                    if remaining_excess <= 0:
+                        break
+
+                    # Calculate how much to reduce from this field
+                    reduction = min(field_value, remaining_excess)
+                    data[field_name] = field_value - reduction
+                    remaining_excess -= reduction
+
+                # Verify the correction worked
+                corrected_total = (
+                    data["away_form_wins"] + data["away_form_draws"] + data["away_form_losses"]
+                )
+                if corrected_total != 5:
+                    logger.error(
+                        f"🔧 [FORM_VALIDATION] Away form correction failed: "
+                        f"original={total_matches}, expected=5, got={corrected_total}"
+                    )
                 else:
-                    away_wins_corrected = max(0, away_wins - excess)
-
-                # Log the correction
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"🔧 [FORM_VALIDATION] Away form total exceeded 5 ({total_matches} matches). "
-                    f"Auto-corrected: W={away_wins_corrected}, D={away_draws_corrected}, L={away_losses_corrected}"
-                )
-
-                # Update the data
-                info.data["away_form_wins"] = (
-                    away_wins_corrected if "away_wins_corrected" in locals() else away_wins
-                )
-                info.data["away_form_draws"] = (
-                    away_draws_corrected if "away_draws_corrected" in locals() else away_draws
-                )
-                info.data["away_form_losses"] = (
-                    away_losses_corrected if "away_losses_corrected" in locals() else away_losses
-                )
+                    logger.warning(
+                        f"🔧 [FORM_VALIDATION] Away form total exceeded 5 ({total_matches} matches). "
+                        f"Auto-corrected: W={data['away_form_wins']}, "
+                        f"D={data['away_form_draws']}, L={data['away_form_losses']}"
+                    )
 
         return v
+
+    @model_validator(mode="after")
+    @classmethod
+    def validate_form_consistency(cls, model):
+        """
+        Ensure home and away form values are consistent (max 5 matches total).
+
+        Auto-corrects totals exceeding 5 by reducing the largest field first,
+        then the second largest, until total equals exactly 5.
+
+        This approach guarantees total is exactly 5, avoiding issues
+        with proportional correction that can fail due to rounding.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Validate home form
+        home_wins = model.home_form_wins
+        home_draws = model.home_form_draws
+        home_losses = model.home_form_losses
+
+        if home_wins is not None and home_draws is not None and home_losses is not None:
+            home_total = home_wins + home_draws + home_losses
+            if home_total > 5:
+                # Calculate excess to remove
+                excess = home_total - 5
+
+                # Create a list of (field_name, current_value) sorted by value (descending)
+                # This ensures we reduce the largest values first
+                home_fields = [
+                    ("home_form_wins", home_wins),
+                    ("home_form_draws", home_draws),
+                    ("home_form_losses", home_losses),
+                ]
+                home_fields.sort(key=lambda x: x[1], reverse=True)
+
+                # Reduce fields until total equals exactly 5
+                remaining_excess = excess
+                for field_name, field_value in home_fields:
+                    if remaining_excess <= 0:
+                        break
+
+                    # Calculate how much to reduce from this field
+                    reduction = min(field_value, remaining_excess)
+                    setattr(model, field_name, field_value - reduction)
+                    remaining_excess -= reduction
+
+                # Verify the correction worked
+                corrected_total = (
+                    model.home_form_wins + model.home_form_draws + model.home_form_losses
+                )
+                if corrected_total != 5:
+                    logger.error(
+                        f"🔧 [FORM_VALIDATION] Home form correction failed: "
+                        f"original={home_total}, expected=5, got={corrected_total}"
+                    )
+                else:
+                    logger.warning(
+                        f"🔧 [FORM_VALIDATION] Home form total exceeded 5 ({home_total} matches). "
+                        f"Auto-corrected: W={model.home_form_wins}, "
+                        f"D={model.home_form_draws}, L={model.home_form_losses}"
+                    )
+
+        # Validate away form
+        away_wins = model.away_form_wins
+        away_draws = model.away_form_draws
+        away_losses = model.away_form_losses
+
+        if away_wins is not None and away_draws is not None and away_losses is not None:
+            away_total = away_wins + away_draws + away_losses
+            if away_total > 5:
+                # Calculate excess to remove
+                excess = away_total - 5
+
+                # Create a list of (field_name, current_value) sorted by value (descending)
+                # This ensures we reduce the largest values first
+                away_fields = [
+                    ("away_form_wins", away_wins),
+                    ("away_form_draws", away_draws),
+                    ("away_form_losses", away_losses),
+                ]
+                away_fields.sort(key=lambda x: x[1], reverse=True)
+
+                # Reduce fields until total equals exactly 5
+                remaining_excess = excess
+                for field_name, field_value in away_fields:
+                    if remaining_excess <= 0:
+                        break
+
+                    # Calculate how much to reduce from this field
+                    reduction = min(field_value, remaining_excess)
+                    setattr(model, field_name, field_value - reduction)
+                    remaining_excess -= reduction
+
+                # Verify the correction worked
+                corrected_total = (
+                    model.away_form_wins + model.away_form_draws + model.away_form_losses
+                )
+                if corrected_total != 5:
+                    logger.error(
+                        f"🔧 [FORM_VALIDATION] Away form correction failed: "
+                        f"original={away_total}, expected=5, got={corrected_total}"
+                    )
+                else:
+                    logger.warning(
+                        f"🔧 [FORM_VALIDATION] Away form total exceeded 5 ({away_total} matches). "
+                        f"Auto-corrected: W={model.away_form_wins}, "
+                        f"D={model.away_form_draws}, L={model.away_form_losses}"
+                    )
+
+        return model
 
 
 # JSON Schema exports for Perplexity API

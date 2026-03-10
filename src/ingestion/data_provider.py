@@ -454,6 +454,28 @@ class FotMobProvider:
         "IFK Göteborg": "IFK Goteborg",
     }
 
+    @staticmethod
+    def _create_error_dict(error_msg: str, data: dict | None = None) -> dict:
+        """
+        Create a standardized error dictionary.
+
+        This ensures consistent error handling across all FotMobProvider methods.
+
+        Args:
+            error_msg: Human-readable error message
+            data: Optional partial data that was successfully retrieved
+
+        Returns:
+            Dict with standardized error structure
+        """
+        error_dict = {
+            "error": True,
+            "error_msg": error_msg,
+        }
+        if data is not None:
+            error_dict["data"] = data
+        return error_dict
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(self.BASE_HEADERS)
@@ -465,7 +487,7 @@ class FotMobProvider:
         try:
             from src.utils.smart_cache import SmartCache
 
-            self._swr_cache = SmartCache(name="fotmob_swr", max_size=1000, swr_enabled=True)
+            self._swr_cache = SmartCache(name="fotmob_swr", max_size=2000, swr_enabled=True)
             logger.info(
                 "✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)"
             )
@@ -473,7 +495,7 @@ class FotMobProvider:
             self._swr_cache = None
             logger.warning("⚠️ SWR cache not available - using standard cache only")
 
-        # V7.0: Cache metrics for monitoring
+        # V7.0: Cache metrics for monitoring (directly from SmartCache, not incremented)
         self._cache_hits = 0
         self._cache_misses = 0
         self._playwright_fallback_count = 0
@@ -530,19 +552,36 @@ class FotMobProvider:
         V7.0: Log cache performance metrics for monitoring.
 
         This helps track the effectiveness of the aggressive caching strategy.
+        Note: Metrics are retrieved directly from SmartCache, not from instance attributes.
         """
-        total_requests = self._cache_hits + self._cache_misses
-        if total_requests > 0:
-            hit_rate = (self._cache_hits / total_requests) * 100
-            logger.info(
-                f"📊 [FOTMOB] Cache Metrics - "
-                f"Hits: {self._cache_hits}, "
-                f"Misses: {self._cache_misses}, "
-                f"Hit Rate: {hit_rate:.1f}%, "
-                f"Playwright Fallbacks: {self._playwright_fallback_count}"
-            )
+        if self._swr_cache is not None:
+            cache_metrics = self._swr_cache.get_swr_metrics()
+            total_requests = cache_metrics.hits + cache_metrics.misses
+            if total_requests > 0:
+                hit_rate = (cache_metrics.hits / total_requests) * 100
+                logger.info(
+                    f"📊 [FOTMOB] Cache Metrics - "
+                    f"Hits: {cache_metrics.hits}, "
+                    f"Misses: {cache_metrics.misses}, "
+                    f"Hit Rate: {hit_rate:.1f}%, "
+                    f"Playwright Fallbacks: {self._playwright_fallback_count}"
+                )
+            else:
+                logger.info("📊 [FOTMOB] Cache Metrics - No requests yet")
         else:
-            logger.info("📊 [FOTMOB] Cache Metrics - No requests yet")
+            # SWR cache not available - use instance attributes
+            total_requests = self._cache_hits + self._cache_misses
+            if total_requests > 0:
+                hit_rate = (self._cache_hits / total_requests) * 100
+                logger.info(
+                    f"📊 [FOTMOB] Cache Metrics (Legacy) - "
+                    f"Hits: {self._cache_hits}, "
+                    f"Misses: {self._cache_misses}, "
+                    f"Hit Rate: {hit_rate:.1f}%, "
+                    f"Playwright Fallbacks: {self._playwright_fallback_count}"
+                )
+            else:
+                logger.info("📊 [FOTMOB] Cache Metrics - No requests yet")
 
     def cleanup(self):
         """
@@ -1188,7 +1227,9 @@ class FotMobProvider:
         Uses 24h TTL to reduce FotMob requests by 80-90%.
         Falls back to Playwright when requests get 403.
         """
-        cache_key = f"team_details:{team_id}"
+        # V7.1: Include season in cache key to prevent serving stale data across seasons
+        season = match_time.year if match_time else None
+        cache_key = f"team_details:{team_id}:{season}" if season else f"team_details:{team_id}"
 
         # V7.0: Use SWR caching with aggressive TTL (24 hours)
         if self._swr_cache is not None:
@@ -1200,26 +1241,20 @@ class FotMobProvider:
 
                 if resp is None:
                     logger.warning(f"⚠️ FotMob team details non disponibili per ID {team_id}")
-                    return {
-                        "_error": True,
-                        "_error_msg": "Dati FotMob non disponibili",
-                        "team_id": team_id,
-                        "squad": {},
-                        "fixtures": {},
-                    }
+                    return self._create_error_dict(
+                        "Dati FotMob non disponibili",
+                        data={"team_id": team_id, "squad": {}, "fixtures": {}},
+                    )
 
                 try:
                     data = resp.json()
                     return data
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.error(f"❌ FotMob team details JSON non valido: {e}")
-                    return {
-                        "_error": True,
-                        "_error_msg": "Risposta JSON non valida",
-                        "team_id": team_id,
-                        "squad": {},
-                        "fixtures": {},
-                    }
+                    return self._create_error_dict(
+                        "Risposta JSON non valida",
+                        data={"team_id": team_id, "squad": {}, "fixtures": {}},
+                    )
 
             # V7.0: Use aggressive TTL (24h fresh, 72h stale)
             result, is_fresh = self._get_with_swr(
@@ -1313,26 +1348,19 @@ class FotMobProvider:
 
             if team_id is None:
                 logger.warning(f"⚠️ Team ID not found for: {team_name}")
-                return {
-                    "_error": True,
-                    "_error_msg": f"Team not found: {team_name}",
-                    "team_id": None,
-                    "squad": {},
-                    "fixtures": {},
-                }
+                return self._create_error_dict(
+                    f"Team not found: {team_name}",
+                    data={"team_id": None, "squad": {}, "fixtures": {}},
+                )
 
             # Get team details using the ID
             return self.get_team_details(team_id, match_time)
 
         except Exception as e:
             logger.error(f"❌ Error getting team details by name for {team_name}: {e}")
-            return {
-                "_error": True,
-                "_error_msg": str(e),
-                "team_id": None,
-                "squad": {},
-                "fixtures": {},
-            }
+            return self._create_error_dict(
+                str(e), data={"team_id": None, "squad": {}, "fixtures": {}}
+            )
 
     def _extract_squad_injuries(self, team_data: dict, team_name: str) -> list[dict]:
         """Extract injured/unavailable players from team squad data."""
@@ -1727,6 +1755,90 @@ class FotMobProvider:
             logger.error(f"❌ FotMob Match Lineup Error: {e}")
             return None
 
+    def get_match_stats(self, match_id: int) -> dict | None:
+        """
+        Get match statistics including corners, cards, possession, shots, xG, etc.
+
+        This method extracts detailed match statistics from FotMob API response.
+        Used by settlement service to evaluate corner/card bets.
+
+        Args:
+            match_id: FotMob match ID
+
+        Returns:
+            Dict with match statistics or None if unavailable
+            Keys: home_corners, away_corners, home_yellow_cards, away_yellow_cards,
+                  home_red_cards, away_red_cards, home_xg, away_xg,
+                  home_possession, away_possession, home_shots_on_target,
+                  away_shots_on_target, home_big_chances, away_big_chances,
+                  home_fouls, away_fouls
+        """
+        # Get match lineup data which includes statistics
+        match_data = self.get_match_lineup(match_id)
+        if not match_data:
+            logger.warning(f"⚠️ Could not fetch match stats for ID {match_id}")
+            return None
+
+        try:
+            result = {}
+
+            # Navigate to statistics section
+            # FotMob API structure varies, try multiple paths
+            content = match_data.get("content", {}) if isinstance(match_data, dict) else {}
+            match_stats = (
+                content.get("stats", {})
+                or content.get("matchStats", {})
+                or content.get("statistics", {})
+                or {}
+            )
+
+            # Extract home team stats
+            home_stats = match_stats.get("home", {}) if isinstance(match_stats, dict) else {}
+            # Extract away team stats
+            away_stats = match_stats.get("away", {}) if isinstance(match_stats, dict) else {}
+
+            # Extract corners
+            result["home_corners"] = home_stats.get("corners")
+            result["away_corners"] = away_stats.get("corners")
+
+            # Extract cards
+            result["home_yellow_cards"] = home_stats.get("yellowCards")
+            result["away_yellow_cards"] = away_stats.get("yellowCards")
+            result["home_red_cards"] = home_stats.get("redCards")
+            result["away_red_cards"] = away_stats.get("redCards")
+
+            # Extract possession (percentage)
+            result["home_possession"] = home_stats.get("possession")
+            result["away_possession"] = away_stats.get("possession")
+
+            # Extract shots on target
+            result["home_shots_on_target"] = home_stats.get("shotsOnTarget")
+            result["away_shots_on_target"] = away_stats.get("shotsOnTarget")
+
+            # Extract big chances
+            result["home_big_chances"] = home_stats.get("bigChances")
+            result["away_big_chances"] = away_stats.get("bigChances")
+
+            # Extract expected goals (xG)
+            result["home_xg"] = home_stats.get("xg")
+            result["away_xg"] = away_stats.get("xg")
+
+            # Extract fouls
+            result["home_fouls"] = home_stats.get("fouls")
+            result["away_fouls"] = away_stats.get("fouls")
+
+            # Check if we got any data
+            has_data = any(v is not None for v in result.values())
+            if not has_data:
+                logger.warning(f"⚠️ No statistics available for match {match_id}")
+                return None
+
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Error extracting match stats for {match_id}: {e}")
+            return None
+
     def get_table_context(self, team_name: str) -> dict:
         """
         LAYER 1: MOTIVATION ANALYSIS
@@ -1815,7 +1927,7 @@ class FotMobProvider:
                 # V7.0: Safe nested dictionary access with type checking
                 rows = safe_get(table, "table", "all", default=[])
                 if not rows:
-                    rows = table.get("all", [])
+                    rows = table.get("all", []) if isinstance(table, dict) else []
 
                 total_teams = len(rows)
 
@@ -1884,7 +1996,92 @@ class FotMobProvider:
                 elif isinstance(f, str):
                     form_str += f[0].upper() if f else "?"
             return form_str if form_str else None
-        return None
+
+    def get_league_table_context(
+        self,
+        league_id: str = None,
+        home_team_id: str = None,
+        away_team_id: str = None,
+        home_team_name: str = None,
+        away_team_name: str = None,
+    ) -> dict:
+        """
+        Get league table context for both home and away teams.
+
+        This method combines table context for both teams to provide complete
+        motivation analysis for match prediction.
+
+        Args:
+            league_id: League ID (not used, kept for compatibility)
+            home_team_id: Home team FotMob ID (not used, kept for compatibility)
+            away_team_id: Away team FotMob ID (not used, kept for compatibility)
+            home_team_name: Home team name
+            away_team_name: Away team name
+
+        Returns:
+            Dict with combined context for both teams:
+            - home_rank, home_zone, home_form, home_motivation
+            - away_rank, away_zone, away_form, away_motivation
+            - motivation_summary: Combined summary
+            - error: Error message if any
+        """
+        result = {
+            "home_rank": None,
+            "home_zone": "Unknown",
+            "home_form": None,
+            "home_motivation": "Unknown",
+            "away_rank": None,
+            "away_zone": "Unknown",
+            "away_form": None,
+            "away_motivation": "Unknown",
+            "motivation_summary": "N/A",
+            "error": None,
+        }
+
+        try:
+            # Get context for home team
+            if home_team_name:
+                home_context = self.get_table_context(home_team_name)
+                if home_context and not home_context.get("error"):
+                    result["home_rank"] = home_context.get("position")
+                    result["home_zone"] = home_context.get("zone", "Unknown")
+                    result["home_form"] = home_context.get("form")
+                    result["home_motivation"] = home_context.get("motivation", "Unknown")
+                else:
+                    result["error"] = (
+                        home_context.get("error") if home_context else "Home team not found"
+                    )
+
+            # Get context for away team
+            if away_team_name:
+                away_context = self.get_table_context(away_team_name)
+                if away_context and not away_context.get("error"):
+                    result["away_rank"] = away_context.get("position")
+                    result["away_zone"] = away_context.get("zone", "Unknown")
+                    result["away_form"] = away_context.get("form")
+                    result["away_motivation"] = away_context.get("motivation", "Unknown")
+                else:
+                    if not result["error"]:
+                        result["error"] = (
+                            away_context.get("error") if away_context else "Away team not found"
+                        )
+
+            # Create motivation summary
+            if result["home_motivation"] != "Unknown" and result["away_motivation"] != "Unknown":
+                result["motivation_summary"] = (
+                    f"Home: {result['home_motivation']} | Away: {result['away_motivation']}"
+                )
+            elif result["home_motivation"] != "Unknown":
+                result["motivation_summary"] = f"Home: {result['home_motivation']}"
+            elif result["away_motivation"] != "Unknown":
+                result["motivation_summary"] = f"Away: {result['away_motivation']}"
+
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ Error getting league table context: {e}")
+            result["error"] = str(e)
+            return result
 
     def get_fixture_details(self, team_name: str) -> dict | None:
         """Get fixture details for a team's next match."""
@@ -1898,12 +2095,16 @@ class FotMobProvider:
             team_id, fotmob_name = self.search_team_id(team_name)
 
         if not team_id:
-            return {"error": f"Team not found: {team_name}", "source": "FotMob"}
+            return self._create_error_dict(
+                f"Team not found: {team_name}", data={"source": "FotMob"}
+            )
 
         try:
             team_data = self.get_team_details(team_id)
             if not team_data:
-                return {"error": "Could not fetch team details", "source": "FotMob"}
+                return self._create_error_dict(
+                    "Could not fetch team details", data={"source": "FotMob"}
+                )
 
             injuries = self._extract_squad_injuries(team_data, fotmob_name)
 
@@ -1933,7 +2134,7 @@ class FotMobProvider:
                 "match_id": match_id,
                 # V7.0: Safe nested dictionary access with type checking
                 "opponent": safe_get(next_match, "opponent", "name", default="Unknown"),
-                "match_time": next_match.get("utcTime"),
+                "match_time": safe_get(next_match, "utcTime"),
                 "is_home": is_home,
                 "injuries": injuries,
                 "confirmed_absentees": injuries,
@@ -2058,15 +2259,24 @@ class FotMobProvider:
             # Use the wrapper function that converts team_name to team_id
             team_details = self.get_team_details_by_name(team_name)
 
-            if not team_details or team_details.get("_error"):
-                return {
-                    "injuries": [],
-                    "motivation": {"zone": "Unknown", "position": None, "motivation": "Unknown"},
-                    "fatigue": {"fatigue_level": "Unknown", "hours_since_last": None},
-                    "error": team_details.get("_error_msg", "Unknown error")
+            if not team_details or team_details.get("error"):
+                error_msg = (
+                    team_details.get("error_msg", "Unknown error")
                     if team_details
-                    else "Team not found",
-                }
+                    else "Team not found"
+                )
+                return self._create_error_dict(
+                    error_msg,
+                    data={
+                        "injuries": [],
+                        "motivation": {
+                            "zone": "Unknown",
+                            "position": None,
+                            "motivation": "Unknown",
+                        },
+                        "fatigue": {"fatigue_level": "Unknown", "hours_since_last": None},
+                    },
+                )
 
             # Extract injuries
             injuries = team_details.get("injuries", [])
@@ -2129,7 +2339,7 @@ class FotMobProvider:
             # Use the wrapper function that converts team_name to team_id
             team_details = self.get_team_details_by_name(team_name)
 
-            if not team_details or team_details.get("_error"):
+            if not team_details or team_details.get("error"):
                 return None
 
             # Extract squad information
@@ -2197,7 +2407,7 @@ class FotMobProvider:
             # Use the wrapper function that converts team_name to team_id
             team_details = self.get_team_details_by_name(team_name)
 
-            if not team_details or team_details.get("_error"):
+            if not team_details or team_details.get("error"):
                 return None
 
             # Try to extract stadium information from team details
@@ -2262,21 +2472,23 @@ class FotMobProvider:
             # Use the wrapper function that converts team_name to team_id
             team_details = self.get_team_details_by_name(team_name)
 
-            if not team_details or team_details.get("_error"):
+            if not team_details or team_details.get("error"):
                 logger.debug(
                     f"FotMob team details not available for {team_name} - stats will be None"
                 )
-                return {
-                    "team_name": team_name,
-                    "goals_avg": None,
-                    "cards_avg": None,
-                    "corners_avg": None,
-                    "shots_avg": None,
-                    "possession_avg": None,
-                    "error": None,
-                    "source": "fotmob",
-                    "note": "FotMob does not provide team statistics. Use search providers (Tavily/Perplexity) for stats from footystats.org, soccerstats.com, or flashscore.com",
-                }
+                return self._create_error_dict(
+                    "FotMob does not provide team statistics",
+                    data={
+                        "team_name": team_name,
+                        "goals_avg": None,
+                        "cards_avg": None,
+                        "corners_avg": None,
+                        "shots_avg": None,
+                        "possession_avg": None,
+                        "source": "fotmob",
+                        "note": "FotMob does not provide team statistics. Use search providers (Tavily/Perplexity) for stats from footystats.org, soccerstats.com, or flashscore.com",
+                    },
+                )
 
             # Extract statistics from team details
             # FotMob structure varies, try multiple paths
@@ -2354,22 +2566,28 @@ class FotMobProvider:
             away_details = self.get_team_details(away_team)
 
             if not home_details or home_details.get("error"):
-                return {
-                    "home_style": "Unknown",
-                    "away_style": "Unknown",
-                    "formation_matchup": "Unknown",
-                    "tactical_advantage": "Unknown",
-                    "error": f"Home team data unavailable: {home_details.get('error') if home_details else 'Not found'}",
-                }
+                error_msg = f"Home team data unavailable: {home_details.get('error_msg') if home_details else 'Not found'}"
+                return self._create_error_dict(
+                    error_msg,
+                    data={
+                        "home_style": "Unknown",
+                        "away_style": "Unknown",
+                        "formation_matchup": "Unknown",
+                        "tactical_advantage": "Unknown",
+                    },
+                )
 
             if not away_details or away_details.get("error"):
-                return {
-                    "home_style": "Unknown",
-                    "away_style": "Unknown",
-                    "formation_matchup": "Unknown",
-                    "tactical_advantage": "Unknown",
-                    "error": f"Away team data unavailable: {away_details.get('error') if away_details else 'Not found'}",
-                }
+                error_msg = f"Away team data unavailable: {away_details.get('error_msg') if away_details else 'Not found'}"
+                return self._create_error_dict(
+                    error_msg,
+                    data={
+                        "home_style": "Unknown",
+                        "away_style": "Unknown",
+                        "formation_matchup": "Unknown",
+                        "tactical_advantage": "Unknown",
+                    },
+                )
 
             # Extract tactical information
             # FotMob may provide formation, playing style, etc.

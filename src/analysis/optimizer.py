@@ -992,6 +992,40 @@ class StrategyOptimizer:
                     f"Sortino={d_stats.get('sortino', 0):.2f} | n={d_stats.get('bets', 0)}"
                 )
 
+        # V13.0: Integrate CLV validation for weight adjustment
+        # Use CLVTracker to validate strategy edges and adjust weights accordingly
+        try:
+            from src.analysis.clv_tracker import get_clv_tracker
+
+            clv_tracker = get_clv_tracker()
+
+            logger.info("📈 CLV VALIDATION INTEGRATION:")
+            for driver, d_stats in self.data.get("drivers", {}).items():
+                # Get CLV validation report for this driver
+                clv_report = clv_tracker.get_strategy_edge_report(strategy=driver, days_back=30)
+
+                if clv_report and clv_report.clv_stats.bets_with_clv >= 20:
+                    current_weight = d_stats.get("weight", NEUTRAL_WEIGHT)
+
+                    if clv_report.is_validated:
+                        # CLV-validated strategy - trust the weight
+                        logger.info(
+                            f"   ✅ {driver}: CLV-validated (CLV={clv_report.clv_stats.avg_clv:+.2f}%, "
+                            f"Positive Rate={clv_report.clv_stats.positive_clv_rate:.1f}%)"
+                        )
+                    else:
+                        # Not CLV-validated - reduce weight
+                        new_weight = current_weight * 0.8
+                        d_stats["weight"] = new_weight
+                        logger.info(
+                            f"   📉 {driver}: NOT CLV-validated, weight reduced: "
+                            f"{current_weight:.2f} → {new_weight:.2f} "
+                            f"(CLV={clv_report.clv_stats.avg_clv:+.2f}%, "
+                            f"Positive Rate={clv_report.clv_stats.positive_clv_rate:.1f}%)"
+                        )
+        except Exception as e:
+            logger.warning(f"⚠️ CLV validation integration failed: {e}")
+
         # Save to disk (also updates cache)
         self._save_data()
 

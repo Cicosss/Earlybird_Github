@@ -32,7 +32,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +79,9 @@ class EnrichmentResult:
 
     # Metadata
     enrichment_time_ms: int = 0
-    failed_calls: list = field(default_factory=list)
+    failed_calls: list[str] = field(default_factory=list)
     successful_calls: int = 0
+    error_details: dict[str, str] = field(default_factory=dict)  # Maps task key to error message
 
     def has_injuries(self) -> bool:
         """Check if any team has injuries."""
@@ -123,18 +124,23 @@ def enrich_match_parallel(
     fotmob,
     home_team: str,
     away_team: str,
-    match_start_time: datetime | None = None,
-    weather_provider: Callable | None = None,
+    match_start_time: Optional[datetime] = None,
+    weather_provider: Optional[Callable] = None,
     max_workers: int = DEFAULT_MAX_WORKERS,
     timeout: int = TOTAL_TIMEOUT_SECONDS,
 ) -> EnrichmentResult:
     """
     V6.2: Esegue enrichment sequenziale per un match (precedentemente parallelizzato).
 
+    ⚠️ IMPORTANTE: Nonostante il nome "parallel", questa funzione esegue SEQUENZIALMENTE
+    per prevenire burst requests che triggerano l'anti-bot detection di FotMob (errori 403).
+
     Cambiamenti V6.2:
     - Passato da parallelo a sequenziale per prevenire burst requests
     - Ridotto max_workers da 4 a 1 per evitare errori 403 FotMob
     - Le chiamate sono ora eseguite una alla volta con rate limiting appropriato
+    - Aggiunto early exit se >50% dei task fallisce per migliorare performance su VPS
+    - Aggiunto campo error_details per migliorare debug su VPS
 
     Args:
         fotmob: FotMobProvider instance
@@ -146,12 +152,16 @@ def enrich_match_parallel(
         timeout: Timeout totale in secondi
 
     Returns:
-        EnrichmentResult con tutti i dati raccolti
+        EnrichmentResult con tutti i dati raccolti, incluso error_details per debugging
 
     Thread Safety:
         - FotMob ha già rate limiting thread-safe interno
         - Ogni chiamata è indipendente (no shared state)
         - V6.2: Esecuzione sequenziale previene race conditions e burst requests
+
+    Performance:
+        - Early exit se >50% dei task fallisce per evitare spreco di tempo
+        - Timeout configurabili per evitare blocchi
     """
     import time
 
@@ -195,6 +205,7 @@ def enrich_match_parallel(
             except Exception as e:
                 logger.warning(f"⚠️ [PARALLEL] Failed to submit {key}: {e}")
                 result.failed_calls.append(key)
+                result.error_details[key] = f"Submit failed: {str(e)}"
 
         # Raccogli risultati con timeout
         try:
@@ -229,15 +240,32 @@ def enrich_match_parallel(
                 except concurrent.futures.TimeoutError:
                     logger.warning(f"⚠️ [PARALLEL] {key} timed out")
                     result.failed_calls.append(key)
+                    result.error_details[key] = (
+                        "TimeoutError: Task timed out after {DEFAULT_TIMEOUT_SECONDS}s"
+                    )
                 except Exception as e:
                     logger.warning(f"⚠️ [PARALLEL] {key} failed: {e}")
                     result.failed_calls.append(key)
+                    result.error_details[key] = f"{type(e).__name__}: {str(e)}"
 
         except concurrent.futures.TimeoutError:
             logger.warning(f"⚠️ [PARALLEL] Total timeout ({timeout}s) exceeded")
             # Cancella i future rimanenti
             for future in future_to_key:
                 future.cancel()
+
+    # Early exit mechanism: if >50% of parallel tasks failed, skip weather phase
+    # This prevents wasting time on weather lookup when most enrichment data is unavailable
+    total_parallel_tasks = len(parallel_tasks)
+    if total_parallel_tasks > 0:
+        failure_rate = len(result.failed_calls) / total_parallel_tasks
+        if failure_rate > 0.5:
+            logger.warning(
+                f"⚠️ [PARALLEL] Early exit: {failure_rate * 100:.0f}% of tasks failed "
+                f"({len(result.failed_calls)}/{total_parallel_tasks}), skipping weather phase"
+            )
+            # Skip weather phase if >50% failures
+            weather_provider = None
 
     # Fase 2: Weather (dipende da stadium_coords) - sequenziale
     if result.stadium_coords and weather_provider and match_start_time:
@@ -250,6 +278,7 @@ def enrich_match_parallel(
         except Exception as e:
             logger.warning(f"⚠️ [PARALLEL] weather failed: {e}")
             result.failed_calls.append("weather")
+            result.error_details["weather"] = f"{type(e).__name__}: {str(e)}"
 
     # Calcola tempo totale
     elapsed_ms = int((time.time() - start_time) * 1000)

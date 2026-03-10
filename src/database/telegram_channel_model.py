@@ -407,14 +407,22 @@ def get_channel_metrics(channel_id: str) -> dict:
                 "channel_id": channel.channel_id,
                 "channel_name": channel.channel_name,
                 "total_messages": channel.total_messages,
+                "messages_with_odds_impact": channel.messages_with_odds_impact,
                 "insider_hits": channel.insider_hits,
                 "late_messages": channel.late_messages,
+                "total_edits": channel.total_edits,
+                "total_deletes": channel.total_deletes,
+                "predictions_made": channel.predictions_made,
+                "predictions_correct": channel.predictions_correct,
                 "echo_messages": channel.echo_messages,
                 "red_flags_count": channel.red_flags_count,
+                "red_flag_types": channel.red_flag_types,  # JSON string, will be deserialized
                 "trust_score": channel.trust_score,
                 "trust_level": channel.trust_level,
                 "is_blacklisted": channel.is_blacklisted,
                 "avg_timestamp_lag": channel.avg_timestamp_lag_minutes,
+                "first_seen": channel.first_seen,
+                "last_updated": channel.last_updated,
             }
     except Exception as e:
         logger.error(f"Error getting channel metrics: {e}")

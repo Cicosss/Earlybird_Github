@@ -17,7 +17,7 @@ import json
 import logging
 import threading
 
-from src.database.models import Match, NewsLog, SessionLocal
+from src.database.models import Match, NewsLog, get_db_session
 from src.services.intelligence_router import get_intelligence_router
 from src.utils.validators import safe_get
 
@@ -82,7 +82,10 @@ class FinalAlertVerifier:
             logger.debug("Final verifier disabled, allowing alert")
             return True, {"status": "disabled", "reason": "Verifier not available"}
 
-        # VPS FIX: Copy Match attributes before using them to prevent session detachment
+        # VPS FIX: Extract Match attributes immediately to reduce DetachedInstanceError vulnerability window
+        # Note: getattr() doesn't prevent DetachedInstanceError, but extracting attributes
+        # immediately when needed reduces the window of vulnerability. The current approach works
+        # as long as the session is still active.
         home_team = getattr(match, "home_team", None)
         away_team = getattr(match, "away_team", None)
 
@@ -139,14 +142,20 @@ class FinalAlertVerifier:
         5. Output Format: Structured JSON with clear fields
         """
 
-        # VPS FIX: Copy Match attributes before using them to prevent session detachment
+        # VPS FIX: Extract Match attributes immediately to reduce DetachedInstanceError vulnerability window
+        # Note: getattr() doesn't prevent DetachedInstanceError, but extracting attributes
+        # immediately when needed reduces the window of vulnerability. The current approach works
+        # as long as the session is still active.
         home_team = getattr(match, "home_team", None)
         away_team = getattr(match, "away_team", None)
         league = getattr(match, "league", None)
         start_time = getattr(match, "start_time", None)
         match_date = start_time.strftime("%Y-%m-%d") if start_time else "Unknown"
 
-        # VPS FIX: Extract Match odds safely to prevent session detachment
+        # VPS FIX: Extract Match odds immediately to reduce DetachedInstanceError vulnerability window
+        # Note: getattr() doesn't prevent DetachedInstanceError, but extracting attributes
+        # immediately when needed reduces the window of vulnerability. The current approach works
+        # as long as the session is still active.
         opening_home_odd = getattr(match, "opening_home_odd", None)
         current_home_odd = getattr(match, "current_home_odd", None)
         opening_draw_odd = getattr(match, "opening_draw_odd", None)
@@ -476,6 +485,14 @@ Begin your analysis now."""
             if processed["confidence_level"] not in valid_confidences:
                 processed["confidence_level"] = "LOW"
 
+            # VPS FIX: Validate final_recommendation to prevent feedback loop not triggering
+            valid_recommendations = ["SEND", "NO_BET", "MODIFY"]
+            if processed["final_recommendation"] not in valid_recommendations:
+                processed["final_recommendation"] = "NO_BET"
+                logger.warning(
+                    f"⚠️  [FINAL VERIFIER] Invalid final_recommendation: '{processed['final_recommendation']}', defaulting to NO_BET"
+                )
+
             discrepancies = processed["data_discrepancies"]
             if discrepancies:
                 processed = self._handle_discrepancies_intelligently(processed, discrepancies)
@@ -664,29 +681,30 @@ Begin your analysis now."""
         Handle alert rejection by updating all components.
 
         Marks the alert as "no bet" and updates database accordingly.
+
+        VPS FIX: Uses get_db_session() context manager for consistency with other components
+        and automatic retry logic for database locks.
         """
         try:
-            db = SessionLocal()
+            with get_db_session() as db:
+                analysis.status = "no_bet"
+                analysis.verification_status = verification_result.get(
+                    "verification_status", "REJECTED"
+                )
+                analysis.verification_reason = verification_result.get(
+                    "rejection_reason", "Final verification failed"
+                )
+                analysis.final_verifier_result = json.dumps(verification_result)
 
-            analysis.status = "no_bet"
-            analysis.verification_status = verification_result.get(
-                "verification_status", "REJECTED"
-            )
-            analysis.verification_reason = verification_result.get(
-                "rejection_reason", "Final verification failed"
-            )
-            analysis.final_verifier_result = json.dumps(verification_result)
+                if hasattr(match, "alert_status"):
+                    match.alert_status = "rejected"
 
-            if hasattr(match, "alert_status"):
-                match.alert_status = "rejected"
-
-            db.commit()
-            logger.info("📊 [FINAL VERIFIER] Updated database: alert marked as 'no bet'")
+                logger.info("📊 [FINAL VERIFIER] Updated database: alert marked as 'no bet'")
 
         except Exception as e:
             logger.error(f"Failed to update database after rejection: {e}")
-        finally:
-            db.close()
+            # Re-raise to allow caller to handle the error properly
+            raise
 
 
 _final_verifier_instance: FinalAlertVerifier | None = None

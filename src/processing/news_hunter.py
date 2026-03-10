@@ -35,6 +35,15 @@ from src.processing.sources_config import (
 )
 from src.utils.validators import safe_dict_get
 
+# V11.0: Import Contract Validation
+try:
+    from src.utils.contracts import NEWS_ITEM_CONTRACT, ContractViolation
+
+    _CONTRACTS_AVAILABLE = True
+except ImportError:
+    _CONTRACTS_AVAILABLE = False
+    logging.debug("Contracts module not available for news_hunter")
+
 # V10.0: Import Multi-Level Intelligence Gate
 try:
     from src.utils.intelligence_gate import (
@@ -394,6 +403,9 @@ def register_browser_monitor_discovery(news: Any) -> None:
         category = getattr(news, "category", None) or "general"
         confidence = getattr(news, "confidence", None) or 0.5
         discovered_at = getattr(news, "discovered_at", None)
+        # Extract cross-source validation fields
+        validation_tag = getattr(news, "validation_tag", None) or ""
+        boosted_confidence = getattr(news, "boosted_confidence", None) or 0.0
     except Exception as e:
         logging.warning(f"Failed to extract news attributes: {e}")
         return
@@ -429,15 +441,18 @@ def register_browser_monitor_discovery(news: Any) -> None:
         # Browser Monitor specific fields
         "keyword": "browser_monitor",
         "search_type": "browser_monitor",
-        "confidence": "HIGH",
+        "confidence": confidence,  # Use float value from DiscoveredNews (not hardcoded "HIGH")
         "category": category,
         "priority_boost": 2.0,
         "source_type": "browser_monitor",
         "league_key": league_key,
-        "gemini_confidence": confidence,
+        "gemini_confidence": confidence,  # Duplicate for compatibility with existing code
         "discovered_at": discovered_at.isoformat()
         if hasattr(discovered_at, "isoformat")
         else str(discovered_at),
+        # Cross-source validation fields (previously missing)
+        "validation_tag": validation_tag,
+        "boosted_confidence": boosted_confidence,
     }
 
     # V7.0: Use DiscoveryQueue if available
@@ -1525,11 +1540,18 @@ def search_twitter_rumors(team_alias: str, league_key: str, match_id: str) -> li
 
         # Convert CachedTweet objects to result dicts (max 5)
         for tweet in relevant_tweets[:5]:
+            # V13.0: Validate required fields before processing
+            # Skip tweets without content - they have no informational value
+            if not tweet.content:
+                logging.debug(f"🐦 [CACHE] Skipping tweet with empty content for {team_alias}")
+                continue
+
             # Build Twitter URL from handle
             handle_clean = tweet.handle.replace("@", "") if tweet.handle else "unknown"
             twitter_url = f"https://twitter.com/{handle_clean}"
 
             # Build title from handle + content preview
+            # Safe to use tweet.content now since we validated it above
             title = (
                 f"@{handle_clean}: {tweet.content[:60]}..."
                 if len(tweet.content) > 60
@@ -2287,10 +2309,14 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
             try:
                 scraper = get_aleague_scraper()
                 if scraper.is_available():
-                    home_aleague_news = scraper.search_team_news(home_search_name, match_info["match_id"])
+                    home_aleague_news = scraper.search_team_news(
+                        home_search_name, match_info["match_id"]
+                    )
                     all_news.extend(home_aleague_news)
 
-                    away_aleague_news = scraper.search_team_news(away_search_name, match_info["match_id"])
+                    away_aleague_news = scraper.search_team_news(
+                        away_search_name, match_info["match_id"]
+                    )
                     all_news.extend(away_aleague_news)
 
                     aleague_count = len(home_aleague_news) + len(away_aleague_news)
@@ -2313,10 +2339,14 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         logging.info(f"⭐ Beat Writer Priority search for {sport_key}...")
 
         try:
-            home_bw_news = search_beat_writers_priority(home_search_name, sport_key, match_info["match_id"])
+            home_bw_news = search_beat_writers_priority(
+                home_search_name, sport_key, match_info["match_id"]
+            )
             all_news.extend(home_bw_news)
 
-            away_bw_news = search_beat_writers_priority(away_search_name, sport_key, match_info["match_id"])
+            away_bw_news = search_beat_writers_priority(
+                away_search_name, sport_key, match_info["match_id"]
+            )
             all_news.extend(away_bw_news)
 
             beat_writer_count = len(home_bw_news) + len(away_bw_news)
@@ -2332,11 +2362,15 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         # ============================================
         try:
             logging.info(f"🔍 Hunting news for Home: {home_search_name} [{sport_key}]")
-            home_news = search_news(home_search_name, lang, match_info["match_id"], league_key=sport_key)
+            home_news = search_news(
+                home_search_name, lang, match_info["match_id"], league_key=sport_key
+            )
             all_news.extend(home_news)
 
             logging.info(f"🔍 Hunting news for Away: {away_search_name} [{sport_key}]")
-            away_news = search_news(away_search_name, lang, match_info["match_id"], league_key=sport_key)
+            away_news = search_news(
+                away_search_name, lang, match_info["match_id"], league_key=sport_key
+            )
             all_news.extend(away_news)
         except Exception as e:
             logging.error(f"News search error: {e}")
@@ -2346,8 +2380,12 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         # ============================================
         if include_insiders:
             try:
-                home_insider_news = search_insiders(home_search_name, sport_key, match_info["match_id"])
-                away_insider_news = search_insiders(away_search_name, sport_key, match_info["match_id"])
+                home_insider_news = search_insiders(
+                    home_search_name, sport_key, match_info["match_id"]
+                )
+                away_insider_news = search_insiders(
+                    away_search_name, sport_key, match_info["match_id"]
+                )
 
                 insider_count = len(home_insider_news) + len(away_insider_news)
                 if insider_count > 0:
@@ -2448,13 +2486,56 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         if _NEWS_DECAY_AVAILABLE and all_news:
             _apply_news_decay(all_news, match_info, sport_key)
 
+        # ============================================
+        # V11.0: CONTRACT VALIDATION
+        # ============================================
+        # Validate each news item against NEWS_ITEM_CONTRACT before returning
+        # This ensures data integrity between news_hunter and main.py
+        if _CONTRACTS_AVAILABLE and all_news:
+            valid_news = []
+            validation_errors = 0
+
+            for news_item in all_news:
+                try:
+                    NEWS_ITEM_CONTRACT.assert_valid(
+                        news_item,
+                        context=f"run_hunter_for_match(match_id={match_info.get('match_id', 'unknown')})",
+                    )
+                    valid_news.append(news_item)
+                except ContractViolation as e:
+                    # V14.0 FIX: Enhanced logging with context details
+                    news_id = news_item.get("match_id", "N/A")
+                    team = news_item.get("team", "N/A")
+                    title = news_item.get("title", "N/A")[:50]
+                    source = news_item.get("source", "N/A")
+
+                    logging.warning(
+                        f"⚠️ Contract violation in news item (context: run_hunter_for_match(match_id={match_info.get('match_id', 'unknown')})):\n"
+                        f"  News ID: {news_id}\n"
+                        f"  Team: {team}\n"
+                        f"  Title: {title}...\n"
+                        f"  Source: {source}\n"
+                        f"  Error: {e}"
+                    )
+                    validation_errors += 1
+                    # Skip invalid item to prevent data corruption downstream
+
+            if validation_errors > 0:
+                logging.warning(
+                    f"⚠️ Filtered {validation_errors}/{len(all_news)} invalid news items due to contract violations"
+                )
+
+            return valid_news
+
         return all_news
 
     finally:
         db.close()
 
 
-def _apply_news_decay(all_news: list[dict[str, Any]], match: MatchModel | dict[str, Any], sport_key: str) -> None:
+def _apply_news_decay(
+    all_news: list[dict[str, Any]], match: MatchModel | dict[str, Any], sport_key: str
+) -> None:
     """
     Apply news decay multipliers to all news items.
 

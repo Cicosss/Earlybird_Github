@@ -28,9 +28,81 @@ from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
 from src.utils.validators import safe_get
 
+# V11.0: Import Contract Validation
+try:
+    from src.utils.contracts import (
+        ANALYSIS_RESULT_CONTRACT,
+        SNIPPET_DATA_CONTRACT,
+        ContractViolation,
+    )
+
+    _CONTRACTS_AVAILABLE = True
+except ImportError:
+    _CONTRACTS_AVAILABLE = False
+    logging.debug("Contracts module not available for analyzer")
+
+
+def _validate_newslog_contract(newslog: NewsLog, context: str = "") -> NewsLog:
+    """
+    Validate a NewsLog object against ANALYSIS_RESULT_CONTRACT.
+
+    This helper function converts NewsLog to dict, validates against contract,
+    and returns the original NewsLog (always, even if invalid - logs warning).
+
+    Args:
+        newslog: NewsLog object to validate
+        context: Context string for error messages
+
+    Returns:
+        NewsLog (always returns the input NewsLog, logs warning if invalid)
+    """
+    if not _CONTRACTS_AVAILABLE:
+        return newslog
+
+    try:
+        # Convert NewsLog to dict for validation
+        # V14.0 FIX: Added all missing fields from ANALYSIS_RESULT_CONTRACT
+        newslog_dict = {
+            "score": newslog.score,
+            "summary": newslog.summary,
+            "category": newslog.category,
+            "recommended_market": newslog.recommended_market,
+            "combo_suggestion": newslog.combo_suggestion,
+            "combo_reasoning": newslog.combo_reasoning,
+            "primary_driver": newslog.primary_driver,
+            # V14.0: Added missing fields
+            "match_id": getattr(newslog, "match_id", None),
+            "url": getattr(newslog, "url", None),
+            "affected_team": getattr(newslog, "affected_team", None),
+            "confidence": getattr(newslog, "confidence", None),
+            "odds_taken": getattr(newslog, "odds_taken", None),
+            "confidence_breakdown": getattr(newslog, "confidence_breakdown", None),
+            "is_convergent": getattr(newslog, "is_convergent", None),
+            "convergence_sources": getattr(newslog, "convergence_sources", None),
+        }
+
+        # Validate against contract
+        ANALYSIS_RESULT_CONTRACT.assert_valid(newslog_dict, context=context)
+        return newslog
+    except ContractViolation as e:
+        # V14.0 FIX: Enhanced logging with context details
+        # FIX: Return newslog instead of None to prevent downstream crashes
+        logging.warning(
+            f"⚠️ Contract violation in NewsLog (context: {context}):\n"
+            f"  Match ID: {getattr(newslog, 'match_id', 'N/A')}\n"
+            f"  Summary: {getattr(newslog, 'summary', 'N/A')[:50]}...\n"
+            f"  Error: {e}\n"
+            f"  Returning NewsLog anyway to prevent downstream crashes"
+        )
+        return newslog
+
+
 # Import referee monitoring modules for V9.0
 try:
-    from src.analysis.referee_boost_logger import get_referee_boost_logger
+    from src.analysis.referee_boost_logger import (
+        BoostType,
+        get_referee_boost_logger,
+    )
     from src.analysis.referee_cache_monitor import get_referee_cache_monitor
     from src.analysis.referee_influence_metrics import get_referee_influence_metrics
 
@@ -510,6 +582,9 @@ USER_MESSAGE_TEMPLATE = """
 
 **DATA SOURCE 6: TWITTER INTEL (Insider Accounts)**
 {twitter_intel}
+
+**DATA SOURCE 7: SOURCE CREDIBILITY ANALYSIS (Beat Writers)**
+{source_credibility}
 
 **INVESTIGATION STATUS:** {investigation_status}
 
@@ -1526,6 +1601,7 @@ def analyze_with_triangulation(
         if news_articles:
             news_snippets = []
             team_names = set()  # Track which teams have news
+            source_credibility_info = []  # Track BeatWriter metadata
 
             for article in news_articles:
                 snippet = article.get("snippet", article.get("title", ""))
@@ -1536,7 +1612,50 @@ def analyze_with_triangulation(
                     if team:
                         team_names.add(team)
 
+                    # Preserve BeatWriter metadata for source credibility analysis
+                    beat_writer_name = article.get("beat_writer_name")
+                    beat_writer_outlet = article.get("beat_writer_outlet")
+                    beat_writer_specialty = article.get("beat_writer_specialty")
+                    beat_writer_reliability = article.get("beat_writer_reliability")
+                    avg_lead_time_min = article.get("avg_lead_time_min")
+
+                    if beat_writer_name and beat_writer_reliability is not None:
+                        source_credibility_info.append(
+                            {
+                                "name": beat_writer_name,
+                                "outlet": beat_writer_outlet or "Unknown",
+                                "specialty": beat_writer_specialty or "general",
+                                "reliability": beat_writer_reliability,
+                                "lead_time_min": avg_lead_time_min or 0,
+                                "snippet_preview": snippet[:100] + "..."
+                                if len(snippet) > 100
+                                else snippet,
+                            }
+                        )
+
             news_snippet = "\n\n".join(news_snippets) if news_snippets else "No news available"
+
+            # Format source credibility information for AI analysis
+            source_credibility_section = ""
+            if source_credibility_info:
+                credibility_lines = []
+                for i, source in enumerate(source_credibility_info, 1):
+                    reliability_pct = int(source["reliability"] * 100)
+                    lead_time_info = (
+                        f", {source['lead_time_min']}min lead time"
+                        if source["lead_time_min"] > 0
+                        else ""
+                    )
+                    credibility_lines.append(
+                        f"{i}. {source['name']} ({source['outlet']}) - "
+                        f"Specialty: {source['specialty']}, "
+                        f"Reliability: {reliability_pct}%{lead_time_info}\n"
+                        f"   Preview: {source['snippet_preview']}"
+                    )
+                source_credibility_section = (
+                    "\n\n**SOURCE CREDIBILITY ANALYSIS (Beat Writers):**\n"
+                    + "\n".join(credibility_lines)
+                )
 
             # Add team information to snippet_data
             # If only one team has news, use that team
@@ -1545,8 +1664,30 @@ def analyze_with_triangulation(
                 snippet_data["team"] = team_names.pop()
             elif len(team_names) > 1:
                 snippet_data["team"] = match_info["home_team"]
+
+            # Store source credibility in snippet_data for AI prompt
+            snippet_data["source_credibility"] = source_credibility_section
         else:
             news_snippet = news_snippet or "No news available"
+            # Initialize source_credibility when no news articles available
+            snippet_data["source_credibility"] = "No Beat Writer metadata available"
+
+        # V14.0 FIX: Validate snippet_data against SNIPPET_DATA_CONTRACT
+        if _CONTRACTS_AVAILABLE and snippet_data:
+            try:
+                SNIPPET_DATA_CONTRACT.assert_valid(
+                    snippet_data,
+                    context=f"analyze_with_triangulation(match_id={snippet_data.get('match_id', 'unknown')})",
+                )
+            except ContractViolation as e:
+                # Log warning but continue execution (consistent with other components)
+                logging.warning(
+                    f"⚠️ Contract violation in snippet_data (context: analyze_with_triangulation):\n"
+                    f"  Match ID: {snippet_data.get('match_id', 'N/A')}\n"
+                    f"  Team: {snippet_data.get('team', 'N/A')}\n"
+                    f"  Error: {e}\n"
+                    f"  Continuing with analysis..."
+                )
 
         # Build market_status from match and market_intel
         if market_status is None:
@@ -1641,14 +1782,14 @@ def analyze_with_triangulation(
     if not snippet_data:
         snippet_data = {}
 
-    # Priority: Mock Data
+        # Priority: Mock Data
     if os.getenv("USE_MOCK_DATA") == "true":
         from src.testing.mocks import MOCK_LLM_RESPONSES
 
         team = snippet_data.get("team")
         mock_resp = MOCK_LLM_RESPONSES.get(team)
         if mock_resp:
-            return NewsLog(
+            newslog = NewsLog(
                 match_id=snippet_data.get("match_id"),
                 url=snippet_data.get("link"),
                 summary=mock_resp["summary"],
@@ -1659,6 +1800,9 @@ def analyze_with_triangulation(
                     "confidence", 0
                 ),  # V11.1: Get confidence from mock, default to 0
             )
+            # V11.0: Validate against contract
+            validated_newslog = _validate_newslog_contract(newslog, context="mock_data_response")
+            return validated_newslog
         return None
 
     if not OPENROUTER_API_KEY:
@@ -2000,6 +2144,9 @@ def analyze_with_triangulation(
             team_stats=enriched_team_stats,
             tactical_context=tactical_context,
             twitter_intel=twitter_intel if twitter_intel else "No Twitter intel available",
+            source_credibility=snippet_data.get(
+                "source_credibility", "No Beat Writer metadata available"
+            ),
             investigation_status=investigation_status,
         )
 
@@ -2052,6 +2199,7 @@ def analyze_with_triangulation(
         # Apply positive boost for strict referees on Cards Market
         referee_boost_applied = False
         referee_boost_reason = ""
+        referee_boost_type = None  # Initialize boost type variable
 
         try:
             # Check if we have referee data
@@ -2082,6 +2230,8 @@ def analyze_with_triangulation(
                                 f"{referee_info.cards_per_game:.1f} cards/game) "
                                 f"+ {'Derby/High Intensity' if is_high_intensity else 'Strict Referee'}"
                             )
+                            # Set boost type directly (CASE 1: NO BET → Over 3.5 Cards)
+                            referee_boost_type = BoostType.BOOST_NO_BET_TO_BET
                             logging.info(
                                 f"   {referee_boost_reason} → suggesting {recommended_market}"
                             )
@@ -2098,6 +2248,8 @@ def analyze_with_triangulation(
                             f"{referee_info.cards_per_game:.1f} cards/game) "
                             f"→ upgrading to {recommended_market}"
                         )
+                        # Set boost type directly (CASE 2: Over 3.5 → Over 4.5)
+                        referee_boost_type = BoostType.UPGRADE_CARDS_LINE
                         logging.info(f"   {referee_boost_reason}")
 
                     # CASE 3: Add boost to reasoning
@@ -2117,12 +2269,6 @@ def analyze_with_triangulation(
 
                                 # Record cache hit (referee data was used)
                                 monitor.record_hit(referee_info.name)
-
-                                # Determine boost type
-                                if "UPGRADE" in referee_boost_reason:
-                                    boost_type = "upgrade_cards_line"
-                                else:
-                                    boost_type = "boost_no_bet_to_bet"
 
                                 # Log boost application
                                 logger_module.log_boost_applied(
@@ -2152,7 +2298,7 @@ def analyze_with_triangulation(
                                 metrics.record_boost_applied(
                                     referee_name=referee_info.name,
                                     cards_per_game=referee_info.cards_per_game,
-                                    boost_type=boost_type,
+                                    boost_type=referee_boost_type.value,
                                     original_verdict="NO BET"
                                     if "BOOST" in referee_boost_reason
                                     else "BET",
@@ -2590,7 +2736,7 @@ def analyze_with_triangulation(
             logging.warning(f"⚠️ Convergence detection error: {e}")
             is_convergent = False
 
-        return NewsLog(
+        newslog = NewsLog(
             match_id=snippet_data.get("match_id"),
             url=snippet_data.get("link"),
             summary=reasoning,
@@ -2607,6 +2753,10 @@ def analyze_with_triangulation(
             is_convergent=is_convergent,  # V9.5: Cross-Source Convergence
             convergence_sources=convergence_sources_str,  # V9.5: Convergence details
         )
+
+        # V11.0: Validate against contract
+        validated_newslog = _validate_newslog_contract(newslog, context="triangulation_analysis")
+        return validated_newslog
 
     except Exception as e:
         # Sanitize API key from error message before logging
@@ -2718,7 +2868,7 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: dict) -> NewsLog 
         score = 0
         category = "LOW_RELEVANCE"
 
-    return NewsLog(
+    newslog = NewsLog(
         match_id=snippet_data.get("match_id"),
         url=snippet_data.get("link"),
         summary=summary,
@@ -2727,6 +2877,10 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: dict) -> NewsLog 
         affected_team=team,
         confidence=None,  # V11.1: No AI confidence in fallback mode
     )
+
+    # V11.0: Validate against contract
+    validated_newslog = _validate_newslog_contract(newslog, context="fallback_mode")
+    return validated_newslog
 
 
 def batch_analyze(snippets: list[dict]) -> list[NewsLog]:

@@ -418,12 +418,15 @@ class DiscoveredNews:
     url: str
     title: str
     snippet: str
-    category: str  # INJURY, LINEUP, SUSPENSION, TRANSFER, TACTICAL, OTHER
+    category: str  # INJURY, LINEUP, SUSPENSION, TRANSFER, TACTICAL, NATIONAL_TEAM, YOUTH_CALLUP, CUP_ABSENCE, OTHER
     affected_team: str
     confidence: float
     league_key: str
     source_name: str
     discovered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # Cross-source validation fields
+    validation_tag: str = ""
+    boosted_confidence: float = 0.0
 
 
 @dataclass
@@ -1088,6 +1091,24 @@ class BrowserMonitor:
                                     "✅ [BROWSER-MONITOR] Playwright recovered, switching to normal mode"
                                 )
 
+                                # CRITICAL FIX (COVE 2026-03-06): Cancel degraded mode task before creating new scan loop
+                                # This prevents race condition where two tasks run simultaneously during transition
+                                if self._scan_task and not self._scan_task.done():
+                                    logger.info(
+                                        "🛑 [BROWSER-MONITOR] Cancelling degraded mode task..."
+                                    )
+                                    self._scan_task.cancel()
+                                    try:
+                                        await self._scan_task
+                                    except asyncio.CancelledError:
+                                        logger.debug(
+                                            "✅ [BROWSER-MONITOR] Degraded mode task cancelled successfully"
+                                        )
+                                    except Exception as e:
+                                        logger.warning(
+                                            f"⚠️ [BROWSER-MONITOR] Error cancelling degraded mode task: {e}"
+                                        )
+
                                 # Initialize semaphore and lock
                                 self._page_semaphore = asyncio.Semaphore(
                                     self._config.global_settings.max_concurrent_pages
@@ -1290,6 +1311,7 @@ class BrowserMonitor:
         if STEALTH_AVAILABLE and Stealth is not None:
             try:
                 import time
+
                 start_time = time.time()
 
                 stealth = Stealth()
@@ -2392,14 +2414,70 @@ class BrowserMonitor:
             source_name=source.name or source.url[:30],
         )
 
-        # Invoke callback
-        if self._on_news_discovered:
-            try:
-                self._on_news_discovered(news)
-            except Exception as e:
-                logger.error(f"❌ [BROWSER-MONITOR] Callback error: {e}")
+        # Cross-source validation integration
+        try:
+            from src.utils.radar_cross_validator import get_cross_validator
 
-        self._news_discovered += 1
+            validator = get_cross_validator()
+            boosted_confidence, is_multi_source, validation_tag = validator.register_alert(
+                team=news.affected_team,
+                category=news.category,
+                source_name=news.source_name,
+                source_url=news.url,
+                confidence=news.confidence,
+            )
+
+            if is_multi_source:
+                news.confidence = boosted_confidence
+                logger.info(
+                    f"✅ [BROWSER-MONITOR] Multi-source confirmation: {validation_tag} "
+                    f"for {news.affected_team}"
+                )
+
+            news.validation_tag = validation_tag
+            news.boosted_confidence = boosted_confidence
+        except Exception as e:
+            logger.warning(f"⚠️ [BROWSER-MONITOR] Cross-validation failed: {e}")
+            news.validation_tag = "⚠️ Cross-validation failed"
+            news.boosted_confidence = news.confidence
+
+        # Invoke callback with intelligent retry mechanism
+        # CRITICAL FIX (COVE 2026-03-06): Implement retry logic to prevent news loss
+        if self._on_news_discovered:
+            max_retries = 3
+            callback_success = False
+
+            for attempt in range(max_retries):
+                try:
+                    self._on_news_discovered(news)
+                    callback_success = True
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        # Wait before retry with exponential backoff
+                        wait_time = 2**attempt  # 1s, 2s, 4s
+                        logger.warning(
+                            f"⚠️ [BROWSER-MONITOR] Callback error (attempt {attempt + 1}/{max_retries}): {e}. "
+                            f"Retrying in {wait_time}s..."
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        # All retries exhausted - log critical error
+                        logger.error(
+                            f"❌ [BROWSER-MONITOR] Callback failed after {max_retries} attempts: {e}. "
+                            f"News may be lost: {news.title[:50]}..."
+                        )
+                        # Note: Consider implementing a persistent queue for failed callbacks
+                        # This would require adding a _failed_callback_queue attribute and a background task
+                        # to reprocess failed callbacks periodically
+
+            # Only increment counter if callback succeeded
+            if callback_success:
+                self._news_discovered += 1
+            else:
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] News discovered but callback failed: {news.title[:50]}..."
+                )
 
         # Safe logging with fallbacks for empty strings
         title_preview = (
@@ -2942,7 +3020,9 @@ RULES:
                 "stealth_applications": self._stealth_applications,
                 "stealth_failures": self._stealth_failures,
                 "stealth_total_time": round(self._stealth_total_time, 3),
-                "stealth_avg_time": round(self._stealth_total_time / self._stealth_applications, 3) if self._stealth_applications > 0 else 0.0,
+                "stealth_avg_time": round(self._stealth_total_time / self._stealth_applications, 3)
+                if self._stealth_applications > 0
+                else 0.0,
                 # V7.1: Hybrid mode and circuit breaker stats
                 "http_extractions": self._http_extractions,
                 "browser_extractions": self._browser_extractions,

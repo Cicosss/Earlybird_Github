@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/parallel_enrichment.py
+# hypothesis_version: 6.151.4
+
+[1000, ' | ', 'HIGH', 'away_context', 'away_stats', 'away_turnover', 'home_context', 'home_stats', 'home_turnover', 'injuries', 'name', 'referee_info', 'risk_level', 'stadium_coords', 'tactical', 'weather']

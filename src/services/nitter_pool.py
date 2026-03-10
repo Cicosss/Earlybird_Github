@@ -18,6 +18,7 @@ Stealth Scraping (V11.0):
 import asyncio
 import logging
 import re
+import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -49,13 +50,27 @@ class CircuitState(Enum):
 
 @dataclass
 class InstanceHealth:
-    """Tracks health metrics for a single Nitter instance."""
+    """
+    Tracks health metrics for a single Nitter instance.
+
+    Unified health tracking for both NitterPool and NitterFallbackScraper.
+    Includes all fields from both implementations for consistency.
+    """
 
     url: str
+    # Circuit breaker state (from nitter_pool.py)
     state: CircuitState = CircuitState.CLOSED
+    # Health status (from nitter_fallback_scraper.py)
+    is_healthy: bool = True
+    # Failure tracking (both implementations)
     consecutive_failures: int = 0
     last_failure_time: Optional[float] = None
     last_success_time: Optional[float] = None
+    # Additional tracking (from nitter_fallback_scraper.py)
+    last_check: Optional[float] = None
+    transient_failures: int = 0  # Network timeouts, connection errors
+    permanent_failures: int = 0  # 403, 429, blocked
+    # Call statistics (both implementations)
     total_calls: int = 0
     successful_calls: int = 0
 
@@ -94,6 +109,8 @@ class CircuitBreaker:
         self._consecutive_failures = 0
         self._last_failure_time: Optional[float] = None
         self._half_open_calls = 0
+        # Thread safety: Add lock for protecting circuit breaker state
+        self._lock = threading.Lock()
 
     @property
     def state(self) -> CircuitState:
@@ -125,28 +142,30 @@ class CircuitBreaker:
 
     def record_success(self) -> None:
         """Record a successful call."""
-        if self._state == CircuitState.HALF_OPEN:
-            self._half_open_calls += 1
-            # If successful in HALF_OPEN, close the circuit
-            if self._half_open_calls >= self.half_open_max_calls:
+        with self._lock:
+            if self._state == CircuitState.HALF_OPEN:
+                self._half_open_calls += 1
+                # If successful in HALF_OPEN, close the circuit
+                if self._half_open_calls >= self.half_open_max_calls:
+                    self._state = CircuitState.CLOSED
+                    self._consecutive_failures = 0
+                    logger.info("✅ [CIRCUIT-BREAKER] Circuit CLOSED - Recovery successful")
+            else:
                 self._state = CircuitState.CLOSED
                 self._consecutive_failures = 0
-                logger.info("✅ [CIRCUIT-BREAKER] Circuit CLOSED - Recovery successful")
-        else:
-            self._state = CircuitState.CLOSED
-            self._consecutive_failures = 0
 
     def record_failure(self) -> None:
         """Record a failed call."""
-        self._consecutive_failures += 1
-        self._last_failure_time = time.time()
+        with self._lock:
+            self._consecutive_failures += 1
+            self._last_failure_time = time.time()
 
-        if self._consecutive_failures >= self.failure_threshold:
-            self._state = CircuitState.OPEN
-            logger.warning(
-                f"⚠️ [CIRCUIT-BREAKER] Circuit OPENED - "
-                f"{self._consecutive_failures} consecutive failures"
-            )
+            if self._consecutive_failures >= self.failure_threshold:
+                self._state = CircuitState.OPEN
+                logger.warning(
+                    f"⚠️ [CIRCUIT-BREAKER] Circuit OPENED - "
+                    f"{self._consecutive_failures} consecutive failures"
+                )
 
     def reset(self) -> None:
         """Reset circuit breaker to initial state."""
@@ -202,6 +221,8 @@ class NitterPool:
         self.health: Dict[str, InstanceHealth] = {}
         self._round_robin_index = ROUND_ROBIN_CONFIG["initial_index"]
         self._lock = asyncio.Lock()
+        # Thread safety: Add lock for protecting InstanceHealth modifications
+        self._health_lock = threading.Lock()
 
         # Initialize circuit breakers for each instance
         for instance in self.instances:
@@ -246,30 +267,52 @@ class NitterPool:
         """
         Record a successful call to an instance.
 
+        Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+
         Args:
             instance: URL of the instance
         """
-        if instance in self.circuit_breakers:
-            self.circuit_breakers[instance].record_success()
-            self.health[instance].consecutive_failures = 0
-            self.health[instance].last_success_time = time.time()
-            self.health[instance].successful_calls += 1
-            self.health[instance].total_calls += 1
-            logger.debug(f"✅ [NITTER-POOL] Success recorded for {instance}")
+        with self._health_lock:
+            if instance in self.circuit_breakers:
+                self.circuit_breakers[instance].record_success()
+                self.health[instance].consecutive_failures = 0
+                self.health[instance].last_success_time = time.time()
+                self.health[instance].successful_calls += 1
+                self.health[instance].total_calls += 1
+                # Synchronize InstanceHealth.state with CircuitBreaker state
+                self.health[instance].state = self.circuit_breakers[instance].state
+                # Update unified fields
+                self.health[instance].is_healthy = True
+                self.health[instance].transient_failures = 0
+                self.health[instance].permanent_failures = 0
+                self.health[instance].last_check = time.time()
+                logger.debug(f"✅ [NITTER-POOL] Success recorded for {instance}")
 
     def record_failure(self, instance: str) -> None:
         """
         Record a failed call to an instance.
 
+        Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+
         Args:
             instance: URL of the instance
         """
-        if instance in self.circuit_breakers:
-            self.circuit_breakers[instance].record_failure()
-            self.health[instance].consecutive_failures += 1
-            self.health[instance].last_failure_time = time.time()
-            self.health[instance].total_calls += 1
-            logger.warning(f"❌ [NITTER-POOL] Failure recorded for {instance}")
+        with self._health_lock:
+            if instance in self.circuit_breakers:
+                self.circuit_breakers[instance].record_failure()
+                self.health[instance].consecutive_failures += 1
+                self.health[instance].last_failure_time = time.time()
+                self.health[instance].total_calls += 1
+                # Synchronize InstanceHealth.state with CircuitBreaker state
+                self.health[instance].state = self.circuit_breakers[instance].state
+                # Update unified fields
+                self.health[instance].last_check = time.time()
+                # Treat all failures as permanent for nitter_pool.py (simplified)
+                self.health[instance].permanent_failures += 1
+                # Check if instance should be marked unhealthy
+                if self.health[instance].consecutive_failures >= self.circuit_breakers[instance].failure_threshold:
+                    self.health[instance].is_healthy = False
+                logger.warning(f"❌ [NITTER-POOL] Failure recorded for {instance}")
 
     def get_instance_health(self, instance: str) -> Optional[InstanceHealth]:
         """
@@ -309,18 +352,22 @@ class NitterPool:
         """
         Reset circuit breaker for a specific instance.
 
+        Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+
         Args:
             instance: URL of the instance
 
         Returns:
             True if reset was successful, False if instance not found
         """
-        if instance in self.circuit_breakers:
-            self.circuit_breakers[instance].reset()
-            self.health[instance].consecutive_failures = 0
-            self.health[instance].state = CircuitState.CLOSED
-            return True
-        return False
+        with self._health_lock:
+            if instance in self.circuit_breakers:
+                self.circuit_breakers[instance].reset()
+                self.health[instance].consecutive_failures = 0
+                # Synchronize InstanceHealth.state with CircuitBreaker state
+                self.health[instance].state = self.circuit_breakers[instance].state
+                return True
+            return False
 
     def reset_all(self) -> None:
         """Reset all circuit breakers to initial state."""
@@ -799,22 +846,35 @@ class NitterPool:
 
 # Singleton instance for global access
 _nitter_pool: Optional[NitterPool] = None
+_nitter_pool_lock = threading.Lock()
 
 
 def get_nitter_pool() -> NitterPool:
     """
     Get the global NitterPool singleton instance.
 
+    Uses double-checked locking pattern for thread safety:
+    1. First check without lock (fast path)
+    2. Acquire lock if instance is None
+    3. Second check with lock (prevent race condition)
+    4. Create instance if still None
+
     Returns:
         The global NitterPool instance
     """
     global _nitter_pool
+    # First check without lock (fast path)
     if _nitter_pool is None:
-        _nitter_pool = NitterPool()
+        # Acquire lock and check again (double-checked locking)
+        with _nitter_pool_lock:
+            # Second check with lock (prevent race condition)
+            if _nitter_pool is None:
+                _nitter_pool = NitterPool()
     return _nitter_pool
 
 
 def reset_nitter_pool() -> None:
     """Reset the global NitterPool singleton instance."""
     global _nitter_pool
-    _nitter_pool = None
+    with _nitter_pool_lock:
+        _nitter_pool = None

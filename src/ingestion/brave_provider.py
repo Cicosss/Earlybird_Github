@@ -20,6 +20,7 @@ V4.5: Fixed double URL encoding bug that caused HTTP 422 errors with non-ASCII c
 
 import html
 import logging
+import threading
 
 from config.settings import BRAVE_API_KEY
 from src.ingestion.brave_budget import get_brave_budget_manager
@@ -192,7 +193,10 @@ class BraveSearchProvider:
             return results
 
         except Exception as e:
-            logger.error(f"❌ Brave Search error: {e}")
+            logger.error(
+                f"❌ Brave Search error for component='{component}', query='{query[:50]}...': {e}",
+                exc_info=True,  # Include stack trace
+            )
             return []
 
     def reset_rate_limit(self):
@@ -204,6 +208,7 @@ class BraveSearchProvider:
         Get status of Brave provider for monitoring.
 
         V4.0: Returns key rotation and budget status.
+        V4.6: Budget now returns unified BudgetStatus object.
 
         Returns:
             Dict with status information
@@ -212,21 +217,28 @@ class BraveSearchProvider:
             "key_rotation_enabled": self._key_rotation_enabled,
             "rate_limited": self._rate_limited,
             "key_rotator": self._key_rotator.get_status() if self._key_rotation_enabled else None,
-            "budget": self._budget_manager.get_status().__dict__
-            if self._key_rotation_enabled
-            else None,
+            "budget": self._budget_manager.get_status() if self._key_rotation_enabled else None,
         }
 
 
 # Singleton instance
 _brave_instance: BraveSearchProvider | None = None
+_brave_instance_init_lock = threading.Lock()  # V12.2: Thread-safe initialization
 
 
 def get_brave_provider() -> BraveSearchProvider:
-    """Get or create the singleton BraveSearchProvider instance."""
+    """
+    Get or create the singleton BraveSearchProvider instance.
+
+    V12.2: Fixed lazy initialization race condition.
+    Multiple threads can safely call this function concurrently.
+    """
     global _brave_instance
     if _brave_instance is None:
-        _brave_instance = BraveSearchProvider()
+        with _brave_instance_init_lock:
+            # Double-checked locking pattern for thread safety
+            if _brave_instance is None:
+                _brave_instance = BraveSearchProvider()
     return _brave_instance
 
 

@@ -16,6 +16,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Helper function to check if a Tavily key value is a placeholder
+is_tavily_placeholder() {
+    local key_value="$1"
+    # Check for common placeholder patterns (case-insensitive)
+    echo "$key_value" | grep -qiE "(tvly-)?your-?(tavily-?)?key|placeholder|your-?key-?here|YOUR_?KEY_?HERE|your_api_key_here|tvly-placeholder"
+    return $?
+}
+
 echo -e "${GREEN}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🦅 EarlyBird VPS Setup Script"
@@ -30,11 +38,27 @@ fi
 # Step 1: System Dependeies
 echo ""
 echo -e "${GREEN}🔧 [1/6] Installing System Dependeies...${NC}"
+
+# Check Python version
+PYTHON_VERSION=$(python3 --version | awk '{print $2}')
+PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
+PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
+
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 9 ]); then
+    echo -e "${RED}❌ Python 3.9+ required, found $PYTHON_VERSION${NC}"
+    echo -e "${RED}Please install Python 3.9 or higher${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Python version check passed: $PYTHON_VERSION${NC}"
+
 sudo apt-get update
 sudo apt-get install -y \
+    build-essential \
     python3 \
     python3-venv \
     python3-pip \
+    python3-dev \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-tur \
@@ -42,8 +66,8 @@ sudo apt-get install -y \
     tesseract-ocr-pol \
     libtesseract-dev \
     libxml2-dev \
-    libxml2-dev \
-    libxslt-dev \
+    libxslt1-dev \
+    libcurl4-openssl-dev \
     screen \
     tmux \
     git \
@@ -171,9 +195,9 @@ else
     echo -e "${GREEN}   ✅ Playwright browser binaries verified${NC}"
 fi
 
-# V12.0: Verify Playwright can launch Chromium (CRITICAL for VPS deployment)
+# V13.0 COVE FIX: Verify Playwright can launch Chromium in async mode (CRITICAL for VPS deployment)
 echo ""
-echo -e "${GREEN}🧪 [3d/6] Verifying Playwright installation...${NC}"
+echo -e "${GREEN}🧪 [3e/6] Verifying Playwright async browser launch...${NC}"
 if ! python -c "
 import sys
 import asyncio
@@ -309,6 +333,36 @@ if [ -f ".env" ]; then
         # Add default value to .env
         echo "SUPABASE_CACHE_TTL_SECONDS=300" >> .env
         echo -e "${GREEN}   ✅ SUPABASE_CACHE_TTL_SECONDS=300 added to .env${NC}"
+    fi
+    
+    # V12.6: Check TAVILY_CACHE_TTL_SECONDS (optional, has default)
+    if grep -q "^TAVILY_CACHE_TTL_SECONDS=" .env; then
+        echo -e "${GREEN}   ✅ TAVILY_CACHE_TTL_SECONDS is set${NC}"
+    else
+        echo -e "${YELLOW}   ⚠️ TAVILY_CACHE_TTL_SECONDS not set (will use default: 1800s)${NC}"
+        # Add default value to .env
+        echo "TAVILY_CACHE_TTL_SECONDS=1800" >> .env
+        echo -e "${GREEN}   ✅ TAVILY_CACHE_TTL_SECONDS=1800 added to .env${NC}"
+    fi
+    
+    # V12.6: Check Tavily API Keys (optional, but provides valuable features)
+    # Tavily uses 7 API keys with rotation (1000 calls each = 7000/month total)
+    TAVILY_KEYS_FOUND=0
+    for i in {1..7}; do
+        if grep -q "^TAVILY_API_KEY_${i}=" .env; then
+            key_value=$(grep "^TAVILY_API_KEY_${i}=" .env | cut -d'=' -f2-)
+            if ! is_tavily_placeholder "$key_value"; then
+                TAVILY_KEYS_FOUND=$((TAVILY_KEYS_FOUND + 1))
+            fi
+        fi
+    done
+    
+    if [ $TAVILY_KEYS_FOUND -gt 0 ]; then
+        echo -e "${GREEN}   ✅ Tavily API Keys: $TAVILY_KEYS_FOUND/7 configured (supports 1-7 keys)${NC}"
+    else
+        echo -e "${YELLOW}   ⚠️ Tavily API Keys not configured (Tavily features disabled)${NC}"
+        echo -e "${YELLOW}   ℹ️  Tavily provides AI-optimized search for match enrichment${NC}"
+        echo -e "${YELLOW}   ℹ️  Configure TAVILY_API_KEY_1 through TAVILY_API_KEY_7 in .env${NC}"
     fi
     
     if [ ${#MISSING_KEYS[@]} -gt 0 ]; then

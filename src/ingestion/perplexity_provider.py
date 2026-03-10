@@ -643,8 +643,17 @@ class PerplexityProvider:
             # Use _query_api with structured outputs for betting stats
             result = self._query_api(prompt, task_type="betting_stats")
             if result:
+                cards_signal = result.get("cards_signal")
+                corners_signal = result.get("corners_signal")
+                # Extract .value for enum types to keep logs readable
+                cards_display = (
+                    cards_signal.value if hasattr(cards_signal, "value") else cards_signal
+                )
+                corners_display = (
+                    corners_signal.value if hasattr(corners_signal, "value") else corners_signal
+                )
                 logger.info(
-                    f"✅ [PERPLEXITY] Betting stats retrieved: corners={result.get('corners_signal')}, cards={result.get('cards_signal')}"
+                    f"✅ [PERPLEXITY] Betting stats retrieved: corners={corners_display}, cards={cards_display}"
                 )
                 return result
             else:

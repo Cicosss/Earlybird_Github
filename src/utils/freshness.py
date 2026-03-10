@@ -23,6 +23,7 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ def get_freshness_category(minutes_old: int) -> str:
         return "STALE"
 
 
-def calculate_minutes_old(timestamp: datetime, reference_time: datetime | None = None) -> int:
+def calculate_minutes_old(timestamp: datetime, reference_time: Optional[datetime] = None) -> int:
     """
     Calculate how many minutes old a timestamp is.
 
@@ -180,7 +181,7 @@ def calculate_decay_multiplier(
 
 def get_full_freshness(
     timestamp: datetime,
-    reference_time: datetime | None = None,
+    reference_time: Optional[datetime] = None,
     lambda_decay: float = NEWS_DECAY_LAMBDA_DEFAULT,
 ) -> FreshnessResult:
     """
@@ -315,7 +316,7 @@ def get_league_decay_rate(league_key: str | None) -> float:
 
 
 def get_league_aware_freshness(
-    timestamp: datetime, league_key: str | None = None, reference_time: datetime | None = None
+    timestamp: datetime, league_key: Optional[str] = None, reference_time: Optional[datetime] = None
 ) -> FreshnessResult:
     """
     Get freshness analysis with league-specific decay rate.

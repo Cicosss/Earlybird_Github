@@ -674,21 +674,29 @@ class IntelligenceRouter:
             # Add Tavily flag to result
             if result:
                 result["tavily_enriched"] = tavily_enrichment is not None
-
-            return result
+                return result
+            else:
+                # DeepSeek returned None - fall back to Tavily enrichment
+                logger.warning(
+                    "⚠️ [DEEPSEEK] Match context enrichment returned None, using Tavily fallback"
+                )
 
         except Exception as e:
             logger.warning(f"⚠️ [DEEPSEEK] Match context enrichment failed: {e}")
 
-            # Return Tavily-only enrichment if DeepSeek fails
-            if tavily_enrichment:
-                return {
-                    "context": tavily_enrichment,
-                    "source": "tavily_only",
-                    "tavily_enriched": True,
-                }
+        # Return Tavily-only enrichment if DeepSeek fails or returns None
+        if tavily_enrichment:
+            logger.info("✅ [INTELLIGENCEROUTER] Using Tavily-only enrichment as fallback")
+            return {
+                "context": tavily_enrichment,
+                "source": "tavily_only",
+                "tavily_enriched": True,
+            }
 
-            return None
+        logger.warning(
+            "⚠️ [INTELLIGENCEROUTER] No enrichment available (DeepSeek and Tavily both failed)"
+        )
+        return None
 
     def extract_twitter_intel(
         self, handles: list[str], max_posts_per_account: int = 5
@@ -696,7 +704,7 @@ class IntelligenceRouter:
         """
         Extract recent tweets from specified accounts.
 
-        Uses DeepSeek + TwitterIntelCache (V10.0).
+        Uses DeepSeek + TwitterIntelCache (V10.0) with fallback to Claude 3 Haiku.
 
         Args:
             handles: List of Twitter handles (with @)
@@ -711,8 +719,23 @@ class IntelligenceRouter:
                 logger.debug(f"🐦 [INTEL] No Twitter intel available for {len(handles)} handles")
             return result
         except Exception as e:
-            logger.warning(f"⚠️ [DEEPSEEK] Twitter intel extraction failed: {e}")
-            return None
+            logger.warning(
+                f"⚠️ [DEEPSEEK] Twitter intel extraction failed: {e}, trying Claude fallback..."
+            )
+
+            # Fall back to OpenRouterFallbackProvider (Claude 3 Haiku)
+            try:
+                result = self._fallback_2_provider.extract_twitter_intel(
+                    handles, max_posts_per_account
+                )
+                if result:
+                    logger.info(
+                        "✅ [INTELLIGENCEROUTER] Using Claude 3 Haiku fallback for Twitter intel"
+                    )
+                return result
+            except Exception as fallback_error:
+                logger.warning(f"⚠️ [CLAUDE] Twitter intel fallback failed: {fallback_error}")
+                return None
 
     def format_enrichment_for_prompt(self, enrichment: dict) -> str:
         """
@@ -733,11 +756,13 @@ class IntelligenceRouter:
         """
         Get provider status for monitoring.
 
+        V6.1: Budget now uses unified BudgetStatus.to_dict() for serialization.
+
         Returns:
             Dict with provider statistics including Tavily status
         """
         tavily_status = self._tavily.get_status() if self._tavily else {}
-        budget_status = self._budget_manager.get_status() if self._budget_manager else {}
+        budget_status = self._budget_manager.get_status() if self._budget_manager else None
 
         return {
             "provider": "deepseek",
@@ -748,11 +773,19 @@ class IntelligenceRouter:
                 "fallback_active": tavily_status.get("fallback_active", False),
                 "cache_size": tavily_status.get("cache_size", 0),
             },
-            "budget": {
-                "monthly_used": budget_status.monthly_used if budget_status else 0,
-                "monthly_limit": budget_status.monthly_limit if budget_status else 0,
-                "is_degraded": budget_status.is_degraded if budget_status else False,
-                "is_disabled": budget_status.is_disabled if budget_status else False,
+            "budget": budget_status.to_dict()
+            if budget_status
+            else {
+                "monthly_used": 0,
+                "monthly_limit": 0,
+                "daily_used": 0,
+                "daily_limit": 0,
+                "is_degraded": False,
+                "is_disabled": False,
+                "usage_percentage": 0.0,
+                "component_usage": None,
+                "daily_reset_date": None,
+                "provider_name": None,
             },
         }
 

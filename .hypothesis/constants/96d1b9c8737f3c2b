@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/services/tweet_relevance_filter.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.1, 0.8, '\n📋 Test Results:', ')\\b', '=', 'Icardi out 2 weeks', 'Icardi recovered', 'Kane fit again', 'Kane ruled out', 'Match preview', 'NBA game', 'Ronaldo suspended', 'Salah injured', 'Score update', '\\b(', '__main__', 'basketball injury', 'injury', 'is_relevant', 'score', 'suspension', 'tennis match', 'topics', '|', '✅', '✅ All tests passed!', '❌', '❌ Some tests failed!']

@@ -21,6 +21,7 @@ Flow: Analyzer -> IntelligenceRouter -> DeepSeek (primary) / Tavily (fallback 1)
 import logging
 import os
 import threading
+from datetime import datetime
 
 import requests
 
@@ -32,10 +33,21 @@ from src.ingestion.prompts import (
 from src.schemas.perplexity_schemas import (
     BETTING_STATS_JSON_SCHEMA,
     DEEP_DIVE_JSON_SCHEMA,
+    DeepDiveResponse,
 )
 from src.utils.ai_parser import normalize_deep_dive_response, parse_ai_json
 
 logger = logging.getLogger(__name__)
+
+# Import TwitterIntelCache for extract_twitter_intel() fallback
+try:
+    from src.services.twitter_intel_cache import get_twitter_intel_cache
+
+    _TWITTER_INTEL_CACHE_AVAILABLE = True
+    logger.info("✅ TwitterIntelCache available for OpenRouter Fallback Provider")
+except ImportError as e:
+    _TWITTER_INTEL_CACHE_AVAILABLE = False
+    logger.warning(f"⚠️ TwitterIntelCache not available for OpenRouter Fallback Provider: {e}")
 
 # Import from settings (with fallback to env)
 try:
@@ -227,8 +239,17 @@ class OpenRouterFallbackProvider:
             # Use _query_api with structured outputs for betting stats
             result = self._query_api(prompt, task_type="betting_stats")
             if result:
+                cards_signal = result.get("cards_signal")
+                corners_signal = result.get("corners_signal")
+                # Extract .value for enum types to keep logs readable
+                cards_display = (
+                    cards_signal.value if hasattr(cards_signal, "value") else cards_signal
+                )
+                corners_display = (
+                    corners_signal.value if hasattr(corners_signal, "value") else corners_signal
+                )
                 logger.info(
-                    f"✅ [CLAUDE] Betting stats retrieved: corners={result.get('corners_signal')}, cards={result.get('cards_signal')}"
+                    f"✅ [CLAUDE] Betting stats retrieved: corners={corners_display}, cards={cards_display}"
                 )
                 return result
             else:
@@ -387,12 +408,19 @@ class OpenRouterFallbackProvider:
                 logger.warning("⚠️ [CLAUDE] Empty content in response")
                 return None
 
-            # Parse with legacy parsing (Claude doesn't support structured outputs like Perplexity)
-            parsed = parse_ai_json(content)
+            # Try Pydantic validation first for strict enum checking
             if task_type == "deep_dive":
-                return normalize_deep_dive_response(parsed)
+                try:
+                    validated = DeepDiveResponse.model_validate_json(content)
+                    return validated.model_dump()
+                except Exception as validation_error:
+                    logger.debug(f"[CLAUDE] Pydantic validation failed: {validation_error}")
+                    # Fallback to legacy parsing with normalization
+                    parsed = parse_ai_json(content)
+                    return normalize_deep_dive_response(parsed)
             else:
-                # For betting_stats, return raw parsed (will be normalized by caller)
+                # For betting_stats, use legacy parsing (will be normalized by caller)
+                parsed = parse_ai_json(content)
                 return parsed
 
         except requests.exceptions.Timeout:
@@ -703,6 +731,240 @@ class OpenRouterFallbackProvider:
                 "verification_issues": safe_list(data.get("verification_issues")),
             },
         }
+
+    def verify_news_batch(
+        self,
+        news_items: list[dict],
+        team_name: str,
+        match_context: str = "upcoming match",
+        max_items: int = 5,
+    ) -> list[dict]:
+        """
+        Verify multiple news items efficiently using Claude 3 Haiku.
+
+        This is a fallback implementation that does NOT use web search.
+        It verifies news items based on the information already present in the items.
+
+        Args:
+            news_items: List of news item dicts
+            team_name: Team the news is about
+            match_context: Match context string
+            max_items: Maximum items to verify
+
+        Returns:
+            List of news items with added 'claude_verification' field
+        """
+        if not self.is_available():
+            return news_items
+
+        if not news_items:
+            return []
+
+        # Keywords that indicate news worth verifying
+        CRITICAL_KEYWORDS = [
+            "injury",
+            "injured",
+            "infortunio",
+            "lesión",
+            "lesão",
+            "out",
+            "ruled out",
+            "miss",
+            "absent",
+            "assente",
+            "baja",
+            "suspended",
+            "squalificato",
+            "sancionado",
+            "doubt",
+            "doubtful",
+            "dubbio",
+            "crisis",
+            "sacked",
+            "fired",
+            "esonerato",
+        ]
+
+        # Filter items that need verification
+        items_to_verify = []
+        for item in news_items:
+            confidence = item.get("confidence", "LOW")
+
+            # Skip HIGH/VERY_HIGH confidence
+            if confidence in ["HIGH", "VERY_HIGH"]:
+                continue
+
+            # Check for critical keywords
+            title = (item.get("title") or "").lower()
+            snippet = (item.get("snippet") or "").lower()
+            text = f"{title} {snippet}"
+
+            if any(kw in text for kw in CRITICAL_KEYWORDS):
+                items_to_verify.append(item)
+
+        items_to_verify = items_to_verify[:max_items]
+
+        if not items_to_verify:
+            logger.debug("[CLAUDE] No news items need verification")
+            return news_items
+
+        logger.info(f"🔍 [CLAUDE] Verifying {len(items_to_verify)} news items...")
+
+        verified_count = 0
+        for item in items_to_verify:
+            verification = self.verify_news_item(
+                news_title=item.get("title", ""),
+                news_snippet=item.get("snippet", ""),
+                team_name=team_name,
+                news_source=item.get("source", "Unknown"),
+                match_context=match_context,
+            )
+
+            if verification:
+                item["claude_verification"] = verification
+
+                if (
+                    verification.get("verified")
+                    and verification.get("verification_status") == "CONFIRMED"
+                ):
+                    item["confidence"] = "HIGH"
+                    verified_count += 1
+
+        logger.info(f"✅ [CLAUDE] Verified {verified_count}/{len(items_to_verify)} news items")
+        return news_items
+
+    def extract_twitter_intel(
+        self, handles: list[str], max_posts_per_account: int = 5
+    ) -> dict | None:
+        """
+        Extract recent tweets using TwitterIntelCache (fallback implementation).
+
+        This is a fallback implementation that uses the same TwitterIntelCache
+        as DeepSeek, ensuring consistent behavior when DeepSeek fails.
+
+        Args:
+            handles: List of Twitter handles (with @)
+            max_posts_per_account: Max posts per account
+
+        Returns:
+            Dict with extracted tweets or None on failure
+        """
+        # Validate inputs
+        if not handles:
+            logger.debug("[CLAUDE] Twitter extraction skipped: no handles")
+            return None
+
+        # Filter out invalid handles
+        valid_handles = [h for h in handles if h and isinstance(h, str) and h.strip()]
+
+        if not valid_handles:
+            logger.debug("[CLAUDE] Twitter extraction skipped: no valid handles after filtering")
+            return None
+
+        if not self.is_available():
+            logger.debug("[CLAUDE] Provider not available")
+            return None
+
+        # Check if TwitterIntelCache is available
+        if not _TWITTER_INTEL_CACHE_AVAILABLE:
+            logger.warning("⚠️ [CLAUDE] TwitterIntelCache not available, cannot extract tweets")
+            return None
+
+        try:
+            logger.info(
+                f"🐦 [CLAUDE] Extracting tweets from {len(valid_handles)} accounts via TwitterIntelCache..."
+            )
+
+            # Get cache instance
+            cache = get_twitter_intel_cache()
+
+            # Check if cache is fresh (populated this cycle)
+            if not cache.is_fresh:
+                logger.debug(
+                    f"🐦 [CLAUDE] Twitter Intel cache not fresh ({cache.cache_age_minutes}m old), skipping"
+                )
+                return None
+
+            # Topics filter for football-relevant tweets
+            topics_filter = [
+                "injury",
+                "lineup",
+                "squad",
+                "out",
+                "doubt",
+                "miss",
+                "absent",
+                "transfer",
+                "breaking",
+                "preview",
+            ]
+
+            # Collect all relevant tweets from cache
+            all_accounts = []
+            for handle in valid_handles:
+                # Search cache for this handle
+                handle_clean = handle.replace("@", "")
+                relevant_tweets = cache.search_intel(
+                    query=handle_clean,
+                    league_key=None,  # Search all cached accounts
+                    topics=topics_filter,
+                )
+
+                if relevant_tweets:
+                    # Limit to max_posts_per_account
+                    tweets = relevant_tweets[:max_posts_per_account]
+
+                    # Format posts to match expected structure
+                    posts = []
+                    for tweet in tweets:
+                        posts.append(
+                            {
+                                "date": tweet.date or "",
+                                "content": tweet.content,
+                                "topics": tweet.topics if tweet.topics else [],
+                            }
+                        )
+
+                    all_accounts.append(
+                        {
+                            "handle": handle,
+                            "posts": posts,
+                        }
+                    )
+
+            # Build final result
+            if not all_accounts:
+                logger.warning(
+                    f"🐦 [CLAUDE] No cached Twitter intel found for {len(valid_handles)} handles"
+                )
+                return None
+
+            result = {
+                "accounts": all_accounts,
+                "extraction_time": datetime.utcnow().isoformat() + "Z",
+                # Add metadata for debugging
+                "_meta": {
+                    "total_handles_requested": len(valid_handles),
+                    "accounts_returned": len(all_accounts),
+                    "source": "twitter_intel_cache",
+                    "is_complete": len(all_accounts)
+                    >= len(valid_handles) * 0.5,  # At least 50% coverage
+                },
+            }
+
+            accounts_with_posts = sum(1 for a in all_accounts if a.get("posts"))
+            total_posts = sum(len(a.get("posts", [])) for a in all_accounts)
+
+            logger.info(
+                f"✅ [CLAUDE] Twitter: {accounts_with_posts}/{len(all_accounts)} accounts with posts, "
+                f"{total_posts} total posts (source: TwitterIntelCache)"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ [CLAUDE] Twitter extraction error: {e}")
+            return None
 
     def format_for_prompt(self, deep_dive: dict) -> str:
         """

@@ -1,5 +1,5 @@
 """
-Tavily AI Search Provider - V7.3
+Tavily AI Search Provider - V7.4
 
 AI-optimized search API with key rotation and caching.
 Provides structured results with AI-generated answers.
@@ -9,6 +9,7 @@ Features:
 - Rate limiting (1 req/sec)
 - Response caching (30 min TTL)
 - V7.3: Cross-component cache deduplication via SharedContentCache
+- V7.4: Uses unified BudgetStatus from budget_status.py
 - Automatic fallback on exhaustion
 - Circuit breaker for consecutive failures
 - Brave/DDG fallback when Tavily unavailable
@@ -35,6 +36,8 @@ from config.settings import (
 from src.ingestion.tavily_key_rotator import TavilyKeyRotator, get_tavily_key_rotator
 from src.utils.http_client import get_http_client
 from src.utils.validators import safe_get
+
+from .budget_status import BudgetStatus
 
 # V7.3: Import SharedContentCache for cross-component deduplication
 try:
@@ -88,19 +91,6 @@ class CacheEntry:
         """Check if cache entry has expired."""
         elapsed = (datetime.now(timezone.utc) - self.cached_at).total_seconds()
         return elapsed > self.ttl_seconds
-
-
-@dataclass
-class BudgetStatus:
-    """Budget status for monitoring."""
-
-    monthly_used: int
-    monthly_limit: int
-    daily_used: int
-    daily_limit: int
-    is_degraded: bool
-    is_disabled: bool
-    daily_reset_date: str | None = None  # ISO format date of last daily reset
 
 
 class CircuitBreakerState:
@@ -386,7 +376,7 @@ class TavilyProvider:
         # V7.3: Check shared cache first (cross-component deduplication)
         if self._shared_cache:
             # Use cache_key as content identifier for deduplication
-            if self._shared_cache.is_duplicate(content=cache_key, source="tavily"):
+            if self._shared_cache.is_duplicate_sync(content=cache_key, source="tavily"):
                 # Check local cache for actual response
                 cached = self._check_cache(cache_key)
                 if cached:
@@ -512,7 +502,7 @@ class TavilyProvider:
 
             # V7.3: Mark in shared cache for cross-component deduplication
             if self._shared_cache:
-                self._shared_cache.mark_seen(content=cache_key, source="tavily")
+                self._shared_cache.mark_seen_sync(content=cache_key, source="tavily")
                 logger.debug(f"📦 [TAVILY] Marked in shared cache: {query[:50]}...")
 
             logger.info(f"🔍 [TAVILY] Found {len(results)} results in {response_time:.2f}s")
@@ -798,6 +788,8 @@ class TavilyProvider:
         # Check and reset daily usage if needed
         self._check_and_reset_daily_usage()
 
+        usage_pct = total_usage / monthly_limit if monthly_limit > 0 else 0
+
         return BudgetStatus(
             monthly_used=total_usage,
             monthly_limit=monthly_limit,
@@ -805,7 +797,10 @@ class TavilyProvider:
             daily_limit=self._daily_limit,
             is_degraded=total_usage >= monthly_limit * 0.90,
             is_disabled=total_usage >= monthly_limit * 0.95,
+            usage_percentage=usage_pct * 100,
+            component_usage=None,  # Not tracked in TavilyProvider
             daily_reset_date=self._last_reset_date,
+            provider_name="Tavily",
         )
 
     def reset_fallback(self) -> None:

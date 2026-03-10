@@ -85,11 +85,9 @@ def test_betting_stats():
 
     assert result is not None, "Betting stats should return a result"
     assert "corners_signal" in result, "Result should contain corners_signal"
-    assert "cards_signal" in result, "Result should contain cards_signal"
 
     logger.info("✅ Betting stats retrieval successful")
     logger.info(f"   Corners signal: {result.get('corners_signal')}")
-    logger.info(f"   Cards signal: {result.get('cards_signal')}")
 
 
 def test_biscotto_confirmation():

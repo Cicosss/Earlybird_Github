@@ -22,8 +22,10 @@ Date: 2026-02-09
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 # Math Engine
 from src.analysis.math_engine import EdgeResult, MathPredictor, PoissonResult
@@ -51,6 +53,28 @@ SAFETY_MAX_PROB = 0.99  # Maximum probability (no certainty in sports)
 
 # Dixon-Coles Parameters
 DIXON_COLES_RHO = -0.07  # Correlation parameter for low-scoring games
+
+# League Average Goals (per team per match)
+# These values are used for Poisson distribution calculations and represent
+# the historical average goals scored per team in each league.
+# Source: Historical data from 2020-2025 seasons
+LEAGUE_AVG_GOALS = {
+    # Major European Leagues
+    "premier_league": 1.40,  # EPL: High-scoring, attacking football
+    "la_liga": 1.30,  # La Liga: Technical, moderate scoring
+    "serie_a": 1.35,  # Serie A: Tactical, moderate scoring
+    "bundesliga": 1.50,  # Bundesliga: Very high-scoring, open play
+    "ligue_1": 1.25,  # Ligue 1: Defensive, lower scoring
+    # Other European Leagues
+    "eredivisie": 1.55,  # Dutch league: Very high-scoring
+    "primeira_liga": 1.35,  # Portuguese league: Moderate scoring
+    "russian_premier_league": 1.20,  # Russian league: Low-scoring, defensive
+    # South American Leagues
+    "brasileirao": 1.45,  # Brazilian league: High-scoring
+    "argentina_primera": 1.30,  # Argentine league: Moderate scoring
+    # Default fallback
+    "default": 1.35,  # Global average across all leagues
+}
 
 
 # ============================================
@@ -136,7 +160,7 @@ class BettingQuant:
     provides the final decision and specific stake.
     """
 
-    def __init__(self, league_avg: float = 1.35, league_key: str = None):
+    def __init__(self, league_avg: float = 1.35, league_key: Optional[str] = None):
         """
         Initialize the Betting Quant.
 
@@ -191,6 +215,19 @@ class BettingQuant:
         Returns:
             BettingDecision with final Go/No-Go decision and all supporting data
         """
+        # PERFORMANCE MONITORING: Track execution time
+        start_time = time.time()
+
+        # DEFENSIVE CHECK: Validate match object before proceeding
+        # While Analysis Engine always passes a valid Match, this defensive check
+        # improves robustness against future changes or edge cases
+        if match is None:
+            self.logger.error("❌ CRITICAL: Match object is None - cannot evaluate bet")
+            return self._create_no_bet_decision(
+                reason="Match object is None - invalid input",
+                market_odds=market_odds,
+            )
+
         # VPS FIX: Copy all needed Match attributes before using them
         # This prevents session detachment issues when Match object becomes detached
         # from session due to connection pool recycling under high load
@@ -287,7 +324,7 @@ class BettingQuant:
         )
 
         # Return final BET decision
-        return BettingDecision(
+        betting_decision = BettingDecision(
             should_bet=True,
             verdict="BET",
             confidence=confidence,
@@ -308,6 +345,15 @@ class BettingQuant:
             balanced_prob=balanced_prob * 100.0,
             ai_prob=ai_prob * 100.0 if ai_prob else None,
         )
+
+        # PERFORMANCE MONITORING: Log execution time
+        elapsed_ms = (time.time() - start_time) * 1000
+        self.logger.debug(
+            f"⏱️ BettingQuant.evaluate_bet() completed in {elapsed_ms:.2f}ms "
+            f"(match={match_id}, verdict={betting_decision.verdict})"
+        )
+
+        return betting_decision
 
     def calculate_stake(
         self,
@@ -333,6 +379,9 @@ class BettingQuant:
         Returns:
             Final stake percentage (0-100)
         """
+        # PERFORMANCE MONITORING: Track execution time
+        start_time = time.time()
+
         # Calculate edge with Kelly stake
         edge_result = MathPredictor.calculate_edge(
             math_prob=math_prob,
@@ -348,6 +397,13 @@ class BettingQuant:
         # Apply volatility guard
         _, final_stake = self._apply_volatility_guard(
             stake=capped_stake, bookmaker_odd=bookmaker_odd
+        )
+
+        # PERFORMANCE MONITORING: Log execution time
+        elapsed_ms = (time.time() - start_time) * 1000
+        self.logger.debug(
+            f"⏱️ BettingQuant.calculate_stake() completed in {elapsed_ms:.2f}ms "
+            f"(final_stake={final_stake:.2f}%)"
         )
 
         return final_stake
@@ -423,7 +479,6 @@ class BettingQuant:
         """
         # Try to use the recommended market from analysis
         recommended = getattr(analysis, "recommended_market", None)
-        primary = getattr(analysis, "primary_market", None)
 
         # Map analysis market to our edge keys
         market_map = {
@@ -440,12 +495,6 @@ class BettingQuant:
         # Try recommended market first
         if recommended and recommended in market_map:
             key = market_map[recommended]
-            if key in edges and edges[key].has_value:
-                return key
-
-        # Try primary market second
-        if primary and primary in market_map:
-            key = market_map[primary]
             if key in edges and edges[key].has_value:
                 return key
 
@@ -827,7 +876,7 @@ class BettingQuant:
 # ============================================
 
 
-def get_betting_quant(league_avg: float = 1.35, league_key: str = None) -> BettingQuant:
+def get_betting_quant(league_avg: float = 1.35, league_key: Optional[str] = None) -> BettingQuant:
     """
     Factory function to get a Betting Quant instance.
 

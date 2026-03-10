@@ -15,6 +15,7 @@ Componenti validati:
 - NewsItem (News Hunter output)
 - AnalysisResult (Analyzer output)
 - AlertPayload (Notifier input)
+- AnalysisResult dataclass (News Radar content analysis) - V1.1 (COVE FIX 2026-03-07)
 
 Usage in tests:
     from src.utils.validators import validate_news_item, ValidationResult
@@ -36,9 +37,13 @@ Requirements: Self-Check Protocol compliance
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
+
+# TYPE_CHECKING is used to avoid circular imports
+if TYPE_CHECKING:
+    pass
 
 
 # ============================================
@@ -488,7 +493,7 @@ def validate_verification_result(result_obj: Any) -> ValidationResult:
     # Confidence validation
     if "overall_confidence" in data:
         conf = data["overall_confidence"]
-        if conf and conf not in ["HIGH", "MEDIUM", "LOW"]:
+        if conf and conf not in ["High", "Medium", "Low"]:
             result.add_warning(f"overall_confidence: '{conf}' non standard")
 
     return result
@@ -551,6 +556,107 @@ def validate_analysis_result(analysis: dict[str, Any]) -> ValidationResult:
             result.add_warning("BET senza recommended_market")
 
     return result
+
+
+# ============================================
+# VALIDATOR: AnalysisResult dataclass (News Radar)
+# ============================================
+
+VALID_CATEGORIES = [
+    "INJURY",
+    "SUSPENSION",
+    "NATIONAL_TEAM",
+    "CUP_ABSENCE",
+    "YOUTH_CALLUP",
+    "OTHER",
+]
+VALID_BETTING_IMPACTS = ["HIGH", "MEDIUM", "LOW", "CRITICAL"]
+
+
+def validate_analysis_result_dataclass(result: Any) -> ValidationResult:
+    """
+    Validate an AnalysisResult dataclass instance from News Radar content analysis.
+
+    V1.1: New validator for AnalysisResult dataclass (COVE FIX 2026-03-07)
+
+    Args:
+        result: AnalysisResult instance from content analysis
+
+    Returns:
+        ValidationResult with errors if invalid
+
+    Edge cases handled:
+        - None result
+        - Invalid types for fields
+        - Confidence out of range [0.0, 1.0]
+        - Empty strings for required fields
+        - Invalid category values
+        - Invalid betting_impact values
+    """
+    validation_result = ok()
+
+    # Check if result is None
+    if result is None:
+        return fail("AnalysisResult: è None")
+
+    # Validate is_relevant is bool
+    if not hasattr(result, "is_relevant"):
+        validation_result.add_error("is_relevant: campo mancante")
+    elif not isinstance(result.is_relevant, bool):
+        validation_result.add_error(
+            f"is_relevant: tipo {type(result.is_relevant).__name__}, atteso bool"
+        )
+
+    # Validate category is non-empty string and valid value
+    if not hasattr(result, "category"):
+        validation_result.add_error("category: campo mancante")
+    elif not isinstance(result.category, str):
+        validation_result.add_error(f"category: tipo {type(result.category).__name__}, atteso str")
+    elif not result.category.strip():
+        validation_result.add_error("category: stringa vuota o solo spazi")
+    elif result.category not in VALID_CATEGORIES:
+        validation_result.add_warning(f"category: '{result.category}' non in {VALID_CATEGORIES}")
+
+    # Validate affected_team is string or None
+    if not hasattr(result, "affected_team"):
+        validation_result.add_error("affected_team: campo mancante")
+    elif result.affected_team is not None and not isinstance(result.affected_team, str):
+        validation_result.add_error(
+            f"affected_team: tipo {type(result.affected_team).__name__}, atteso str o None"
+        )
+
+    # Validate confidence is in range [0.0, 1.0]
+    if not hasattr(result, "confidence"):
+        validation_result.add_error("confidence: campo mancante")
+    elif not isinstance(result.confidence, (int, float)):
+        validation_result.add_error(
+            f"confidence: tipo {type(result.confidence).__name__}, atteso float"
+        )
+    elif not (0.0 <= result.confidence <= 1.0):
+        validation_result.add_error(f"confidence: {result.confidence} fuori range [0.0, 1.0]")
+
+    # Validate summary is non-empty string
+    if not hasattr(result, "summary"):
+        validation_result.add_error("summary: campo mancante")
+    elif not isinstance(result.summary, str):
+        validation_result.add_error(f"summary: tipo {type(result.summary).__name__}, atteso str")
+    elif not result.summary.strip():
+        validation_result.add_error("summary: stringa vuota o solo spazi")
+
+    # Validate betting_impact is valid value or None
+    if not hasattr(result, "betting_impact"):
+        validation_result.add_error("betting_impact: campo mancante")
+    elif result.betting_impact is not None:
+        if not isinstance(result.betting_impact, str):
+            validation_result.add_error(
+                f"betting_impact: tipo {type(result.betting_impact).__name__}, atteso str o None"
+            )
+        elif result.betting_impact.upper() not in VALID_BETTING_IMPACTS:
+            validation_result.add_warning(
+                f"betting_impact: '{result.betting_impact}' non in {VALID_BETTING_IMPACTS}"
+            )
+
+    return validation_result
 
 
 # ============================================

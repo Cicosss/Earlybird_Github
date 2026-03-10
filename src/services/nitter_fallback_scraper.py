@@ -32,6 +32,7 @@ import logging
 import os
 import random
 import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
@@ -60,6 +61,22 @@ from src.utils.content_analysis import (
     get_exclusion_filter,
     get_relevance_analyzer,
 )
+
+# FIX #2: Import transient error configuration
+# FIX #6: Import CIRCUIT_BREAKER_CONFIG for threshold configuration
+try:
+    from src.config.nitter_instances import (
+        CIRCUIT_BREAKER_CONFIG,
+        TRANSIENT_ERROR_CONFIG,
+    )
+except ImportError:
+    # Fallback if config not available
+    TRANSIENT_ERROR_CONFIG = {
+        "failure_threshold": 5,
+        "recovery_timeout": 300,
+        "error_types": ["TimeoutError", "asyncio.TimeoutError"],
+    }
+    CIRCUIT_BREAKER_CONFIG = {"failure_threshold": 3, "recovery_timeout": 600}
 
 # V10.0: Import Multi-Level Intelligence Gate
 try:
@@ -109,6 +126,9 @@ MAX_TWEETS_PER_ACCOUNT = 5
 # V12.5 COVE FIX: Make MAX_RETRIES_PER_ACCOUNT configurable via NITTER_MAX_RETRIES env var
 # Default increased from 2 to 3 for better VPS network conditions
 MAX_RETRIES_PER_ACCOUNT = int(os.getenv("NITTER_MAX_RETRIES", "3"))
+# V12.5.1 COVE FIX: MAX_NITTER_RECOVERY_ACCOUNTS limits accounts to recover via Nitter
+# This prevents excessive latency when many accounts lack data after Tavily
+MAX_NITTER_RECOVERY_ACCOUNTS = int(os.getenv("MAX_NITTER_RECOVERY_ACCOUNTS", "10"))
 
 # Cache configuration
 CACHE_FILE = "data/nitter_cache.json"
@@ -225,16 +245,8 @@ class ScrapedTweet:
     gate_triggered_keyword: str | None = None  # Keyword that triggered Layer 1 gate
 
 
-@dataclass
-class InstanceHealth:
-    """Health status of a Nitter instance."""
-
-    url: str
-    is_healthy: bool = True
-    last_check: datetime | None = None
-    consecutive_failures: int = 0
-    last_success: datetime | None = None
-
+# Import unified InstanceHealth from nitter_pool.py for consistency
+from src.services.nitter_pool import InstanceHealth
 
 # ============================================
 # V9.5: NATIVE KEYWORD GATE (Layer 1 - Zero Cost)
@@ -480,6 +492,9 @@ class NitterFallbackScraper:
         self._fallback_instances = list(NITTER_FALLBACK_INSTANCES)
         self._instance_index = 0
         self._instance_health: dict[str, InstanceHealth] = {}
+
+        # Thread safety: Add lock for protecting InstanceHealth modifications
+        self._health_lock = threading.Lock()
 
         # Initialize health tracking
         for url in self._instances + self._fallback_instances:
@@ -753,23 +768,92 @@ class NitterFallbackScraper:
         # All unhealthy, try first primary anyway
         return self._instances[0]
 
-    def _mark_instance_success(self, url: str) -> None:
-        """Mark instance as successful."""
-        health = self._instance_health.get(url)
-        if health:
-            health.is_healthy = True
-            health.consecutive_failures = 0
-            health.last_success = datetime.now(timezone.utc)
+    def _is_transient_error(self, error_type: str) -> bool:
+        """
+        Check if an error type is considered transient (network-related).
 
-    def _mark_instance_failure(self, url: str) -> None:
-        """Mark instance as failed."""
-        health = self._instance_health.get(url)
-        if health:
-            health.consecutive_failures += 1
-            health.last_check = datetime.now(timezone.utc)
-            if health.consecutive_failures >= 3:
-                health.is_healthy = False
-                logger.warning(f"⚠️ [NITTER-FALLBACK] Instance marked unhealthy: {url}")
+        FIX #2: VPS Timeout Handling - Distinguish between transient and permanent failures.
+
+        Args:
+            error_type: The name of the exception type
+
+        Returns:
+            True if the error is transient, False otherwise
+        """
+        return error_type in TRANSIENT_ERROR_CONFIG.get("error_types", [])
+
+    def _mark_instance_success(self, url: str) -> None:
+        """
+        Mark instance as successful.
+
+        Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+        """
+        with self._health_lock:
+            health = self._instance_health.get(url)
+            if health:
+                health.is_healthy = True
+                health.consecutive_failures = 0
+                health.transient_failures = 0
+                health.permanent_failures = 0
+                # Use unified field name (last_success_time) from nitter_pool.py
+                health.last_success_time = time.time()
+                health.successful_calls += 1
+                health.total_calls += 1
+
+    def _mark_instance_failure(self, url: str, error_type: str = "Unknown") -> None:
+        """
+        Mark instance as failed.
+
+        Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+
+        VPS Timeout Handling: Use different thresholds for transient vs permanent errors.
+        Uses float timestamp (Unix time) for consistency with nitter_pool.py.
+
+        Args:
+            url: Instance URL
+            error_type: Type of error that occurred
+        """
+        with self._health_lock:
+            health = self._instance_health.get(url)
+            if health:
+                # Use float timestamp (Unix time) for consistency with nitter_pool.py
+                health.last_check = time.time()
+                health.total_calls += 1
+
+                # Determine if this is a transient or permanent error
+                is_transient = self._is_transient_error(error_type)
+
+                if is_transient:
+                    health.transient_failures += 1
+                    # Use higher threshold for transient errors
+                    threshold = TRANSIENT_ERROR_CONFIG.get("failure_threshold", 5)
+                    failure_count = health.transient_failures
+                    logger.debug(
+                        f"⚠️ [NITTER-FALLBACK] Transient error {error_type} for {url} "
+                        f"({failure_count}/{threshold})"
+                    )
+                else:
+                    health.permanent_failures += 1
+                    # Use CIRCUIT_BREAKER_CONFIG for permanent error threshold
+                    threshold = CIRCUIT_BREAKER_CONFIG.get("failure_threshold", 3)
+                    failure_count = health.permanent_failures
+                    logger.debug(
+                        f"⚠️ [NITTER-FALLBACK] Permanent error {error_type} for {url} "
+                        f"({failure_count}/{threshold})"
+                    )
+
+                # Update consecutive failures for backward compatibility
+                health.consecutive_failures = max(
+                    health.transient_failures, health.permanent_failures
+                )
+
+                # Check if instance should be marked unhealthy
+                if failure_count >= threshold:
+                    health.is_healthy = False
+                    logger.warning(
+                        f"⚠️ [NITTER-FALLBACK] Instance marked unhealthy: {url} "
+                        f"({error_type} - {failure_count}/{threshold} failures)"
+                    )
 
     async def health_check(self) -> dict[str, bool]:
         """
@@ -826,7 +910,7 @@ class NitterFallbackScraper:
                             f"⚠️ [NITTER-FALLBACK] Instance {url} is blocked by Cloudflare/captcha"
                         )
                         results[url] = False
-                        self._mark_instance_failure(url)
+                        self._mark_instance_failure(url, "CloudflareBlock")
                         await page.close()
                         continue
 
@@ -838,7 +922,7 @@ class NitterFallbackScraper:
                             f"⚠️ [NITTER-FALLBACK] Instance {url} does not appear to be a Nitter page"
                         )
                         results[url] = False
-                        self._mark_instance_failure(url)
+                        self._mark_instance_failure(url, "InvalidPage")
                         await page.close()
                         continue
 
@@ -855,7 +939,7 @@ class NitterFallbackScraper:
                             f"⚠️ [NITTER-FALLBACK] Instance {url} has no tweet containers"
                         )
                         results[url] = False
-                        self._mark_instance_failure(url)
+                        self._mark_instance_failure(url, "NoTweetContainers")
                         await page.close()
                         continue
 
@@ -869,14 +953,15 @@ class NitterFallbackScraper:
                         f"⚠️ [NITTER-FALLBACK] Instance {url} returned status {status_code}"
                     )
                     results[url] = False
-                    self._mark_instance_failure(url)
+                    self._mark_instance_failure(url, f"HTTP{status_code}")
 
                 await page.close()
 
             except Exception as e:
+                error_type = type(e).__name__
                 logger.debug(f"⚠️ [NITTER-FALLBACK] Health check failed for {url}: {e}")
                 results[url] = False
-                self._mark_instance_failure(url)
+                self._mark_instance_failure(url, error_type)
 
         healthy_count = sum(1 for v in results.values() if v)
         logger.info(
@@ -1075,8 +1160,9 @@ class NitterFallbackScraper:
                 )
 
                 if not response or response.status != 200:
+                    status_code = response.status if response else "unknown"
                     await page.close()
-                    self._mark_instance_failure(instance_url)
+                    self._mark_instance_failure(instance_url, f"HTTP{status_code}")
                     continue
 
                 # Wait for content to load (Nitter uses JS)
@@ -1150,7 +1236,7 @@ class NitterFallbackScraper:
                         f"(attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
                         f"Possible causes: VPS firewall, IP blocked by Nitter, or instance down"
                     )
-                    self._mark_instance_failure(instance_url)
+                    self._mark_instance_failure(instance_url, error_type)
                 elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
                     # Timeout error - network issue or slow response
                     logger.warning(
@@ -1158,7 +1244,7 @@ class NitterFallbackScraper:
                         f"(attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
                         f"Network issue or slow response"
                     )
-                    self._mark_instance_failure(instance_url)
+                    self._mark_instance_failure(instance_url, error_type)
                 elif (
                     "403" in error_message
                     or "429" in error_message
@@ -1170,14 +1256,14 @@ class NitterFallbackScraper:
                         f"(attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
                         f"Instance may be blocking requests"
                     )
-                    self._mark_instance_failure(instance_url)
+                    self._mark_instance_failure(instance_url, "RateLimited")
                 else:
                     # Generic error
                     logger.info(
                         f"⚠️ [NITTER-FALLBACK] Attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT} failed for @{handle_clean}: "
                         f"{error_type}: {error_message}"
                     )
-                    self._mark_instance_failure(instance_url)
+                    self._mark_instance_failure(instance_url, error_type)
 
                 # Random delay before retry
                 await asyncio.sleep(random.uniform(SCRAPE_DELAY_MIN, SCRAPE_DELAY_MAX))
@@ -1300,7 +1386,29 @@ class NitterFallbackScraper:
             "cache_hits": self._cache_hits,
             "instance_switches": self._instance_switches,
             "instance_health": {
-                url: {"healthy": h.is_healthy, "failures": h.consecutive_failures}
+                url: {
+                    "healthy": h.is_healthy,
+                    "failures": h.consecutive_failures,
+                    # FIX #2 & #5: Add detailed failure tracking and monitoring fields
+                    "transient_failures": h.transient_failures,
+                    "permanent_failures": h.permanent_failures,
+                    "total_calls": h.total_calls,
+                    "successful_calls": h.successful_calls,
+                    "success_rate": (
+                        h.successful_calls / h.total_calls if h.total_calls > 0 else 0.0
+                    ),
+                    # FIX #4: Convert float timestamps to ISO format for display
+                    "last_success": (
+                        datetime.fromtimestamp(h.last_success_time, timezone.utc).isoformat()
+                        if h.last_success_time
+                        else None
+                    ),
+                    "last_check": (
+                        datetime.fromtimestamp(h.last_check, timezone.utc).isoformat()
+                        if h.last_check
+                        else None
+                    ),
+                }
                 for url, h in self._instance_health.items()
             },
         }

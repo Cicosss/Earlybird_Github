@@ -320,7 +320,7 @@ class TestSWRMetrics:
         assert metrics.hit_rate() == 50.0  # 1 hit / 2 total
 
     def test_swr_metrics_stale_hit_rate(self):
-        """Stale hit rate should be calculated correctly."""
+        """Stale hit rate should be calculated correctly as percentage of cache hits."""
         from src.utils.smart_cache import SmartCache
 
         cache = SmartCache(name="test_swr", swr_enabled=True)
@@ -336,7 +336,7 @@ class TestSWRMetrics:
         cache.get_with_swr("key", fetch_func, ttl=1, stale_ttl=3)
 
         metrics = cache.get_swr_metrics()
-        assert metrics.stale_hit_rate() == 50.0  # 1 stale / 2 total
+        assert metrics.stale_hit_rate() == 100.0  # 1 stale / 1 hit (100% of hits are stale)
 
     def test_swr_metrics_includes_in_stats(self):
         """SWR metrics should be included in get_stats()."""

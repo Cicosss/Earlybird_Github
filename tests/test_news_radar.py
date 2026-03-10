@@ -2153,6 +2153,346 @@ def test_analysis_result_has_betting_impact_field():
 
 
 # ============================================
+# COVE FIX 2026-03-07: COMPREHENSIVE TESTS
+# ============================================
+
+
+def test_analysis_result_type_validation():
+    """Test AnalysisResult validates types correctly."""
+    from src.utils.content_analysis import AnalysisResult
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # Valid result
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="Test summary",
+        betting_impact="HIGH",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert validation.is_valid, f"Valid result should pass: {validation.errors}"
+
+    # Invalid confidence (out of range)
+    result_invalid = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=1.5,  # ❌ Out of range [0.0, 1.0]
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result_invalid)
+    assert not validation.is_valid, "Invalid confidence should fail"
+    assert any("confidence" in e for e in validation.errors), "Should have confidence error"
+
+    # Invalid confidence (negative)
+    result_invalid = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=-0.1,  # ❌ Negative
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result_invalid)
+    assert not validation.is_valid, "Negative confidence should fail"
+    assert any("confidence" in e for e in validation.errors), "Should have confidence error"
+
+
+def test_analysis_result_none_values():
+    """Test AnalysisResult handles None values correctly."""
+    from src.utils.content_analysis import AnalysisResult
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # With None affected_team (should be valid)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team=None,  # ✅ Should be allowed
+        confidence=0.85,
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert validation.is_valid, f"None affected_team should be valid: {validation.errors}"
+
+    # With None betting_impact (should be valid)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="Test summary",
+        betting_impact=None,  # ✅ Should be allowed
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert validation.is_valid, f"None betting_impact should be valid: {validation.errors}"
+
+
+def test_analysis_result_empty_strings():
+    """Test AnalysisResult rejects empty strings."""
+    from src.utils.content_analysis import AnalysisResult
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # Empty category (should be invalid)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="",  # ❌ Should be invalid
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert not validation.is_valid, "Empty category should fail"
+    assert any("category" in e for e in validation.errors), "Should have category error"
+
+    # Empty summary (should be invalid)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="",  # ❌ Should be invalid
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert not validation.is_valid, "Empty summary should fail"
+    assert any("summary" in e for e in validation.errors), "Should have summary error"
+
+
+def test_analysis_result_invalid_betting_impact():
+    """Test AnalysisResult validates betting_impact values."""
+    from src.utils.content_analysis import AnalysisResult
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # Invalid betting_impact (should generate warning, not error)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="Test summary",
+        betting_impact="INVALID",  # ❌ Should generate warning
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert validation.is_valid, "Invalid betting_impact should be valid (warning only)"
+    assert any("betting_impact" in w for w in validation.warnings), (
+        "Should have betting_impact warning"
+    )
+
+
+def test_analysis_result_invalid_types():
+    """Test AnalysisResult validates field types correctly."""
+    from src.utils.content_analysis import AnalysisResult
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # Invalid is_relevant type
+    result = AnalysisResult(
+        is_relevant="True",  # ❌ Should be bool, not str
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert not validation.is_valid, "Invalid is_relevant type should fail"
+    assert any("is_relevant" in e for e in validation.errors), "Should have is_relevant error"
+
+    # Invalid confidence type
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence="0.85",  # ❌ Should be float, not str
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert not validation.is_valid, "Invalid confidence type should fail"
+    assert any("confidence" in e for e in validation.errors), "Should have confidence error"
+
+
+def test_analysis_result_boundary_values():
+    """Test AnalysisResult handles boundary values correctly."""
+    from src.utils.content_analysis import AnalysisResult
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # Confidence at lower bound (0.0)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.0,  # ✅ Should be valid
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert validation.is_valid, f"Confidence 0.0 should be valid: {validation.errors}"
+
+    # Confidence at upper bound (1.0)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=1.0,  # ✅ Should be valid
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert validation.is_valid, f"Confidence 1.0 should be valid: {validation.errors}"
+
+    # Confidence just above upper bound (1.0001)
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=1.0001,  # ❌ Should be invalid
+        summary="Test summary",
+    )
+    validation = validate_analysis_result_dataclass(result)
+    assert not validation.is_valid, "Confidence 1.0001 should fail"
+    assert any("confidence" in e for e in validation.errors), "Should have confidence error"
+
+
+def test_analysis_result_none_input():
+    """Test AnalysisResult validator handles None input correctly."""
+    from src.utils.validators import validate_analysis_result_dataclass
+
+    # None input (should be invalid)
+    validation = validate_analysis_result_dataclass(None)
+    assert not validation.is_valid, "None input should fail"
+    assert any("None" in e for e in validation.errors), "Should have None error"
+
+
+def test_confidence_conversion_with_string():
+    """Test confidence conversion handles string values correctly."""
+    from src.services.news_radar import DeepSeekFallback
+
+    analyzer = DeepSeekFallback()
+
+    # Test with string "0.85"
+    response_text = """
+    {
+        "is_high_value": true,
+        "team": "Test FC",
+        "summary_italian": "Test summary",
+        "confidence": "0.85",
+        "category": "INJURY",
+        "betting_impact": "HIGH"
+    }
+    """
+    result = analyzer._parse_response(response_text)
+    assert result is not None, "Should parse response"
+    assert result.confidence == 0.85, f"Should convert '0.85' to 0.85, got {result.confidence}"
+
+    # Test with string "85" (percentage)
+    response_text = """
+    {
+        "is_high_value": true,
+        "team": "Test FC",
+        "summary_italian": "Test summary",
+        "confidence": "85",
+        "category": "INJURY",
+        "betting_impact": "HIGH"
+    }
+    """
+    result = analyzer._parse_response(response_text)
+    assert result is not None, "Should parse response"
+    assert result.confidence == 0.85, f"Should convert '85%' to 0.85, got {result.confidence}"
+
+    # Test with invalid string "high"
+    response_text = """
+    {
+        "is_high_value": true,
+        "team": "Test FC",
+        "summary_italian": "Test summary",
+        "confidence": "high",
+        "category": "INJURY",
+        "betting_impact": "HIGH"
+    }
+    """
+    result = analyzer._parse_response(response_text)
+    assert result is not None, "Should parse response"
+    assert result.confidence == 0.0, f"Should use default 0.0 for 'high', got {result.confidence}"
+
+
+def test_build_alert_dict_uses_correct_fields():
+    """Test _build_alert_dict uses correct AnalysisResult fields."""
+    from src.services.news_radar import NewsRadarMonitor, RadarSource
+    from src.utils.content_analysis import AnalysisResult
+
+    # Create a minimal NewsRadarMonitor instance
+    analyzer = NewsRadarMonitor()
+
+    # Create a test AnalysisResult
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team="Test FC",
+        confidence=0.85,
+        summary="Test summary",
+        betting_impact="HIGH",
+    )
+
+    # Create a test source
+    source = RadarSource(
+        name="Test Source",
+        url="https://example.com/news",
+        source_type="web",
+    )
+
+    # Build alert dict
+    alert_dict = analyzer._build_alert_dict(result, source)
+
+    # Verify correct fields are used
+    assert alert_dict["team"] == "Test FC", f"Should use affected_team, got {alert_dict['team']}"
+    assert alert_dict["title"] == "Test summary", (
+        f"Should use summary as title, got {alert_dict['title']}"
+    )
+    assert alert_dict["snippet"] == "Test summary", (
+        f"Should use summary as snippet, got {alert_dict['snippet']}"
+    )
+    assert alert_dict["category"] == "INJURY", f"Should have category, got {alert_dict['category']}"
+    assert alert_dict["confidence"] == 0.85, (
+        f"Should have confidence, got {alert_dict['confidence']}"
+    )
+    assert alert_dict["betting_impact"] == "HIGH", (
+        f"Should have betting_impact, got {alert_dict['betting_impact']}"
+    )
+    assert alert_dict["url"] == "https://example.com/news", (
+        f"Should have url, got {alert_dict['url']}"
+    )
+
+
+def test_build_alert_dict_handles_none_team():
+    """Test _build_alert_dict handles None affected_team correctly."""
+    from src.services.news_radar import NewsRadarMonitor, RadarSource
+    from src.utils.content_analysis import AnalysisResult
+
+    # Create a minimal NewsRadarMonitor instance
+    analyzer = NewsRadarMonitor()
+
+    # Create a test AnalysisResult with None affected_team
+    result = AnalysisResult(
+        is_relevant=True,
+        category="INJURY",
+        affected_team=None,  # ✅ Should be handled
+        confidence=0.85,
+        summary="Test summary",
+    )
+
+    # Create a test source
+    source = RadarSource(
+        name="Test Source",
+        url="https://example.com/news",
+        source_type="web",
+    )
+
+    # Build alert dict
+    alert_dict = analyzer._build_alert_dict(result, source)
+
+    # Verify None is handled correctly
+    assert alert_dict["team"] == "Unknown", (
+        f"Should use 'Unknown' for None team, got {alert_dict['team']}"
+    )
+
+
+# ============================================
 # V1.4: INTEGRATION TEST
 # ============================================
 

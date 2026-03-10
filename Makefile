@@ -75,7 +75,7 @@ COLOR_BLUE := \033[34m
 # PHONY Targets
 # ==============================================================================
 
-.PHONY: help sync-memory test test-unit test-integration test-regression test-coverage test-global
+.PHONY: help sync-memory map serve-map test test-unit test-integration test-regression test-coverage test-global
 .PHONY: setup setup-python setup-system setup-playwright-browsers install setup-telegram-auth verify-setup
 .PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor run-funnel
 .PHONY: check-apis check-startup check-health check-database
@@ -97,6 +97,10 @@ help:
 	@echo ""
 	@echo "$(COLOR_BOLD)Memory Sync Commands:$(COLOR_RESET)"
 	@echo "  make sync-memory       - Generate architecture snapshot for Claude-Mem"
+	@echo ""
+	@echo "$(COLOR_BOLD)Architecture Visualization Commands:$(COLOR_RESET)"
+	@echo "  make map              - Generate UML class diagrams (pyreverse)"
+	@echo "  make serve-map        - Serve architecture maps on http://localhost:8001"
 	@echo ""
 	@echo "$(COLOR_BOLD)Test Commands:$(COLOR_RESET)"
 	@echo "  make test              - Run all tests (auto-syncs memory first)"
@@ -153,6 +157,20 @@ sync-memory:
 	@echo "$(COLOR_GREEN)Generating architecture snapshot...$(COLOR_RESET)"
 	@$(PYTHON) scripts/generate_architecture_map.py
 	@echo "$(COLOR_GREEN)Memory sync complete!$(COLOR_RESET)"
+
+# ==============================================================================
+# Architecture Visualization Commands
+# ==============================================================================
+
+map:
+	@echo "$(COLOR_GREEN)Generating UML class diagrams...$(COLOR_RESET)"
+	@$(PYTHON) src/utils/gen_architecture_map.py
+	@echo "$(COLOR_GREEN)Architecture maps generated successfully!$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Run 'make serve-map' to view them in your browser.$(COLOR_RESET)"
+
+serve-map:
+	@echo "$(COLOR_GREEN)Starting HTTP server for architecture maps...$(COLOR_RESET)"
+	@$(PYTHON) src/utils/serve_docs.py
 
 # ==============================================================================
 # Test Commands

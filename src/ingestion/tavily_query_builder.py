@@ -9,7 +9,7 @@ Requirements: 2.1, 2.2, 2.3, 2.4
 
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from src.ingestion.tavily_provider import TavilyResponse
@@ -43,7 +43,7 @@ class TavilyQueryBuilder:
 
     @staticmethod
     def build_match_enrichment_query(
-        home_team: str, away_team: str, match_date: str, questions: list[str] | None = None
+        home_team: str, away_team: str, match_date: str, questions: Optional[list[str]] = None
     ) -> str:
         """
         Build batched query for match enrichment.
@@ -156,7 +156,7 @@ class TavilyQueryBuilder:
         return query
 
     @staticmethod
-    def build_twitter_recovery_query(handle: str, keywords: list[str] | None = None) -> str:
+    def build_twitter_recovery_query(handle: str, keywords: Optional[list[str]] = None) -> str:
         """
         Build query for Twitter intel recovery.
 
@@ -191,7 +191,7 @@ class TavilyQueryBuilder:
     @staticmethod
     def parse_batched_response(response: "TavilyResponse", question_count: int) -> list[str]:
         """
-        Parse batched response into individual answers.
+        Parse batched response into individual answers with comprehensive error handling.
 
         Extracts individual answers from a Tavily response that
         was generated from a batched query.
@@ -204,43 +204,58 @@ class TavilyQueryBuilder:
             List of answer strings mapped to original questions
 
         Requirements: 2.3
+
+        Note:
+            - V7.1: Added comprehensive error handling for malformed responses
+            - Uses getattr() for safe attribute access
+            - Handles None, missing attributes, and unexpected data structures
         """
         if not response:
+            logger.debug("📊 [TAVILY-QUERY-BUILDER] Response is None, returning empty answers")
             return [""] * question_count
 
         answers = []
 
-        # If we have an AI-generated answer, try to parse it
-        if response.answer:
-            # Try to split by common separators
-            raw_answer = response.answer
+        try:
+            # If we have an AI-generated answer, try to parse it
+            if hasattr(response, "answer") and response.answer:
+                # Try to split by common separators
+                raw_answer = str(response.answer)
 
-            # Try numbered list format (1. answer 2. answer)
-            numbered_pattern = r"\d+\.\s*"
-            parts = re.split(numbered_pattern, raw_answer)
-            parts = [p.strip() for p in parts if p.strip()]
+                # Try numbered list format (1. answer 2. answer)
+                numbered_pattern = r"\d+\.\s*"
+                parts = re.split(numbered_pattern, raw_answer)
+                parts = [p.strip() for p in parts if p.strip()]
 
-            if len(parts) >= question_count:
-                answers = parts[:question_count]
-            else:
-                # Try pipe separator
-                pipe_parts = raw_answer.split("|")
-                pipe_parts = [p.strip() for p in pipe_parts if p.strip()]
-
-                if len(pipe_parts) >= question_count:
-                    answers = pipe_parts[:question_count]
+                if len(parts) >= question_count:
+                    answers = parts[:question_count]
                 else:
-                    # Fall back to using the whole answer for each question
-                    answers = [raw_answer] * question_count
+                    # Try pipe separator
+                    pipe_parts = raw_answer.split("|")
+                    pipe_parts = [p.strip() for p in pipe_parts if p.strip()]
 
-        # If no answer, try to extract from results
-        if not answers and response.results:
-            # Use result snippets as answers
-            for i in range(question_count):
-                if i < len(response.results):
-                    answers.append(response.results[i].content)
-                else:
-                    answers.append("")
+                    if len(pipe_parts) >= question_count:
+                        answers = pipe_parts[:question_count]
+                    else:
+                        # Fall back to using the whole answer for each question
+                        answers = [raw_answer] * question_count
+
+            # If no answer, try to extract from results
+            if not answers and hasattr(response, "results") and response.results:
+                # Use result snippets as answers with safe attribute access
+                for i in range(question_count):
+                    if i < len(response.results):
+                        # Use getattr for safe access to 'content' attribute
+                        result = response.results[i]
+                        content = getattr(result, "content", "")
+                        answers.append(content)
+                    else:
+                        answers.append("")
+
+        except Exception as e:
+            logger.error(f"❌ [TAVILY-QUERY-BUILDER] Error parsing batched response: {e}")
+            # Return empty answers as fallback
+            return [""] * question_count
 
         # Ensure we have the right number of answers
         while len(answers) < question_count:
@@ -251,7 +266,7 @@ class TavilyQueryBuilder:
     @staticmethod
     def split_long_query(query: str, max_length: int = MAX_QUERY_LENGTH) -> list[str]:
         """
-        Split a long query into multiple shorter queries.
+        Split a long query into multiple shorter queries with comprehensive error handling.
 
         When a query exceeds the maximum length, splits it into
         multiple queries that can be executed separately.
@@ -264,8 +279,20 @@ class TavilyQueryBuilder:
             List of query strings, each under max_length
 
         Requirements: 2.4
+
+        Note:
+            - V7.1: Added explicit None check and error handling
+            - Returns empty list for None input
+            - Handles unexpected errors gracefully
         """
-        if not query:
+        # Explicit None check
+        if query is None:
+            logger.debug("📏 [TAVILY-QUERY-BUILDER] Query is None, returning empty list")
+            return []
+
+        # Check for empty string
+        if not query or not query.strip():
+            logger.debug("📏 [TAVILY-QUERY-BUILDER] Query is empty, returning empty list")
             return []
 
         if len(query) <= max_length:
@@ -356,9 +383,13 @@ class TavilyQueryBuilder:
                 result.append(q)
             else:
                 # Force truncate if still too long
+                logger.warning(
+                    f"⚠️ [TAVILY-QUERY-BUILDER] Query still too long after split, truncating: {len(q)} -> {max_length}"
+                )
                 result.append(q[:max_length])
 
-        return result if result else [query[:max_length]]
+        logger.debug(f"📏 [TAVILY-QUERY-BUILDER] Split query into {len(result)} parts")
+        return result if result else [str(query)[:max_length]]
 
     @staticmethod
     def estimate_query_count(questions: list[str], base_context: str = "") -> int:

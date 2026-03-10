@@ -145,6 +145,160 @@ class TestParallelEnrichment:
         result3 = enrich_match_parallel(mock_fotmob, "Home", None)
         assert result3.successful_calls == 0
 
+    def test_parallel_enrichment_weather_with_stadium_coords(self):
+        """Test that weather is called when stadium_coords is available."""
+        from datetime import datetime, timezone
+
+        from src.utils.parallel_enrichment import enrich_match_parallel
+
+        # Create mock FotMob provider
+        mock_fotmob = Mock()
+        mock_fotmob.get_full_team_context.return_value = {"injuries": []}
+        mock_fotmob.get_turnover_risk.return_value = {"risk_level": "LOW"}
+        mock_fotmob.get_referee_info.return_value = {"name": "Test Referee"}
+        mock_fotmob.get_stadium_coordinates.return_value = (41.0, 2.0)  # Valid coords
+        mock_fotmob.get_team_stats.return_value = {"goals_signal": "HIGH"}
+        mock_fotmob.get_tactical_insights.return_value = {"tactical_summary": "Test"}
+
+        # Create mock weather provider
+        mock_weather = Mock()
+        mock_weather.return_value = {"status": "rain", "impact": "moderate"}
+
+        match_start_time = datetime(2026, 3, 10, 15, 0, tzinfo=timezone.utc)
+
+        result = enrich_match_parallel(
+            fotmob=mock_fotmob,
+            home_team="Barcelona",
+            away_team="Real Madrid",
+            match_start_time=match_start_time,
+            weather_provider=mock_weather,
+            timeout=10,
+        )
+
+        # Verify weather was called
+        mock_weather.assert_called_once()
+        # Verify weather data is in result
+        assert result.weather_impact is not None
+        assert result.weather_impact.get("status") == "rain"
+
+    def test_parallel_enrichment_weather_without_stadium_coords(self):
+        """Test that weather is NOT called when stadium_coords is None."""
+        from datetime import datetime, timezone
+
+        from src.utils.parallel_enrichment import enrich_match_parallel
+
+        # Create mock FotMob provider with None stadium_coords
+        mock_fotmob = Mock()
+        mock_fotmob.get_full_team_context.return_value = {"injuries": []}
+        mock_fotmob.get_turnover_risk.return_value = {"risk_level": "LOW"}
+        mock_fotmob.get_referee_info.return_value = {"name": "Test Referee"}
+        mock_fotmob.get_stadium_coordinates.return_value = None  # No coords
+        mock_fotmob.get_team_stats.return_value = {"goals_signal": "HIGH"}
+        mock_fotmob.get_tactical_insights.return_value = {"tactical_summary": "Test"}
+
+        # Create mock weather provider
+        mock_weather = Mock()
+        mock_weather.return_value = {"status": "rain", "impact": "moderate"}
+
+        match_start_time = datetime(2026, 3, 10, 15, 0, tzinfo=timezone.utc)
+
+        result = enrich_match_parallel(
+            fotmob=mock_fotmob,
+            home_team="Barcelona",
+            away_team="Real Madrid",
+            match_start_time=match_start_time,
+            weather_provider=mock_weather,
+            timeout=10,
+        )
+
+        # Verify weather was NOT called
+        mock_weather.assert_not_called()
+        # Verify weather data is None
+        assert result.weather_impact is None
+
+    def test_parallel_enrichment_error_details_populated(self):
+        """Test that error_details field is populated when errors occur."""
+        from src.utils.parallel_enrichment import enrich_match_parallel
+
+        # Create mock that fails on some calls
+        mock_fotmob = Mock()
+        mock_fotmob.get_full_team_context.side_effect = [
+            {"injuries": []},  # First call succeeds
+            Exception("API Error"),  # Second call fails
+        ]
+        mock_fotmob.get_turnover_risk.return_value = None
+        mock_fotmob.get_referee_info.return_value = None
+        mock_fotmob.get_stadium_coordinates.return_value = None
+        mock_fotmob.get_team_stats.return_value = {}
+        mock_fotmob.get_tactical_insights.return_value = {}
+
+        result = enrich_match_parallel(mock_fotmob, "Team A", "Team B")
+
+        # Verify error_details is populated
+        assert "away_context" in result.failed_calls
+        assert "away_context" in result.error_details
+        assert "API Error" in result.error_details["away_context"]
+
+    def test_parallel_enrichment_early_exit_on_high_failure_rate(self):
+        """Test that early exit skips weather when >50% of tasks fail."""
+        from datetime import datetime, timezone
+
+        from src.utils.parallel_enrichment import enrich_match_parallel
+
+        # Create mock that fails on most calls (>50%)
+        mock_fotmob = Mock()
+        mock_fotmob.get_full_team_context.side_effect = Exception("API Error")
+        mock_fotmob.get_turnover_risk.side_effect = Exception("API Error")
+        mock_fotmob.get_referee_info.side_effect = Exception("API Error")
+        mock_fotmob.get_stadium_coordinates.side_effect = Exception("API Error")
+        mock_fotmob.get_team_stats.side_effect = Exception("API Error")
+        mock_fotmob.get_tactical_insights.side_effect = Exception("API Error")
+
+        # Create mock weather provider
+        mock_weather = Mock()
+        mock_weather.return_value = {"status": "rain", "impact": "moderate"}
+
+        match_start_time = datetime(2026, 3, 10, 15, 0, tzinfo=timezone.utc)
+
+        result = enrich_match_parallel(
+            fotmob=mock_fotmob,
+            home_team="Team A",
+            away_team="Team B",
+            match_start_time=match_start_time,
+            weather_provider=mock_weather,
+            timeout=10,
+        )
+
+        # Verify weather was NOT called due to early exit
+        mock_weather.assert_not_called()
+        # Verify high failure rate
+        assert len(result.failed_calls) > 0
+
+    def test_parallel_enrichment_failed_calls_type_hint(self):
+        """Test that failed_calls is properly typed as list[str]."""
+        from src.utils.parallel_enrichment import enrich_match_parallel
+
+        mock_fotmob = Mock()
+        mock_fotmob.get_full_team_context.side_effect = Exception("API Error")
+        mock_fotmob.get_turnover_risk.return_value = None
+        mock_fotmob.get_referee_info.return_value = None
+        mock_fotmob.get_stadium_coordinates.return_value = None
+        mock_fotmob.get_team_stats.return_value = {}
+        mock_fotmob.get_tactical_insights.return_value = {}
+
+        result = enrich_match_parallel(mock_fotmob, "Team A", "Team B")
+
+        # Verify failed_calls contains strings
+        assert isinstance(result.failed_calls, list)
+        for item in result.failed_calls:
+            assert isinstance(item, str)
+
+        # Verify error_details is a dict with string keys and values
+        assert isinstance(result.error_details, dict)
+        for key, value in result.error_details.items():
+            assert isinstance(key, str)
+            assert isinstance(value, str)
+
 
 # ============================================
 # TEST 2: Dynamic Threshold

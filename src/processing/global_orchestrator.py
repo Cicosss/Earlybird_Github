@@ -182,6 +182,18 @@ class GlobalOrchestrator:
 
         if self.supabase_available:
             try:
+                # V12.5: Check connection and reconnect if necessary (COVE FIX)
+                if not self.supabase_provider.is_connected():
+                    logger.warning(
+                        "⚠️ [GLOBAL-ORCHESTRATOR] Supabase disconnected, attempting to reconnect..."
+                    )
+                    if self.supabase_provider.reconnect():
+                        logger.info("✅ [GLOBAL-ORCHESTRATOR] Supabase reconnected successfully")
+                    else:
+                        logger.warning(
+                            "⚠️ [GLOBAL-ORCHESTRATOR] Supabase reconnection failed, using mirror"
+                        )
+
                 # Try to fetch from Supabase
                 # V12.5: Use bypass_cache=True for first continent to ensure fresh data
                 # Subsequent continents can use cached data (within 5-minute TTL)
@@ -387,6 +399,14 @@ class GlobalOrchestrator:
             from src.services.nitter_fallback_scraper import get_nitter_fallback_scraper
 
             scraper = get_nitter_fallback_scraper()
+
+            # V12.6 COVE FIX: Clear expired cache entries before starting new cycle
+            try:
+                expired_count = scraper._cache.clear_expired()
+                if expired_count > 0:
+                    logger.info(f"🧹 [NITTER-CACHE] Cleared {expired_count} expired entries")
+            except Exception as e:
+                logger.warning(f"⚠️ [NITTER-CACHE] Failed to clear expired entries: {e}")
 
             logger.info(
                 f"🐦 [NITTER-CYCLE] Starting GLOBAL intelligence cycle for {len(continent_blocks)} continents"
