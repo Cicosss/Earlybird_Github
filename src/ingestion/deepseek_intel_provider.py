@@ -1565,7 +1565,7 @@ Be conservative in your assessments when lacking current data.
 
             result = {
                 "accounts": all_accounts,
-                "extraction_time": datetime.utcnow().isoformat() + "Z",
+                "extraction_time": datetime.now(timezone.utc).isoformat(),
                 # V10.0: Add metadata for debugging
                 "_meta": {
                     "total_handles_requested": len(valid_handles),

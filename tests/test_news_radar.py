@@ -18,6 +18,11 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
+from src.config.exclusion_lists import (
+    EXCLUDED_CATEGORIES,
+    EXCLUDED_OTHER_SPORTS,
+    EXCLUDED_SPORTS,
+)
 from src.services.news_radar import (
     ALERT_CONFIDENCE_THRESHOLD,
     DEEPSEEK_CONFIDENCE_THRESHOLD,
@@ -598,11 +603,7 @@ def test_exclusion_filter_valid_football():
 
 @settings(max_examples=100)
 @given(
-    keyword=st.sampled_from(
-        ExclusionFilter.EXCLUDED_SPORTS
-        + ExclusionFilter.EXCLUDED_CATEGORIES
-        + ExclusionFilter.EXCLUDED_OTHER_SPORTS
-    ),
+    keyword=st.sampled_from(EXCLUDED_SPORTS + EXCLUDED_CATEGORIES + EXCLUDED_OTHER_SPORTS),
     prefix=st.text(min_size=0, max_size=50),
     suffix=st.text(min_size=0, max_size=50),
 )

@@ -337,15 +337,21 @@ class BettingStatsResponse(BaseModel):
             return RefereeStrictness.UNKNOWN
         return v
 
-    @field_validator("match_intensity")
+    @field_validator("match_intensity", mode="before")
     @classmethod
     def validate_match_intensity(cls, v):
-        """Validate match intensity is a valid enum."""
+        """Validate match intensity is a valid enum (case-insensitive)."""
         if isinstance(v, str):
-            try:
-                return MatchIntensity(v)
-            except ValueError:
-                return MatchIntensity.UNKNOWN
+            v_lower = v.lower()
+            for intensity in [
+                MatchIntensity.HIGH,
+                MatchIntensity.MEDIUM,
+                MatchIntensity.LOW,
+                MatchIntensity.UNKNOWN,
+            ]:
+                if v_lower == intensity.value.lower():
+                    return intensity
+            return MatchIntensity.UNKNOWN
         return v
 
     @field_validator("data_confidence")

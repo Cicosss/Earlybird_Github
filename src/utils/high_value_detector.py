@@ -30,6 +30,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from src.config.exclusion_lists import (
+    EXCLUDED_CATEGORIES,
+    EXCLUDED_OTHER_SPORTS,
+    EXCLUDED_SPORTS,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,77 +91,11 @@ class GarbageFilter:
     """
 
     # ============================================
-    # EXCLUSION KEYWORDS (from content_analysis.py)
+    # EXCLUSION KEYWORDS
     # ============================================
-
-    # Basketball and other excluded sports
-    EXCLUDED_SPORTS = [
-        # Basketball
-        "basket",
-        "basketball",
-        "nba",
-        "euroleague",
-        "pallacanestro",
-        "baloncesto",
-        "koszykówka",
-        "basketbol",
-        "acb",
-        "fiba",
-        # Other sports explicitly excluded
-        "tennis",
-        "golf",
-        "cricket",
-        "hockey",
-        "baseball",
-        "mlb",
-    ]
-
-    # Women's football
-    EXCLUDED_CATEGORIES = [
-        "women",
-        "woman",
-        "ladies",
-        "feminine",
-        "femminile",
-        "femenino",
-        "kobiet",
-        "kadın",
-        "bayan",
-        "wsl",
-        "liga f",
-        "women's",
-        "womens",
-        "donne",
-        "féminin",
-        "feminino",
-        "frauen",
-        "vrouwen",
-        "damernas",
-    ]
-
-    # Other excluded sports
-    EXCLUDED_OTHER_SPORTS = [
-        # American sports
-        "nfl",
-        "american football",
-        "super bowl",
-        "touchdown",
-        # Rugby
-        "rugby",
-        "six nations",
-        "rugby union",
-        "rugby league",
-        # Other
-        "handball",
-        "volleyball",
-        "futsal",
-        "pallavolo",
-        "balonmano",
-        "beach soccer",
-        "esports",
-        "e-sports",
-        "gaming",
-    ]
+    # VPS FIX: Now imported from centralized config to eliminate duplication
+    # See src/config/exclusion_lists.py for the complete lists
+    # These are imported at module level and used directly in __init__
 
     # Patterns that indicate garbage content
     GARBAGE_PATTERNS = [
@@ -167,8 +107,11 @@ class GarbageFilter:
         r"(\b\w+\b)(\s+\1){3,}",
     ]
 
-    # V2.2: Pattern for navigation menu detection (separate, not in GARBAGE_PATTERNS)
-    NAVIGATION_MENU_PATTERN = r"^[A-Z][a-z]+(\s+[A-Z][a-z]+){3,}$"
+    # V2.3: Pattern for navigation menu detection (separate, not in GARBAGE_PATTERNS)
+    # VPS FIX: Now handles both title-case (Home News Sport) and all-caps (HOME NEWS SPORT) menus
+    # Also handles mixed-case menus (HOME About Contact MORE)
+    # Pattern matches: 4+ words, each can be all-caps or title-case
+    NAVIGATION_MENU_PATTERN = r"^(?:[A-Z][a-z]+|[A-Z]+)(?:\s+(?:[A-Z][a-z]+|[A-Z]+)){3,}$"
 
     # Minimum content requirements
     MIN_CONTENT_LENGTH = 100  # chars (lowered from 150)
@@ -184,8 +127,8 @@ class GarbageFilter:
         # V2.2: Compile navigation menu pattern separately
         self._nav_menu_pattern = re.compile(self.NAVIGATION_MENU_PATTERN)
 
-        # Build exclusion pattern from all excluded keywords
-        all_excluded = self.EXCLUDED_SPORTS + self.EXCLUDED_CATEGORIES + self.EXCLUDED_OTHER_SPORTS
+        # Build exclusion pattern from all excluded keywords (imported from centralized config)
+        all_excluded = EXCLUDED_SPORTS + EXCLUDED_CATEGORIES + EXCLUDED_OTHER_SPORTS
         exclusion_pattern = r"\b(" + "|".join(re.escape(kw) for kw in all_excluded) + r")\b"
         self._exclusion_pattern = re.compile(exclusion_pattern, re.IGNORECASE)
 
@@ -275,8 +218,9 @@ class GarbageFilter:
             # Skip empty lines
             if not line:
                 continue
-            # Skip short lines that are all caps (likely nav)
-            if len(line) < 50 and line.isupper():
+            # VPS FIX: Skip lines that are all caps (likely nav) - removed length restriction
+            # Long uppercase menus like "HOME ABOUT CONTACT MORE NEWS SPORTS FOOTBALL" should also be skipped
+            if line.isupper():
                 continue
             # V2.2: Fixed - Skip lines that look like menu items (Home News Sport...)
             if self._nav_menu_pattern.match(line):

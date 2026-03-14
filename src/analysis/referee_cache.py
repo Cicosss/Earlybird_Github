@@ -224,6 +224,19 @@ class RefereeCache:
             "timeout_count": self._lock_timeout_count,
         }
 
+    def reset_lock_stats(self):
+        """
+        Reset lock contention statistics.
+
+        Issue 2 fix: Reset lock stats periodically to prevent averages from becoming
+        meaningless over time. This method is thread-safe and should be called by
+        the metrics collector every hour.
+        """
+        with self._lock:
+            self._lock_wait_time = 0.0
+            self._lock_wait_count = 0
+            self._lock_timeout_count = 0
+
 
 # Global cache instance
 _referee_cache = None

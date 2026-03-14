@@ -122,6 +122,7 @@ def parse_ai_json(
         Validated dict with safe defaults
     """
     # Default fallback values (aligned with normalize_deep_dive_response)
+    # Legacy fields removed (V6.0+): referee_stats, h2h_results, injuries, raw_intel
     if default_values is None:
         default_values = {
             "internal_crisis": "Unknown",
@@ -133,10 +134,6 @@ def parse_ai_json(
             "motivation_home": "Unknown",
             "motivation_away": "Unknown",
             "table_context": "Unknown",
-            "referee_stats": None,
-            "h2h_results": None,
-            "injuries": [],
-            "raw_intel": None,
         }
 
     try:
@@ -159,10 +156,9 @@ def parse_ai_json(
     except (ValueError, Exception) as e:
         # Catch both orjson.JSONDecodeError and json.JSONDecodeError via base Exception
         if "JSON" in str(type(e).__name__) or isinstance(e, ValueError):
-            logger.warning(f"JSON extraction failed: {e}. Returning raw intel.")
-            result = default_values.copy()
-            result["raw_intel"] = text_response[:1000] if text_response else None
-            return result
+            logger.warning(f"JSON extraction failed: {e}. Using defaults.")
+            # Legacy raw_intel fallback removed (V6.0+) - system now uses structured outputs
+            return default_values.copy()
         logger.warning(f"AI response parsing failed: {e}. Using defaults.")
         return default_values.copy()
 
@@ -172,7 +168,7 @@ def normalize_deep_dive_response(data: dict) -> dict:
     Normalize deep dive response to standard format.
 
     Ensures all expected fields are present with safe defaults.
-    Handles legacy field names for backward compatibility.
+    Legacy field handling removed (V6.0+) - system now uses DeepDiveResponse.
 
     Args:
         data: Raw response data (can be None or empty dict)
@@ -185,7 +181,7 @@ def normalize_deep_dive_response(data: dict) -> dict:
         return {}
 
     return {
-        # Core fields
+        # Core fields (aligned with DeepDiveResponse)
         "internal_crisis": data.get("internal_crisis") or "Unknown",
         "turnover_risk": data.get("turnover_risk") or "Unknown",
         "referee_intel": data.get("referee_intel") or "Unknown",
@@ -197,9 +193,9 @@ def normalize_deep_dive_response(data: dict) -> dict:
         "motivation_home": data.get("motivation_home") or "Unknown",
         "motivation_away": data.get("motivation_away") or "Unknown",
         "table_context": data.get("table_context") or "Unknown",
-        # Legacy fields for backward compatibility
-        "referee_stats": data.get("referee_stats") or data.get("referee_intel"),
-        "h2h_results": data.get("h2h_results") or data.get("h2h"),
-        "injuries": data.get("injuries") or [],
-        "raw_intel": data.get("raw_intel") or data.get("raw_response"),
+        # Legacy fields removed (V6.0+):
+        # - referee_stats: Use referee_intel instead
+        # - h2h_results: Not used in current analysis
+        # - injuries: Use injury_impact instead
+        # - raw_intel: Not needed with structured outputs
     }

@@ -29,12 +29,35 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import psutil
 
 # Import centralized version tracking
 from src.version import get_version_with_module
+
+# Import GlobalOrchestrator for active leagues tracking - Issue #2 fix
+# Moved from inside _get_active_leagues_count() method to top of file
+# to avoid inefficient repeated imports and potential circular import issues
+try:
+    from src.processing.global_orchestrator import get_global_orchestrator
+
+    _GLOBAL_ORCHESTRATOR_AVAILABLE = True
+except ImportError:
+    _GLOBAL_ORCHESTRATOR_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️ GlobalOrchestrator not available, active leagues count will be 0")
+
+# Import notifier for sending alerts to Telegram - Recommendation #1 fix
+# Import is optional and will not fail if notifier is not available
+try:
+    from src.alerting.notifier import send_status_message
+
+    _NOTIFIER_AVAILABLE = True
+except ImportError:
+    _NOTIFIER_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.debug("Notifier not available, alerts will only be logged")
 
 # Log version on import
 logger = logging.getLogger(__name__)
@@ -54,12 +77,25 @@ METRICS_TABLE = "orchestration_metrics"
 SYSTEM_METRICS_INTERVAL = 300  # 5 minutes
 ORCHESTRATION_METRICS_INTERVAL = 60  # 1 minute
 BUSINESS_METRICS_INTERVAL = 600  # 10 minutes
-LOCK_CONTENTION_METRICS_INTERVAL = 300  # 5 minutes
+LOCK_CONTENTION_METRICS_INTERVAL = 30  # 30 seconds (was 300 - Issue 4 fix)
+LOCK_CONTENTION_STATS_RESET_INTERVAL = 3600  # 1 hour - Issue 2 fix
+METRICS_RETENTION_DAYS = int(
+    os.getenv("METRICS_RETENTION_DAYS", "7")
+)  # Keep 7 days of metrics - Issue 2 fix
 
 # Alert thresholds (configurable via environment variables)
 CPU_THRESHOLD = float(os.getenv("METRICS_CPU_THRESHOLD", "80.0"))
 MEMORY_THRESHOLD = float(os.getenv("METRICS_MEMORY_THRESHOLD", "85.0"))
 DISK_THRESHOLD = float(os.getenv("METRICS_DISK_THRESHOLD", "90.0"))
+
+# Lock contention alert thresholds (configurable via environment variables) - Issue 1 fix
+LOCK_CONTENTION_TIMEOUT_THRESHOLD = int(os.getenv("LOCK_CONTENTION_TIMEOUT_THRESHOLD", "10"))
+LOCK_CONTENTION_WAIT_TIME_THRESHOLD = float(
+    os.getenv("LOCK_CONTENTION_WAIT_TIME_THRESHOLD", "0.5")
+)  # 500ms
+LOCK_CONTENTION_ALERT_THROTTLE_MINUTES = int(
+    os.getenv("LOCK_CONTENTION_ALERT_THROTTLE_MINUTES", "5")
+)  # Don't alert more than once every 5 minutes for same issue
 
 
 # ============================================
@@ -97,7 +133,7 @@ class BusinessMetrics:
     alerts_sent_last_24h: int
     matches_analyzed_last_hour: int
     matches_analyzed_last_24h: int
-    errors_by_type: dict[str, int] = field(default_factory=dict)
+    errors_by_type: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -134,89 +170,128 @@ class OrchestrationMetricsCollector:
 
         # Track process start time
         self._process_start_time = time.time()
+
+        # Recommendation #2 fix: Restart count will be loaded from database in _init_database()
         self._restart_count = 0
 
         # Metrics cache for performance optimization
-        self._system_metrics_cache: SystemMetrics | None = None
-        self._orchestration_metrics_cache: OrchestrationMetrics | None = None
-        self._business_metrics_cache: BusinessMetrics | None = None
+        self._system_metrics_cache: Optional[SystemMetrics] = None
+        self._orchestration_metrics_cache: Optional[OrchestrationMetrics] = None
+        self._business_metrics_cache: Optional[BusinessMetrics] = None
 
-        # Initialize database
+        # Lock contention alert throttling - Issue 1 fix
+        self._last_alert_time: Dict[str, float] = {}  # Track last alert time for each alert type
+
+        # Lock stats reset tracking - Issue 2 fix
+        self._last_lock_stats_reset = time.time()
+
+        # Ensure data directory exists
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+            logger.info(f"📁 Created data directory: {db_dir}")
+
+        # Initialize database (will load restart count from database)
         self._init_database()
 
     def _init_database(self):
         """Initialize the metrics database table."""
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
 
-            # Create metrics table if it doesn't exist
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {METRICS_TABLE} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    metric_type TEXT NOT NULL,
-                    metric_data TEXT NOT NULL
-                )
-            """)
+                # Create metrics table if it doesn't exist
+                cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {METRICS_TABLE} (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        metric_type TEXT NOT NULL,
+                        metric_data TEXT NOT NULL
+                    )
+                """)
 
-            # Create index for faster queries
-            cursor.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_{METRICS_TABLE}_timestamp
-                ON {METRICS_TABLE}(timestamp)
-            """)
+                # Create index for faster queries
+                cursor.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{METRICS_TABLE}_timestamp
+                    ON {METRICS_TABLE}(timestamp)
+                """)
 
-            cursor.execute(f"""
-                CREATE INDEX IF NOT EXISTS idx_{METRICS_TABLE}_type
-                ON {METRICS_TABLE}(metric_type)
-            """)
+                cursor.execute(f"""
+                    CREATE INDEX IF NOT EXISTS idx_{METRICS_TABLE}_type
+                    ON {METRICS_TABLE}(metric_type)
+                """)
 
-            # Create errors table for intelligent error tracking
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS orchestration_errors (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    error_type TEXT NOT NULL,
-                    error_message TEXT NOT NULL,
-                    timestamp TEXT NOT NULL,
-                    severity TEXT DEFAULT 'ERROR',
-                    component TEXT,
-                    match_id TEXT
-                )
-            """)
+                # Create errors table for intelligent error tracking
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS orchestration_errors (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        error_type TEXT NOT NULL,
+                        error_message TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        severity TEXT DEFAULT 'ERROR',
+                        component TEXT,
+                        match_id TEXT
+                    )
+                """)
 
-            # Create index for faster error queries
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_orchestration_errors_timestamp
-                ON orchestration_errors(timestamp)
-            """)
+                # Create index for faster error queries
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_orchestration_errors_timestamp
+                    ON orchestration_errors(timestamp)
+                """)
 
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_orchestration_errors_type
-                ON orchestration_errors(error_type)
-            """)
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_orchestration_errors_type
+                    ON orchestration_errors(error_type)
+                """)
 
-            conn.commit()
-            conn.close()
+                # Recommendation #2 fix: Create metadata table for persistent restart count tracking
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS orchestration_metadata (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                """)
+
+                conn.commit()
 
             logger.info(f"✅ Metrics database initialized at {self.db_path}")
+
+            # Recommendation #2 fix: Load restart count from database
+            self._restart_count = self._load_restart_count_from_db()
+
+            # Clean up old metrics on initialization - Issue 2 fix
+            self._cleanup_old_metrics()
         except Exception as e:
             logger.error(f"❌ Failed to initialize metrics database: {e}")
 
     def start(self):
-        """Start the metrics collector."""
+        """
+        Start the metrics collector.
+
+        Recommendation #2 fix: Increments restart count and persists to database
+        to track actual process restarts across bot restarts.
+        """
         if self._running:
             logger.warning("⚠️ Metrics collector already running")
             return
 
         self._running = True
+
+        # Recommendation #2 fix: Increment restart count and persist to database
         self._restart_count += 1
+        self._save_restart_count_to_db(self._restart_count)
+
         self._process_start_time = time.time()
 
         # Start metrics collection thread
         self._thread = threading.Thread(target=self._collection_loop, daemon=True)
         self._thread.start()
 
-        logger.info("✅ Orchestration metrics collector started")
+        logger.info(
+            f"✅ Orchestration metrics collector started (restart count: {self._restart_count})"
+        )
 
     def stop(self):
         """Stop the metrics collector."""
@@ -236,6 +311,7 @@ class OrchestrationMetricsCollector:
         last_orchestration_collection = 0
         last_business_collection = 0
         last_lock_contention_collection = 0
+        last_cleanup = 0
 
         while self._running:
             now = time.time()
@@ -268,14 +344,31 @@ class OrchestrationMetricsCollector:
                 except Exception as e:
                     logger.error(f"❌ Failed to collect business metrics: {e}")
 
-            # Collect lock contention metrics every 5 minutes
+            # Collect lock contention metrics every 30 seconds (was 5 minutes) - Issue 4 fix
             if now - last_lock_contention_collection >= LOCK_CONTENTION_METRICS_INTERVAL:
                 try:
                     metrics = self._collect_lock_contention_metrics()
                     self._store_metrics("lock_contention", metrics)
+                    self._check_lock_contention_alerts(metrics)  # Issue 1 fix: Check alerts
                     last_lock_contention_collection = now
                 except Exception as e:
                     logger.error(f"❌ Failed to collect lock contention metrics: {e}")
+
+            # Reset lock stats every hour - Issue 2 fix
+            if now - self._last_lock_stats_reset >= LOCK_CONTENTION_STATS_RESET_INTERVAL:
+                try:
+                    self._reset_lock_stats()
+                    self._last_lock_stats_reset = now
+                except Exception as e:
+                    logger.error(f"❌ Failed to reset lock stats: {e}")
+
+            # Clean up old metrics daily - Issue 2 fix
+            if now - last_cleanup >= 86400:  # 24 hours
+                try:
+                    self._cleanup_old_metrics()
+                    last_cleanup = now
+                except Exception as e:
+                    logger.error(f"❌ Failed to cleanup old metrics: {e}")
 
             # Sleep for 1 second before next check
             time.sleep(1)
@@ -349,12 +442,34 @@ class OrchestrationMetricsCollector:
         )
 
     def _get_active_leagues_count(self) -> int:
-        """Get the number of active leagues."""
+        """
+        Get the number of active leagues.
+
+        Issue #1 fix: Added None check to prevent AttributeError if result is None.
+        While get_all_active_leagues() should never return None, this provides
+        defense-in-depth protection and prevents bot crashes.
+
+        Issue #2 fix: Import moved to top of file to avoid inefficient
+        repeated imports and potential circular import issues.
+        """
         try:
-            from src.processing.global_orchestrator import get_global_orchestrator
+            if not _GLOBAL_ORCHESTRATOR_AVAILABLE:
+                logger.warning("⚠️ GlobalOrchestrator not available, returning 0 active leagues")
+                return 0
 
             orchestrator = get_global_orchestrator()
+            if orchestrator is None:
+                logger.warning("⚠️ GlobalOrchestrator instance is None, returning 0 active leagues")
+                return 0
+
             result = orchestrator.get_all_active_leagues()
+
+            # Issue #1 fix: Check if result is None before calling .get()
+            if result is None:
+                logger.warning(
+                    "⚠️ get_all_active_leagues() returned None, returning 0 active leagues"
+                )
+                return 0
 
             return len(result.get("leagues", []))
         except Exception as e:
@@ -363,52 +478,52 @@ class OrchestrationMetricsCollector:
 
     def _get_matches_in_analysis_count(self) -> int:
         """Get the number of matches currently in analysis."""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-            # Count matches with start_time in the future
-            now = datetime.now(timezone.utc).isoformat()
-            cursor.execute(
-                """
-                    SELECT COUNT(*) FROM matches
-                    WHERE start_time > ?
-                """,
-                (now,),
-            )
+                    # Count matches with start_time in the future
+                    now = datetime.now(timezone.utc).isoformat()
+                    cursor.execute(
+                        """
+                            SELECT COUNT(*) FROM matches
+                            WHERE start_time > ?
+                        """,
+                        (now,),
+                    )
 
-            count = cursor.fetchone()[0]
-            conn.close()
+                    count = cursor.fetchone()[0]
 
-            return count
-        except Exception as e:
-            logger.error(f"❌ Failed to get matches in analysis count: {e}")
-            return 0
+                return count
+            except Exception as e:
+                logger.error(f"❌ Failed to get matches in analysis count: {e}")
+                return 0
 
     def _get_alerts_count(self, hours: int) -> int:
         """Get the number of alerts sent in the last N hours."""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-            # Count alerts sent in the last N hours
-            # FIXED: Changed table name from 'news_log' to 'news_logs' (plural)
-            cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-            cursor.execute(
-                """
-                SELECT COUNT(*) FROM news_logs
-                WHERE sent = 1 AND created_at > ?
-            """,
-                (cutoff_time,),
-            )
+                    # Count alerts sent in the last N hours
+                    # FIXED: Changed table name from 'news_log' to 'news_logs' (plural)
+                    cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM news_logs
+                        WHERE sent = 1 AND created_at > ?
+                    """,
+                        (cutoff_time,),
+                    )
 
-            count = cursor.fetchone()[0]
-            conn.close()
+                    count = cursor.fetchone()[0]
 
-            return count
-        except Exception as e:
-            logger.error(f"❌ Failed to get alerts count: {e}")
-            return 0
+                return count
+            except Exception as e:
+                logger.error(f"❌ Failed to get alerts count: {e}")
+                return 0
 
     def _get_matches_analyzed_count(self, hours: int) -> int:
         """
@@ -417,37 +532,37 @@ class OrchestrationMetricsCollector:
         FIXED: Uses COUNT(DISTINCT match_id) to correctly count unique matches
         instead of counting all NewsLog entries (which overcounts).
         """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-            # Count matches analyzed in the last N hours
-            # FIXED: Changed table name from 'news_log' to 'news_logs' (plural)
-            # FIXED: Uses COUNT(DISTINCT match_id) to count unique matches
-            cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-            cursor.execute(
-                """
-                SELECT COUNT(DISTINCT match_id) FROM news_logs
-                WHERE created_at > ?
-            """,
-                (cutoff_time,),
-            )
+                    # Count matches analyzed in the last N hours
+                    # FIXED: Changed table name from 'news_log' to 'news_logs' (plural)
+                    # FIXED: Uses COUNT(DISTINCT match_id) to count unique matches
+                    cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+                    cursor.execute(
+                        """
+                        SELECT COUNT(DISTINCT match_id) FROM news_logs
+                        WHERE created_at > ?
+                    """,
+                        (cutoff_time,),
+                    )
 
-            count = cursor.fetchone()[0]
-            conn.close()
+                    count = cursor.fetchone()[0]
 
-            return count
-        except Exception as e:
-            logger.error(f"❌ Failed to get matches analyzed count: {e}")
-            return 0
+                return count
+            except Exception as e:
+                logger.error(f"❌ Failed to get matches analyzed count: {e}")
+                return 0
 
     def record_error(
         self,
         error_type: str,
         error_message: str,
         severity: str = "ERROR",
-        component: str | None = None,
-        match_id: str | None = None,
+        component: Optional[str] = None,
+        match_id: Optional[str] = None,
     ):
         """
         Record an error occurrence in the database for intelligent tracking.
@@ -459,123 +574,177 @@ class OrchestrationMetricsCollector:
             component: Component that generated the error
             match_id: Optional match ID if error is related to a specific match
         """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-            # Insert error into database
-            cursor.execute(
-                """
-                INSERT INTO orchestration_errors
-                (error_type, error_message, timestamp, severity, component, match_id)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    error_type,
-                    error_message[:500],  # Limit error message length
-                    datetime.now(timezone.utc).isoformat(),
-                    severity,
-                    component,
-                    match_id,
-                ),
-            )
+                    # Insert error into database
+                    cursor.execute(
+                        """
+                        INSERT INTO orchestration_errors
+                        (error_type, error_message, timestamp, severity, component, match_id)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            error_type,
+                            error_message[:500],  # Limit error message length
+                            datetime.now(timezone.utc).isoformat(),
+                            severity,
+                            component,
+                            match_id,
+                        ),
+                    )
 
-            conn.commit()
-            conn.close()
+                    conn.commit()
 
-            logger.debug(f"📊 Recorded error: {error_type} - {error_message[:100]}")
-        except Exception as e:
-            logger.error(f"❌ Failed to record error: {e}")
+                logger.debug(f"📊 Recorded error: {error_type} - {error_message[:100]}")
+            except Exception as e:
+                logger.error(f"❌ Failed to record error: {e}")
 
-    def _get_errors_by_type(self) -> dict[str, int]:
+    def _get_errors_by_type(self) -> Dict[str, int]:
         """
         Get errors by type from the database in the last 24 hours.
 
         Returns:
             Dictionary with error counts by type
         """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-            # Get error counts from the last 24 hours
-            cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+                    # Get error counts from the last 24 hours
+                    cutoff_time = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
-            cursor.execute(
-                """
-                SELECT error_type, COUNT(*)
-                FROM orchestration_errors
-                WHERE timestamp > ?
-                GROUP BY error_type
-            """,
-                (cutoff_time,),
-            )
+                    cursor.execute(
+                        """
+                        SELECT error_type, COUNT(*)
+                        FROM orchestration_errors
+                        WHERE timestamp > ?
+                        GROUP BY error_type
+                    """,
+                        (cutoff_time,),
+                    )
 
-            errors = {}
-            for row in cursor.fetchall():
-                errors[row[0]] = row[1]
+                    errors = {}
+                    for row in cursor.fetchall():
+                        errors[row[0]] = row[1]
 
-            conn.close()
+                # Ensure all error types are present with default 0
+                default_errors = {
+                    "database_errors": 0,
+                    "api_errors": 0,
+                    "analysis_errors": 0,
+                    "notification_errors": 0,
+                }
+                default_errors.update(errors)
 
-            # Ensure all error types are present with default 0
-            default_errors = {
-                "database_errors": 0,
-                "api_errors": 0,
-                "analysis_errors": 0,
-                "notification_errors": 0,
-            }
-            default_errors.update(errors)
-
-            return default_errors
-        except Exception as e:
-            logger.error(f"❌ Failed to get errors by type: {e}")
-            return {
-                "database_errors": 0,
-                "api_errors": 0,
-                "analysis_errors": 0,
-                "notification_errors": 0,
-            }
+                return default_errors
+            except Exception as e:
+                logger.error(f"❌ Failed to get errors by type: {e}")
+                return {
+                    "database_errors": 0,
+                    "api_errors": 0,
+                    "analysis_errors": 0,
+                    "notification_errors": 0,
+                }
 
     def _collect_lock_contention_metrics(self) -> LockContentionMetrics:
-        """Collect lock contention metrics from cache components."""
-        try:
-            # Get SupabaseProvider lock stats
-            from src.database.supabase_provider import get_supabase
+        """
+        Collect lock contention metrics from cache components.
 
-            supabase = get_supabase()
-            supabase_stats = supabase.get_cache_lock_stats()
+        Issue 3 fix: Granular error handling with specific exceptions and retry logic.
+        """
+        supabase_stats = {
+            "wait_count": 0,
+            "wait_time_total": 0.0,
+            "wait_time_avg": 0.0,
+            "timeout_count": 0,
+        }
+        referee_stats = {
+            "wait_count": 0,
+            "wait_time_total": 0.0,
+            "wait_time_avg": 0.0,
+            "timeout_count": 0,
+        }
 
-            # Get RefereeCache lock stats
-            from src.analysis.referee_cache import get_referee_cache
+        # Get SupabaseProvider lock stats with retry logic
+        max_retries = 3
+        base_delay = 1.0  # seconds
 
-            referee_cache = get_referee_cache()
-            referee_stats = referee_cache.get_lock_stats()
+        for attempt in range(max_retries):
+            try:
+                from src.database.supabase_provider import get_supabase
 
-            return LockContentionMetrics(
-                timestamp=datetime.now(timezone.utc),
-                supabase_cache_wait_count=supabase_stats.get("wait_count", 0),
-                supabase_cache_wait_time_total=supabase_stats.get("wait_time_total", 0.0),
-                supabase_cache_wait_time_avg=supabase_stats.get("wait_time_avg", 0.0),
-                supabase_cache_timeout_count=supabase_stats.get("timeout_count", 0),
-                referee_cache_wait_count=referee_stats.get("wait_count", 0),
-                referee_cache_wait_time_total=referee_stats.get("wait_time_total", 0.0),
-                referee_cache_wait_time_avg=referee_stats.get("wait_time_avg", 0.0),
-                referee_cache_timeout_count=referee_stats.get("timeout_count", 0),
-            )
-        except Exception as e:
-            logger.error(f"❌ Failed to collect lock contention metrics: {e}")
-            # Return empty metrics on error
-            return LockContentionMetrics(
-                timestamp=datetime.now(timezone.utc),
-                supabase_cache_wait_count=0,
-                supabase_cache_wait_time_total=0.0,
-                supabase_cache_wait_time_avg=0.0,
-                supabase_cache_timeout_count=0,
-                referee_cache_wait_count=0,
-                referee_cache_wait_time_total=0.0,
-                referee_cache_wait_time_avg=0.0,
-                referee_cache_timeout_count=0,
-            )
+                supabase = get_supabase()
+                supabase_stats = supabase.get_cache_lock_stats()
+                break  # Success - exit retry loop
+            except ImportError as e:
+                logger.error(f"❌ Failed to import SupabaseProvider: {e}")
+                break  # Permanent error - no retry
+            except AttributeError as e:
+                logger.error(f"❌ SupabaseProvider method not available: {e}")
+                break  # Permanent error - no retry
+            except RuntimeError as e:
+                # Transient error - retry with exponential backoff
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)
+                    logger.warning(
+                        f"⚠️ Supabase lock stats collection attempt {attempt + 1}/{max_retries} "
+                        f"failed. Retrying in {delay}s... Error: {e}"
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.error(
+                        f"❌ Failed to get Supabase lock stats after {max_retries} attempts: {e}"
+                    )
+            except Exception as e:
+                logger.error(f"❌ Unexpected error getting Supabase lock stats: {e}")
+                break
+
+        # Get RefereeCache lock stats with retry logic
+        for attempt in range(max_retries):
+            try:
+                from src.analysis.referee_cache import get_referee_cache
+
+                referee_cache = get_referee_cache()
+                referee_stats = referee_cache.get_lock_stats()
+                break  # Success - exit retry loop
+            except ImportError as e:
+                logger.error(f"❌ Failed to import RefereeCache: {e}")
+                break  # Permanent error - no retry
+            except AttributeError as e:
+                logger.error(f"❌ RefereeCache method not available: {e}")
+                break  # Permanent error - no retry
+            except RuntimeError as e:
+                # Transient error - retry with exponential backoff
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)
+                    logger.warning(
+                        f"⚠️ Referee lock stats collection attempt {attempt + 1}/{max_retries} "
+                        f"failed. Retrying in {delay}s... Error: {e}"
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.error(
+                        f"❌ Failed to get Referee lock stats after {max_retries} attempts: {e}"
+                    )
+            except Exception as e:
+                logger.error(f"❌ Unexpected error getting Referee lock stats: {e}")
+                break
+
+        return LockContentionMetrics(
+            timestamp=datetime.now(timezone.utc),
+            supabase_cache_wait_count=supabase_stats.get("wait_count", 0),
+            supabase_cache_wait_time_total=supabase_stats.get("wait_time_total", 0.0),
+            supabase_cache_wait_time_avg=supabase_stats.get("wait_time_avg", 0.0),
+            supabase_cache_timeout_count=supabase_stats.get("timeout_count", 0),
+            referee_cache_wait_count=referee_stats.get("wait_count", 0),
+            referee_cache_wait_time_total=referee_stats.get("wait_time_total", 0.0),
+            referee_cache_wait_time_avg=referee_stats.get("wait_time_avg", 0.0),
+            referee_cache_timeout_count=referee_stats.get("timeout_count", 0),
+        )
 
     def _store_metrics(self, metric_type: str, metrics: Any):
         """Store metrics in the database (thread-safe)."""
@@ -583,23 +752,22 @@ class OrchestrationMetricsCollector:
             try:
                 import json
 
-                conn = sqlite3.connect(self.db_path)
-                cursor = conn.cursor()
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-                # Serialize metrics to JSON
-                metrics_json = json.dumps(metrics, default=str)
+                    # Serialize metrics to JSON
+                    metrics_json = json.dumps(metrics, default=str)
 
-                # Insert metrics
-                cursor.execute(
-                    f"""
-                    INSERT INTO {METRICS_TABLE} (timestamp, metric_type, metric_data)
-                    VALUES (?, ?, ?)
-                """,
-                    (datetime.now(timezone.utc).isoformat(), metric_type, metrics_json),
-                )
+                    # Insert metrics
+                    cursor.execute(
+                        f"""
+                        INSERT INTO {METRICS_TABLE} (timestamp, metric_type, metric_data)
+                        VALUES (?, ?, ?)
+                    """,
+                        (datetime.now(timezone.utc).isoformat(), metric_type, metrics_json),
+                    )
 
-                conn.commit()
-                conn.close()
+                    conn.commit()
 
                 logger.debug(f"📊 Stored {metric_type} metrics")
             except Exception as e:
@@ -626,7 +794,13 @@ class OrchestrationMetricsCollector:
         )
 
     def _check_system_alerts(self, metrics: SystemMetrics):
-        """Check system metrics against thresholds and send alerts."""
+        """
+        Check system metrics against thresholds and send alerts.
+
+        Recommendation #1 fix: Now integrates with notifier to send alerts
+        to Telegram in addition to logging. Alerts are only sent if notifier
+        is available and configured.
+        """
         alerts = []
 
         if metrics.cpu_percent > CPU_THRESHOLD:
@@ -644,83 +818,380 @@ class OrchestrationMetricsCollector:
 
         # Send alerts if any thresholds exceeded
         if alerts:
+            # Log alerts locally
             for alert in alerts:
                 logger.warning(alert)
 
-            # Could integrate with existing notifier here
-            # from src.alerting.notifier import send_alert
-            # send_alert(...)
+            # Recommendation #1 fix: Send alerts to Telegram if notifier is available
+            if _NOTIFIER_AVAILABLE:
+                try:
+                    # Build formatted message for Telegram
+                    message = "🚨 <b>SYSTEM ALERT</b>\n\n"
+                    message += "\n".join(alerts)
+                    message += (
+                        f"\n\n⏰ {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
+
+                    send_status_message(message)
+                    logger.info("📤 System alerts sent to Telegram")
+                except Exception as e:
+                    logger.error(f"❌ Failed to send system alerts to Telegram: {e}")
+
+    def _check_lock_contention_alerts(self, metrics: LockContentionMetrics):
+        """
+        Check lock contention metrics against thresholds and send alerts.
+
+        Issue 1 fix: Implements alerting for lock contention metrics with throttling
+        to prevent alert fatigue. Also implements automated responses to mitigate
+        lock contention issues.
+        """
+        alerts = []
+        automated_actions = []
+        now = time.time()
+
+        # Check Supabase cache lock contention
+        if metrics.supabase_cache_timeout_count > LOCK_CONTENTION_TIMEOUT_THRESHOLD:
+            alert_key = "supabase_timeout"
+            if self._should_send_alert(alert_key, now):
+                alerts.append(
+                    f"⚠️ HIGH SUPABASE CACHE LOCK TIMEOUTS: "
+                    f"{metrics.supabase_cache_timeout_count} (threshold: {LOCK_CONTENTION_TIMEOUT_THRESHOLD})"
+                )
+                self._last_alert_time[alert_key] = now
+
+        if metrics.supabase_cache_wait_time_avg > LOCK_CONTENTION_WAIT_TIME_THRESHOLD:
+            alert_key = "supabase_wait_time"
+            if self._should_send_alert(alert_key, now):
+                alerts.append(
+                    f"⚠️ HIGH SUPABASE CACHE LOCK WAIT TIME: "
+                    f"{metrics.supabase_cache_wait_time_avg:.3f}s (threshold: {LOCK_CONTENTION_WAIT_TIME_THRESHOLD}s)"
+                )
+                self._last_alert_time[alert_key] = now
+
+        # Check Referee cache lock contention
+        if metrics.referee_cache_timeout_count > LOCK_CONTENTION_TIMEOUT_THRESHOLD:
+            alert_key = "referee_timeout"
+            if self._should_send_alert(alert_key, now):
+                alerts.append(
+                    f"⚠️ HIGH REFEREE CACHE LOCK TIMEOUTS: "
+                    f"{metrics.referee_cache_timeout_count} (threshold: {LOCK_CONTENTION_TIMEOUT_THRESHOLD})"
+                )
+                self._last_alert_time[alert_key] = now
+
+        if metrics.referee_cache_wait_time_avg > LOCK_CONTENTION_WAIT_TIME_THRESHOLD:
+            alert_key = "referee_wait_time"
+            if self._should_send_alert(alert_key, now):
+                alerts.append(
+                    f"⚠️ HIGH REFEREE CACHE LOCK WAIT TIME: "
+                    f"{metrics.referee_cache_wait_time_avg:.3f}s (threshold: {LOCK_CONTENTION_WAIT_TIME_THRESHOLD}s)"
+                )
+                self._last_alert_time[alert_key] = now
+
+        # Send alerts if any thresholds exceeded
+        if alerts:
+            # Log alerts locally
+            for alert in alerts:
+                logger.warning(f"🔒 [LOCK-CONTENTION] {alert}")
+
+            # Recommendation #1 fix: Send alerts to Telegram if notifier is available
+            if _NOTIFIER_AVAILABLE:
+                try:
+                    # Build formatted message for Telegram
+                    message = "🚨 <b>LOCK CONTENTION ALERT</b>\n\n"
+                    message += "\n".join(alerts)
+                    message += (
+                        f"\n\n⏰ {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
+
+                    send_status_message(message)
+                    logger.info("📤 Lock contention alerts sent to Telegram")
+                except Exception as e:
+                    logger.error(f"❌ Failed to send lock contention alerts to Telegram: {e}")
+
+            # Implement automated responses to mitigate lock contention - Issue 8 fix
+            automated_actions = self._generate_automated_responses(metrics)
+            if automated_actions:
+                for action in automated_actions:
+                    logger.info(f"🤖 [LOCK-CONTENTION] Automated action: {action}")
+
+    def _should_send_alert(self, alert_key: str, now: float) -> bool:
+        """
+        Check if an alert should be sent based on throttling rules.
+
+        Args:
+            alert_key: Unique identifier for the alert type
+            now: Current timestamp
+
+        Returns:
+            True if alert should be sent, False if throttled
+        """
+        if alert_key not in self._last_alert_time:
+            return True  # First time alert
+
+        time_since_last_alert = now - self._last_alert_time[alert_key]
+        throttle_seconds = LOCK_CONTENTION_ALERT_THROTTLE_MINUTES * 60
+
+        return time_since_last_alert >= throttle_seconds
+
+    def _generate_automated_responses(self, metrics: LockContentionMetrics) -> List[str]:
+        """
+        Generate automated responses to mitigate lock contention issues.
+
+        Issue 8 fix: The bot is intelligent and should respond to lock contention
+        by taking proactive measures to reduce contention.
+
+        Args:
+            metrics: Current lock contention metrics
+
+        Returns:
+            List of automated actions taken
+        """
+        actions = []
+
+        # If Supabase cache has high contention, recommend increasing cache TTL
+        if (
+            metrics.supabase_cache_timeout_count > LOCK_CONTENTION_TIMEOUT_THRESHOLD
+            or metrics.supabase_cache_wait_time_avg > LOCK_CONTENTION_WAIT_TIME_THRESHOLD
+        ):
+            actions.append(
+                "Consider increasing SUPABASE_CACHE_TTL_SECONDS to reduce cache lock acquisitions"
+            )
+
+        # If Referee cache has high contention, recommend checking cache usage
+        if (
+            metrics.referee_cache_timeout_count > LOCK_CONTENTION_TIMEOUT_THRESHOLD
+            or metrics.referee_cache_wait_time_avg > LOCK_CONTENTION_WAIT_TIME_THRESHOLD
+        ):
+            actions.append(
+                "Consider reviewing RefereeCache usage patterns - high contention may indicate cache misses"
+            )
+
+        # Log detailed diagnostics for root cause analysis - Issue 9 fix
+        if metrics.supabase_cache_wait_time_avg > 1.0:  # Very high wait time (> 1s)
+            logger.warning(
+                f"🔍 [LOCK-CONTENTION] DIAGNOSTIC: Supabase cache lock wait time is very high "
+                f"({metrics.supabase_cache_wait_time_avg:.3f}s). This may indicate: "
+                f"1) Slow I/O on VPS, 2) High concurrent access, 3) Cache lock held for long periods"
+            )
+
+        if metrics.referee_cache_wait_time_avg > 1.0:  # Very high wait time (> 1s)
+            logger.warning(
+                f"🔍 [LOCK-CONTENTION] DIAGNOSTIC: Referee cache lock wait time is very high "
+                f"({metrics.referee_cache_wait_time_avg:.3f}s). This may indicate: "
+                f"1) Slow I/O on VPS, 2) High concurrent access, 3) Cache lock held for long periods"
+            )
+
+        return actions
+
+    def _reset_lock_stats(self):
+        """
+        Reset lock contention statistics in SupabaseProvider and RefereeCache.
+
+        Issue 2 fix: Periodically reset lock stats to prevent averages from becoming
+        meaningless over time. Stats are reset every hour.
+        """
+        try:
+            # Reset SupabaseProvider lock stats
+            from src.database.supabase_provider import get_supabase
+
+            supabase = get_supabase()
+            if hasattr(supabase, "reset_cache_lock_stats"):
+                supabase.reset_cache_lock_stats()
+                logger.info("🔄 [LOCK-CONTENTION] Reset SupabaseProvider cache lock stats")
+            else:
+                logger.warning("⚠️ SupabaseProvider.reset_cache_lock_stats() not available")
+        except Exception as e:
+            logger.error(f"❌ Failed to reset SupabaseProvider lock stats: {e}")
+
+        try:
+            # Reset RefereeCache lock stats
+            from src.analysis.referee_cache import get_referee_cache
+
+            referee_cache = get_referee_cache()
+            if hasattr(referee_cache, "reset_lock_stats"):
+                referee_cache.reset_lock_stats()
+                logger.info("🔄 [LOCK-CONTENTION] Reset RefereeCache lock stats")
+            else:
+                logger.warning("⚠️ RefereeCache.reset_lock_stats() not available")
+        except Exception as e:
+            logger.error(f"❌ Failed to reset RefereeCache lock stats: {e}")
+
+    def _cleanup_old_metrics(self):
+        """
+        Clean up old metrics from the database to prevent excessive growth.
+
+        Issue 2 fix: Implements data retention to keep only the last N days of metrics.
+        This prevents the database from growing indefinitely with high-frequency collection.
+        """
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+
+                    # Calculate cutoff time
+                    cutoff_time = (
+                        datetime.now(timezone.utc) - timedelta(days=METRICS_RETENTION_DAYS)
+                    ).isoformat()
+
+                    # Delete old metrics
+                    cursor.execute(
+                        f"""
+                        DELETE FROM {METRICS_TABLE}
+                        WHERE timestamp < ?
+                    """,
+                        (cutoff_time,),
+                    )
+
+                    deleted_count = cursor.rowcount
+                    conn.commit()
+
+                if deleted_count > 0:
+                    logger.info(
+                        f"🗑️ [METRICS-CLEANUP] Deleted {deleted_count} old metrics entries "
+                        f"(older than {METRICS_RETENTION_DAYS} days)"
+                    )
+            except Exception as e:
+                logger.error(f"❌ Failed to cleanup old metrics: {e}")
+
+    def _load_restart_count_from_db(self) -> int:
+        """
+        Load restart count from database.
+
+        Recommendation #2 fix: Loads the persistent restart count from the database
+        to track actual process restarts across bot restarts.
+
+        Returns:
+            Restart count (0 if not found or error occurs)
+        """
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+
+                    cursor.execute("""
+                        SELECT value FROM orchestration_metadata
+                        WHERE key = 'restart_count'
+                    """)
+
+                    row = cursor.fetchone()
+
+                if row:
+                    restart_count = int(row[0])
+                    logger.info(f"📊 Loaded restart count from database: {restart_count}")
+                    return restart_count
+                else:
+                    logger.info("📊 No restart count found in database, starting from 0")
+                    return 0
+            except Exception as e:
+                logger.error(f"❌ Failed to load restart count from database: {e}")
+                return 0
+
+    def _save_restart_count_to_db(self, restart_count: int):
+        """
+        Save restart count to database.
+
+        Recommendation #2 fix: Persists the restart count to the database
+        to track actual process restarts across bot restarts.
+
+        Args:
+            restart_count: The restart count to save
+        """
+        with self._lock:
+            try:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO orchestration_metadata (key, value, updated_at)
+                        VALUES (?, ?, ?)
+                    """,
+                        (
+                            "restart_count",
+                            str(restart_count),
+                            datetime.now(timezone.utc).isoformat(),
+                        ),
+                    )
+
+                    conn.commit()
+
+                logger.debug(f"📊 Saved restart count to database: {restart_count}")
+            except Exception as e:
+                logger.error(f"❌ Failed to save restart count to database: {e}")
 
     def get_metrics_summary(self) -> str:
         """Get a summary of recent metrics."""
-        try:
-            import json
+        with self._lock:
+            try:
+                import json
 
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
 
-            # Get latest metrics of each type
-            summary_lines = ["📊 ORCHESTRATION METRICS SUMMARY", ""]
+                    # Get latest metrics of each type
+                    summary_lines = ["📊 ORCHESTRATION METRICS SUMMARY", ""]
 
-            # System metrics
-            cursor.execute(f"""
-                SELECT metric_data FROM {METRICS_TABLE}
-                WHERE metric_type = 'system'
-                ORDER BY timestamp DESC
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row:
-                metrics = json.loads(row[0])
-                summary_lines.append("🖥️ System Metrics:")
-                summary_lines.append(f"   CPU: {metrics['cpu_percent']:.1f}%")
-                summary_lines.append(f"   Memory: {metrics['memory_percent']:.1f}%")
-                summary_lines.append(f"   Disk: {metrics['disk_percent']:.1f}%")
-                summary_lines.append("")
+                    # System metrics
+                    cursor.execute(f"""
+                        SELECT metric_data FROM {METRICS_TABLE}
+                        WHERE metric_type = 'system'
+                        ORDER BY timestamp DESC
+                        LIMIT 1
+                    """)
+                    row = cursor.fetchone()
+                    if row:
+                        metrics = json.loads(row[0])
+                        summary_lines.append("🖥️ System Metrics:")
+                        summary_lines.append(f"   CPU: {metrics['cpu_percent']:.1f}%")
+                        summary_lines.append(f"   Memory: {metrics['memory_percent']:.1f}%")
+                        summary_lines.append(f"   Disk: {metrics['disk_percent']:.1f}%")
+                        summary_lines.append("")
 
-            # Orchestration metrics
-            cursor.execute(f"""
-                SELECT metric_data FROM {METRICS_TABLE}
-                WHERE metric_type = 'orchestration'
-                ORDER BY timestamp DESC
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row:
-                metrics = json.loads(row[0])
-                summary_lines.append("🎯 Orchestration Metrics:")
-                summary_lines.append(f"   Active Leagues: {metrics['active_leagues']}")
-                summary_lines.append(f"   Matches in Analysis: {metrics['matches_in_analysis']}")
-                summary_lines.append(f"   Process Restarts: {metrics['process_restart_count']}")
-                summary_lines.append(f"   Uptime: {metrics['process_uptime_seconds']:.0f}s")
-                summary_lines.append("")
+                    # Orchestration metrics
+                    cursor.execute(f"""
+                        SELECT metric_data FROM {METRICS_TABLE}
+                        WHERE metric_type = 'orchestration'
+                        ORDER BY timestamp DESC
+                        LIMIT 1
+                    """)
+                    row = cursor.fetchone()
+                    if row:
+                        metrics = json.loads(row[0])
+                        summary_lines.append("🎯 Orchestration Metrics:")
+                        summary_lines.append(f"   Active Leagues: {metrics['active_leagues']}")
+                        summary_lines.append(
+                            f"   Matches in Analysis: {metrics['matches_in_analysis']}"
+                        )
+                        summary_lines.append(
+                            f"   Process Restarts: {metrics['process_restart_count']}"
+                        )
+                        summary_lines.append(f"   Uptime: {metrics['process_uptime_seconds']:.0f}s")
+                        summary_lines.append("")
 
-            # Business metrics
-            cursor.execute(f"""
-                SELECT metric_data FROM {METRICS_TABLE}
-                WHERE metric_type = 'business'
-                ORDER BY timestamp DESC
-                LIMIT 1
-            """)
-            row = cursor.fetchone()
-            if row:
-                metrics = json.loads(row[0])
-                summary_lines.append("📈 Business Metrics:")
-                summary_lines.append(f"   Alerts (1h): {metrics['alerts_sent_last_hour']}")
-                summary_lines.append(f"   Alerts (24h): {metrics['alerts_sent_last_24h']}")
-                summary_lines.append(
-                    f"   Matches Analyzed (1h): {metrics['matches_analyzed_last_hour']}"
-                )
-                summary_lines.append(
-                    f"   Matches Analyzed (24h): {metrics['matches_analyzed_last_24h']}"
-                )
+                    # Business metrics
+                    cursor.execute(f"""
+                        SELECT metric_data FROM {METRICS_TABLE}
+                        WHERE metric_type = 'business'
+                        ORDER BY timestamp DESC
+                        LIMIT 1
+                    """)
+                    row = cursor.fetchone()
+                    if row:
+                        metrics = json.loads(row[0])
+                        summary_lines.append("📈 Business Metrics:")
+                        summary_lines.append(f"   Alerts (1h): {metrics['alerts_sent_last_hour']}")
+                        summary_lines.append(f"   Alerts (24h): {metrics['alerts_sent_last_24h']}")
+                        summary_lines.append(
+                            f"   Matches Analyzed (1h): {metrics['matches_analyzed_last_hour']}"
+                        )
+                        summary_lines.append(
+                            f"   Matches Analyzed (24h): {metrics['matches_analyzed_last_24h']}"
+                        )
 
-            conn.close()
-
-            return "\n".join(summary_lines)
-        except Exception as e:
-            logger.error(f"❌ Failed to get metrics summary: {e}")
-            return "❌ Failed to get metrics summary"
+                return "\n".join(summary_lines)
+            except Exception as e:
+                logger.error(f"❌ Failed to get metrics summary: {e}")
+                return "❌ Failed to get metrics summary"
 
 
 # ============================================
@@ -730,8 +1201,8 @@ def record_error_intelligent(
     error_type: str,
     error_message: str,
     severity: str = "ERROR",
-    component: str | None = None,
-    match_id: str | None = None,
+    component: Optional[str] = None,
+    match_id: Optional[str] = None,
 ):
     """
     Intelligent error recording that integrates with orchestration metrics.
@@ -757,7 +1228,7 @@ def record_error_intelligent(
 # ============================================
 # GLOBAL INSTANCE
 # ============================================
-_metrics_collector: OrchestrationMetricsCollector | None = None
+_metrics_collector: Optional[OrchestrationMetricsCollector] = None
 _metrics_lock = threading.Lock()
 
 

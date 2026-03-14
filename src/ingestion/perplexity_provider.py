@@ -349,19 +349,12 @@ class PerplexityProvider:
         if deep_dive.get("table_context") and deep_dive.get("table_context") != "Unknown":
             parts.append(f"📊 TABLE: {deep_dive['table_context']}")
 
-        # Legacy fields
-        if deep_dive.get("referee_stats") and not deep_dive.get("referee_intel"):
-            parts.append(f"⚖️ REFEREE: {deep_dive['referee_stats']}")
-
-        if deep_dive.get("h2h_results"):
-            parts.append(f"📊 H2H: {deep_dive['h2h_results']}")
-
-        if deep_dive.get("injuries"):
-            parts.append(f"🏥 INJURIES: {deep_dive['injuries']}")
-
-        # Raw intel fallback
-        if deep_dive.get("raw_intel") and len(parts) == 1:
-            parts.append(f"📝 RAW INTEL: {deep_dive['raw_intel'][:500]}")
+        # Legacy fields removed (V6.0+):
+        # - referee_stats: Use referee_intel instead (DeepDiveResponse)
+        # - h2h_results: Not used in current analysis
+        # - injuries: Use injury_impact instead (DeepDiveResponse)
+        # - raw_intel: Not needed with structured outputs
+        # The system now uses DeepDiveResponse with validated fields
 
         return "\n".join(parts)
 

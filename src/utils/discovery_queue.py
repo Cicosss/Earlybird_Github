@@ -407,10 +407,12 @@ class DiscoveryQueue:
 
                 result["freshness_tag"] = get_freshness_tag(minutes_old)
             except ImportError:
-                # Fallback
-                if minutes_old < 60:
+                # Fallback with centralized constants
+                FRESHNESS_FRESH_THRESHOLD_MIN = 60
+                FRESHNESS_AGING_THRESHOLD_MIN = 360
+                if minutes_old < FRESHNESS_FRESH_THRESHOLD_MIN:
                     result["freshness_tag"] = "🔥 FRESH"
-                elif minutes_old < 360:
+                elif minutes_old < FRESHNESS_AGING_THRESHOLD_MIN:
                     result["freshness_tag"] = "⏰ AGING"
                 else:
                     result["freshness_tag"] = "📜 STALE"

@@ -39,14 +39,15 @@ fi
 echo ""
 echo -e "${GREEN}🔧 [1/6] Installing System Dependeies...${NC}"
 
-# Check Python version
+# Check Python version (FieldSpec requires Python 3.10+ for type hint syntax)
 PYTHON_VERSION=$(python3 --version | awk '{print $2}')
 PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
 PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 9 ]); then
-    echo -e "${RED}❌ Python 3.9+ required, found $PYTHON_VERSION${NC}"
-    echo -e "${RED}Please install Python 3.9 or higher${NC}"
+if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 10 ]); then
+    echo -e "${RED}❌ Python 3.10+ required, found $PYTHON_VERSION${NC}"
+    echo -e "${RED}Please install Python 3.10 or higher${NC}"
+    echo -e "${RED}  sudo apt-get install -y python3.10 python3.10-venv${NC}"
     exit 1
 fi
 
@@ -126,18 +127,44 @@ if [[ "$(which pip)" != *"venv"* ]]; then
     exit 1
 fi
 
-# Step 3: Python Dependeies
+# Step 3: Python Dependencies
 echo ""
-echo -e "${GREEN}📚 [3/6] Installing Python Dependeies...${NC}"
+echo -e "${GREEN}📚 [3/6] Installing Python Dependencies...${NC}"
 pip install --upgrade pip
 pip install -r requirements.txt
-echo -e "${GREEN}   ✅ Dependeies installed${NC}"
+echo -e "${GREEN}   ✅ Dependencies installed${NC}"
 
-# Step 3b: Google GenAI SDK for Gemini Agent
+# MINOR BUG #10 FIX: Verify scrapling 0.4 compatibility with curl_cffi 0.14.0
 echo ""
-echo -e "${GREEN}🤖 [3b/6] Installing Google GenAI SDK (Gemini Agent)...${NC}"
-pip install google-genai
-echo -e "${GREEN}   ✅ Google GenAI SDK installed${NC}"
+echo -e "${GREEN}🔍 [3b/6] Verifying Dependency Compatibility...${NC}"
+if python -c "
+import scrapling
+import curl_cffi
+print(f'✅ scrapling version: {scrapling.__version__}')
+print(f'✅ curl_cffi version: {curl_cffi.__version__}')
+# Check if versions are compatible
+# scrapling 0.4 requires curl_cffi >= 0.13.0
+from packaging import version as pkg_version
+if pkg_version.parse(curl_cffi.__version__) < pkg_version.parse('0.13.0'):
+    print('⚠️  WARNING: curl_cffi version may be incompatible with scrapling 0.4')
+    print('⚠️  Expected: curl_cffi >= 0.13.0')
+    exit(1)
+" 2>&1; then
+    echo -e "${GREEN}   ✅ Dependency compatibility verified${NC}"
+else
+    echo -e "${YELLOW}   ⚠️  Dependency compatibility check failed (may still work)${NC}"
+    echo -e "${YELLOW}   ⚠️  scrapling 0.4 may have issues with curl_cffi < 0.13.0${NC}"
+fi
+
+# Step 3b: Google GenAI SDK for Gemini Agent (DEPRECATED - REMOVED)
+# Google GenAI SDK is marked as DEPRECATED in requirements.txt (line 61-62)
+# The system now uses DeepSeek as primary provider (V6.0+)
+# with three-level fallback: DeepSeek → Tavily → Claude 3 Haiku
+# No action needed - google-genai is still in requirements.txt for backward compatibility
+echo ""
+echo -e "${YELLOW}⚠️  [3b/6] Google GenAI SDK (DEPRECATED - Skipping installation)${NC}"
+echo -e "${YELLOW}   ℹ️  DeepSeek is now the primary intelligence provider${NC}"
+echo -e "${YELLOW}   ℹ️  Three-level fallback: DeepSeek → Tavily → Claude 3 Haiku${NC}"
 
 # Step 3c: Playwright Browser Automation (V7.0 - Stealth + Trafilatura)
 echo ""

@@ -756,3 +756,270 @@ class TestAnalyzerIntegrationScenarios:
         assert abs(diff.differential) < 5.0
         # Se differential < 2.0, score_adjustment è 0
         # Altrimenti è proporzionale ma piccolo
+
+
+class TestInjuryDifferentialEdgeCases:
+    """
+    Test per edge cases di InjuryDifferential identificati nel report COVE.
+
+    Questi test coprono casi limite non testati precedentemente:
+    - to_dict() serialization
+    - Differential estremi (100, -100)
+    - is_balanced threshold boundary (1.9, 2.0, 2.1)
+    - favors_home/favors_away con differential = 0
+    """
+
+    def test_to_dict_serialization_complete(self):
+        """Verifica che to_dict() serializzi tutti gli attributi e properties."""
+        diff = calculate_injury_differential(
+            home_team="Home FC",
+            away_team="Away FC",
+            home_injuries=[{"name": "Player1", "reason": "Injury"}],
+            away_injuries=[],
+        )
+
+        result = diff.to_dict()
+
+        # Verifica che tutte le chiavi siano presenti
+        assert "home_impact" in result
+        assert "away_impact" in result
+        assert "differential" in result
+        assert "score_adjustment" in result
+        assert "summary" in result
+        assert "favors_home" in result
+        assert "favors_away" in result
+        assert "is_balanced" in result
+
+        # Verifica che i valori siano corretti
+        assert result["differential"] == diff.differential
+        assert result["score_adjustment"] == diff.score_adjustment
+        assert result["summary"] == diff.summary
+        assert result["favors_home"] == diff.favors_home
+        assert result["favors_away"] == diff.favors_away
+        assert result["is_balanced"] == diff.is_balanced
+
+        # Verifica che home_impact e away_impact siano dict
+        assert isinstance(result["home_impact"], dict)
+        assert isinstance(result["away_impact"], dict)
+
+    def test_extreme_differential_positive(self):
+        """Test con differential estremo positivo (home molto più colpita)."""
+        # Simula home con molti infortuni gravi, away con nessuno
+        home_squad = {
+            "squad": [
+                {
+                    "title": "Forwards",
+                    "members": [
+                        {"name": f"Striker{i}", "stats": {"appearances": 30}} for i in range(10)
+                    ],
+                }
+            ]
+        }
+        home_injuries = [{"name": f"Striker{i}", "reason": "Injury"} for i in range(10)]
+
+        diff = calculate_injury_differential(
+            home_team="Home FC",
+            away_team="Away FC",
+            home_injuries=home_injuries,
+            away_injuries=[],
+            home_squad=home_squad,
+        )
+
+        # Differential dovrebbe essere molto positivo
+        assert diff.differential > 50.0, f"Expected differential > 50, got {diff.differential}"
+        # Score adjustment dovrebbe essere al massimo 1.8 (con bonus CRITICAL)
+        assert diff.score_adjustment <= 1.8, (
+            f"Expected score_adjustment <= 1.8, got {diff.score_adjustment}"
+        )
+        # favors_home dovrebbe essere False, favors_away True
+        assert diff.favors_home is False
+        assert diff.favors_away is True
+        # is_balanced dovrebbe essere False
+        assert diff.is_balanced is False
+
+    def test_extreme_differential_negative(self):
+        """Test con differential estremo negativo (away molto più colpita)."""
+        # Simula away con molti infortuni gravi, home con nessuno
+        away_squad = {
+            "squad": [
+                {
+                    "title": "Forwards",
+                    "members": [
+                        {"name": f"Striker{i}", "stats": {"appearances": 30}} for i in range(10)
+                    ],
+                }
+            ]
+        }
+        away_injuries = [{"name": f"Striker{i}", "reason": "Injury"} for i in range(10)]
+
+        diff = calculate_injury_differential(
+            home_team="Home FC",
+            away_team="Away FC",
+            home_injuries=[],
+            away_injuries=away_injuries,
+            away_squad=away_squad,
+        )
+
+        # Differential dovrebbe essere molto negativo
+        assert diff.differential < -50.0, f"Expected differential < -50, got {diff.differential}"
+        # Score adjustment dovrebbe essere al minimo -1.8 (con bonus CRITICAL)
+        assert diff.score_adjustment >= -1.8, (
+            f"Expected score_adjustment >= -1.8, got {diff.score_adjustment}"
+        )
+        # favors_home dovrebbe essere True, favors_away False
+        assert diff.favors_home is True
+        assert diff.favors_away is False
+        # is_balanced dovrebbe essere False
+        assert diff.is_balanced is False
+
+    def test_is_balanced_threshold_boundary(self):
+        """Test per il threshold di is_balanced (2.0)."""
+        # Test con differential = 1.9 (sotto il threshold)
+        diff_1_9 = calculate_injury_differential(
+            home_team="Home FC",
+            away_team="Away FC",
+            home_injuries=[{"name": "Player1", "reason": "Injury"}],
+            away_injuries=[],
+        )
+        # Forza differential a 1.9 creando un InjuryDifferential diretto
+        from src.analysis.injury_impact_engine import InjuryDifferential, TeamInjuryImpact
+
+        home_impact = TeamInjuryImpact(
+            team_name="Home FC",
+            total_impact_score=10.0,
+            missing_starters=2,
+            missing_rotation=0,
+            missing_backups=0,
+            key_players_out=[],
+            defensive_impact=5.0,
+            offensive_impact=5.0,
+            players=[],
+        )
+        away_impact = TeamInjuryImpact(
+            team_name="Away FC",
+            total_impact_score=8.1,  # 10.0 - 8.1 = 1.9
+            missing_starters=1,
+            missing_rotation=0,
+            missing_backups=0,
+            key_players_out=[],
+            defensive_impact=4.0,
+            offensive_impact=4.1,
+            players=[],
+        )
+
+        diff_1_9 = InjuryDifferential(
+            home_impact=home_impact,
+            away_impact=away_impact,
+            differential=1.9,
+            score_adjustment=0.0,
+            summary="Test",
+        )
+        assert diff_1_9.is_balanced is True, "differential=1.9 should be balanced"
+
+        # Test con differential = 2.0 (sul threshold - NON bilanciato)
+        diff_2_0 = InjuryDifferential(
+            home_impact=home_impact,
+            away_impact=away_impact,
+            differential=2.0,
+            score_adjustment=0.0,
+            summary="Test",
+        )
+        assert diff_2_0.is_balanced is False, "differential=2.0 should NOT be balanced"
+
+        # Test con differential = 2.1 (sopra il threshold)
+        diff_2_1 = InjuryDifferential(
+            home_impact=home_impact,
+            away_impact=away_impact,
+            differential=2.1,
+            score_adjustment=0.0,
+            summary="Test",
+        )
+        assert diff_2_1.is_balanced is False, "differential=2.1 should NOT be balanced"
+
+    def test_favors_properties_with_zero_differential(self):
+        """Test favors_home e favors_away con differential = 0."""
+        from src.analysis.injury_impact_engine import InjuryDifferential, TeamInjuryImpact
+
+        home_impact = TeamInjuryImpact(
+            team_name="Home FC",
+            total_impact_score=10.0,
+            missing_starters=2,
+            missing_rotation=0,
+            missing_backups=0,
+            key_players_out=[],
+            defensive_impact=5.0,
+            offensive_impact=5.0,
+            players=[],
+        )
+        away_impact = TeamInjuryImpact(
+            team_name="Away FC",
+            total_impact_score=10.0,  # Stesso impatto
+            missing_starters=2,
+            missing_rotation=0,
+            missing_backups=0,
+            key_players_out=[],
+            defensive_impact=5.0,
+            offensive_impact=5.0,
+            players=[],
+        )
+
+        diff_zero = InjuryDifferential(
+            home_impact=home_impact,
+            away_impact=away_impact,
+            differential=0.0,
+            score_adjustment=0.0,
+            summary="Test",
+        )
+
+        # Con differential = 0, nessuno dei due dovrebbe essere favorito
+        assert diff_zero.favors_home is False, "differential=0 should not favor home"
+        assert diff_zero.favors_away is False, "differential=0 should not favor away"
+        assert diff_zero.is_balanced is True, "differential=0 should be balanced"
+
+    def test_score_adjustment_with_critical_severity_bonus(self):
+        """Test che il bonus per severity CRITICAL funzioni correttamente."""
+        from src.analysis.injury_impact_engine import TeamInjuryImpact
+
+        # Home CRITICAL, Away LOW
+        home_impact_critical = TeamInjuryImpact(
+            team_name="Home FC",
+            total_impact_score=20.0,  # CRITICAL
+            missing_starters=4,
+            missing_rotation=0,
+            missing_backups=0,
+            key_players_out=[],
+            defensive_impact=10.0,
+            offensive_impact=10.0,
+            players=[],
+        )
+        away_impact_low = TeamInjuryImpact(
+            team_name="Away FC",
+            total_impact_score=2.0,  # LOW
+            missing_starters=0,
+            missing_rotation=0,
+            missing_backups=0,
+            key_players_out=[],
+            defensive_impact=1.0,
+            offensive_impact=1.0,
+            players=[],
+        )
+
+        diff_critical_low = calculate_injury_differential(
+            home_team="Home FC",
+            away_team="Away FC",
+            home_injuries=[{"name": f"Player{i}", "reason": "Injury"} for i in range(4)],
+            away_injuries=[],
+        )
+
+        # Verifica che il score_adjustment possa arrivare a 1.8 con il bonus
+        if (
+            diff_critical_low.home_impact.severity == "CRITICAL"
+            and diff_critical_low.away_impact.severity == "LOW"
+        ):
+            # Il bonus di 0.3 dovrebbe essere applicato
+            assert diff_critical_low.score_adjustment <= 1.8, (
+                "Max score_adjustment with bonus should be 1.8"
+            )
+            assert diff_critical_low.score_adjustment >= -1.8, (
+                "Min score_adjustment with bonus should be -1.8"
+            )

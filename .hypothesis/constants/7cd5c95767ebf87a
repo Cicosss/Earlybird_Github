@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/config/exclusion_lists.py
+# hypothesis_version: 6.151.4
+
+['acb', 'american football', 'baloncesto', 'balonmano', 'baseball', 'basket', 'basketball', 'basketbol', 'bayan', 'beach soccer', 'cricket', 'damernas', 'donne', 'e-sports', 'esports', 'euroleague', 'femenino', 'feminine', 'feminino', 'femminile', 'fiba', 'frauen', 'futsal', 'féminin', 'gaming', 'golf', 'handball', 'hockey', 'kadın', 'kobiet', 'koszykówka', 'ladies', 'liga f', 'mlb', 'nba', 'nfl', 'pallacanestro', 'pallavolo', 'rugby', 'rugby league', 'rugby union', 'six nations', 'super bowl', 'tennis', 'touchdown', 'volleyball', 'vrouwen', 'woman', 'women', "women's", 'womens', 'wsl']

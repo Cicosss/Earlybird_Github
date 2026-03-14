@@ -28,6 +28,7 @@ UTILIZZO:
 Requirements: 8.1, 8.2, 8.3, 8.4
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -38,7 +39,6 @@ import sys
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from typing import Any, Optional
 
 # V13.0: Pickle format version for backward compatibility
@@ -159,15 +159,6 @@ def get_social_sources_from_supabase(league_key: str = None) -> list[str]:
     # Fallback to local config
     logging.info("🔄 [FALLBACK] Using local twitter_intel_accounts.py")
     return get_all_twitter_handles()
-
-
-class IntelRelevance(Enum):
-    """Rilevanza dell'intel per un alert"""
-
-    HIGH = "high"  # Menziona direttamente team/player dell'alert
-    MEDIUM = "medium"  # Menziona lega o topic correlato
-    LOW = "low"  # Generico, potenzialmente utile
-    NONE = "none"  # Non rilevante
 
 
 @dataclass
@@ -750,69 +741,6 @@ class TwitterIntelCache:
 
         return results
 
-    def enrich_alert_with_twitter_intel(
-        self, alert: dict, home_team: str, away_team: str, league_key: str
-    ) -> dict:
-        """
-        Arricchisce un alert con intel Twitter rilevanti.
-
-        Args:
-            alert: Alert da arricchire
-            home_team: Nome team casa
-            away_team: Nome team trasferta
-            league_key: Chiave lega
-
-        Returns:
-            Alert arricchito con campo 'twitter_intel'
-        """
-        relevant_tweets = []
-
-        # Cerca menzioni dei team
-        for team in [home_team, away_team]:
-            tweets = self.search_intel(team, league_key)
-            for tweet in tweets:
-                relevant_tweets.append(
-                    {
-                        "handle": tweet.handle,
-                        "content": tweet.content[:200],  # Tronca per brevità
-                        "date": tweet.date,
-                        "topics": tweet.topics,
-                        "relevance": self._calculate_relevance(tweet, team, alert),
-                    }
-                )
-
-        # Ordina per rilevanza
-        relevant_tweets.sort(
-            key=lambda x: {"high": 0, "medium": 1, "low": 2, "none": 3}.get(x["relevance"], 3)
-        )
-
-        # Aggiungi all'alert
-        alert["twitter_intel"] = {
-            "tweets": relevant_tweets[:5],  # Max 5 tweet più rilevanti
-            "cache_age_minutes": self.cache_age_minutes,
-            "cycle_id": self._cycle_id,
-        }
-
-        return alert
-
-    def _calculate_relevance(self, tweet: CachedTweet, team: str, alert: dict) -> str:
-        """Calcola rilevanza di un tweet per un alert"""
-        content_lower = tweet.content.lower()
-        team_lower = team.lower()
-
-        # HIGH: menziona team + topic critico (injury, lineup)
-        if team_lower in content_lower:
-            if any(t in tweet.topics for t in ["injury", "lineup", "squad"]):
-                return "high"
-            return "medium"
-
-        # MEDIUM: topic correlato
-        if any(t in tweet.topics for t in ["injury", "lineup", "transfer"]):
-            return "medium"
-
-        # LOW: generico
-        return "low"
-
     # ============================================
     # V7.0: TAVILY TWITTER RECOVERY
     # ============================================
@@ -1274,8 +1202,7 @@ class TwitterIntelCache:
                     # V10.5 FIX: Use nest_asyncio to avoid event loop conflict
                     # when called from within an already-running asyncio.run() in main.py
                     # V11.1 FIX: nest_asyncio.apply() already called at module level
-                    import asyncio
-
+                    # MODERATE BUG #7 FIX: asyncio import moved to module level to avoid overhead
                     if _NEST_ASYNCIO_AVAILABLE:
                         tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
                     else:

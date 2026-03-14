@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 DB_PATH = "data/earlybird.db"
 
 
-VALID_TABLE_NAMES = {"matches", "news_logs", "team_aliases"}
+VALID_TABLE_NAMES = {"matches", "news_logs", "team_aliases", "modification_history"}
 
 
 def get_table_columns(cursor, table_name: str) -> set:
@@ -344,6 +344,125 @@ def check_and_migrate():
             migrations_applied += 1
 
         # ============================================
+        # MIGRATION: modification_history table
+        # ============================================
+        modification_history_columns = get_table_columns(cursor, "modification_history")
+
+        # V15.0: Add confidence column for SuggestedModification persistence
+        if "confidence" not in modification_history_columns:
+            logger.info(
+                "   📝 Adding column: modification_history.confidence (V15.0 - SuggestedModification)"
+            )
+            cursor.execute("ALTER TABLE modification_history ADD COLUMN confidence REAL")
+            migrations_applied += 1
+
+        # V15.0: Add impact_assessment column for SuggestedModification persistence
+        if "impact_assessment" not in modification_history_columns:
+            logger.info(
+                "   📝 Adding column: modification_history.impact_assessment (V15.0 - SuggestedModification)"
+            )
+            cursor.execute("ALTER TABLE modification_history ADD COLUMN impact_assessment TEXT")
+            migrations_applied += 1
+
+        # ============================================
+        # MIGRATION: Priority Validation Triggers
+        # ============================================
+        # V15.1: Add triggers to validate priority column values
+        # These triggers ensure only valid priority values can be inserted/updated
+
+        # Check if triggers already exist
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_insert'"
+        )
+        insert_trigger_exists = cursor.fetchone()
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_update'"
+        )
+        update_trigger_exists = cursor.fetchone()
+
+        # Create INSERT trigger if it doesn't exist
+        if not insert_trigger_exists:
+            logger.info(
+                "   📝 Creating trigger: validate_priority_insert (V15.1 - Priority Validation)"
+            )
+            cursor.execute("""
+                CREATE TRIGGER validate_priority_insert
+                BEFORE INSERT ON modification_history
+                FOR EACH ROW
+                WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
+                END;
+            """)
+            migrations_applied += 1
+
+        # Create UPDATE trigger if it doesn't exist
+        if not update_trigger_exists:
+            logger.info(
+                "   📝 Creating trigger: validate_priority_update (V15.1 - Priority Validation)"
+            )
+            cursor.execute("""
+                CREATE TRIGGER validate_priority_update
+                BEFORE UPDATE OF priority ON modification_history
+                FOR EACH ROW
+                WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
+                END;
+            """)
+            migrations_applied += 1
+
+        # ============================================
+        # MIGRATION: Modification Type Validation Triggers
+        # ============================================
+        # V15.2: Add triggers to validate modification_type column values
+        # These triggers ensure only valid modification_type values can be inserted/updated
+
+        # Check if triggers already exist
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_insert'"
+        )
+        insert_type_trigger_exists = cursor.fetchone()
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_update'"
+        )
+        update_type_trigger_exists = cursor.fetchone()
+
+        # Create INSERT trigger if it doesn't exist
+        if not insert_type_trigger_exists:
+            logger.info(
+                "   📝 Creating trigger: validate_modification_type_insert (V15.2 - Modification Type Validation)"
+            )
+            cursor.execute("""
+                CREATE TRIGGER validate_modification_type_insert
+                BEFORE INSERT ON modification_history
+                FOR EACH ROW
+                WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
+                END;
+            """)
+            migrations_applied += 1
+
+        # Create UPDATE trigger if it doesn't exist
+        if not update_type_trigger_exists:
+            logger.info(
+                "   📝 Creating trigger: validate_modification_type_update (V15.2 - Modification Type Validation)"
+            )
+            cursor.execute("""
+                CREATE TRIGGER validate_modification_type_update
+                BEFORE UPDATE OF modification_type ON modification_history
+                FOR EACH ROW
+                WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
+                END;
+            """)
+            migrations_applied += 1
+
+        # ============================================
         # MIGRATION: Performance Indexes
         # ============================================
         # V3.3: Add composite index for main query optimization (start_time + league)
@@ -410,6 +529,154 @@ def get_schema_version() -> dict:
 
     except Exception as e:
         return {"error": str(e)}
+
+
+def apply_validation_triggers(conn) -> int:
+    """
+    Apply validation triggers to an existing database connection.
+
+    This function creates validation triggers for the modification_history table
+    on the provided database connection. It's designed to work with both
+    file-based and in-memory databases.
+
+    Args:
+        conn: SQLite database connection (either sqlite3.Connection or SQLAlchemy engine)
+
+    Returns:
+        Number of triggers created
+
+    Usage:
+        # For in-memory databases in tests
+        import sqlite3
+        conn = sqlite3.connect(":memory:")
+        apply_validation_triggers(conn)
+
+        # For SQLAlchemy engines
+        from sqlalchemy import create_engine
+        engine = create_engine("sqlite:///:memory:")
+        apply_validation_triggers(conn)
+    """
+    # Handle both sqlite3.Connection and SQLAlchemy engine
+    if hasattr(conn, "raw_connection"):
+        # SQLAlchemy engine - get raw DBAPI connection
+        raw_conn = conn.raw_connection()
+        cursor = raw_conn.cursor()
+        is_sqlalchemy = True
+    elif hasattr(conn, "execute"):
+        # SQLAlchemy connection (not engine)
+        raw_conn = conn.connection
+        cursor = raw_conn.cursor()
+        is_sqlalchemy = True
+    else:
+        # Raw sqlite3 connection
+        raw_conn = conn
+        cursor = conn.cursor()
+        is_sqlalchemy = False
+
+    triggers_created = 0
+
+    try:
+        # ============================================
+        # PRIORITY VALIDATION TRIGGERS
+        # ============================================
+        # Check if triggers already exist
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_insert'"
+        )
+        insert_trigger_exists = cursor.fetchone()
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_update'"
+        )
+        update_trigger_exists = cursor.fetchone()
+
+        # Create INSERT trigger if it doesn't exist
+        if not insert_trigger_exists:
+            logger.info("   📝 Creating trigger: validate_priority_insert")
+            cursor.execute("""
+                CREATE TRIGGER validate_priority_insert
+                BEFORE INSERT ON modification_history
+                FOR EACH ROW
+                WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
+                END;
+            """)
+            triggers_created += 1
+
+        # Create UPDATE trigger if it doesn't exist
+        if not update_trigger_exists:
+            logger.info("   📝 Creating trigger: validate_priority_update")
+            cursor.execute("""
+                CREATE TRIGGER validate_priority_update
+                BEFORE UPDATE OF priority ON modification_history
+                FOR EACH ROW
+                WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
+                END;
+            """)
+            triggers_created += 1
+
+        # ============================================
+        # MODIFICATION TYPE VALIDATION TRIGGERS
+        # ============================================
+        # Check if triggers already exist
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_insert'"
+        )
+        insert_type_trigger_exists = cursor.fetchone()
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_update'"
+        )
+        update_type_trigger_exists = cursor.fetchone()
+
+        # Create INSERT trigger if it doesn't exist
+        if not insert_type_trigger_exists:
+            logger.info("   📝 Creating trigger: validate_modification_type_insert")
+            cursor.execute("""
+                CREATE TRIGGER validate_modification_type_insert
+                BEFORE INSERT ON modification_history
+                FOR EACH ROW
+                WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
+                END;
+            """)
+            triggers_created += 1
+
+        # Create UPDATE trigger if it doesn't exist
+        if not update_type_trigger_exists:
+            logger.info("   📝 Creating trigger: validate_modification_type_update")
+            cursor.execute("""
+                CREATE TRIGGER validate_modification_type_update
+                BEFORE UPDATE OF modification_type ON modification_history
+                FOR EACH ROW
+                WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
+                BEGIN
+                    SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
+                END;
+            """)
+            triggers_created += 1
+
+        # Commit changes if using raw sqlite3 connection
+        if not is_sqlalchemy:
+            raw_conn.commit()
+        else:
+            # For SQLAlchemy, commit the raw connection
+            raw_conn.commit()
+
+        logger.info(f"✅ Applied {triggers_created} validation triggers")
+        return triggers_created
+
+    except Exception as e:
+        logger.error(f"❌ Failed to apply validation triggers: {e}")
+        if not is_sqlalchemy:
+            raw_conn.rollback()
+        else:
+            raw_conn.rollback()
+        raise
 
 
 if __name__ == "__main__":

@@ -438,7 +438,9 @@ class StrategyOptimizer:
 
     def __init__(self, weights_file: str = WEIGHTS_FILE):
         self.weights_file = weights_file
-        self._data_lock = threading.Lock()  # V5.3: Thread safety for data operations
+        self._data_lock = (
+            threading.RLock()
+        )  # V5.3: Thread safety for data operations (RLock for nested acquisition)
 
         # V7.3: Use weight cache for performance
         # CRITICAL: Only use cache for default weights file (production)
@@ -634,6 +636,9 @@ class StrategyOptimizer:
         """
         Record a single bet result for learning.
 
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+
         Args:
             league: League identifier
             market: Market recommendation
@@ -642,164 +647,169 @@ class StrategyOptimizer:
             driver: Primary driver (INJURY_INTEL, SHARP_MONEY, etc.)
             expansion_type: V7.4 - Type of combo expansion for tracking
         """
-        # V5.2 FIX: Validate required fields - skip if None/empty
-        if not league or not market:
-            logger.warning(f"⚠️ Skipping bet with missing league={league} or market={market}")
-            return
+        with self._data_lock:
+            # V5.2 FIX: Validate required fields - skip if None/empty
+            if not league or not market:
+                logger.warning(f"⚠️ Skipping bet with missing league={league} or market={market}")
+                return
 
-        # V5.2 FIX: Validate outcome - only WIN/LOSS/PUSH are valid
-        valid_outcomes = ("WIN", "LOSS", "PUSH")
-        if outcome not in valid_outcomes:
-            logger.warning(f"⚠️ Invalid outcome '{outcome}' for {league}/{market}, treating as LOSS")
-            outcome = "LOSS"
+            # V5.2 FIX: Validate outcome - only WIN/LOSS/PUSH are valid
+            valid_outcomes = ("WIN", "LOSS", "PUSH")
+            if outcome not in valid_outcomes:
+                logger.warning(
+                    f"⚠️ Invalid outcome '{outcome}' for {league}/{market}, treating as LOSS"
+                )
+                outcome = "LOSS"
 
-        # V5.1 FIX: Skip PUSH outcomes - cancelled/postponed matches should not affect stats
-        if outcome == "PUSH":
-            logger.debug(
-                f"⏭️ Skipping PUSH outcome for {league}/{market} (match cancelled/postponed)"
-            )
-            return
+            # V5.1 FIX: Skip PUSH outcomes - cancelled/postponed matches should not affect stats
+            if outcome == "PUSH":
+                logger.debug(
+                    f"⏭️ Skipping PUSH outcome for {league}/{market} (match cancelled/postponed)"
+                )
+                return
 
-        # V5.3 FIX: Convert odds to float if string, then validate
-        try:
-            odds = float(odds) if odds else 1.9
-        except (TypeError, ValueError):
-            logger.warning(
-                f"⚠️ Invalid odds type {type(odds).__name__} for {league}/{market}, using default 1.9"
-            )
-            odds = 1.9
+            # V5.3 FIX: Convert odds to float if string, then validate
+            try:
+                odds = float(odds) if odds else 1.9
+            except (TypeError, ValueError):
+                logger.warning(
+                    f"⚠️ Invalid odds type {type(odds).__name__} for {league}/{market}, using default 1.9"
+                )
+                odds = 1.9
 
-        # V5.2 FIX: Validate odds - must be positive and reasonable
-        if odds <= 1.0:
-            logger.warning(f"⚠️ Invalid odds {odds} for {league}/{market}, using default 1.9")
-            odds = 1.9
-        elif odds > 100.0:
-            logger.warning(
-                f"⚠️ Suspiciously high odds {odds} for {league}/{market}, capping at 100.0"
-            )
-            odds = 100.0
+            # V5.2 FIX: Validate odds - must be positive and reasonable
+            if odds <= 1.0:
+                logger.warning(f"⚠️ Invalid odds {odds} for {league}/{market}, using default 1.9")
+                odds = 1.9
+            elif odds > 100.0:
+                logger.warning(
+                    f"⚠️ Suspiciously high odds {odds} for {league}/{market}, capping at 100.0"
+                )
+                odds = 100.0
 
-        league_key = self._normalize_key(league)
-        market_type = categorize_market(market)
+            league_key = self._normalize_key(league)
+            market_type = categorize_market(market)
 
-        # Validate driver
-        if driver not in VALID_DRIVERS:
-            driver = "UNKNOWN"
+            # Validate driver
+            if driver not in VALID_DRIVERS:
+                driver = "UNKNOWN"
 
-        # Get/create stats structures
-        stats = self._ensure_stats_structure(league_key, market_type)
-        driver_stats = self._ensure_driver_structure(driver)
+            # Get/create stats structures
+            stats = self._ensure_stats_structure(league_key, market_type)
+            driver_stats = self._ensure_driver_structure(driver)
 
-        # Calculate return for this bet
-        if outcome == "WIN":
-            bet_return = odds - 1  # Net profit
-        else:
-            bet_return = -1.0  # Lost stake
-
-        # Update league/market stats
-        stats["bets"] += 1
-        stats["returns"].append(bet_return)
-
-        # Keep returns list manageable (last MAX_RETURNS_HISTORY)
-        if len(stats["returns"]) > MAX_RETURNS_HISTORY:
-            stats["returns"] = stats["returns"][-MAX_RETURNS_HISTORY:]
-
-        if outcome == "WIN":
-            stats["wins"] += 1
-
-        stats["profit"] += bet_return
-
-        # Update PnL history (cumulative)
-        last_pnl = stats["pnl_history"][-1] if stats["pnl_history"] else 0
-        stats["pnl_history"].append(last_pnl + bet_return)
-
-        # Keep PnL history manageable
-        if len(stats["pnl_history"]) > MAX_PNL_HISTORY:
-            stats["pnl_history"] = stats["pnl_history"][-MAX_PNL_HISTORY:]
-
-        # Recalculate metrics
-        if stats["bets"] > 0:
-            stats["roi"] = round(stats["profit"] / stats["bets"], 4)
-
-        stats["sharpe"] = round(calc_sharpe(stats["returns"]), 3)
-        stats["sortino"] = round(calc_sortino(stats["returns"]), 3)  # V4.2: Sortino Ratio
-        stats["max_drawdown"] = round(calc_max_drawdown(stats["pnl_history"]), 3)
-
-        # V5.0: Get previous weight for WARMING_UP state limiting
-        previous_weight = stats.get("weight", NEUTRAL_WEIGHT)
-
-        # Recalculate weight - V5.0: Now with Sample Size Guards
-        stats["weight"] = calculate_advanced_weight(
-            stats["roi"],
-            stats["sharpe"],
-            stats["max_drawdown"],
-            stats["bets"],
-            sortino=stats["sortino"],
-            previous_weight=previous_weight,  # V5.0: For WARMING_UP state limiting
-        )
-
-        # V5.0: Log optimizer state for transparency
-        state = get_optimizer_state(stats["bets"])
-        if state != OptimizerState.ACTIVE:
-            logger.info(
-                f"   📊 {league_key}/{market_type}: {state.value} (n={stats['bets']}, weight={stats['weight']:.2f})"
-            )
-
-        # V7.4: Record combo expansion performance if provided
-        if expansion_type:
-            self._record_expansion_performance(league_key, expansion_type, outcome, odds)
-
-        # Update driver stats
-        driver_stats["bets"] += 1
-        driver_stats["returns"].append(bet_return)
-        if len(driver_stats["returns"]) > MAX_RETURNS_HISTORY:
-            driver_stats["returns"] = driver_stats["returns"][-MAX_RETURNS_HISTORY:]
-
-        if outcome == "WIN":
-            driver_stats["wins"] += 1
-
-        driver_stats["profit"] = driver_stats.get("profit", 0) + bet_return
-
-        if driver_stats["bets"] > 0:
-            driver_stats["roi"] = round(driver_stats["profit"] / driver_stats["bets"], 4)
-
-        driver_stats["sharpe"] = round(calc_sharpe(driver_stats["returns"]), 3)
-        driver_stats["sortino"] = round(calc_sortino(driver_stats["returns"]), 3)  # V4.2: Sortino
-
-        # V6.1 FIX: Driver weights now use State Machine (same as league/market)
-        # Previously: jumped directly from FROZEN to full adjustment (inconsistent)
-        driver_state = get_optimizer_state(driver_stats["bets"])
-        previous_driver_weight = driver_stats.get("weight", NEUTRAL_WEIGHT)
-
-        if driver_state == OptimizerState.FROZEN:
-            # No adjustment - keep neutral
-            driver_stats["weight"] = NEUTRAL_WEIGHT
-        elif driver_state == OptimizerState.WARMING_UP:
-            # Limited adjustment: ±0.1 max
-            raw_weight = NEUTRAL_WEIGHT + driver_stats["roi"] * 2.0
-            raw_weight = max(MIN_WEIGHT, min(MAX_WEIGHT, raw_weight))
-            max_delta = 0.1
-            if raw_weight > previous_driver_weight + max_delta:
-                driver_stats["weight"] = round(previous_driver_weight + max_delta, 3)
-            elif raw_weight < previous_driver_weight - max_delta:
-                driver_stats["weight"] = round(previous_driver_weight - max_delta, 3)
+            # Calculate return for this bet
+            if outcome == "WIN":
+                bet_return = odds - 1  # Net profit
             else:
-                driver_stats["weight"] = round(raw_weight, 3)
-        else:  # ACTIVE
-            # Full adjustment
-            driver_stats["weight"] = round(
-                max(MIN_WEIGHT, min(MAX_WEIGHT, NEUTRAL_WEIGHT + driver_stats["roi"] * 2.0)), 3
+                bet_return = -1.0  # Lost stake
+
+            # Update league/market stats
+            stats["bets"] += 1
+            stats["returns"].append(bet_return)
+
+            # Keep returns list manageable (last MAX_RETURNS_HISTORY)
+            if len(stats["returns"]) > MAX_RETURNS_HISTORY:
+                stats["returns"] = stats["returns"][-MAX_RETURNS_HISTORY:]
+
+            if outcome == "WIN":
+                stats["wins"] += 1
+
+            stats["profit"] += bet_return
+
+            # Update PnL history (cumulative)
+            last_pnl = stats["pnl_history"][-1] if stats["pnl_history"] else 0
+            stats["pnl_history"].append(last_pnl + bet_return)
+
+            # Keep PnL history manageable
+            if len(stats["pnl_history"]) > MAX_PNL_HISTORY:
+                stats["pnl_history"] = stats["pnl_history"][-MAX_PNL_HISTORY:]
+
+            # Recalculate metrics
+            if stats["bets"] > 0:
+                stats["roi"] = round(stats["profit"] / stats["bets"], 4)
+
+            stats["sharpe"] = round(calc_sharpe(stats["returns"]), 3)
+            stats["sortino"] = round(calc_sortino(stats["returns"]), 3)  # V4.2: Sortino Ratio
+            stats["max_drawdown"] = round(calc_max_drawdown(stats["pnl_history"]), 3)
+
+            # V5.0: Get previous weight for WARMING_UP state limiting
+            previous_weight = stats.get("weight", NEUTRAL_WEIGHT)
+
+            # Recalculate weight - V5.0: Now with Sample Size Guards
+            stats["weight"] = calculate_advanced_weight(
+                stats["roi"],
+                stats["sharpe"],
+                stats["max_drawdown"],
+                stats["bets"],
+                sortino=stats["sortino"],
+                previous_weight=previous_weight,  # V5.0: For WARMING_UP state limiting
             )
 
-        # Update global stats
-        self.data["global"]["total_bets"] += 1
-        self.data["global"]["total_profit"] += bet_return
+            # V5.0: Log optimizer state for transparency
+            state = get_optimizer_state(stats["bets"])
+            if state != OptimizerState.ACTIVE:
+                logger.info(
+                    f"   📊 {league_key}/{market_type}: {state.value} (n={stats['bets']}, weight={stats['weight']:.2f})"
+                )
 
-        total_bets = self.data["global"]["total_bets"]
-        if total_bets > 0:
-            self.data["global"]["overall_roi"] = round(
-                self.data["global"]["total_profit"] / total_bets, 4
-            )
+            # V7.4: Record combo expansion performance if provided
+            if expansion_type:
+                self._record_expansion_performance(league_key, expansion_type, outcome, odds)
+
+            # Update driver stats
+            driver_stats["bets"] += 1
+            driver_stats["returns"].append(bet_return)
+            if len(driver_stats["returns"]) > MAX_RETURNS_HISTORY:
+                driver_stats["returns"] = driver_stats["returns"][-MAX_RETURNS_HISTORY:]
+
+            if outcome == "WIN":
+                driver_stats["wins"] += 1
+
+            driver_stats["profit"] = driver_stats.get("profit", 0) + bet_return
+
+            if driver_stats["bets"] > 0:
+                driver_stats["roi"] = round(driver_stats["profit"] / driver_stats["bets"], 4)
+
+            driver_stats["sharpe"] = round(calc_sharpe(driver_stats["returns"]), 3)
+            driver_stats["sortino"] = round(
+                calc_sortino(driver_stats["returns"]), 3
+            )  # V4.2: Sortino
+
+            # V6.1 FIX: Driver weights now use State Machine (same as league/market)
+            # Previously: jumped directly from FROZEN to full adjustment (inconsistent)
+            driver_state = get_optimizer_state(driver_stats["bets"])
+            previous_driver_weight = driver_stats.get("weight", NEUTRAL_WEIGHT)
+
+            if driver_state == OptimizerState.FROZEN:
+                # No adjustment - keep neutral
+                driver_stats["weight"] = NEUTRAL_WEIGHT
+            elif driver_state == OptimizerState.WARMING_UP:
+                # Limited adjustment: ±0.1 max
+                raw_weight = NEUTRAL_WEIGHT + driver_stats["roi"] * 2.0
+                raw_weight = max(MIN_WEIGHT, min(MAX_WEIGHT, raw_weight))
+                max_delta = 0.1
+                if raw_weight > previous_driver_weight + max_delta:
+                    driver_stats["weight"] = round(previous_driver_weight + max_delta, 3)
+                elif raw_weight < previous_driver_weight - max_delta:
+                    driver_stats["weight"] = round(previous_driver_weight - max_delta, 3)
+                else:
+                    driver_stats["weight"] = round(raw_weight, 3)
+            else:  # ACTIVE
+                # Full adjustment
+                driver_stats["weight"] = round(
+                    max(MIN_WEIGHT, min(MAX_WEIGHT, NEUTRAL_WEIGHT + driver_stats["roi"] * 2.0)), 3
+                )
+
+            # Update global stats
+            self.data["global"]["total_bets"] += 1
+            self.data["global"]["total_profit"] += bet_return
+
+            total_bets = self.data["global"]["total_bets"]
+            if total_bets > 0:
+                self.data["global"]["overall_roi"] = round(
+                    self.data["global"]["total_profit"] / total_bets, 4
+                )
 
     def get_weight(self, league: str, market: str, driver: str = None) -> tuple[float, dict]:
         """
@@ -810,6 +820,9 @@ class StrategyOptimizer:
         - Weight combination uses signal-strength logic instead of geometric mean
         - Geometric mean was "annacquando" strong signals (e.g., 0.2 * 2.0 = 0.63)
 
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+
         Args:
             league: League identifier
             market: Market recommendation
@@ -818,44 +831,47 @@ class StrategyOptimizer:
         Returns:
             Tuple of (combined_weight, stats_dict)
         """
-        league_key = self._normalize_key(league)
-        market_type = categorize_market(market)
+        with self._data_lock:
+            league_key = self._normalize_key(league)
+            market_type = categorize_market(market)
 
-        # V7.0: Safe nested dictionary access with type checking
-        league_stats = safe_get(self.data, "stats", league_key, default={})
-        market_stats = league_stats.get(market_type, {})
+            # V7.0: Safe nested dictionary access with type checking
+            league_stats = safe_get(self.data, "stats", league_key, default={})
+            market_stats = league_stats.get(market_type, {})
 
-        base_weight = market_stats.get("weight", NEUTRAL_WEIGHT)
-        base_bets = market_stats.get("bets", 0)
-        base_state = get_optimizer_state(base_bets)
+            base_weight = market_stats.get("weight", NEUTRAL_WEIGHT)
+            base_bets = market_stats.get("bets", 0)
+            base_state = get_optimizer_state(base_bets)
 
-        # V6.1 FIX: If League×Market is FROZEN, try global Market fallback
-        if base_state == OptimizerState.FROZEN:
-            global_market_weight, global_market_bets = self._get_global_market_weight(market_type)
-            global_state = get_optimizer_state(global_market_bets)
-
-            if global_state != OptimizerState.FROZEN:
-                # Use global market weight as fallback
-                base_weight = global_market_weight
-                logger.debug(
-                    f"🔄 Fallback to global {market_type} weight: {base_weight:.2f} (n={global_market_bets})"
+            # V6.1 FIX: If League×Market is FROZEN, try global Market fallback
+            if base_state == OptimizerState.FROZEN:
+                global_market_weight, global_market_bets = self._get_global_market_weight(
+                    market_type
                 )
+                global_state = get_optimizer_state(global_market_bets)
 
-        # Apply driver weight if available
-        if driver and driver in self.data.get("drivers", {}):
-            driver_stats = self.data["drivers"][driver]
-            driver_weight = driver_stats.get("weight", NEUTRAL_WEIGHT)
-            driver_bets = driver_stats.get("bets", 0)
-            driver_state = get_optimizer_state(driver_bets)
+                if global_state != OptimizerState.FROZEN:
+                    # Use global market weight as fallback
+                    base_weight = global_market_weight
+                    logger.debug(
+                        f"🔄 Fallback to global {market_type} weight: {base_weight:.2f} (n={global_market_bets})"
+                    )
 
-            # V6.1 FIX: Signal-strength based combination instead of geometric mean
-            # If one weight is neutral (1.0), use the other weight
-            # If both are non-neutral, use weighted average based on sample size
-            combined = self._combine_weights(base_weight, base_bets, driver_weight, driver_bets)
-            combined = max(MIN_WEIGHT, min(MAX_WEIGHT, combined))
-            return round(combined, 3), market_stats
+            # Apply driver weight if available
+            if driver and driver in self.data.get("drivers", {}):
+                driver_stats = self.data["drivers"][driver]
+                driver_weight = driver_stats.get("weight", NEUTRAL_WEIGHT)
+                driver_bets = driver_stats.get("bets", 0)
+                driver_state = get_optimizer_state(driver_bets)
 
-        return base_weight, market_stats
+                # V6.1 FIX: Signal-strength based combination instead of geometric mean
+                # If one weight is neutral (1.0), use the other weight
+                # If both are non-neutral, use weighted average based on sample size
+                combined = self._combine_weights(base_weight, base_bets, driver_weight, driver_bets)
+                combined = max(MIN_WEIGHT, min(MAX_WEIGHT, combined))
+                return round(combined, 3), market_stats
+
+            return base_weight, market_stats
 
     def _get_global_market_weight(self, market_type: str) -> tuple[float, int]:
         """
@@ -932,110 +948,113 @@ class StrategyOptimizer:
         Process settlement results and update weights.
 
         V7.3: Invalidates weight cache after recalculation to force reload.
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
         """
-        if not settlement_stats or settlement_stats.get("settled", 0) == 0:
-            logger.info("⏭️ No settled bets to learn from")
-            return False
+        with self._data_lock:
+            if not settlement_stats or settlement_stats.get("settled", 0) == 0:
+                logger.info("⏭️ No settled bets to learn from")
+                return False
 
-        logger.info("🧠 PROCESSING SETTLEMENT RESULTS (V3.0 Quant Engine)...")
+            logger.info("🧠 PROCESSING SETTLEMENT RESULTS (V3.0 Quant Engine)...")
 
-        details = settlement_stats.get("details", [])
-        if not details:
-            return False
+            details = settlement_stats.get("details", [])
+            if not details:
+                return False
 
-        updated_combos = set()
+            updated_combos = set()
 
-        for bet in details:
-            league = bet.get("league", "unknown")
-            market = bet.get("market", "unknown")
-            outcome = bet.get("outcome", "LOSS")
-            odds = bet.get("odds", 1.9)
-            driver = bet.get("driver", "UNKNOWN")
+            for bet in details:
+                league = bet.get("league", "unknown")
+                market = bet.get("market", "unknown")
+                outcome = bet.get("outcome", "LOSS")
+                odds = bet.get("odds", 1.9)
+                driver = bet.get("driver", "UNKNOWN")
 
-            # V5.2 FIX: Skip invalid bets before processing
-            if not league or not market:
-                continue
+                # V5.2 FIX: Skip invalid bets before processing
+                if not league or not market:
+                    continue
 
-            self.record_bet_result(league, market, outcome, odds, driver)
+                self.record_bet_result(league, market, outcome, odds, driver)
 
-            league_key = self._normalize_key(league)
-            market_type = categorize_market(market)
-            updated_combos.add((league_key, market_type))
+                league_key = self._normalize_key(league)
+                market_type = categorize_market(market)
+                updated_combos.add((league_key, market_type))
 
-        # Log weight changes with Sharpe/Sortino/Drawdown
-        logger.info("📊 WEIGHT UPDATES (with Risk Metrics V4.2):")
-        for league_key, market_type in updated_combos:
-            # V7.0: Safe nested dictionary access with type checking
-            stats = safe_get(self.data, "stats", league_key, market_type, default={})
-            n_bets = stats.get("bets", 0)
-            roi = stats.get("roi", 0)
-            sharpe = stats.get("sharpe", 0)
-            sortino = stats.get("sortino", 0)  # V4.2: Sortino
-            max_dd = stats.get("max_drawdown", 0)
-            weight = stats.get("weight", 1.0)
+            # Log weight changes with Sharpe/Sortino/Drawdown
+            logger.info("📊 WEIGHT UPDATES (with Risk Metrics V4.2):")
+            for league_key, market_type in updated_combos:
+                # V7.0: Safe nested dictionary access with type checking
+                stats = safe_get(self.data, "stats", league_key, market_type, default={})
+                n_bets = stats.get("bets", 0)
+                roi = stats.get("roi", 0)
+                sharpe = stats.get("sharpe", 0)
+                sortino = stats.get("sortino", 0)  # V4.2: Sortino
+                max_dd = stats.get("max_drawdown", 0)
+                weight = stats.get("weight", 1.0)
 
-            if n_bets >= MIN_SAMPLE_SIZE:
-                direction = "↑" if weight > 1.0 else "↓" if weight < 1.0 else "→"
-                logger.info(
-                    f"   {direction} {league_key}/{market_type}: "
-                    f"W={weight:.2f} | ROI={roi * 100:.1f}% | "
-                    f"Sharpe={sharpe:.2f} | Sortino={sortino:.2f} | DD={max_dd * 100:.1f}% | n={n_bets}"
-                )
+                if n_bets >= MIN_SAMPLE_SIZE:
+                    direction = "↑" if weight > 1.0 else "↓" if weight < 1.0 else "→"
+                    logger.info(
+                        f"   {direction} {league_key}/{market_type}: "
+                        f"W={weight:.2f} | ROI={roi * 100:.1f}% | "
+                        f"Sharpe={sharpe:.2f} | Sortino={sortino:.2f} | DD={max_dd * 100:.1f}% | n={n_bets}"
+                    )
 
-        # Log driver performance
-        logger.info("📊 DRIVER PERFORMANCE:")
-        for driver, d_stats in self.data.get("drivers", {}).items():
-            if d_stats.get("bets", 0) >= 5:
-                logger.info(
-                    f"   🎯 {driver}: W={d_stats.get('weight', 1.0):.2f} | "
-                    f"ROI={d_stats.get('roi', 0) * 100:.1f}% | "
-                    f"Sortino={d_stats.get('sortino', 0):.2f} | n={d_stats.get('bets', 0)}"
-                )
-
-        # V13.0: Integrate CLV validation for weight adjustment
-        # Use CLVTracker to validate strategy edges and adjust weights accordingly
-        try:
-            from src.analysis.clv_tracker import get_clv_tracker
-
-            clv_tracker = get_clv_tracker()
-
-            logger.info("📈 CLV VALIDATION INTEGRATION:")
+            # Log driver performance
+            logger.info("📊 DRIVER PERFORMANCE:")
             for driver, d_stats in self.data.get("drivers", {}).items():
-                # Get CLV validation report for this driver
-                clv_report = clv_tracker.get_strategy_edge_report(strategy=driver, days_back=30)
+                if d_stats.get("bets", 0) >= 5:
+                    logger.info(
+                        f"   🎯 {driver}: W={d_stats.get('weight', 1.0):.2f} | "
+                        f"ROI={d_stats.get('roi', 0) * 100:.1f}% | "
+                        f"Sortino={d_stats.get('sortino', 0):.2f} | n={d_stats.get('bets', 0)}"
+                    )
 
-                if clv_report and clv_report.clv_stats.bets_with_clv >= 20:
-                    current_weight = d_stats.get("weight", NEUTRAL_WEIGHT)
+            # V13.0: Integrate CLV validation for weight adjustment
+            # Use CLVTracker to validate strategy edges and adjust weights accordingly
+            try:
+                from src.analysis.clv_tracker import get_clv_tracker
 
-                    if clv_report.is_validated:
-                        # CLV-validated strategy - trust the weight
-                        logger.info(
-                            f"   ✅ {driver}: CLV-validated (CLV={clv_report.clv_stats.avg_clv:+.2f}%, "
-                            f"Positive Rate={clv_report.clv_stats.positive_clv_rate:.1f}%)"
-                        )
-                    else:
-                        # Not CLV-validated - reduce weight
-                        new_weight = current_weight * 0.8
-                        d_stats["weight"] = new_weight
-                        logger.info(
-                            f"   📉 {driver}: NOT CLV-validated, weight reduced: "
-                            f"{current_weight:.2f} → {new_weight:.2f} "
-                            f"(CLV={clv_report.clv_stats.avg_clv:+.2f}%, "
-                            f"Positive Rate={clv_report.clv_stats.positive_clv_rate:.1f}%)"
-                        )
-        except Exception as e:
-            logger.warning(f"⚠️ CLV validation integration failed: {e}")
+                clv_tracker = get_clv_tracker()
 
-        # Save to disk (also updates cache)
-        self._save_data()
+                logger.info("📈 CLV VALIDATION INTEGRATION:")
+                for driver, d_stats in self.data.get("drivers", {}).items():
+                    # Get CLV validation report for this driver
+                    clv_report = clv_tracker.get_strategy_edge_report(strategy=driver, days_back=30)
 
-        total = self.data["global"]["total_bets"]
-        overall_roi = self.data["global"]["overall_roi"]
-        logger.info(
-            f"✅ Optimizer V3.0 updated. Total: {total} bets | Overall ROI: {overall_roi * 100:.1f}%"
-        )
+                    if clv_report and clv_report.clv_stats.bets_with_clv >= 20:
+                        current_weight = d_stats.get("weight", NEUTRAL_WEIGHT)
 
-        return True
+                        if clv_report.is_validated:
+                            # CLV-validated strategy - trust the weight
+                            logger.info(
+                                f"   ✅ {driver}: CLV-validated (CLV={clv_report.clv_stats.avg_clv:+.2f}%, "
+                                f"Positive Rate={clv_report.clv_stats.positive_clv_rate:.1f}%)"
+                            )
+                        else:
+                            # Not CLV-validated - reduce weight
+                            new_weight = current_weight * 0.8
+                            d_stats["weight"] = new_weight
+                            logger.info(
+                                f"   📉 {driver}: NOT CLV-validated, weight reduced: "
+                                f"{current_weight:.2f} → {new_weight:.2f} "
+                                f"(CLV={clv_report.clv_stats.avg_clv:+.2f}%, "
+                                f"Positive Rate={clv_report.clv_stats.positive_clv_rate:.1f}%)"
+                            )
+            except Exception as e:
+                logger.warning(f"⚠️ CLV validation integration failed: {e}")
+
+            # Save to disk (also updates cache)
+            self._save_data()
+
+            total = self.data["global"]["total_bets"]
+            overall_roi = self.data["global"]["overall_roi"]
+            logger.info(
+                f"✅ Optimizer V3.0 updated. Total: {total} bets | Overall ROI: {overall_roi * 100:.1f}%"
+            )
+
+            return True
 
     def apply_weight_to_score(
         self, base_score: float, league: str, market: str = None, driver: str = None
@@ -1043,6 +1062,8 @@ class StrategyOptimizer:
         """Apply learned weight to a confidence score.
 
         V5.3 FIX: Added validation for league parameter.
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
         """
         if not market:
             return base_score, ""
@@ -1073,120 +1094,136 @@ class StrategyOptimizer:
         return round(adjusted, 1), log_msg
 
     def get_summary(self) -> str:
-        """Get human-readable summary with V5.0 Sample Size Guards status."""
-        lines = ["📊 OPTIMIZER V5.0 SUMMARY (Sample Size Guards + Sortino)"]
-        lines.append(f"Total bets: {self.data['global']['total_bets']}")
-        lines.append(f"Overall ROI: {self.data['global']['overall_roi'] * 100:.1f}%")
-        lines.append(f"Last updated: {self.data.get('last_updated', 'Never')}")
+        """
+        Get human-readable summary with V5.0 Sample Size Guards status.
 
-        # V5.0: Show state distribution
-        frozen_count = 0
-        warming_count = 0
-        active_count = 0
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+        """
+        with self._data_lock:
+            lines = ["📊 OPTIMIZER V5.0 SUMMARY (Sample Size Guards + Sortino)"]
+            lines.append(f"Total bets: {self.data['global']['total_bets']}")
+            lines.append(f"Overall ROI: {self.data['global']['overall_roi'] * 100:.1f}%")
+            lines.append(f"Last updated: {self.data.get('last_updated', 'Never')}")
 
-        for league, markets in self.data.get("stats", {}).items():
-            for market_type, stats in markets.items():
-                n_bets = stats.get("bets", 0)
-                state = get_optimizer_state(n_bets)
-                if state == OptimizerState.FROZEN:
-                    frozen_count += 1
-                elif state == OptimizerState.WARMING_UP:
-                    warming_count += 1
-                else:
-                    active_count += 1
+            # V5.0: Show state distribution
+            frozen_count = 0
+            warming_count = 0
+            active_count = 0
 
-        lines.append("\n🔒 State Distribution:")
-        lines.append(f"   FROZEN (<{MIN_SAMPLE_SIZE} bets): {frozen_count} strategies")
-        lines.append(
-            f"   WARMING ({MIN_SAMPLE_SIZE}-{WARMING_SAMPLE_SIZE} bets): {warming_count} strategies"
-        )
-        lines.append(f"   ACTIVE (>{WARMING_SAMPLE_SIZE} bets): {active_count} strategies")
+            for league, markets in self.data.get("stats", {}).items():
+                for market_type, stats in markets.items():
+                    n_bets = stats.get("bets", 0)
+                    state = get_optimizer_state(n_bets)
+                    if state == OptimizerState.FROZEN:
+                        frozen_count += 1
+                    elif state == OptimizerState.WARMING_UP:
+                        warming_count += 1
+                    else:
+                        active_count += 1
 
-        # Show adjusted weights (only ACTIVE strategies)
-        adjusted = []
-        for league, markets in self.data.get("stats", {}).items():
-            for market_type, stats in markets.items():
-                weight = stats.get("weight", 1.0)
-                n_bets = stats.get("bets", 0)
-                state = get_optimizer_state(n_bets)
+            lines.append("\n🔒 State Distribution:")
+            lines.append(f"   FROZEN (<{MIN_SAMPLE_SIZE} bets): {frozen_count} strategies")
+            lines.append(
+                f"   WARMING ({MIN_SAMPLE_SIZE}-{WARMING_SAMPLE_SIZE} bets): {warming_count} strategies"
+            )
+            lines.append(f"   ACTIVE (>{WARMING_SAMPLE_SIZE} bets): {active_count} strategies")
 
-                if state == OptimizerState.ACTIVE and weight != NEUTRAL_WEIGHT:
-                    direction = "↑" if weight > 1.0 else "↓"
-                    adjusted.append(
-                        f"  {direction} {league}/{market_type}: "
-                        f"W={weight:.2f} (Sortino={stats.get('sortino', 0):.2f}, n={n_bets})"
-                    )
+            # Show adjusted weights (only ACTIVE strategies)
+            adjusted = []
+            for league, markets in self.data.get("stats", {}).items():
+                for market_type, stats in markets.items():
+                    weight = stats.get("weight", 1.0)
+                    n_bets = stats.get("bets", 0)
+                    state = get_optimizer_state(n_bets)
 
-        if adjusted:
-            lines.append("\n✅ Active adjustments (ACTIVE state only):")
-            lines.extend(adjusted[:10])  # Limit output
-        else:
-            lines.append("\n⏳ No active adjustments yet (need more data)")
+                    if state == OptimizerState.ACTIVE and weight != NEUTRAL_WEIGHT:
+                        direction = "↑" if weight > 1.0 else "↓"
+                        adjusted.append(
+                            f"  {direction} {league}/{market_type}: "
+                            f"W={weight:.2f} (Sortino={stats.get('sortino', 0):.2f}, n={n_bets})"
+                        )
 
-        return "\n".join(lines)
+            if adjusted:
+                lines.append("\n✅ Active adjustments (ACTIVE state only):")
+                lines.extend(adjusted[:10])  # Limit output
+            else:
+                lines.append("\n⏳ No active adjustments yet (need more data)")
+
+            return "\n".join(lines)
 
     def get_optimizer_state_report(self) -> dict:
         """
         V5.0: Get detailed state report for all strategies.
 
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+
         Returns:
             Dict with frozen, warming, active lists and counts
         """
-        report = {"frozen": [], "warming": [], "active": [], "total_strategies": 0}
+        with self._data_lock:
+            report = {"frozen": [], "warming": [], "active": [], "total_strategies": 0}
 
-        for league, markets in self.data.get("stats", {}).items():
-            for market_type, stats in markets.items():
-                n_bets = stats.get("bets", 0)
-                state = get_optimizer_state(n_bets)
+            for league, markets in self.data.get("stats", {}).items():
+                for market_type, stats in markets.items():
+                    n_bets = stats.get("bets", 0)
+                    state = get_optimizer_state(n_bets)
 
-                entry = {
-                    "league": league,
-                    "market": market_type,
-                    "bets": n_bets,
-                    "weight": stats.get("weight", 1.0),
-                    "roi": stats.get("roi", 0),
-                    "sortino": stats.get("sortino", 0),
-                }
+                    entry = {
+                        "league": league,
+                        "market": market_type,
+                        "bets": n_bets,
+                        "weight": stats.get("weight", 1.0),
+                        "roi": stats.get("roi", 0),
+                        "sortino": stats.get("sortino", 0),
+                    }
 
-                if state == OptimizerState.FROZEN:
-                    entry["bets_needed"] = MIN_SAMPLE_SIZE - n_bets
-                    report["frozen"].append(entry)
-                elif state == OptimizerState.WARMING_UP:
-                    entry["bets_to_active"] = WARMING_SAMPLE_SIZE - n_bets
-                    report["warming"].append(entry)
-                else:
-                    report["active"].append(entry)
+                    if state == OptimizerState.FROZEN:
+                        entry["bets_needed"] = MIN_SAMPLE_SIZE - n_bets
+                        report["frozen"].append(entry)
+                    elif state == OptimizerState.WARMING_UP:
+                        entry["bets_to_active"] = WARMING_SAMPLE_SIZE - n_bets
+                        report["warming"].append(entry)
+                    else:
+                        report["active"].append(entry)
 
-                report["total_strategies"] += 1
+                    report["total_strategies"] += 1
 
-        return report
+            return report
 
     def get_risky_combinations(self, threshold: float = -0.1) -> list:
-        """Get league/market combinations with negative ROI or high drawdown."""
-        risky = []
-        for league, markets in self.data.get("stats", {}).items():
-            for market_type, stats in markets.items():
-                n_bets = stats.get("bets", 0)
-                # V5.0: Only flag as risky if we have enough data to trust the metrics
-                is_risky = (stats.get("roi", 0) < threshold and n_bets >= MIN_SAMPLE_SIZE) or (
-                    stats.get("max_drawdown", 0) < DRAWDOWN_BRAKE_THRESHOLD
-                    and n_bets >= MIN_SAMPLE_SIZE
-                )
-                if is_risky:
-                    risky.append(
-                        {
-                            "league": league,
-                            "market": market_type,
-                            "roi": stats["roi"],
-                            "sharpe": stats.get("sharpe", 0),
-                            "sortino": stats.get("sortino", 0),
-                            "max_drawdown": stats.get("max_drawdown", 0),
-                            "bets": n_bets,
-                            "weight": stats["weight"],
-                            "state": get_optimizer_state(n_bets).value,
-                        }
+        """
+        Get league/market combinations with negative ROI or high drawdown.
+
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+        """
+        with self._data_lock:
+            risky = []
+            for league, markets in self.data.get("stats", {}).items():
+                for market_type, stats in markets.items():
+                    n_bets = stats.get("bets", 0)
+                    # V5.0: Only flag as risky if we have enough data to trust the metrics
+                    is_risky = (stats.get("roi", 0) < threshold and n_bets >= MIN_SAMPLE_SIZE) or (
+                        stats.get("max_drawdown", 0) < DRAWDOWN_BRAKE_THRESHOLD
+                        and n_bets >= MIN_SAMPLE_SIZE
                     )
-        return sorted(risky, key=lambda x: x["roi"])
+                    if is_risky:
+                        risky.append(
+                            {
+                                "league": league,
+                                "market": market_type,
+                                "roi": stats["roi"],
+                                "sharpe": stats.get("sharpe", 0),
+                                "sortino": stats.get("sortino", 0),
+                                "max_drawdown": stats.get("max_drawdown", 0),
+                                "bets": n_bets,
+                                "weight": stats["weight"],
+                                "state": get_optimizer_state(n_bets).value,
+                            }
+                        )
+            return sorted(risky, key=lambda x: x["roi"])
 
     def _record_expansion_performance(
         self, league_key: str, expansion_type: str, outcome: str, odds: float
@@ -1196,58 +1233,62 @@ class StrategyOptimizer:
 
         This creates a separate performance tracking system for expansion types
         that can be used to inform future combo suggestions.
+
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
         """
-        if "expansion_stats" not in self.data:
-            self.data["expansion_stats"] = {}
+        with self._data_lock:
+            if "expansion_stats" not in self.data:
+                self.data["expansion_stats"] = {}
 
-        expansion_stats = self.data["expansion_stats"]
+            expansion_stats = self.data["expansion_stats"]
 
-        # Initialize expansion type if not exists
-        if expansion_type not in expansion_stats:
-            expansion_stats[expansion_type] = self._get_default_expansion_stats()
+            # Initialize expansion type if not exists
+            if expansion_type not in expansion_stats:
+                expansion_stats[expansion_type] = self._get_default_expansion_stats()
 
-        stats = expansion_stats[expansion_type]
+            stats = expansion_stats[expansion_type]
 
-        # Skip invalid outcomes
-        if outcome not in ("WIN", "LOSS"):
-            return
+            # Skip invalid outcomes
+            if outcome not in ("WIN", "LOSS"):
+                return
 
-        # Update basic stats
-        stats["bets"] += 1
-        if outcome == "WIN":
-            stats["wins"] += 1
+            # Update basic stats
+            stats["bets"] += 1
+            if outcome == "WIN":
+                stats["wins"] += 1
 
-        # Calculate return
-        bet_return = odds - 1.0 if outcome == "WIN" else -1.0
-        stats["returns"].append(bet_return)
+            # Calculate return
+            bet_return = odds - 1.0 if outcome == "WIN" else -1.0
+            stats["returns"].append(bet_return)
 
-        # Keep returns manageable
-        if len(stats["returns"]) > MAX_RETURNS_HISTORY:
-            stats["returns"] = stats["returns"][-MAX_RETURNS_HISTORY:]
+            # Keep returns manageable
+            if len(stats["returns"]) > MAX_RETURNS_HISTORY:
+                stats["returns"] = stats["returns"][-MAX_RETURNS_HISTORY:]
 
-        stats["profit"] += bet_return
+            stats["profit"] += bet_return
 
-        # Update PnL history
-        last_pnl = stats["pnl_history"][-1] if stats["pnl_history"] else 0
-        stats["pnl_history"].append(last_pnl + bet_return)
+            # Update PnL history
+            last_pnl = stats["pnl_history"][-1] if stats["pnl_history"] else 0
+            stats["pnl_history"].append(last_pnl + bet_return)
 
-        if len(stats["pnl_history"]) > MAX_PNL_HISTORY:
-            stats["pnl_history"] = stats["pnl_history"][-MAX_PNL_HISTORY:]
+            if len(stats["pnl_history"]) > MAX_PNL_HISTORY:
+                stats["pnl_history"] = stats["pnl_history"][-MAX_PNL_HISTORY:]
 
-        # Recalculate metrics
-        if stats["bets"] > 0:
-            stats["roi"] = round(stats["profit"] / stats["bets"], 4)
-            stats["win_rate"] = round(stats["wins"] / stats["bets"], 3)
+            # Recalculate metrics
+            if stats["bets"] > 0:
+                stats["roi"] = round(stats["profit"] / stats["bets"], 4)
+                stats["win_rate"] = round(stats["wins"] / stats["bets"], 3)
 
-        stats["sharpe"] = round(calc_sharpe(stats["returns"]), 3)
-        stats["sortino"] = round(calc_sortino(stats["returns"]), 3)
-        stats["max_drawdown"] = round(calc_max_drawdown(stats["pnl_history"]), 3)
+            stats["sharpe"] = round(calc_sharpe(stats["returns"]), 3)
+            stats["sortino"] = round(calc_sortino(stats["returns"]), 3)
+            stats["max_drawdown"] = round(calc_max_drawdown(stats["pnl_history"]), 3)
 
-        # Log significant expansion performance
-        if stats["bets"] % 10 == 0:  # Every 10 bets
-            logger.info(
-                f"🧩 Expansion {expansion_type}: {stats['wins']}/{stats['bets']} ({stats['win_rate'] * 100:.1f}%) | ROI: {stats['roi'] * 100:.1f}%"
-            )
+            # Log significant expansion performance
+            if stats["bets"] % 10 == 0:  # Every 10 bets
+                logger.info(
+                    f"🧩 Expansion {expansion_type}: {stats['wins']}/{stats['bets']} ({stats['win_rate'] * 100:.1f}%) | ROI: {stats['roi'] * 100:.1f}%"
+                )
 
     def _get_default_expansion_stats(self) -> dict:
         """V7.4: Default stats structure for expansion types."""
@@ -1268,19 +1309,23 @@ class StrategyOptimizer:
         """
         V7.4: Get performance stats for expansion types.
 
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+
         Args:
             expansion_type: Specific expansion type or None for all
 
         Returns:
             Performance statistics dictionary
         """
-        if "expansion_stats" not in self.data:
-            return {}
+        with self._data_lock:
+            if "expansion_stats" not in self.data:
+                return {}
 
-        if expansion_type:
-            return self.data["expansion_stats"].get(expansion_type, {})
+            if expansion_type:
+                return self.data["expansion_stats"].get(expansion_type, {})
 
-        return self.data["expansion_stats"]
+            return self.data["expansion_stats"]
 
     def get_best_expansions_for_league(
         self, league_key: str, top_n: int = 3
@@ -1288,25 +1333,29 @@ class StrategyOptimizer:
         """
         V7.4: Get best performing expansion types for a specific league.
 
+        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
+        during concurrent settlement and analysis operations.
+
         Returns list of (expansion_type, performance_score) tuples.
         """
-        if "expansion_stats" not in self.data:
-            return []
+        with self._data_lock:
+            if "expansion_stats" not in self.data:
+                return []
 
-        expansion_scores = []
-        for exp_type, stats in self.data["expansion_stats"].items():
-            if stats["bets"] >= MIN_SAMPLE_SIZE:  # Only consider reliable data
-                # Performance score combines ROI, win rate, and Sharpe
-                score = (
-                    stats["roi"] * 0.4  # 40% weight on ROI
-                    + stats["win_rate"] * 0.3  # 30% weight on win rate
-                    + (stats["sharpe"] / 10) * 0.3  # 30% weight on risk-adjusted returns
-                )
-                expansion_scores.append((exp_type, score))
+            expansion_scores = []
+            for exp_type, stats in self.data["expansion_stats"].items():
+                if stats["bets"] >= MIN_SAMPLE_SIZE:  # Only consider reliable data
+                    # Performance score combines ROI, win rate, and Sharpe
+                    score = (
+                        stats["roi"] * 0.4  # 40% weight on ROI
+                        + stats["win_rate"] * 0.3  # 30% weight on win rate
+                        + (stats["sharpe"] / 10) * 0.3  # 30% weight on risk-adjusted returns
+                    )
+                    expansion_scores.append((exp_type, score))
 
-        # Sort by score descending and return top N
-        expansion_scores.sort(key=lambda x: x[1], reverse=True)
-        return expansion_scores[:top_n]
+            # Sort by score descending and return top N
+            expansion_scores.sort(key=lambda x: x[1], reverse=True)
+            return expansion_scores[:top_n]
 
 
 # ============================================

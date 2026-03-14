@@ -16,6 +16,7 @@ from src.analysis.verification_layer import (
     CRITICAL_IMPACT_THRESHOLD,
     H2H_CARDS_THRESHOLD,
     H2H_CORNERS_THRESHOLD,
+    H2H_MIN_MATCHES,
     LOW_SCORING_THRESHOLD,
     # Constants
     PLAYER_KEY_IMPACT_THRESHOLD,
@@ -195,24 +196,25 @@ def test_property_5_h2h_cards_market_flag(avg_cards: float, matches_analyzed: in
     **Feature: verification-layer, Property 5: H2H cards market flag**
     **Validates: Requirements 3.3**
 
-    *For any* H2H stats with avg_cards >= 4.5, the alternative_markets
-    SHALL include "Over Cards" variant.
+    V15.0: Updated to account for sample size requirement.
+    *For any* H2H stats with avg_cards >= 4.5 AND sufficient sample size,
+    the alternative_markets SHALL include "Over Cards" variant.
     """
     h2h = H2HStats(
         matches_analyzed=matches_analyzed,
         avg_cards=avg_cards,
     )
 
-    # Property: avg_cards >= 4.5 implies suggests_over_cards() = True
-    if avg_cards >= H2H_CARDS_THRESHOLD:
+    # Property: avg_cards >= 4.5 AND matches_analyzed >= H2H_MIN_MATCHES implies suggests_over_cards() = True
+    if avg_cards >= H2H_CARDS_THRESHOLD and matches_analyzed >= H2H_MIN_MATCHES:
         assert h2h.suggests_over_cards() is True, (
-            f"H2H with avg_cards={avg_cards} should suggest Over Cards "
-            f"(threshold={H2H_CARDS_THRESHOLD})"
+            f"H2H with avg_cards={avg_cards}, matches={matches_analyzed} should suggest Over Cards "
+            f"(threshold={H2H_CARDS_THRESHOLD}, min_matches={H2H_MIN_MATCHES})"
         )
     else:
         assert h2h.suggests_over_cards() is False, (
-            f"H2H with avg_cards={avg_cards} should NOT suggest Over Cards "
-            f"(threshold={H2H_CARDS_THRESHOLD})"
+            f"H2H with avg_cards={avg_cards}, matches={matches_analyzed} should NOT suggest Over Cards "
+            f"(threshold={H2H_CARDS_THRESHOLD}, min_matches={H2H_MIN_MATCHES})"
         )
 
 
@@ -233,24 +235,25 @@ def test_property_6_h2h_corners_market_flag(avg_corners: float, matches_analyzed
     **Feature: verification-layer, Property 6: H2H corners market flag**
     **Validates: Requirements 3.4**
 
-    *For any* H2H stats with avg_corners >= 10, the alternative_markets
-    SHALL include "Over Corners" variant.
+    V15.0: Updated to account for sample size requirement.
+    *For any* H2H stats with avg_corners >= 10 AND sufficient sample size,
+    the alternative_markets SHALL include "Over Corners" variant.
     """
     h2h = H2HStats(
         matches_analyzed=matches_analyzed,
         avg_corners=avg_corners,
     )
 
-    # Property: avg_corners >= 10 implies suggests_over_corners() = True
-    if avg_corners >= H2H_CORNERS_THRESHOLD:
+    # Property: avg_corners >= 10 AND matches_analyzed >= H2H_MIN_MATCHES implies suggests_over_corners() = True
+    if avg_corners >= H2H_CORNERS_THRESHOLD and matches_analyzed >= H2H_MIN_MATCHES:
         assert h2h.suggests_over_corners() is True, (
-            f"H2H with avg_corners={avg_corners} should suggest Over Corners "
-            f"(threshold={H2H_CORNERS_THRESHOLD})"
+            f"H2H with avg_corners={avg_corners}, matches={matches_analyzed} should suggest Over Corners "
+            f"(threshold={H2H_CORNERS_THRESHOLD}, min_matches={H2H_MIN_MATCHES})"
         )
     else:
         assert h2h.suggests_over_corners() is False, (
-            f"H2H with avg_corners={avg_corners} should NOT suggest Over Corners "
-            f"(threshold={H2H_CORNERS_THRESHOLD})"
+            f"H2H with avg_corners={avg_corners}, matches={matches_analyzed} should NOT suggest Over Corners "
+            f"(threshold={H2H_CORNERS_THRESHOLD}, min_matches={H2H_MIN_MATCHES})"
         )
 
 
@@ -416,7 +419,8 @@ def test_form_stats_low_scoring_classification(
         losses=losses,
     )
 
-    avg = goals_scored / 5.0
+    # Handle edge case where matches_played is 0
+    avg = goals_scored / form.matches_played if form.matches_played > 0 else 0.0
 
     if avg < LOW_SCORING_THRESHOLD:
         assert form.is_low_scoring() is True, (
@@ -672,11 +676,11 @@ class MockTavilyVerifier:
         }
 
     def parse_response(self, response, request) -> VerifiedData:
-        return VerifiedData(source="tavily", data_confidence="MEDIUM")
+        return VerifiedData(source="tavily", data_confidence="Medium")
 
     def parse_optimized_response(self, response, request) -> VerifiedData:
         """V2.0: Parse optimized response."""
-        return VerifiedData(source="tavily_v2", data_confidence="MEDIUM")
+        return VerifiedData(source="tavily_v2", data_confidence="Medium")
 
     def get_call_count(self) -> int:
         return self._call_count
@@ -777,7 +781,7 @@ def test_property_13_provider_fallback(
 
     # Property: If both fail, result should have LOW confidence
     if (tavily_fails or not tavily_available) and (perplexity_fails or not perplexity_available):
-        assert result.data_confidence == "LOW", "When all providers fail, confidence should be LOW"
+        assert result.data_confidence == "Low", "When all providers fail, confidence should be Low"
 
 
 def test_property_13_fallback_order():
@@ -3070,6 +3074,6 @@ def test_v71_parse_optimized_response_uses_fotmob_form():
     assert verified.away_form.losses == 1, f"Expected 1 loss, got {verified.away_form.losses}"
 
     # Verify HIGH confidence when FotMob form is available
-    assert verified.form_confidence == "HIGH", (
-        f"Expected HIGH confidence with FotMob form, got {verified.form_confidence}"
+    assert verified.form_confidence == "High", (
+        f"Expected High confidence with FotMob form, got {verified.form_confidence}"
     )

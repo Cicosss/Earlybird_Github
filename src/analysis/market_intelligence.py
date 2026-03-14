@@ -44,7 +44,8 @@ class OddsSnapshot(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     match_id = Column(String, nullable=False, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # COVE FIX: Use timezone-aware datetime for consistency with Match model
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
 
     # H2H Odds at this snapshot
     home_odd = Column(Float, nullable=True)
@@ -60,7 +61,11 @@ class OddsSnapshot(Base):
     sharp_bookie = Column(String, nullable=True)
 
     # Composite index for efficient time-range queries
-    __table_args__ = (Index("idx_snapshot_match_time", "match_id", "timestamp"),)
+    # Additional index on timestamp for fast cleanup queries
+    __table_args__ = (
+        Index("idx_snapshot_match_time", "match_id", "timestamp"),
+        Index("idx_snapshot_timestamp", "timestamp"),
+    )
 
 
 # ============================================
@@ -76,6 +81,13 @@ STEAM_MOVE_RAPID_WINDOW_MIN = 5  # Rapid steam (very aggressive)
 RLM_PUBLIC_THRESHOLD = 0.65  # 65%+ public on one side
 RLM_ODDS_INCREASE_THRESHOLD = 0.03  # Odds must increase by 3%+ despite public money
 RLM_MIN_VALID_ODD = 1.01  # Fix #4: Minimum valid odd (odds are always > 1.0)
+
+# Odds Snapshot Cleanup (VPS-compatible)
+import os
+
+ODDS_SNAPSHOT_RETENTION_DAYS = int(
+    os.getenv("ODDS_SNAPSHOT_RETENTION_DAYS", "7")
+)  # Days of history to retain
 
 # News Decay - V4.3: Now league-adaptive (see get_news_decay_lambda in settings.py)
 # Default values for backward compatibility
@@ -102,6 +114,32 @@ except ImportError:
     # Fallback constants if module not available
     FRESHNESS_FRESH_THRESHOLD_MIN = 60
     FRESHNESS_AGING_THRESHOLD_MIN = 360
+
+    # Fallback implementations for missing functions
+    import math
+
+    def calculate_decay_multiplier(
+        minutes_old: int,
+        lambda_decay: float = 0.05,
+        max_age_hours: int = 24,
+        source_modifier: float = 1.0,
+        kickoff_proximity_multiplier: float = 1.0,
+    ) -> float:
+        """Fallback decay multiplier calculation."""
+        if minutes_old <= 0:
+            return 1.0
+
+        max_minutes = max_age_hours * 60
+        if minutes_old >= max_minutes:
+            return 0.01
+
+        effective_lambda = lambda_decay * source_modifier * kickoff_proximity_multiplier
+        decay_factor = math.exp(-effective_lambda * minutes_old)
+        return max(0.01, decay_factor)
+
+    def get_league_decay_rate(league_key: str) -> float:
+        """Fallback league decay rate."""
+        return 0.05  # Default medium decay
 
 
 def get_steam_window_for_league(league_key: str) -> int:
@@ -704,15 +742,18 @@ def apply_news_decay_v2(
 
     effective_lambda = base_lambda * source_modifier
 
+    kickoff_proximity_multiplier = 1.0
     if minutes_to_kickoff is not None and minutes_to_kickoff <= 30:
-        effective_lambda *= 2.0
+        kickoff_proximity_multiplier = 2.0
 
-    max_minutes = NEWS_MAX_AGE_HOURS * 60
-    if minutes_since_publish >= max_minutes:
-        return impact_score * 0.01, "📜 STALE"
-
-    decay_factor = math.exp(-effective_lambda * minutes_since_publish)
-    decay_factor = max(0.01, decay_factor)
+    # Use centralized calculate_decay_multiplier() for consistency
+    decay_factor = calculate_decay_multiplier(
+        minutes_since_publish,
+        lambda_decay=effective_lambda,
+        max_age_hours=NEWS_MAX_AGE_HOURS,
+        source_modifier=1.0,  # Already applied to effective_lambda
+        kickoff_proximity_multiplier=kickoff_proximity_multiplier,
+    )
 
     decayed_score = impact_score * decay_factor
 
@@ -826,7 +867,20 @@ def calculate_news_freshness_multiplier(
         logger.debug(f"Could not parse news date '{news_date_str}': {e}")
         minutes_old = 30
 
-    multiplier = apply_news_decay(1.0, minutes_old, league_key=league_key)
+    # Use centralized get_league_aware_freshness() for league-specific decay
+    # Calculate datetime from minutes_old for get_league_aware_freshness()
+    news_datetime = reference_time - timezone.timedelta(minutes=minutes_old)
+
+    try:
+        from src.utils.freshness import get_league_aware_freshness
+
+        freshness_result = get_league_aware_freshness(
+            news_datetime, league_key=league_key, reference_time=reference_time
+        )
+        multiplier = freshness_result.freshness_multiplier
+    except ImportError:
+        # Fallback to apply_news_decay() if freshness module not available
+        multiplier = apply_news_decay(1.0, minutes_old, league_key=league_key)
 
     return multiplier, minutes_old
 
@@ -890,16 +944,19 @@ def save_odds_snapshot(
         db.close()
 
 
-def cleanup_old_snapshots(days_to_keep: int = 7) -> int:
+def cleanup_old_snapshots(days_to_keep: int = None) -> int:
     """
     Clean up old odds snapshots to prevent database bloat.
 
     Args:
-        days_to_keep: Number of days of history to retain
+        days_to_keep: Number of days of history to retain (default: ODDS_SNAPSHOT_RETENTION_DAYS)
 
     Returns:
         Number of snapshots deleted
     """
+    if days_to_keep is None:
+        days_to_keep = ODDS_SNAPSHOT_RETENTION_DAYS
+
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
@@ -908,7 +965,7 @@ def cleanup_old_snapshots(days_to_keep: int = 7) -> int:
         deleted = db.query(OddsSnapshot).filter(OddsSnapshot.timestamp < cutoff_naive).delete()
 
         db.commit()
-        logger.info(f"🧹 Cleaned up {deleted} old odds snapshots")
+        logger.info(f"🧹 Cleaned up {deleted} old odds snapshots (keeping {days_to_keep} days)")
         return deleted
     except Exception as e:
         logger.error(f"Failed to cleanup snapshots: {e}")

@@ -23,7 +23,6 @@ from sqlalchemy.exc import (
     IntegrityError,
     OperationalError,
     SQLAlchemyError,
-    StaleDataError,
 )
 
 from src.analysis.final_alert_verifier import get_final_verifier
@@ -967,7 +966,7 @@ class StepByStepFeedbackLoop:
                         ) / existing_pattern.total_occurrences
                         existing_pattern.success_rate = new_rate
 
-                    existing_pattern.last_updated = datetime.utcnow()
+                    existing_pattern.last_updated = datetime.now(timezone.utc)
                 else:
                     # Create new pattern
                     new_pattern = LearningPattern(
@@ -1028,7 +1027,7 @@ class StepByStepFeedbackLoop:
                         if modification_plan.feedback_decision == FeedbackDecision.IGNORE
                         else 0,
                         "success_rate": 1.0 if success else 0.0,
-                        "last_updated": datetime.utcnow().isoformat(),
+                        "last_updated": datetime.now(timezone.utc).isoformat(),
                     }
 
                 logger.debug(
@@ -1036,7 +1035,7 @@ class StepByStepFeedbackLoop:
                     f"{self.intelligent_logger.learning_patterns[pattern_key]}"
                 )
 
-        except (StaleDataError, IntegrityError, OperationalError, DBAPIError) as e:
+        except (IntegrityError, OperationalError, DBAPIError) as e:
             # VPS FIX: Specific SQLAlchemy exception handling for concurrent operations
             # These errors can occur under high concurrency when multiple threads
             # try to update the same learning pattern simultaneously
@@ -1087,6 +1086,8 @@ class StepByStepFeedbackLoop:
                     suggested_value=str(modification.suggested_value),
                     reason=modification.reason,
                     priority=modification.priority.value,
+                    confidence=modification.confidence,
+                    impact_assessment=modification.impact_assessment,
                     applied=applied,
                     success=success,
                     error_message=error_message,
@@ -1094,7 +1095,8 @@ class StepByStepFeedbackLoop:
                     component_communications=json.dumps(
                         component_communications or {}, default=str
                     ),
-                    applied_at=datetime.utcnow() if applied else None,
+                    created_at=modification.timestamp,
+                    applied_at=datetime.now(timezone.utc) if applied else None,
                 )
 
                 db.add(mod_record)
@@ -1103,7 +1105,7 @@ class StepByStepFeedbackLoop:
                     f"✅ [PERSIST] Modification {modification.id} saved to database (ID: {mod_record.id})"
                 )
 
-        except (StaleDataError, IntegrityError, OperationalError, DBAPIError) as e:
+        except (IntegrityError, OperationalError, DBAPIError) as e:
             # VPS FIX: Specific SQLAlchemy exception handling for concurrent operations
             # These errors can occur under high concurrency when multiple threads
             # try to persist modifications simultaneously

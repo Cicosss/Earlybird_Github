@@ -41,7 +41,20 @@ class ContractViolation(Exception):
 
 @dataclass
 class FieldSpec:
-    """Specification for a single field in a contract."""
+    """
+    Specification for a single field in a contract.
+
+    Attributes:
+        name: Field name (required)
+        required: Whether the field is required (default: True)
+        field_type: Expected type (default: str). Can be a single type or tuple of types (e.g., (int, float))
+        allowed_values: List of allowed values (optional)
+        validator: Custom validation function (optional). Must accept value and return bool.
+        description: Field description (default: empty string)
+
+    Example:
+        FieldSpec("score", required=True, field_type=(int, float), validator=lambda x: 0 <= x <= 10)
+    """
 
     name: str
     required: bool = True
@@ -63,19 +76,38 @@ class FieldSpec:
             if self.field_type == float and isinstance(value, int):
                 pass
             else:
+                # Format field_type for error message
+                if isinstance(self.field_type, tuple):
+                    type_str = ", ".join(t.__name__ for t in self.field_type)
+                else:
+                    type_str = self.field_type.__name__
+
                 return (
                     False,
-                    f"{self.name}: tipo {type(value).__name__}, atteso {self.field_type.__name__}",
+                    f"{self.name}: type mismatch - got {type(value).__name__}, expected {type_str}",
                 )
 
-        # Check allowed values
-        if self.allowed_values is not None and value not in self.allowed_values:
-            return False, f"{self.name}: '{value}' non in {self.allowed_values}"
+        # Check allowed values (None is always allowed for non-required fields)
+        if (
+            self.allowed_values is not None
+            and value is not None
+            and value not in self.allowed_values
+        ):
+            return (
+                False,
+                f"{self.name}: value '{value}' not in allowed values {self.allowed_values}",
+            )
 
-        # Custom validator
+        # Custom validator with exception handling
         if self.validator is not None and value is not None:
-            if not self.validator(value):
-                return False, f"{self.name}: validazione custom fallita"
+            try:
+                if not self.validator(value):
+                    return False, f"{self.name}: custom validation failed for value '{value}'"
+            except Exception as e:
+                return (
+                    False,
+                    f"{self.name}: custom validation error: {type(e).__name__}: {str(e)}",
+                )
 
         return True, ""
 
@@ -307,6 +339,12 @@ NEWS_ITEM_CONTRACT = Contract(
             required=False,
             field_type=(int, float),
             description="Affidabilità del beat writer (0-1)",
+        ),
+        FieldSpec(
+            "avg_lead_time_min",
+            required=False,
+            field_type=(int, float),
+            description="Tempo medio di anticipo rispetto ai media mainstream (minuti)",
         ),
     ],
 )

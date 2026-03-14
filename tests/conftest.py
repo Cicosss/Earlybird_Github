@@ -495,6 +495,61 @@ def sample_matches(isolated_db):
     return isolated_db
 
 
+@pytest.fixture
+def isolated_db_with_triggers():
+    """
+    Isolated in-memory database with validation triggers applied.
+
+    Creates a fresh SQLite database in memory that is destroyed after the test.
+    Applies all validation triggers for modification_history table.
+
+    Usage:
+        def test_db_operation(isolated_db_with_triggers):
+            from src.database.models import ModificationHistory
+
+            # This will succeed with valid modification_type
+            mod = ModificationHistory(
+                alert_id=1,
+                match_id="test",
+                modification_type="market_change",
+                ...
+            )
+            isolated_db_with_triggers.add(mod)
+            isolated_db_with_triggers.commit()
+
+            # This will fail with invalid modification_type due to trigger
+            invalid_mod = ModificationHistory(
+                alert_id=1,
+                match_id="test",
+                modification_type="invalid_type",
+                ...
+            )
+            isolated_db_with_triggers.add(mod)
+            isolated_db_with_triggers.flush()  # Will raise exception
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from src.database.migration import apply_validation_triggers
+    from src.database.models import Base
+
+    # Create in-memory database
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(engine)
+
+    # Apply validation triggers
+    apply_validation_triggers(engine)
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    yield session
+
+    # Cleanup
+    session.close()
+    engine.dispose()
+
+
 # ============================================
 # API MOCK FIXTURES
 # ============================================

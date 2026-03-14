@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/mediastack_query_builder.py
+# hypothesis_version: 6.151.4
+
+[500, ' OR ', '=', 'Atalanta Lazio', 'Bologna Verona', 'Fiorentina Torino', 'Genoa Cagliari', 'Juventus news', 'Juventus team news', 'Milan Inter lineup', 'Monza Lecce', 'Roma Napoli match', 'Serie A injury', 'Serie A injury news', 'Udinese Sassuolo', '\\s+', '__main__', 'american football', 'baloncesto', 'basket', 'basketball', 'data', 'euroleague', 'femenino', 'feminine', 'femminile', 'futsal', 'handball', 'ladies', 'nba', 'nfl', 'pallacanestro', 'rugby', 'super bowl', 'title', 'touchdown', 'volleyball', 'woman', 'women']

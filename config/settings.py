@@ -656,9 +656,27 @@ FORM_DEVIATION_THRESHOLD = 0.30  # 30% deviation from season avg = warning
 LOW_SCORING_THRESHOLD = 1.0  # Goals/game < 1.0 = low scoring team
 
 # H2H Thresholds
-H2H_CARDS_THRESHOLD = 4.5  # Avg cards >= 4.5 = suggest Over Cards
-H2H_CORNERS_THRESHOLD = 10  # Avg corners >= 10 = suggest Over Corners
-COMBINED_CORNERS_THRESHOLD = 10.5  # Combined avg >= 10.5 = Over 9.5 Corners
+H2H_CARDS_THRESHOLD = float(
+    os.getenv("H2H_CARDS_THRESHOLD", "4.5")
+)  # Avg cards >= 4.5 = suggest Over Cards
+H2H_CORNERS_THRESHOLD = float(
+    os.getenv("H2H_CORNERS_THRESHOLD", "10")
+)  # Avg corners >= 10 = suggest Over Corners
+H2H_MIN_MATCHES = int(
+    os.getenv("H2H_MIN_MATCHES", "3")
+)  # Minimum matches required for reliable H2H analysis
+H2H_MAX_CARDS = float(
+    os.getenv("H2H_MAX_CARDS", "12")
+)  # Maximum realistic cards per match (sanity check)
+H2H_MAX_CORNERS = float(
+    os.getenv("H2H_MAX_CORNERS", "25")
+)  # Maximum realistic corners per match (sanity check)
+H2H_MAX_GOALS = float(
+    os.getenv("H2H_MAX_GOALS", "10")
+)  # Maximum realistic goals per match (sanity check)
+COMBINED_CORNERS_THRESHOLD = float(
+    os.getenv("COMBINED_CORNERS_THRESHOLD", "10.5")
+)  # Combined avg >= 10.5 = Over 9.5 Corners
 
 # Referee Thresholds
 REFEREE_STRICT_THRESHOLD = 5.0  # Cards/game >= 5 = strict referee

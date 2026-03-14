@@ -330,8 +330,11 @@ class MonitoredSource:
         last_scanned: Timestamp of last scan
         source_timezone: Timezone of the source (e.g., "Europe/London", "America/Sao_Paulo")
                         Used for timezone-aware scanning optimization during off-peak hours
+        enable_off_peak_optimization: Enable off-peak interval extension (default: False)
+        off_peak_hours: Off-peak hours as (start_hour, end_hour) in local time (default: (0, 6))
 
     V7.5: Added source_timezone for off-peak optimization.
+    V12.1: Added enable_off_peak_optimization and off_peak_hours for configurable off-peak logic.
     """
 
     url: str
@@ -344,6 +347,11 @@ class MonitoredSource:
     max_links: int = DEFAULT_MAX_LINKS_PER_PAGINATED  # V7.4: Max links to follow
     last_scanned: datetime | None = None
     source_timezone: str | None = None  # V7.5: e.g., "Europe/London"
+    enable_off_peak_optimization: bool = False  # V12.1: Opt-in for off-peak optimization
+    off_peak_hours: tuple[int, int] = (0, 6)  # V12.1: Configurable off-peak hours
+    _last_scanned_lock: threading.Lock = field(
+        default_factory=threading.Lock, init=False, repr=False
+    )  # V12.1: Thread-safe updates
 
     def is_due_for_scan(self) -> bool:
         """
@@ -353,11 +361,22 @@ class MonitoredSource:
         During off-peak hours (midnight-6am local time), extends interval
         to save resources since news is less likely to be published.
 
+        V12.1: Handles naive datetimes by converting to UTC with warning.
+
         Returns:
             True if source is due for scanning, False otherwise
         """
         if self.last_scanned is None:
             return True
+
+        # V12.1: Ensure last_scanned is timezone-aware
+        with self._last_scanned_lock:
+            if self.last_scanned.tzinfo is None:
+                logger.warning(
+                    f"⚠️ [MONITORED-SOURCE] last_scanned is naive datetime for {self.url}, "
+                    f"converting to UTC. Value: {self.last_scanned}"
+                )
+                self.last_scanned = self.last_scanned.replace(tzinfo=timezone.utc)
 
         # Calculate effective interval (may be extended during off-peak)
         effective_interval = self._get_effective_interval()
@@ -369,33 +388,55 @@ class MonitoredSource:
         """
         V7.5: Get effective scan interval based on source timezone.
 
-        During off-peak hours (midnight-6am local time), extends interval
+        V12.1: Off-peak optimization is now opt-in via enable_off_peak_optimization.
+        During off-peak hours (configurable, default: midnight-6am local time), extends interval
         to save resources since news is less likely to be published.
 
         Returns:
             Effective interval in minutes
         """
-        if not self.source_timezone:
+        # V12.1: Off-peak optimization is opt-in
+        if not self.enable_off_peak_optimization or not self.source_timezone:
             return self.scan_interval_minutes
 
         try:
-            # Try to get local hour for the source
-            from zoneinfo import ZoneInfo
+            # Import ZoneInfo for timezone handling
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
             tz = ZoneInfo(self.source_timezone)
             local_now = datetime.now(tz)
             local_hour = local_now.hour
 
-            # Off-peak: midnight to 6am local time
-            if 0 <= local_hour < 6:
+            # V12.1: Use configurable off-peak hours
+            off_peak_start, off_peak_end = self.off_peak_hours
+
+            # Validate off_peak_hours
+            if not (0 <= off_peak_start < 24 and 0 <= off_peak_end < 24):
+                logger.warning(
+                    f"⚠️ [MONITORED-SOURCE] Invalid off_peak_hours={self.off_peak_hours} for {self.url}, "
+                    f"using default (0, 6)"
+                )
+                off_peak_start, off_peak_end = 0, 6
+
+            # Check if current local hour is in off-peak range
+            if off_peak_start <= local_hour < off_peak_end:
                 # Double the interval during off-peak
                 return self.scan_interval_minutes * 2
 
             # Peak hours: normal interval
             return self.scan_interval_minutes
 
-        except Exception:
-            # If timezone parsing fails, use default interval
+        except ZoneInfoNotFoundError:
+            logger.warning(
+                f"⚠️ [MONITORED-SOURCE] Invalid timezone: {self.source_timezone} for {self.url}, "
+                f"using default interval"
+            )
+            return self.scan_interval_minutes
+        except Exception as e:
+            logger.error(
+                f"❌ [MONITORED-SOURCE] Unexpected error parsing timezone {self.source_timezone} "
+                f"for {self.url}: {e}"
+            )
             return self.scan_interval_minutes
 
 
@@ -589,18 +630,94 @@ def load_config(config_file: str = DEFAULT_CONFIG_FILE) -> MonitorConfig:
                 logger.warning(f"⚠️ [BROWSER-MONITOR] Skipping invalid source: {src_data}")
                 continue
 
+            # V12.1: Validate required fields
+            url = src_data["url"]
+            league_key = src_data["league_key"]
+
+            if not url or not isinstance(url, str):
+                logger.warning(f"⚠️ [BROWSER-MONITOR] Invalid URL in source config: {url}")
+                continue
+
+            if not league_key or not isinstance(league_key, str):
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid league_key in source config: {league_key}"
+                )
+                continue
+
+            # V12.1: Validate scan_interval_minutes
+            scan_interval = src_data.get(
+                "scan_interval_minutes", global_settings.default_scan_interval_minutes
+            )
+            if not isinstance(scan_interval, int) or scan_interval <= 0:
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid scan_interval_minutes={scan_interval} for {url}, "
+                    f"using default {global_settings.default_scan_interval_minutes}"
+                )
+                scan_interval = global_settings.default_scan_interval_minutes
+
+            # V12.1: Validate priority
+            priority = src_data.get("priority", 1)
+            if not isinstance(priority, int) or priority < 0:
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid priority={priority} for {url}, using 1"
+                )
+                priority = 1
+
+            # V12.1: Validate navigation_mode
+            navigation_mode = src_data.get("navigation_mode", "single")
+            if navigation_mode not in ["single", "paginated"]:
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid navigation_mode={navigation_mode} for {url}, "
+                    f"using 'single'"
+                )
+                navigation_mode = "single"
+
+            # V12.1: Validate max_links
+            max_links = src_data.get("max_links", DEFAULT_MAX_LINKS_PER_PAGINATED)
+            if not isinstance(max_links, int) or max_links <= 0:
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid max_links={max_links} for {url}, "
+                    f"using default {DEFAULT_MAX_LINKS_PER_PAGINATED}"
+                )
+                max_links = DEFAULT_MAX_LINKS_PER_PAGINATED
+
+            # V12.1: Validate enable_off_peak_optimization
+            enable_off_peak = src_data.get("enable_off_peak_optimization", False)
+            if not isinstance(enable_off_peak, bool):
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid enable_off_peak_optimization={enable_off_peak} "
+                    f"for {url}, using False"
+                )
+                enable_off_peak = False
+
+            # V12.1: Validate off_peak_hours
+            off_peak_hours = src_data.get("off_peak_hours", (0, 6))
+            if (
+                not isinstance(off_peak_hours, (list, tuple))
+                or len(off_peak_hours) != 2
+                or not all(isinstance(h, int) for h in off_peak_hours)
+                or not all(0 <= h < 24 for h in off_peak_hours)
+            ):
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Invalid off_peak_hours={off_peak_hours} for {url}, "
+                    f"using default (0, 6)"
+                )
+                off_peak_hours = (0, 6)
+            else:
+                off_peak_hours = tuple(off_peak_hours)  # Ensure it's a tuple
+
             source = MonitoredSource(
-                url=src_data["url"],
-                league_key=src_data["league_key"],
-                scan_interval_minutes=src_data.get(
-                    "scan_interval_minutes", global_settings.default_scan_interval_minutes
-                ),
-                priority=src_data.get("priority", 1),
-                name=src_data.get("name", src_data["url"][:50]),
-                navigation_mode=src_data.get("navigation_mode", "single"),  # V7.4
+                url=url,
+                league_key=league_key,
+                scan_interval_minutes=scan_interval,
+                priority=priority,
+                name=src_data.get("name", url[:50]),
+                navigation_mode=navigation_mode,  # V7.4
                 link_selector=src_data.get("link_selector"),  # V7.4
-                max_links=src_data.get("max_links", DEFAULT_MAX_LINKS_PER_PAGINATED),  # V7.4
+                max_links=max_links,  # V7.4
                 source_timezone=src_data.get("source_timezone"),  # V7.5
+                enable_off_peak_optimization=enable_off_peak,  # V12.1
+                off_peak_hours=off_peak_hours,  # V12.1
             )
             sources.append(source)
 
@@ -1411,14 +1528,16 @@ class BrowserMonitor:
 
     def _extract_with_trafilatura(self, html: str) -> str | None:
         """
-        V7.0/V8.4: Extract clean article text using Trafilatura.
+        V7.0/V8.5: Extract clean article text using Trafilatura with intelligent fallback.
 
         Trafilatura provides 88-92% accuracy vs 70% for raw text extraction.
         It removes navigation, ads, footers, and extracts only article content.
 
-        V8.4: Now uses centralized extractor with:
+        V8.5: Fixed to avoid duplicate trafilatura calls.
+        Now uses centralized extract_with_fallback() which includes:
         - Pre-validation to avoid "discarding data: None" warnings
         - Intelligent fallback chain (trafilatura → regex → raw)
+        - Proper failure recording for all methods
 
         Args:
             html: Raw HTML content
@@ -1429,29 +1548,16 @@ class BrowserMonitor:
         if not TRAFILATURA_AVAILABLE or not html:
             return None
 
-        # V8.4: Use centralized extractor with pre-validation
-        if _central_extract is not None:
-            # Pre-validate HTML to avoid trafilatura warnings
-            if not is_valid_html(html):
-                logger.debug("[BROWSER-MONITOR] HTML validation failed, skipping trafilatura")
-                record_extraction("validation", False)
-                return None
-
-            text = _central_extract(html)
+        # V8.5: Use centralized extractor with full fallback chain
+        # This eliminates duplicate trafilatura calls (was calling _central_extract
+        # and then _extract_with_fallback which also calls trafilatura)
+        if _extract_with_fallback is not None:
+            text, method = _extract_with_fallback(html)
             if text:
-                self._trafilatura_extractions += 1
-                record_extraction("trafilatura", True)
+                if method == "trafilatura":
+                    self._trafilatura_extractions += 1
+                logger.debug(f"[BROWSER-MONITOR] Extraction succeeded: {method}")
                 return text
-
-            # Try fallback extraction (regex/raw) for better content recovery
-            if _extract_with_fallback is not None:
-                text, method = _extract_with_fallback(html)
-                if text:
-                    record_extraction(method, True)
-                    logger.debug(f"[BROWSER-MONITOR] Fallback extraction succeeded: {method}")
-                    return text
-
-            record_extraction("trafilatura", False)
             return None
 
         # Legacy fallback if centralized extractor not available
@@ -2162,30 +2268,43 @@ class BrowserMonitor:
             await self._enforce_navigation_interval()
 
             # Scan source
-            result = await self.scan_source(source)
+            result, scan_successful = await self.scan_source(source)
             urls_scanned += 1
 
             if result:
                 news_found += 1
 
-            # Update last scanned time
-            source.last_scanned = datetime.now(timezone.utc)
+            # V12.1: Update last scanned time ONLY if scan was successful
+            # This prevents failed sources from being skipped for entire interval
+            if scan_successful:
+                with source._last_scanned_lock:
+                    source.last_scanned = datetime.now(timezone.utc)
+            else:
+                logger.warning(
+                    f"⚠️ [BROWSER-MONITOR] Scan failed for {source.url[:50]}, "
+                    f"will retry in next cycle"
+                )
 
         self._urls_scanned = urls_scanned
         return news_found
 
-    async def scan_source(self, source: MonitoredSource) -> DiscoveredNews | None:
+    async def scan_source(self, source: MonitoredSource) -> tuple[DiscoveredNews | None, bool]:
         """
         Scan a single source URL.
 
         V7.1: Uses Circuit Breaker and retry with exponential backoff.
         V7.4: Supports paginated navigation for Elite 7 and Tier 2 sources.
+        V12.1: Returns tuple (news, scan_successful) to distinguish between
+        "no news found" and "scan failed". This allows proper last_scanned updates.
 
         Args:
             source: Source to scan
 
         Returns:
-            DiscoveredNews if relevant news found, None otherwise
+            Tuple of (DiscoveredNews | None, scan_successful: bool)
+            - DiscoveredNews if relevant news found, None otherwise
+            - scan_successful: True if content was extracted successfully (even if no news found),
+              False if scan failed due to error
             (For paginated sources, returns the first relevant news found)
 
         Requirements: 3.4, 3.5, 4.1, V7.4
@@ -2193,7 +2312,7 @@ class BrowserMonitor:
         try:
             # V7.1: Check circuit breaker before attempting
             if self._should_skip_source(source.url):
-                return None
+                return None, False
 
             # V7.4: Use paginated extraction if configured
             if source.navigation_mode == "paginated" and source.link_selector:
@@ -2206,21 +2325,27 @@ class BrowserMonitor:
             if not content:
                 # V7.3: Only record failure for circuit breaker if it was a network error
                 self._record_source_failure(source.url, is_network_error=is_network_error)
-                return None
+                return None, False
 
             # V7.1: Record success for circuit breaker
             self._record_source_success(source.url)
 
             # Analyze and create news from single page content
-            return await self._analyze_and_create_news(source, source.url, content)
+            news = await self._analyze_and_create_news(source, source.url, content)
+            return news, True
 
         except Exception as e:
             logger.error(f"❌ [BROWSER-MONITOR] Error scanning {source.url[:50]}: {e}")
-            return None
+            return None, False
 
-    async def _scan_source_paginated(self, source: MonitoredSource) -> DiscoveredNews | None:
+    async def _scan_source_paginated(
+        self, source: MonitoredSource
+    ) -> tuple[DiscoveredNews | None, bool]:
         """
         V7.4: Scan a paginated source by navigating internal links.
+
+        V12.1: Returns tuple (news, scan_successful) to distinguish between
+        "no news found" and "scan failed". This allows proper last_scanned updates.
 
         Extracts links from main page, visits each, analyzes content,
         and returns the first relevant news found.
@@ -2229,7 +2354,9 @@ class BrowserMonitor:
             source: Source with navigation_mode="paginated" and link_selector set
 
         Returns:
-            First DiscoveredNews found, or None if no relevant news
+            Tuple of (DiscoveredNews | None, scan_successful: bool)
+            - First DiscoveredNews found, or None if no relevant news
+            - scan_successful: True if content was extracted successfully, False otherwise
         """
         logger.info(f"🔗 [BROWSER-MONITOR] Paginated scan: {source.name or source.url[:40]}...")
 
@@ -2247,7 +2374,7 @@ class BrowserMonitor:
             logger.debug(
                 f"📄 [BROWSER-MONITOR] No content from paginated source: {source.url[:40]}..."
             )
-            return None
+            return None, False
 
         # V7.1: Record success for circuit breaker (we got some content)
         self._record_source_success(source.url)
@@ -2266,7 +2393,7 @@ class BrowserMonitor:
                 # Continue analyzing other pages but don't return yet
                 # This allows discovering multiple news items in one scan
 
-        return first_news
+        return first_news, True
 
     async def _analyze_and_create_news(
         self, source: MonitoredSource, article_url: str, content: str

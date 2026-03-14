@@ -50,13 +50,13 @@ class FreshnessResult:
     Attributes:
         tag: Emoji + label (e.g., "🔥 FRESH")
         minutes_old: Age in minutes
-        decay_multiplier: 0.0-1.0 multiplier for impact scoring
+        freshness_multiplier: 0.0-1.0 multiplier for impact scoring
         category: Category name without emoji ("FRESH", "AGING", "STALE")
     """
 
     tag: str
     minutes_old: int
-    decay_multiplier: float
+    freshness_multiplier: float
     category: str
 
 
@@ -144,6 +144,8 @@ def calculate_decay_multiplier(
     minutes_old: int,
     lambda_decay: float = NEWS_DECAY_LAMBDA_DEFAULT,
     max_age_hours: int = NEWS_MAX_AGE_HOURS,
+    source_modifier: float = 1.0,
+    kickoff_proximity_multiplier: float = 1.0,
 ) -> float:
     """
     Calculate exponential decay multiplier for news impact.
@@ -158,8 +160,10 @@ def calculate_decay_multiplier(
 
     Args:
         minutes_old: Age of news in minutes
-        lambda_decay: Decay rate (higher = faster decay)
+        lambda_decay: Base decay rate (higher = faster decay)
         max_age_hours: Cap age at this many hours
+        source_modifier: Modifier based on news source (e.g., insider sources decay slower)
+        kickoff_proximity_multiplier: Multiplier for kickoff proximity (e.g., 2.0 if kickoff <= 30min)
 
     Returns:
         Decay multiplier between NEWS_RESIDUAL_VALUE and 1.0
@@ -167,13 +171,16 @@ def calculate_decay_multiplier(
     if minutes_old <= 0:
         return 1.0
 
+    # Apply source and kickoff proximity modifiers to lambda
+    effective_lambda = lambda_decay * source_modifier * kickoff_proximity_multiplier
+
     # Cap at max age
     max_minutes = max_age_hours * 60
     if minutes_old >= max_minutes:
         return NEWS_RESIDUAL_VALUE
 
     # Apply exponential decay
-    decay_factor = math.exp(-lambda_decay * minutes_old)
+    decay_factor = math.exp(-effective_lambda * minutes_old)
 
     # Ensure minimum residual value
     return max(NEWS_RESIDUAL_VALUE, decay_factor)
@@ -201,10 +208,13 @@ def get_full_freshness(
     minutes_old = calculate_minutes_old(timestamp, reference_time)
     tag = get_freshness_tag(minutes_old)
     category = get_freshness_category(minutes_old)
-    decay_multiplier = calculate_decay_multiplier(minutes_old, lambda_decay)
+    freshness_multiplier = calculate_decay_multiplier(minutes_old, lambda_decay)
 
     return FreshnessResult(
-        tag=tag, minutes_old=minutes_old, decay_multiplier=decay_multiplier, category=category
+        tag=tag,
+        minutes_old=minutes_old,
+        freshness_multiplier=freshness_multiplier,
+        category=category,
     )
 
 

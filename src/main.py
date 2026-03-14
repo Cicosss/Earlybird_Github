@@ -1013,6 +1013,8 @@ def check_biscotto_suspects():
                                     zscore=suspect.get("zscore"),
                                     mutual_benefit=suspect.get("mutual_benefit"),
                                     betting_recommendation=suspect.get("betting_recommendation"),
+                                    # COVE FIX: Pass database session for updating alert flags
+                                    db_session=db,
                                 )
                             else:
                                 logging.warning(
@@ -1033,6 +1035,8 @@ def check_biscotto_suspects():
                                 zscore=suspect.get("zscore"),
                                 mutual_benefit=suspect.get("mutual_benefit"),
                                 betting_recommendation=suspect.get("betting_recommendation"),
+                                # COVE FIX: Pass database session for updating alert flags
+                                db_session=db,
                             )
                     except Exception as e:
                         logging.error(f"Failed to send Biscotto alert: {e}")
@@ -1353,24 +1357,51 @@ def run_pipeline():
     for suspect in biscotto_suspects:
         if suspect["severity"] == "EXTREME":
             try:
-                # Verify alert before sending (Final Verifier)
-                if _FINAL_VERIFIER_AVAILABLE:
-                    should_send, final_verification_info = verify_biscotto_alert_before_telegram(
-                        match=suspect["match"],
-                        draw_odd=suspect["draw_odd"],
-                        drop_pct=suspect["drop_pct"],
-                        severity=suspect["severity"],
-                        reasoning=suspect["reason"],
-                        news_url=None,  # Biscotto alerts don't have news_url
-                    )
+                # COVE FIX: Create database session for updating alert flags
+                db = SessionLocal()
+                try:
+                    # Verify alert before sending (Final Verifier)
+                    if _FINAL_VERIFIER_AVAILABLE:
+                        should_send, final_verification_info = (
+                            verify_biscotto_alert_before_telegram(
+                                match=suspect["match"],
+                                draw_odd=suspect["draw_odd"],
+                                drop_pct=suspect["drop_pct"],
+                                severity=suspect["severity"],
+                                reasoning=suspect["reason"],
+                                news_url=None,  # Biscotto alerts don't have news_url
+                            )
+                        )
 
-                    if should_send:
+                        if should_send:
+                            send_biscotto_alert(
+                                match=suspect["match"],
+                                reason=suspect["reason"],
+                                draw_odd=suspect["draw_odd"],
+                                drop_pct=suspect["drop_pct"],
+                                final_verification_info=final_verification_info,
+                                # Enhanced fields from Advanced Biscotto Engine V2.0
+                                confidence=suspect.get("confidence"),
+                                factors=suspect.get("factors"),
+                                pattern=suspect.get("pattern"),
+                                zscore=suspect.get("zscore"),
+                                mutual_benefit=suspect.get("mutual_benefit"),
+                                betting_recommendation=suspect.get("betting_recommendation"),
+                                # COVE FIX: Pass database session for updating alert flags
+                                db_session=db,
+                            )
+                        else:
+                            logging.warning(
+                                f"🍪 Biscotto alert blocked by Final Verifier: "
+                                f"{final_verification_info.get('reason', 'Unknown')}"
+                            )
+                    else:
+                        # Final Verifier not available, send without verification
                         send_biscotto_alert(
                             match=suspect["match"],
                             reason=suspect["reason"],
                             draw_odd=suspect["draw_odd"],
                             drop_pct=suspect["drop_pct"],
-                            final_verification_info=final_verification_info,
                             # Enhanced fields from Advanced Biscotto Engine V2.0
                             confidence=suspect.get("confidence"),
                             factors=suspect.get("factors"),
@@ -1378,27 +1409,11 @@ def run_pipeline():
                             zscore=suspect.get("zscore"),
                             mutual_benefit=suspect.get("mutual_benefit"),
                             betting_recommendation=suspect.get("betting_recommendation"),
+                            # COVE FIX: Pass database session for updating alert flags
+                            db_session=db,
                         )
-                    else:
-                        logging.warning(
-                            f"🍪 Biscotto alert blocked by Final Verifier: "
-                            f"{final_verification_info.get('reason', 'Unknown')}"
-                        )
-                else:
-                    # Final Verifier not available, send without verification
-                    send_biscotto_alert(
-                        match=suspect["match"],
-                        reason=suspect["reason"],
-                        draw_odd=suspect["draw_odd"],
-                        drop_pct=suspect["drop_pct"],
-                        # Enhanced fields from Advanced Biscotto Engine V2.0
-                        confidence=suspect.get("confidence"),
-                        factors=suspect.get("factors"),
-                        pattern=suspect.get("pattern"),
-                        zscore=suspect.get("zscore"),
-                        mutual_benefit=suspect.get("mutual_benefit"),
-                        betting_recommendation=suspect.get("betting_recommendation"),
-                    )
+                finally:
+                    db.close()
             except Exception as e:
                 logging.error(f"Failed to send Biscotto alert: {e}")
 
@@ -1445,6 +1460,7 @@ def run_pipeline():
         increment_cycle()  # Incrementa contatore cicli per fallback system
         tier1_alerts_sent = 0
         tier1_high_potential_count = 0
+        tier1_news_count = 0
 
         # 4. TRIANGULATION LOOP (INVESTIGATOR MODE) - DELEGATED TO ANALYSIS ENGINE
         # The Analysis Engine now handles all match-level analysis logic
@@ -1485,6 +1501,9 @@ def run_pipeline():
             if analysis_result["score"] >= ALERT_THRESHOLD_HIGH:
                 tier1_high_potential_count += 1
 
+            # Track news items analyzed for health monitoring
+            tier1_news_count += analysis_result.get("news_count", 0)
+
             # Log any errors
             if analysis_result["error"]:
                 logging.warning(
@@ -1500,6 +1519,8 @@ def run_pipeline():
             logging.info("🔄 Activating Tier 2 Fallback...")
 
             tier2_batch = get_tier2_fallback_batch()
+            tier2_total_matches = 0  # Track total Tier 2 matches processed
+            tier2_news_count = 0  # Track total Tier 2 news items analyzed
 
             if tier2_batch:
                 logging.info(f"🎯 Tier 2 Fallback: Processing {len(tier2_batch)} leagues")
@@ -1518,6 +1539,7 @@ def run_pipeline():
                         )
 
                         logging.info(f"   Found {len(tier2_matches)} matches in {league_key}")
+                        tier2_total_matches += len(tier2_matches)  # Track total Tier 2 matches
 
                         # Process Tier 2 matches (simplified analysis)
                         for match in tier2_matches:
@@ -1555,6 +1577,9 @@ def run_pipeline():
                             if analysis_result["alert_sent"]:
                                 tier1_alerts_sent += 1
 
+                            # Track news items analyzed for Tier2
+                            tier2_news_count += analysis_result.get("news_count", 0)
+
                             if analysis_result["error"]:
                                 logging.warning(
                                     f"⚠️ Tier 2 analysis error for {home_team} vs {away_team}: {analysis_result['error']}"
@@ -1568,10 +1593,18 @@ def run_pipeline():
                 logging.warning("⚠️ No Tier 2 leagues available for fallback")
 
         # 6. SUMMARY
+        # Calculate total matches processed (Tier 1 + Tier 2)
+        total_matches_processed = len(matches) + tier2_total_matches
+        # Calculate total news items analyzed (Tier 1 + Tier 2)
+        total_news_count = tier1_news_count + tier2_news_count
+
         logging.info("\n📊 PIPELINE SUMMARY:")
-        logging.info(f"   Matches analyzed: {len(matches)}")
+        logging.info(f"   Matches analyzed: {total_matches_processed}")
+        logging.info(f"   Tier 1 matches: {len(matches)}")
+        logging.info(f"   Tier 2 matches: {tier2_total_matches}")
         logging.info(f"   Tier 1 alerts sent: {tier1_alerts_sent}")
         logging.info(f"   Tier 1 high potential: {tier1_high_potential_count}")
+        logging.info(f"   News items analyzed: {total_news_count}")
 
         # 7. CLEANUP
         if _MARKET_INTEL_AVAILABLE:
@@ -1579,6 +1612,9 @@ def run_pipeline():
                 cleanup_old_snapshots()
             except Exception as e:
                 logging.warning(f"⚠️ Market intelligence cleanup failed: {e}")
+
+        # Return total matches processed and news count for health monitoring
+        return total_matches_processed, total_news_count
 
     finally:
         db.close()
@@ -1784,6 +1820,17 @@ def run_nightly_settlement(optimizer=None):
         settlement_service = get_settlement_service(optimizer=optimizer)
         settlement_service.run_settlement(lookback_hours=48)
         logging.info("✅ Nightly settlement completed")
+
+        # V7.3 FIX: Invalidate optimizer weight cache after settlement
+        # This ensures that if the file was modified externally (e.g., restore from backup),
+        # the cache will be reloaded on next access instead of using stale in-memory data
+        try:
+            from src.analysis.optimizer import _weight_cache
+
+            _weight_cache.invalidate()
+            logging.info("🔄 Optimizer weight cache invalidated - will reload on next access")
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to invalidate optimizer weight cache: {e}")
 
         # V13.0: Send CLV strategy performance report to Telegram
         try:
@@ -2226,24 +2273,33 @@ def run_continuous():
             # Add SWR metrics for each cache instance
             for cache_name, stats in swr_stats.items():
                 if stats.get("swr_enabled"):
-                    cache_metrics[f"swr_{cache_name}_hit_rate"] = stats.get("swr_hit_rate_pct", 0.0)
-                    cache_metrics[f"swr_{cache_name}_stale_hit_rate"] = stats.get(
+                    # Transform cache_name to match health_monitor.py expectations:
+                    # - team_cache -> team_data
+                    # - match_cache -> match_data
+                    # - search_cache -> search (no _data suffix)
+                    if cache_name == "search_cache":
+                        key_suffix = cache_name.replace("_cache", "")
+                    else:
+                        key_suffix = cache_name.replace("_cache", "_data")
+
+                    cache_metrics[f"swr_{key_suffix}_hit_rate"] = stats.get("swr_hit_rate_pct", 0.0)
+                    cache_metrics[f"swr_{key_suffix}_stale_hit_rate"] = stats.get(
                         "swr_stale_hit_rate_pct", 0.0
                     )
-                    cache_metrics[f"swr_{cache_name}_avg_cached_latency"] = stats.get(
+                    cache_metrics[f"swr_{key_suffix}_avg_cached_latency"] = stats.get(
                         "avg_cached_latency_ms", 0.0
                     )
-                    cache_metrics[f"swr_{cache_name}_avg_uncached_latency"] = stats.get(
+                    cache_metrics[f"swr_{key_suffix}_avg_uncached_latency"] = stats.get(
                         "avg_uncached_latency_ms", 0.0
                     )
-                    cache_metrics[f"swr_{cache_name}_background_refreshes"] = stats.get(
+                    cache_metrics[f"swr_{key_suffix}_background_refreshes"] = stats.get(
                         "background_refreshes", 0
                     )
-                    cache_metrics[f"swr_{cache_name}_background_refresh_failures"] = stats.get(
+                    cache_metrics[f"swr_{key_suffix}_background_refresh_failures"] = stats.get(
                         "background_refresh_failures", 0
                     )
-                    cache_metrics[f"swr_{cache_name}_size"] = stats.get("size", 0)
-                    cache_metrics[f"swr_{cache_name}_max_size"] = stats.get("max_size", 0)
+                    cache_metrics[f"swr_{key_suffix}_size"] = stats.get("size", 0)
+                    cache_metrics[f"swr_{key_suffix}_max_size"] = stats.get("max_size", 0)
         except Exception as e:
             logging.warning(f"⚠️ Failed to get SWR cache metrics: {e}")
 
@@ -2304,7 +2360,7 @@ def run_continuous():
             if should_run_radar():
                 run_opportunity_radar()
 
-            run_pipeline()
+            total_matches_processed, total_news_count = run_pipeline()
 
             # V3.7: Run system diagnostics at end of pipeline (if enabled)
             if settings.HEALTH_MONITOR_ENABLED:
@@ -2335,8 +2391,8 @@ def run_continuous():
                 except Exception as e:
                     logging.error(f"❌ [QUEUE] Cleanup failed: {e}")
 
-            # Record successful scan
-            health.record_scan()
+            # Record successful scan with actual counts
+            health.record_scan(matches_count=total_matches_processed, news_count=total_news_count)
 
             # Reset error count on successful run
             error_count = 0

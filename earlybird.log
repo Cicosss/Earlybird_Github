@@ -159,3 +159,195 @@
 2026-03-10 20:21:12,844 - INFO - 🔍 BudgetIntelligenceIntegration initialized: 3600s monitoring, 24h reporting
 2026-03-10 20:21:12,844 - WARNING - 🔍 Budget monitoring not active
 2026-03-10 20:21:12,845 - INFO - ✅ Cleanup completed: budget intelligence monitoring stopped
+2026-03-11 21:27:06,427 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_no_fallback
+2026-03-11 21:27:06,435 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 100% (8/8)
+2026-03-11 21:27:06,448 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Club León vs Tigres UANL
+2026-03-11 21:27:06,449 - INFO - ✅ [V2.6] Perplexity corners: home=5.2, away=4.8, signal=High, cards=Unknown, confidence=Medium (0.00s)
+2026-03-11 21:27:06,451 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-11 21:27:06,451 - WARNING - ⚠️ [V2.6] Perplexity returned no betting stats (0.00s)
+2026-03-11 21:27:06,453 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-11 21:27:06,453 - WARNING - ⚠️ [V2.6] Perplexity found no corner averages (0.00s)
+2026-03-11 21:27:06,455 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_integration
+2026-03-11 21:27:06,455 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_integration
+2026-03-11 21:27:06,455 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-11 21:27:06,465 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 50% (4/8)
+2026-03-11 21:27:06,465 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'form', 'h2h', 'team_stats']
+2026-03-11 21:27:06,476 - INFO - 🔮 [V2.6] corners, form still missing after Tavily fallback, trying Perplexity...
+2026-03-11 21:27:06,476 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-11 21:27:06,476 - INFO - ✅ [V2.6] Perplexity corners: home=4.5, away=5.0, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-11 21:27:06,476 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-11 21:27:06,478 - INFO - 🔍 [VERIFICATION] Trying Tavily for test_v26_orchestrator
+2026-03-11 21:27:06,479 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_orchestrator
+2026-03-11 21:27:06,479 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_orchestrator
+2026-03-11 21:27:06,479 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-11 21:27:06,487 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 62% (5/8)
+2026-03-11 21:27:06,487 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'h2h', 'team_stats']
+2026-03-11 21:27:06,494 - INFO - 🔮 [V2.6] corners still missing after Tavily fallback, trying Perplexity...
+2026-03-11 21:27:06,495 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-11 21:27:06,495 - INFO - ✅ [V2.6] Perplexity corners: home=4.2, away=5.1, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-11 21:27:06,495 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-11 21:27:06,502 - INFO - 🔄 [VERIFICATION] Fallback executed for: ['corners', 'h2h', 'team_stats']
+2026-03-11 21:27:06,502 - INFO - ✅ [V2.6] Perplexity corners integrated: home=4.2, away=5.1
+2026-03-11 21:27:06,502 - INFO - ✅ [VERIFICATION V2.6] Returning with Perplexity corners (overall confidence: Low)
+2026-03-11 21:27:06,505 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_rescue
+2026-03-11 21:27:06,505 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_rescue
+2026-03-11 21:27:06,506 - ERROR - ❌ [VERIFICATION] All optimized queries failed
+2026-03-11 21:27:06,506 - WARNING - ⚠️ [VERIFICATION V2.4] Primary queries failed, trying Perplexity directly...
+2026-03-11 21:27:06,506 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Lech Poznań vs Legia Warszawa
+2026-03-11 21:27:06,506 - INFO - ✅ [V2.6] Perplexity corners: home=5.0, away=4.5, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-11 21:27:06,506 - INFO - ✅ [V2.6] Perplexity rescued data after Tavily failure
+2026-03-11 21:27:07,022 - WARNING - 🔍 Budget monitoring not active
+2026-03-12 20:29:15,473 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-12 20:29:15,475 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-12 20:29:15,476 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-12 20:29:15,477 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-12 20:29:15,478 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-12 20:29:15,479 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-03-12 20:29:16,439 - WARNING - 🔍 Budget monitoring not active
+2026-03-13 19:47:19,833 - WARNING - 🔍 Budget monitoring not active
+2026-03-13 22:51:37,825 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_no_fallback
+2026-03-13 22:51:37,839 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 100% (8/8)
+2026-03-13 22:51:37,862 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Club León vs Tigres UANL
+2026-03-13 22:51:37,862 - INFO - ✅ [V2.6] Perplexity corners: home=5.2, away=4.8, signal=High, cards=Unknown, confidence=Medium (0.00s)
+2026-03-13 22:51:37,866 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-13 22:51:37,867 - WARNING - ⚠️ [V2.6] Perplexity returned no betting stats (0.00s)
+2026-03-13 22:51:37,870 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-13 22:51:37,871 - WARNING - ⚠️ [V2.6] Perplexity found no corner averages (0.00s)
+2026-03-13 22:51:37,875 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_integration
+2026-03-13 22:51:37,875 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_integration
+2026-03-13 22:51:37,875 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-13 22:51:37,891 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 50% (4/8)
+2026-03-13 22:51:37,891 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'form', 'h2h', 'team_stats']
+2026-03-13 22:51:37,910 - INFO - 🔮 [V2.6] corners, form still missing after Tavily fallback, trying Perplexity...
+2026-03-13 22:51:37,910 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-13 22:51:37,910 - INFO - ✅ [V2.6] Perplexity corners: home=4.5, away=5.0, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-13 22:51:37,911 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-13 22:51:37,916 - INFO - 🔍 [VERIFICATION] Trying Tavily for test_v26_orchestrator
+2026-03-13 22:51:37,916 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_orchestrator
+2026-03-13 22:51:37,916 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_orchestrator
+2026-03-13 22:51:37,917 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-13 22:51:37,933 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 62% (5/8)
+2026-03-13 22:51:37,933 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'h2h', 'team_stats']
+2026-03-13 22:51:37,947 - INFO - 🔮 [V2.6] corners still missing after Tavily fallback, trying Perplexity...
+2026-03-13 22:51:37,947 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-13 22:51:37,948 - INFO - ✅ [V2.6] Perplexity corners: home=4.2, away=5.1, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-13 22:51:37,948 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-13 22:51:37,960 - INFO - 🔄 [VERIFICATION] Fallback executed for: ['corners', 'h2h', 'team_stats']
+2026-03-13 22:51:37,960 - INFO - ✅ [V2.6] Perplexity corners integrated: home=4.2, away=5.1
+2026-03-13 22:51:37,960 - INFO - ✅ [VERIFICATION V2.6] Returning with Perplexity corners (overall confidence: Low)
+2026-03-13 22:51:37,963 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_rescue
+2026-03-13 22:51:37,963 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_rescue
+2026-03-13 22:51:37,964 - ERROR - ❌ [VERIFICATION] All optimized queries failed
+2026-03-13 22:51:37,966 - WARNING - ⚠️ [VERIFICATION V2.4] Primary queries failed, trying Perplexity directly...
+2026-03-13 22:51:37,967 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Lech Poznań vs Legia Warszawa
+2026-03-13 22:51:37,967 - INFO - ✅ [V2.6] Perplexity corners: home=5.0, away=4.5, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-13 22:51:37,967 - INFO - ✅ [V2.6] Perplexity rescued data after Tavily failure
+2026-03-13 22:51:38,856 - WARNING - 🔍 Budget monitoring not active
+2026-03-14 08:54:02,066 - INFO - ✅ Cleanup completed: requests session closed
+2026-03-14 08:54:02,067 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-03-14 08:54:02,068 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-03-14 08:54:02,068 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-03-14 08:54:02,068 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-03-14 08:54:02,068 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-03-14 08:54:02,069 - INFO - 🔍 BudgetIntelligenceIntegration initialized: 3600s monitoring, 24h reporting
+2026-03-14 08:54:02,069 - WARNING - 🔍 Budget monitoring not active
+2026-03-14 08:54:02,069 - INFO - ✅ Cleanup completed: budget intelligence monitoring stopped
+2026-03-14 14:04:17,152 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_no_fallback
+2026-03-14 14:04:17,161 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 100% (8/8)
+2026-03-14 14:04:17,176 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Club León vs Tigres UANL
+2026-03-14 14:04:17,176 - INFO - ✅ [V2.6] Perplexity corners: home=5.2, away=4.8, signal=High, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:04:17,178 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-14 14:04:17,178 - WARNING - ⚠️ [V2.6] Perplexity returned no betting stats (0.00s)
+2026-03-14 14:04:17,180 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-14 14:04:17,180 - WARNING - ⚠️ [V2.6] Perplexity found no corner averages (0.00s)
+2026-03-14 14:04:17,182 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_integration
+2026-03-14 14:04:17,182 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_integration
+2026-03-14 14:04:17,183 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-14 14:04:17,194 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 50% (4/8)
+2026-03-14 14:04:17,194 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'form', 'h2h', 'team_stats']
+2026-03-14 14:04:17,206 - INFO - 🔮 [V2.6] corners, form still missing after Tavily fallback, trying Perplexity...
+2026-03-14 14:04:17,207 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-14 14:04:17,207 - INFO - ✅ [V2.6] Perplexity corners: home=4.5, away=5.0, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:04:17,207 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-14 14:04:17,210 - INFO - 🔍 [VERIFICATION] Trying Tavily for test_v26_orchestrator
+2026-03-14 14:04:17,210 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_orchestrator
+2026-03-14 14:04:17,210 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_orchestrator
+2026-03-14 14:04:17,210 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-14 14:04:17,219 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 62% (5/8)
+2026-03-14 14:04:17,219 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'h2h', 'team_stats']
+2026-03-14 14:04:17,227 - INFO - 🔮 [V2.6] corners still missing after Tavily fallback, trying Perplexity...
+2026-03-14 14:04:17,228 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-14 14:04:17,228 - INFO - ✅ [V2.6] Perplexity corners: home=4.2, away=5.1, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:04:17,228 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-14 14:04:17,236 - INFO - 🔄 [VERIFICATION] Fallback executed for: ['corners', 'h2h', 'team_stats']
+2026-03-14 14:04:17,236 - INFO - ✅ [V2.6] Perplexity corners integrated: home=4.2, away=5.1
+2026-03-14 14:04:17,236 - INFO - ✅ [VERIFICATION V2.6] Returning with Perplexity corners (overall confidence: Low)
+2026-03-14 14:04:17,240 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_rescue
+2026-03-14 14:04:17,240 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_rescue
+2026-03-14 14:04:17,241 - ERROR - ❌ [VERIFICATION] All optimized queries failed
+2026-03-14 14:04:17,241 - WARNING - ⚠️ [VERIFICATION V2.4] Primary queries failed, trying Perplexity directly...
+2026-03-14 14:04:17,241 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Lech Poznań vs Legia Warszawa
+2026-03-14 14:04:17,241 - INFO - ✅ [V2.6] Perplexity corners: home=5.0, away=4.5, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:04:17,241 - INFO - ✅ [V2.6] Perplexity rescued data after Tavily failure
+2026-03-14 14:04:17,653 - WARNING - 🔍 Budget monitoring not active
+2026-03-14 14:07:10,598 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_no_fallback
+2026-03-14 14:07:10,606 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 100% (8/8)
+2026-03-14 14:07:10,619 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Club León vs Tigres UANL
+2026-03-14 14:07:10,620 - INFO - ✅ [V2.6] Perplexity corners: home=5.2, away=4.8, signal=High, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:07:10,622 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-14 14:07:10,622 - WARNING - ⚠️ [V2.6] Perplexity returned no betting stats (0.00s)
+2026-03-14 14:07:10,623 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Test Home vs Test Away
+2026-03-14 14:07:10,624 - WARNING - ⚠️ [V2.6] Perplexity found no corner averages (0.00s)
+2026-03-14 14:07:10,627 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_integration
+2026-03-14 14:07:10,627 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_integration
+2026-03-14 14:07:10,627 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-14 14:07:10,637 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 50% (4/8)
+2026-03-14 14:07:10,637 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'form', 'h2h', 'team_stats']
+2026-03-14 14:07:10,648 - INFO - 🔮 [V2.6] corners, form still missing after Tavily fallback, trying Perplexity...
+2026-03-14 14:07:10,648 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-14 14:07:10,648 - INFO - ✅ [V2.6] Perplexity corners: home=4.5, away=5.0, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:07:10,648 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-14 14:07:10,651 - INFO - 🔍 [VERIFICATION] Trying Tavily for test_v26_orchestrator
+2026-03-14 14:07:10,651 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_orchestrator
+2026-03-14 14:07:10,651 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_orchestrator
+2026-03-14 14:07:10,651 - INFO - 🔍 [VERIFICATION] Optimized queries completed in 0.00s (5 answers)
+2026-03-14 14:07:10,659 - INFO - 🔍 [VERIFICATION V2.4] Primary extraction: 62% (5/8)
+2026-03-14 14:07:10,659 - INFO - 🔄 [VERIFICATION V2.4] Executing fallback for: ['corners', 'h2h', 'team_stats']
+2026-03-14 14:07:10,666 - INFO - 🔮 [V2.6] corners still missing after Tavily fallback, trying Perplexity...
+2026-03-14 14:07:10,667 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Wisła Kraków vs Lech Poznań
+2026-03-14 14:07:10,667 - INFO - ✅ [V2.6] Perplexity corners: home=4.2, away=5.1, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:07:10,667 - INFO - ✅ [V2.6] Perplexity corner data added to response
+2026-03-14 14:07:10,674 - INFO - 🔄 [VERIFICATION] Fallback executed for: ['corners', 'h2h', 'team_stats']
+2026-03-14 14:07:10,674 - INFO - ✅ [V2.6] Perplexity corners integrated: home=4.2, away=5.1
+2026-03-14 14:07:10,674 - INFO - ✅ [VERIFICATION V2.6] Returning with Perplexity corners (overall confidence: Low)
+2026-03-14 14:07:10,676 - INFO - 🔍 [VERIFICATION V2.4] Starting multi-site fallback for test_v26_rescue
+2026-03-14 14:07:10,677 - INFO - 🔍 [VERIFICATION] Starting optimized queries for test_v26_rescue
+2026-03-14 14:07:10,677 - ERROR - ❌ [VERIFICATION] All optimized queries failed
+2026-03-14 14:07:10,677 - WARNING - ⚠️ [VERIFICATION V2.4] Primary queries failed, trying Perplexity directly...
+2026-03-14 14:07:10,677 - INFO - 🔮 [V2.6] Executing Perplexity fallback for corners: Lech Poznań vs Legia Warszawa
+2026-03-14 14:07:10,678 - INFO - ✅ [V2.6] Perplexity corners: home=5.0, away=4.5, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
+2026-03-14 14:07:10,678 - INFO - ✅ [V2.6] Perplexity rescued data after Tavily failure
+2026-03-14 14:07:10,696 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-03-14 14:07:10,697 - INFO - ⚖️ Injury Differential: Home FC (MEDIUM) vs Away FC (LOW) | Diff: +6.75 | Score Adj: +1.01
+2026-03-14 14:07:10,698 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (MEDIUM) | Diff: -6.75 | Score Adj: -1.01
+2026-03-14 14:07:10,699 - INFO - ⚖️ Injury Differential: Home FC (CRITICAL) vs Away FC (LOW) | Diff: +22.50 | Score Adj: +1.80
+2026-03-14 14:07:10,700 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-03-14 14:07:10,701 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-03-14 14:07:10,701 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +2.25 | Score Adj: +0.34
+2026-03-14 14:07:10,702 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +0.00 | Score Adj: +0.00
+2026-03-14 14:07:10,703 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +3.38 | Score Adj: +0.51
+2026-03-14 14:07:10,711 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +2.25 | Score Adj: +0.34
+2026-03-14 14:07:10,712 - INFO - ⚖️ Injury Differential: Home FC (CRITICAL) vs Away FC (LOW) | Diff: +12.50 | Score Adj: +1.80
+2026-03-14 14:07:10,713 - INFO - ⚖️ Injury Differential: Home FC (HIGH) vs Away FC (LOW) | Diff: +9.00 | Score Adj: +1.35
+2026-03-14 14:07:10,714 - INFO - ⚖️ Injury Differential: Home FC (MEDIUM) vs Away FC (LOW) | Diff: +4.50 | Score Adj: +0.68
+2026-03-14 14:07:10,715 - INFO - ⚖️ Injury Differential: Home FC (MEDIUM) vs Away FC (LOW) | Diff: +6.75 | Score Adj: +1.01
+2026-03-14 14:07:10,715 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +2.25 | Score Adj: +0.34
+2026-03-14 14:07:10,717 - INFO - ⚖️ Injury Differential: Juventus (MEDIUM) vs Milan (LOW) | Diff: +6.75 | Score Adj: +1.01
+2026-03-14 14:07:10,718 - INFO - ⚖️ Injury Differential: Juventus (MEDIUM) vs Milan (LOW) | Diff: +6.75 | Score Adj: +1.01
+2026-03-14 14:07:10,719 - INFO - ⚖️ Injury Differential: Inter (MEDIUM) vs Napoli (MEDIUM) | Diff: +0.00 | Score Adj: +0.00
+2026-03-14 14:07:10,720 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +2.25 | Score Adj: +0.34
+2026-03-14 14:07:10,721 - INFO - ⚖️ Injury Differential: Home FC (CRITICAL) vs Away FC (LOW) | Diff: +75.00 | Score Adj: +1.80
+2026-03-14 14:07:10,722 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (CRITICAL) | Diff: -75.00 | Score Adj: -1.80
+2026-03-14 14:07:10,722 - INFO - ⚖️ Injury Differential: Home FC (LOW) vs Away FC (LOW) | Diff: +2.25 | Score Adj: +0.34
+2026-03-14 14:07:10,724 - INFO - ⚖️ Injury Differential: Home FC (HIGH) vs Away FC (LOW) | Diff: +9.00 | Score Adj: +1.35
+2026-03-14 14:07:11,133 - WARNING - 🔍 Budget monitoring not active

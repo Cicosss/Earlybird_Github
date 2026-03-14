@@ -15,9 +15,9 @@ class TestMediaStackQueryBuilder:
     def test_build_news_query_with_valid_query(self):
         """build_news_query should build valid query."""
         builder = MediaStackQueryBuilder()
-        query = builder.build_news_query("Serie A injury", countries="it,gb,us")
+        query = builder.build_news_query("Serie A injury")
 
-        # V1.0: Builder uses quote(safe=' '), so spaces are preserved.
+        # V2.0: Builder uses quote(safe=' '), so spaces are preserved.
         # Requests/HTTP client will handle final encoding.
         assert query == "Serie A injury"
         assert "Serie" in query
@@ -26,26 +26,16 @@ class TestMediaStackQueryBuilder:
     def test_build_news_query_with_empty_query(self):
         """build_news_query should return empty string for empty query."""
         builder = MediaStackQueryBuilder()
-        query = builder.build_news_query("", countries="it,gb,us")
+        query = builder.build_news_query("")
 
         assert query == ""
 
     def test_build_news_query_with_short_query(self):
         """build_news_query should return empty string for too short query."""
         builder = MediaStackQueryBuilder()
-        query = builder.build_news_query("x", countries="it,gb,us")
+        query = builder.build_news_query("x")
 
         assert query == ""
-
-    def test_build_news_query_with_custom_countries(self):
-        """build_news_query should use custom countries."""
-        builder = MediaStackQueryBuilder()
-        query = builder.build_news_query("football", countries="de,fr,es")
-
-        # V1.0: Builder returns KEYWORDS string only. Countries are handled by caller in params.
-        # So countries are NOT in the return string.
-        # We verify it doesn't crash, but won't check for 'de' in query string.
-        assert "football" in query
 
     def test_build_batched_query_with_single_question(self):
         """build_batched_query should handle single question."""
@@ -86,6 +76,64 @@ class TestMediaStackQueryBuilder:
         assert "also valid" in query
         assert query.count(" OR ") == 1  # Only one OR between two valid questions
 
+    def test_build_batched_queries_with_short_list(self):
+        """build_batched_queries should handle short list without splitting."""
+        builder = MediaStackQueryBuilder()
+        questions = ["Serie A injury", "Milan Inter lineup", "Juventus news"]
+        queries = builder.build_batched_queries(questions)
+
+        assert len(queries) == 1
+        assert "Serie" in queries[0]
+        assert "injury" in queries[0]
+        assert "Milan" in queries[0]
+        assert "Inter" in queries[0]
+        assert "Juventus" in queries[0]
+        assert " OR " in queries[0]
+
+    def test_build_batched_queries_with_long_list(self):
+        """build_batched_queries should split long list into multiple queries."""
+        builder = MediaStackQueryBuilder()
+        # Use longer questions to force splitting
+        questions = [
+            "Serie A injury news update latest transfer rumors",
+            "Milan Inter lineup starting eleven formation tactics",
+            "Juventus team news squad updates injuries suspensions",
+            "Roma Napoli match preview prediction analysis statistics",
+            "Atalanta Lazio head to head record recent results",
+            "Fiorentina Torino player ratings performance review",
+            "Bologna Verona highlights goals assists key moments",
+            "Genoa Cagliari standings table position points",
+            "Monza Lecce live score commentary minute by minute",
+            "Udinese Sassuolo transfer market rumors signings",
+        ]
+        queries = builder.build_batched_queries(questions)
+
+        # Should split into multiple queries
+        assert len(queries) >= 2
+        # All questions should be included across all queries
+        all_questions_combined = " ".join(queries)
+        for q in questions:
+            assert q in all_questions_combined
+
+    def test_build_batched_queries_with_empty_list(self):
+        """build_batched_queries should return empty list for empty input."""
+        builder = MediaStackQueryBuilder()
+        queries = builder.build_batched_queries([])
+
+        assert queries == []
+
+    def test_build_batched_queries_filters_invalid_questions(self):
+        """build_batched_queries should filter out invalid questions."""
+        builder = MediaStackQueryBuilder()
+        questions = ["valid", "", "  ", "also valid", "x"]
+        queries = builder.build_batched_queries(questions)
+
+        assert len(queries) >= 1
+        all_questions_combined = " ".join(queries)
+        assert "valid" in all_questions_combined
+        assert "also valid" in all_questions_combined
+        # Empty and single-char questions should be filtered out
+
     def test_parse_batched_response_with_empty_data(self):
         """parse_batched_response should return empty list for empty data."""
         builder = MediaStackQueryBuilder()
@@ -103,11 +151,25 @@ class TestMediaStackQueryBuilder:
                 {"title": "News 2", "url": "http://example.com/2"},
             ]
         }
-        answers = builder.parse_batched_response(response)
+        answers = builder.parse_batched_response(response, query_count=1)
 
         assert len(answers) == 2
         assert "News 1" in answers[0]
         assert "News 2" in answers[1]
+
+    def test_parse_batched_response_with_query_count(self):
+        """parse_batched_response should accept query_count parameter."""
+        builder = MediaStackQueryBuilder()
+        response = {
+            "data": [
+                {"title": "News 1", "url": "http://example.com/1"},
+            ]
+        }
+        # Should not crash with query_count parameter
+        answers = builder.parse_batched_response(response, query_count=3)
+
+        assert len(answers) == 1
+        assert "News 1" in answers[0]
 
     def test_parse_batched_response_with_missing_title(self):
         """parse_batched_response should handle missing title."""
@@ -117,7 +179,7 @@ class TestMediaStackQueryBuilder:
                 {"url": "http://example.com/1"},  # Missing title
             ]
         }
-        answers = builder.parse_batched_response(response)
+        answers = builder.parse_batched_response(response, query_count=1)
 
         assert len(answers) == 1
         assert answers[0] == ""

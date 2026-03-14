@@ -53,6 +53,7 @@ from src.ingestion.mediastack_budget import MediaStackBudget, get_mediastack_bud
 
 # Import MediaStack management components
 from src.ingestion.mediastack_key_rotator import MediaStackKeyRotator, get_mediastack_key_rotator
+from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 from src.utils.http_client import get_http_client
 
 # Import SharedContentCache for cross-component deduplication
@@ -118,43 +119,6 @@ EXCLUSION_KEYWORDS = [
     "rugby",
     "futsal",
 ]
-
-
-def _clean_query_for_mediastack(query: str) -> str:
-    """
-    Remove exclusion terms (-term syntax) from query.
-
-    Mediastack API doesn't support negative search operators,
-    so we strip them to avoid polluting the keyword search.
-
-    Args:
-        query: Original query with potential -term exclusions
-
-    Returns:
-        Cleaned query with only positive keywords
-    """
-    if not query:
-        return ""
-
-    cleaned = query
-
-    # First pass: remove multi-word exclusions (e.g., "-liga f", "-american football")
-    multi_word_exclusions = [kw for kw in EXCLUSION_KEYWORDS if " " in kw]
-    for kw in multi_word_exclusions:
-        # Match "-liga f" or "- liga f"
-        pattern = rf"\s*-\s*{re.escape(kw)}\b"
-        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
-
-    # Second pass: remove single-word exclusions
-    single_word_exclusions = [kw for kw in EXCLUSION_KEYWORDS if " " not in kw]
-    for kw in single_word_exclusions:
-        pattern = rf"\s*-\s*{re.escape(kw)}\b"
-        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
-
-    # Clean up multiple spaces
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-
-    return cleaned
 
 
 def _matches_exclusion(text: str) -> bool:
@@ -560,8 +524,9 @@ class MediastackProvider:
 
         logger.info(f"🆘 [MEDIASTACK] Enhanced search: {query[:60]}...")
 
-        # Clean query: remove -term exclusions (Mediastack doesn't support them)
-        clean_query = _clean_query_for_mediastack(query)
+        # Clean query: remove -term exclusions (MediaStack doesn't support them)
+        # V2.0: Use MediaStackQueryBuilder for consistent query cleaning
+        clean_query = MediaStackQueryBuilder._clean_query(query)
 
         if not clean_query or len(clean_query.strip()) < 2:
             logger.warning("⚠️ Mediastack: Query empty after cleaning exclusions")

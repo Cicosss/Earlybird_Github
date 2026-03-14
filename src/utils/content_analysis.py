@@ -19,6 +19,12 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
+from src.config.exclusion_lists import (
+    EXCLUDED_CATEGORIES,
+    EXCLUDED_OTHER_SPORTS,
+    EXCLUDED_SPORTS,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -188,13 +194,18 @@ class PositiveNewsFilter:
         Split content into sentences for granular analysis.
 
         Handles multiple sentence delimiters and edge cases.
+        VPS FIX: Improved to handle common abbreviations (Mr., Dr., vs., etc.)
         """
         if not content:
             return []
 
-        # Split by common sentence delimiters
-        # Also split by newlines (common in news articles)
-        sentences = re.split(r"[.!?]\s+|\n+", content)
+        # Common abbreviations that should NOT split sentences
+        # Sports context: "vs. Arsenal" should NOT split at "vs."
+        abbreviations = r"(?:Mr|Dr|Mrs|Ms|vs|etc|St|Ave|Blvd|Rd)\."
+
+        # Split by sentence delimiters, but not after abbreviations
+        # Pattern: (not abbreviation + punctuation) OR newline
+        sentences = re.split(rf"(?<!{abbreviations})[.!?]+\s+|\n+", content)
 
         # Filter out very short segments (likely not real sentences)
         return [s.strip() for s in sentences if s and len(s.strip()) > 10]
@@ -283,77 +294,17 @@ class ExclusionFilter:
     when youth players are called up to first team or replace injured starters.
     """
 
-    # Exclusion keywords (multilingual)
-    EXCLUDED_SPORTS = [
-        # Basketball
-        "basket",
-        "basketball",
-        "nba",
-        "euroleague",
-        "pallacanestro",
-        "baloncesto",
-        "koszykówka",
-        "basketbol",
-        "acb",
-        "fiba",
-        # Other sports explicitly excluded
-        "tennis",
-        "golf",
-        "cricket",
-        "hockey",
-        "baseball",
-        "mlb",
-    ]
-
-    EXCLUDED_CATEGORIES = [
-        # Women's football
-        "women",
-        "woman",
-        "ladies",
-        "feminine",
-        "femminile",
-        "femenino",
-        "kobiet",
-        "kadın",
-        "bayan",
-        "wsl",
-        "liga f",
-        "women's",
-        "womens",
-        "donne",
-        "féminin",
-        "feminino",
-        "frauen",
-        "vrouwen",
-        "damernas",
-    ]
-
-    EXCLUDED_OTHER_SPORTS = [
-        # American sports
-        "nfl",
-        "american football",
-        "super bowl",
-        "touchdown",
-        # Rugby
-        "rugby",
-        "six nations",
-        "rugby union",
-        "rugby league",
-        # Other
-        "handball",
-        "volleyball",
-        "futsal",
-        "pallavolo",
-        "balonmano",
-        "beach soccer",
-        "esports",
-        "e-sports",
-        "gaming",
-    ]
+    # ============================================
+    # EXCLUSION KEYWORDS
+    # ============================================
+    # VPS FIX: Now imported from centralized config to eliminate duplication
+    # See src/config/exclusion_lists.py for the complete lists
+    # These are imported at module level and used directly in __init__
 
     def __init__(self):
         """Initialize with compiled regex pattern for efficiency."""
-        all_excluded = self.EXCLUDED_SPORTS + self.EXCLUDED_CATEGORIES + self.EXCLUDED_OTHER_SPORTS
+        # Build exclusion pattern from all excluded keywords (imported from centralized config)
+        all_excluded = EXCLUDED_SPORTS + EXCLUDED_CATEGORIES + EXCLUDED_OTHER_SPORTS
         # Create case-insensitive pattern with word boundaries
         pattern = r"\b(" + "|".join(re.escape(kw) for kw in all_excluded) + r")\b"
         self._exclusion_pattern = re.compile(pattern, re.IGNORECASE)

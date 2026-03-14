@@ -61,6 +61,147 @@ class TestNitterCache:
             result = cache.get("expired_handle")
             assert result is None
 
+    def test_clear_expired_removes_expired_entries(self):
+        """clear_expired() should remove expired entries and return count."""
+        from src.services.nitter_fallback_scraper import NitterCache
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            cache = NitterCache(cache_file=f.name, ttl_hours=1)
+
+            # Add valid entry
+            cache.set("valid_handle", [{"content": "valid"}])
+
+            # Add expired entry
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+            cache._cache["expired_handle"] = {"tweets": [{"content": "old"}], "cached_at": old_time}
+
+            # Clear expired
+            count = cache.clear_expired()
+
+            # Should return 1 (one expired entry)
+            assert count == 1
+
+            # Valid entry should still exist
+            assert cache.get("valid_handle") is not None
+
+            # Expired entry should be removed
+            assert cache.get("expired_handle") is None
+
+    def test_clear_expired_keeps_valid_entries(self):
+        """clear_expired() should keep valid entries."""
+        from src.services.nitter_fallback_scraper import NitterCache
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            cache = NitterCache(cache_file=f.name, ttl_hours=6)
+
+            # Add multiple valid entries
+            cache.set("handle1", [{"content": "tweet1"}])
+            cache.set("handle2", [{"content": "tweet2"}])
+            cache.set("handle3", [{"content": "tweet3"}])
+
+            # Clear expired
+            count = cache.clear_expired()
+
+            # Should return 0 (no expired entries)
+            assert count == 0
+
+            # All valid entries should still exist
+            assert cache.get("handle1") is not None
+            assert cache.get("handle2") is not None
+            assert cache.get("handle3") is not None
+
+    def test_clear_expired_returns_correct_count(self):
+        """clear_expired() should return accurate count of removed entries."""
+        from src.services.nitter_fallback_scraper import NitterCache
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            cache = NitterCache(cache_file=f.name, ttl_hours=1)
+
+            # Add valid entry
+            cache.set("valid_handle", [{"content": "valid"}])
+
+            # Add multiple expired entries
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+            cache._cache["expired1"] = {"tweets": [{"content": "old1"}], "cached_at": old_time}
+            cache._cache["expired2"] = {"tweets": [{"content": "old2"}], "cached_at": old_time}
+            cache._cache["expired3"] = {"tweets": [{"content": "old3"}], "cached_at": old_time}
+
+            # Clear expired
+            count = cache.clear_expired()
+
+            # Should return 3 (three expired entries)
+            assert count == 3
+
+            # Valid entry should still exist
+            assert cache.get("valid_handle") is not None
+
+            # All expired entries should be removed
+            assert cache.get("expired1") is None
+            assert cache.get("expired2") is None
+            assert cache.get("expired3") is None
+
+    def test_clear_expired_empty_cache(self):
+        """clear_expired() should handle empty cache gracefully."""
+        from src.services.nitter_fallback_scraper import NitterCache
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            cache = NitterCache(cache_file=f.name, ttl_hours=6)
+
+            # Clear expired on empty cache
+            count = cache.clear_expired()
+
+            # Should return 0 (no entries to remove)
+            assert count == 0
+
+    def test_clear_expired_all_expired(self):
+        """clear_expired() should handle all entries being expired."""
+        from src.services.nitter_fallback_scraper import NitterCache
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            cache = NitterCache(cache_file=f.name, ttl_hours=1)
+
+            # Add only expired entries
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+            cache._cache["expired1"] = {"tweets": [{"content": "old1"}], "cached_at": old_time}
+            cache._cache["expired2"] = {"tweets": [{"content": "old2"}], "cached_at": old_time}
+
+            # Clear expired
+            count = cache.clear_expired()
+
+            # Should return 2 (all entries expired)
+            assert count == 2
+
+            # Cache should be empty
+            assert len(cache._cache) == 0
+
+    def test_clear_expired_saves_to_file(self):
+        """clear_expired() should save cache to file after removing expired entries."""
+        import json
+
+        from src.services.nitter_fallback_scraper import NitterCache
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            cache = NitterCache(cache_file=f.name, ttl_hours=1)
+
+            # Add valid entry
+            cache.set("valid_handle", [{"content": "valid"}])
+
+            # Add expired entry
+            old_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+            cache._cache["expired_handle"] = {"tweets": [{"content": "old"}], "cached_at": old_time}
+
+            # Clear expired
+            cache.clear_expired()
+
+            # Load cache from file to verify it was saved
+            with open(f.name, encoding="utf-8") as file:
+                saved_cache = json.load(file)
+
+            # Should only contain valid entry
+            assert "valid_handle" in saved_cache
+            assert "expired_handle" not in saved_cache
+            assert len(saved_cache) == 1
+
 
 class TestNitterFallbackScraper:
     """Tests for NitterFallbackScraper."""

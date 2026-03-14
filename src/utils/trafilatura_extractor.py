@@ -17,6 +17,7 @@ Requirements: Centralizes trafilatura usage and prevents data loss
 
 import logging
 import re
+import threading
 from html import unescape
 
 logger = logging.getLogger(__name__)
@@ -235,22 +236,29 @@ def extract_with_fallback(html: str) -> tuple[str | None, str]:
         method_used is one of: 'trafilatura', 'regex', 'raw', 'failed'
     """
     if not html or not is_valid_html(html):
+        record_extraction("validation", False)
         return None, "failed"
 
     # Method 1: Trafilatura (best quality)
     text = extract_with_trafilatura(html)
     if text:
+        record_extraction("trafilatura", True)
         return text, "trafilatura"
+    record_extraction("trafilatura", False)
 
     # Method 2: Regex-based extraction (medium quality)
     text = _extract_with_regex(html)
     if text:
+        record_extraction("regex", True)
         return text, "regex"
+    record_extraction("regex", False)
 
     # Method 3: Raw text extraction (last resort)
     text = _extract_raw_text(html)
     if text:
+        record_extraction("raw", True)
         return text, "raw"
+    record_extraction("raw", False)
 
     return None, "failed"
 
@@ -402,6 +410,8 @@ class ExtractionStats:
 
     Helps identify patterns in extraction failures
     and optimize the extraction pipeline.
+
+    Thread-safe: All counter operations are protected by threading.Lock().
     """
 
     def __init__(self):
@@ -412,41 +422,58 @@ class ExtractionStats:
         self.raw_success = 0
         self.raw_failed = 0
         self.validation_failed = 0
+        self.unknown_method_success = 0
+        self._lock = threading.Lock()
 
     def record(self, method: str, success: bool) -> None:
-        """Record extraction result."""
-        attr_name = f"{method}_{'success' if success else 'failed'}"
-        if hasattr(self, attr_name):
-            setattr(self, attr_name, getattr(self, attr_name) + 1)
-        elif not success:
-            self.validation_failed += 1
+        """
+        Record extraction result.
+
+        Thread-safe: Uses lock to protect all counter operations.
+        """
+        with self._lock:
+            attr_name = f"{method}_{'success' if success else 'failed'}"
+            if hasattr(self, attr_name):
+                setattr(self, attr_name, getattr(self, attr_name) + 1)
+            elif not success:
+                self.validation_failed += 1
+            else:
+                # Unknown method with success=True
+                self.unknown_method_success += 1
 
     def get_stats(self) -> dict:
-        """Get all statistics."""
-        return {
-            "trafilatura": {
-                "success": self.trafilatura_success,
-                "failed": self.trafilatura_failed,
-            },
-            "regex": {
-                "success": self.regex_success,
-                "failed": self.regex_failed,
-            },
-            "raw": {
-                "success": self.raw_success,
-                "failed": self.raw_failed,
-            },
-            "validation_failed": self.validation_failed,
-            "total_attempts": (
-                self.trafilatura_success
-                + self.trafilatura_failed
-                + self.regex_success
-                + self.regex_failed
-                + self.raw_success
-                + self.raw_failed
-                + self.validation_failed
-            ),
-        }
+        """
+        Get all statistics.
+
+        Thread-safe: Uses lock to ensure consistent reads.
+        """
+        with self._lock:
+            return {
+                "trafilatura": {
+                    "success": self.trafilatura_success,
+                    "failed": self.trafilatura_failed,
+                },
+                "regex": {
+                    "success": self.regex_success,
+                    "failed": self.regex_failed,
+                },
+                "raw": {
+                    "success": self.raw_success,
+                    "failed": self.raw_failed,
+                },
+                "validation_failed": self.validation_failed,
+                "unknown_method_success": self.unknown_method_success,
+                "total_attempts": (
+                    self.trafilatura_success
+                    + self.trafilatura_failed
+                    + self.regex_success
+                    + self.regex_failed
+                    + self.raw_success
+                    + self.raw_failed
+                    + self.validation_failed
+                    + self.unknown_method_success
+                ),
+            }
 
 
 # Global stats instance

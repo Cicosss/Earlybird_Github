@@ -12,7 +12,7 @@ VPS Compatibility:
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import (
@@ -127,9 +127,14 @@ class Match(Base):
     match_status = Column(String, nullable=True, comment="Match status: scheduled, live, finished")
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, comment="Record creation time")
+    created_at = Column(
+        DateTime, default=datetime.now(timezone.utc), comment="Record creation time"
+    )
     last_updated = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="Last update time"
+        DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc),
+        comment="Last update time",
     )
 
     # Relationships
@@ -153,29 +158,62 @@ class Match(Base):
         return self.start_time
 
     def get_odds_movement(self) -> dict[str, Any]:
-        """Calculate odds movement percentages."""
-        movement = {}
+        """
+        Calculate odds movement percentages using shared intelligence.
 
-        if self.opening_home_odd and self.current_home_odd and self.opening_home_odd > 0:
-            movement["home"] = (
-                (self.opening_home_odd - self.current_home_odd) / self.opening_home_odd
-            ) * 100
+        This method now uses the RadarOddsChecker for consistent analysis
+        across all components. It provides backward compatibility by returning
+        a simple dict with movement percentages.
 
-        if self.opening_away_odd and self.current_away_odd and self.opening_away_odd > 0:
-            movement["away"] = (
-                (self.opening_away_odd - self.current_away_odd) / self.opening_away_odd
-            ) * 100
+        Returns:
+            Dict with movement percentages for home/away/draw (negative = odds dropped)
+        """
+        try:
+            from src.utils.radar_odds_check import get_radar_odds_checker
 
-        if self.opening_draw_odd and self.current_draw_odd and self.opening_draw_odd > 0:
-            movement["draw"] = (
-                (self.opening_draw_odd - self.current_draw_odd) / self.opening_draw_odd
-            ) * 100
+            checker = get_radar_odds_checker()
+            movement = checker.check_match_movement(match_id=self.id)
+            return movement.to_dict()
+        except Exception:
+            # Fallback to simple calculation if checker not available
+            movement = {}
 
-        return movement
+            if self.opening_home_odd and self.current_home_odd and self.opening_home_odd > 0:
+                movement["home"] = (
+                    (self.opening_home_odd - self.current_home_odd) / self.opening_home_odd
+                ) * 100
+
+            if self.opening_away_odd and self.current_away_odd and self.opening_away_odd > 0:
+                movement["away"] = (
+                    (self.opening_away_odd - self.current_away_odd) / self.opening_away_odd
+                ) * 100
+
+            if self.opening_draw_odd and self.current_draw_odd and self.opening_draw_odd > 0:
+                movement["draw"] = (
+                    (self.opening_draw_odd - self.current_draw_odd) / self.opening_draw_odd
+                ) * 100
+
+            return movement
 
     def is_upcoming(self) -> bool:
-        """Check if match is in the future."""
-        return self.start_time > datetime.utcnow() if self.start_time else False
+        """
+        Check if match is in the future.
+
+        VPS CRITICAL FIX: Handle both naive and timezone-aware datetimes correctly.
+        The start_time is stored as naive datetime (UTC) in the database,
+        so we need to make it timezone-aware before comparison.
+        """
+        if not self.start_time:
+            return False
+
+        # Make start_time timezone-aware for comparison
+        # start_time is stored as naive datetime (UTC) in the database
+        if self.start_time.tzinfo is None:
+            start_time_utc = self.start_time.replace(tzinfo=timezone.utc)
+        else:
+            start_time_utc = self.start_time
+
+        return start_time_utc > datetime.now(timezone.utc)
 
     def __repr__(self) -> str:
         return f"<Match(id='{self.id}', {self.home_team} vs {self.away_team}, {self.start_time})>"
@@ -300,10 +338,17 @@ class NewsLog(Base):
     )
 
     # Timestamps
-    timestamp = Column(DateTime, default=datetime.utcnow, comment="Analysis timestamp")
-    created_at = Column(DateTime, default=datetime.utcnow, comment="Record creation time")
+    # COVE FIX: Use timezone-aware datetime for consistency with Match model
+    # datetime.utcnow() returns naive datetime, datetime.now(timezone.utc) returns timezone-aware
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc), comment="Analysis timestamp")
+    created_at = Column(
+        DateTime, default=datetime.now(timezone.utc), comment="Record creation time"
+    )
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="Last update time"
+        DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc),
+        comment="Last update time",
     )
 
     # Relationships
@@ -441,12 +486,16 @@ class ModificationHistory(Base):
     modification_type = Column(
         String,
         nullable=False,
-        comment="Type: market_change, score_adjustment, data_correction, reasoning_update",
+        comment="Type: market_change, score_adjustment, data_correction, reasoning_update (combo_modification removed as dead code)",
     )
     original_value = Column(Text, nullable=True, comment="Original value before modification")
     suggested_value = Column(Text, nullable=True, comment="Suggested value after modification")
     reason = Column(Text, nullable=True, comment="Reason for the modification")
     priority = Column(String, nullable=False, comment="Priority: critical, high, medium, low")
+    confidence = Column(Float, nullable=True, comment="Confidence level (0-1)")
+    impact_assessment = Column(
+        String, nullable=True, comment="Impact assessment: HIGH, MEDIUM, LOW"
+    )
 
     # Execution details
     applied = Column(Boolean, default=False, comment="Whether modification was applied")
@@ -460,8 +509,9 @@ class ModificationHistory(Base):
     )
 
     # Timestamps
+    # COVE FIX: Use timezone-aware datetime for consistency
     created_at = Column(
-        DateTime, default=datetime.utcnow, comment="When modification was suggested"
+        DateTime, default=datetime.now(timezone.utc), comment="When modification was suggested"
     )
     applied_at = Column(DateTime, nullable=True, comment="When modification was applied")
 
@@ -516,7 +566,10 @@ class ManualReview(Base):
     modification_count = Column(Integer, nullable=False, comment="Number of modifications needed")
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, comment="When review was queued")
+    # COVE FIX: Use timezone-aware datetime for consistency
+    created_at = Column(
+        DateTime, default=datetime.now(timezone.utc), comment="When review was queued"
+    )
 
     # Relationships
     alert = relationship("NewsLog", backref="manual_reviews")
@@ -562,8 +615,12 @@ class LearningPattern(Base):
 
     # Success metrics
     success_rate = Column(Float, nullable=True, comment="Success rate when applied")
+    # COVE FIX: Use timezone-aware datetime for consistency
     last_updated = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="Last update time"
+        DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc),
+        comment="Last update time",
     )
 
     # Indexes

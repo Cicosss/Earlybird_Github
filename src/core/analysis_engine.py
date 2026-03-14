@@ -639,14 +639,12 @@ class AnalysisEngine:
         """
         V13.1: Calculate relevance of a tweet for a team.
 
-        Similar to _calculate_relevance() in TwitterIntelCache but adapted for AnalysisEngine.
-
         Args:
             tweet: CachedTweet object
             team: Team name to check relevance for
 
         Returns:
-            Relevance level: "high", "medium", "low", or "none"
+            Relevance level: "high", "medium", or "low"
         """
         content_lower = tweet.content.lower()
         team_lower = team.lower()
@@ -1060,7 +1058,7 @@ class AnalysisEngine:
             - market: Recommended market
             - error: Any error that occurred
         """
-        result = {"alert_sent": False, "score": 0.0, "market": None, "error": None}
+        result = {"alert_sent": False, "score": 0.0, "market": None, "error": None, "news_count": 0}
 
         try:
             # VPS FIX: Extract Match attributes safely to prevent session detachment.
@@ -1169,7 +1167,7 @@ class AnalysisEngine:
             fatigue_differential = None
             if home_stats and away_stats:
                 try:
-                    fatigue_differential = get_enhanced_fatigue_context(
+                    fatigue_differential, fatigue_context_str = get_enhanced_fatigue_context(
                         home_team=home_team_valid,
                         away_team=away_team_valid,
                         home_context=home_context,
@@ -1211,6 +1209,9 @@ class AnalysisEngine:
                     self.logger.info(f"   📰 Found {len(news_articles)} relevant news articles")
                 except Exception as e:
                     self.logger.warning(f"⚠️ News hunting failed: {e}")
+
+            # Track news count for health monitoring
+            result["news_count"] = len(news_articles)
 
             # --- STEP 7: TWITTER INTEL (V4.5) ---
             # Get Twitter intelligence
@@ -1521,37 +1522,57 @@ class AnalysisEngine:
 
                     try:
                         from src.alerting.notifier import send_alert_wrapper
+                        from src.models import EnhancedMatchAlert
 
+                        # V14.0: Create EnhancedMatchAlert object for type-safe alert handling
                         # V9.5: Pass convergence parameters if available from analysis_result
                         # Extract convergence information from analysis_result
                         is_convergent = getattr(analysis_result, "is_convergent", False)
                         convergence_sources = getattr(analysis_result, "convergence_sources", None)
 
-                        # V8.3 FIX: Pass analysis_result to send_alert_wrapper so it can update with odds_at_alert
-                        # V11.1 FIX: Pass market_warning to send_alert_wrapper
-                        send_alert_wrapper(
-                            match=match,
+                        # V14.0: Build EnhancedMatchAlert object with all alert data
+                        # This provides type safety and validation at creation time
+                        alert = EnhancedMatchAlert(
+                            home_team=match.home_team,
+                            away_team=match.away_team,
+                            league=match.league,
                             score=final_score,
-                            market=final_market,
-                            home_context=home_context,
-                            away_context=away_context,
-                            home_stats=home_stats,
-                            away_stats=away_stats,
-                            news_articles=news_articles,
+                            news_summary=news_articles[0].get("snippet", "")
+                            if news_articles
+                            else "",
+                            news_url=news_articles[0].get("link", "") if news_articles else None,
+                            recommended_market=final_market,
+                            combo_suggestion=getattr(analysis_result, "combo_suggestion", None),
+                            combo_reasoning=getattr(analysis_result, "combo_reasoning", None),
+                            math_edge=getattr(analysis_result, "math_edge", None),
+                            is_update=False,
+                            financial_risk=getattr(analysis_result, "financial_risk", None),
+                            intel_source="web",
+                            referee_intel=referee_info,  # Use referee_info from enrichment
                             twitter_intel=twitter_intel,
-                            fatigue_differential=fatigue_differential,
-                            injury_impact_home=home_injury_impact,
-                            injury_impact_away=away_injury_impact,
-                            biscotto_result=biscotto_result,
-                            market_intel=market_intel,
-                            verification_result=verification_result,
+                            validated_home_team=None,  # Not available in current scope
+                            validated_away_team=None,  # Not available in current scope
+                            verification_info=verification_result,
                             final_verification_info=final_verification_info,  # BUG #1 FIX: Pass final verifier results
+                            injury_intel=home_injury_impact or away_injury_impact,
+                            confidence_breakdown=getattr(
+                                analysis_result, "confidence_breakdown", None
+                            ),
                             is_convergent=is_convergent,
                             convergence_sources=convergence_sources,
+                            market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
                             analysis_result=analysis_result,  # V8.3: Pass NewsLog object for updating
                             db_session=db_session,  # V8.3: Pass db_session for updating
-                            market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
                         )
+
+                        self.logger.info(
+                            f"📊 V14.0: Created EnhancedMatchAlert object - "
+                            f"score={final_score}, market={final_market}, "
+                            f"home_team={match.home_team}, away_team={match.away_team}"
+                        )
+
+                        # V14.0: Send alert using EnhancedMatchAlert object
+                        send_alert_wrapper(alert=alert)
 
                         result["alert_sent"] = True
                         result["score"] = final_score

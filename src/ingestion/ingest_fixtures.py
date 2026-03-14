@@ -951,6 +951,20 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                             )
                             db.add(new_match)
 
+                            # MARKET INTELLIGENCE: Save first odds snapshot for new matches
+                            # CRITICAL FIX: New matches need their first snapshot for time-based analysis
+                            if _MARKET_INTEL_AVAILABLE:
+                                save_odds_snapshot(
+                                    match_id=match_id,
+                                    home_odd=home_odd,
+                                    draw_odd=draw_odd,
+                                    away_odd=away_odd,
+                                    sharp_home_odd=sharp_analysis.get("sharp_home"),
+                                    sharp_draw_odd=sharp_analysis.get("sharp_draw"),
+                                    sharp_away_odd=sharp_analysis.get("sharp_away"),
+                                    sharp_bookie=sharp_analysis.get("sharp_bookie"),
+                                )
+
                             # FIX: Mark match as processed to prevent duplicates in same transaction
                             processed_match_ids.add(match_id)
 

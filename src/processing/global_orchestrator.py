@@ -50,7 +50,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 # V10.5 FIX: Import nest_asyncio to handle event loop conflicts
 # V11.1 FIX: Call nest_asyncio.apply() once at module level for better performance
@@ -98,7 +98,7 @@ class GlobalOrchestrator:
     importing from the analyzer and math_engine modules respectively.
     """
 
-    def __init__(self, supabase_provider=None):
+    def __init__(self, supabase_provider: Optional["SupabaseProvider"] = None):
         """
         Initialize the Global Orchestrator.
 
@@ -183,7 +183,8 @@ class GlobalOrchestrator:
         if self.supabase_available:
             try:
                 # V12.5: Check connection and reconnect if necessary (COVE FIX)
-                if not self.supabase_provider.is_connected():
+                # V13.0: Add null check before calling is_connected() to prevent AttributeError
+                if self.supabase_provider and not self.supabase_provider.is_connected():
                     logger.warning(
                         "⚠️ [GLOBAL-ORCHESTRATOR] Supabase disconnected, attempting to reconnect..."
                     )
@@ -197,11 +198,10 @@ class GlobalOrchestrator:
                 # Try to fetch from Supabase
                 # V12.5: Use bypass_cache=True for first continent to ensure fresh data
                 # Subsequent continents can use cached data (within 5-minute TTL)
-                first_continent = True
+                should_bypass_cache_for_fresh_data = True
                 for continent_name in all_continents:
-                    # Bypass cache for first fetch to ensure fresh data
-                    bypass_cache = first_continent
-                    first_continent = False
+                    bypass_cache = should_bypass_cache_for_fresh_data
+                    should_bypass_cache_for_fresh_data = False
 
                     continent_leagues = self.supabase_provider.get_active_leagues_for_continent(
                         continent_name, bypass_cache=bypass_cache
@@ -237,7 +237,16 @@ class GlobalOrchestrator:
             active_leagues = self.fallback_to_local_mirror(all_continents)
 
         # Extract api_keys from league records
-        league_api_keys = [league["api_key"] for league in active_leagues]
+        # V13.0: Use .get() with filter to prevent KeyError if api_key field is missing
+        league_api_keys = [
+            league.get("api_key") for league in active_leagues if league.get("api_key")
+        ]
+        # Log warning if any leagues were filtered out due to missing api_key
+        if len(league_api_keys) < len(active_leagues):
+            filtered_count = len(active_leagues) - len(league_api_keys)
+            logger.warning(
+                f"⚠️ [GLOBAL-ORCHESTRATOR] Filtered out {filtered_count} leagues with missing api_key field"
+            )
 
         logger.info(f"🎯 Total leagues to scan: {len(league_api_keys)}")
         for league in league_api_keys:

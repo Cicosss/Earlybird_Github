@@ -167,6 +167,144 @@ class TestOddsMovementChecker:
         assert result.status == OddsMovementStatus.UNKNOWN
         assert result.movement_percent == 0.0
 
+    def test_negative_odds_handled(self):
+        """Test that negative odds are handled gracefully."""
+        from src.utils.radar_odds_check import OddsMovementStatus, RadarOddsChecker
+
+        checker = RadarOddsChecker()
+
+        result = checker._analyze_movement(
+            opening=-1.50,  # Invalid negative odds
+            current=2.50,
+            match=type("Match", (), {"last_updated": datetime.now(timezone.utc)})(),
+        )
+
+        assert result.status == OddsMovementStatus.UNKNOWN
+        assert result.movement_percent == 0.0
+        assert "non positivo" in result.edge_assessment
+
+    def test_team_name_normalization(self):
+        """Test team name normalization with aliases."""
+        from src.utils.radar_odds_check import _normalize_team_name
+
+        # Test common abbreviations
+        assert _normalize_team_name("Man Utd") == "manchester united"
+        assert _normalize_team_name("man city") == "manchester city"
+        assert _normalize_team_name("Spurs") == "tottenham"
+        assert _normalize_team_name("Real") == "real madrid"  # Default to Real Madrid
+        assert _normalize_team_name("Barca") == "barcelona"
+        assert _normalize_team_name("Juve") == "juventus"
+        assert _normalize_team_name("Inter") == "inter milan"
+        assert _normalize_team_name("Bayern") == "bayern munich"
+        assert _normalize_team_name("PSG") == "paris saint germain"
+
+        # Test case insensitivity
+        assert _normalize_team_name("MAN UTD") == "manchester united"
+        assert _normalize_team_name("Man utd") == "manchester united"
+
+        # Test names without aliases
+        assert _normalize_team_name("Liverpool") == "liverpool"
+        assert _normalize_team_name("Arsenal") == "arsenal"
+
+    def test_confidence_scoring_exact_match(self):
+        """Test confidence scoring for exact match."""
+        from src.utils.radar_odds_check import _calculate_match_confidence
+
+        confidence, reason = _calculate_match_confidence("manchester united", "manchester united")
+        assert confidence == 1.0
+        assert reason == "Exact match"
+
+    def test_confidence_scoring_substring_match(self):
+        """Test confidence scoring for substring match."""
+        from src.utils.radar_odds_check import _calculate_match_confidence
+
+        # Team name is substring of DB name
+        confidence, reason = _calculate_match_confidence("manchester", "manchester united")
+        assert 0.8 <= confidence < 0.9
+        assert "substring of DB name" in reason
+
+        # DB name is substring of team name
+        confidence, reason = _calculate_match_confidence(
+            "manchester united fc", "manchester united"
+        )
+        assert 0.6 <= confidence < 0.7
+        assert "substring of team name" in reason
+
+    def test_confidence_scoring_token_match(self):
+        """Test confidence scoring for token-based match."""
+        from src.utils.radar_odds_check import _calculate_match_confidence
+
+        # High token overlap (manchester is shared)
+        confidence, reason = _calculate_match_confidence("manchester united", "manchester city")
+        assert 0.4 <= confidence < 0.5  # Jaccard similarity of 0.33 gives 0.433
+        assert "Partial token overlap" in reason
+
+        # Partial token overlap (real is shared)
+        confidence, reason = _calculate_match_confidence("real madrid", "real betis")
+        assert 0.4 <= confidence < 0.5
+        assert "Partial token overlap" in reason
+
+    def test_confidence_scoring_no_match(self):
+        """Test confidence scoring for no match."""
+        from src.utils.radar_odds_check import _calculate_match_confidence
+
+        # Teams with no semantic similarity still have character overlap
+        confidence, reason = _calculate_match_confidence("liverpool", "real madrid")
+        # Character overlap is non-zero (shared letters: l, i, e, r)
+        assert 0.3 <= confidence < 0.4  # Character overlap gives ~0.357
+        assert "Partial character overlap" in reason
+
+        # Teams with minimal character overlap
+        confidence, reason = _calculate_match_confidence("liverpool", "juventus")
+        # Both have some character overlap but very low confidence
+        assert confidence < 0.4  # Low confidence due to minimal overlap
+
+    def test_confidence_scoring_prevents_false_positives(self):
+        """Test that confidence scoring prevents false positives for similar team names."""
+        from src.utils.radar_odds_check import _calculate_match_confidence
+
+        # "Real" should have lower confidence with "Real Betis" than "Real Madrid"
+        confidence_madrid, _ = _calculate_match_confidence("real", "real madrid")
+        confidence_betis, _ = _calculate_match_confidence("real", "real betis")
+
+        # Both should be substring matches with similar confidence
+        # This is why the intelligent selection uses time proximity as tiebreaker
+        assert 0.8 <= confidence_madrid < 0.9
+        assert 0.8 <= confidence_betis < 0.9
+
+        # However, "Real Madrid" should have perfect match with "real madrid"
+        confidence_exact, _ = _calculate_match_confidence("real madrid", "real madrid")
+        assert confidence_exact == 1.0
+
+    def test_team_alias_mapping_comprehensive(self):
+        """Test comprehensive team alias mapping."""
+        from src.utils.radar_odds_check import TEAM_ALIASES
+
+        # Verify all major leagues are covered
+        assert len(TEAM_ALIASES) > 50  # Should have many aliases
+
+        # Premier League
+        assert "man utd" in TEAM_ALIASES
+        assert "spurs" in TEAM_ALIASES
+        assert "the gunners" in TEAM_ALIASES  # Note: includes "the" prefix
+
+        # La Liga
+        assert "barca" in TEAM_ALIASES
+        assert "atleti" in TEAM_ALIASES
+
+        # Serie A
+        assert "juve" in TEAM_ALIASES
+        assert "rossoneri" in TEAM_ALIASES
+        assert "nerazzurri" in TEAM_ALIASES
+
+        # Bundesliga
+        assert "bvb" in TEAM_ALIASES
+        assert "die roten" in TEAM_ALIASES
+
+        # Ligue 1
+        assert "les parisiens" in TEAM_ALIASES
+        assert "les gones" in TEAM_ALIASES
+
 
 class TestCrossSourceValidator:
     """Test cross-source validation."""

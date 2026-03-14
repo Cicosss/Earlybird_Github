@@ -1650,7 +1650,7 @@ def test_browser_monitor_news_format_for_dossier():
 
     # News Decay fields required by dossier builder
     assert "freshness_tag" in item
-    assert item["freshness_tag"] in ["🔥 FRESH", "⏰ RECENT", "⏰ AGING", "⚠️ STALE"]
+    assert item["freshness_tag"] in ["🔥 FRESH", "⏰ AGING", "📜 STALE"]
     assert "minutes_old" in item
     assert isinstance(item["minutes_old"], int)
     assert item["minutes_old"] >= 0
@@ -1889,7 +1889,7 @@ def test_v7_stats_include_new_metrics():
     assert "stealth_enabled" in stats
     assert "trafilatura_enabled" in stats
     assert "version" in stats
-    assert stats["version"] == "7.6"  # V7.6: Updated version
+    assert stats["version"] == "7.8"  # V7.8: Updated version (Thread-safe state management)
 
     # Initial values should be 0
     assert stats["trafilatura_extractions"] == 0
@@ -2384,7 +2384,7 @@ class TestV71HybridExtraction:
 
         assert "http_extractions" in stats
         assert "browser_extractions" in stats
-        assert stats["version"] == "7.6"  # Updated from 7.2 to 7.3
+        assert stats["version"] == "7.8"  # V7.8: Updated version (Thread-safe state management)
 
 
 class TestV71RetryWithBackoff:
@@ -2598,7 +2598,7 @@ class TestV72BehaviorSimulation:
 
         assert "behavior_simulations" in stats
         assert "behavior_simulation_enabled" in stats
-        assert stats["version"] == "7.6"  # V7.6: Updated version
+        assert stats["version"] == "7.8"  # V7.8: Updated version (Thread-safe state management)
 
     def test_simulate_human_behavior_is_async(self):
         """V7.2: _simulate_human_behavior is an async method."""
@@ -3154,7 +3154,7 @@ class TestV73BugFixes:
         monitor = BrowserMonitor()
         stats = monitor.get_stats()
 
-        assert stats["version"] == "7.6"
+        assert stats["version"] == "7.8"
 
 
 class TestV73DeepSeekErrorHandling:
@@ -3521,10 +3521,11 @@ class TestV731EdgeCasesComprehensive:
                     "_content_cache",
                     MagicMock(is_cached=lambda x: False, cache=lambda x: None),
                 ):
-                    result = await monitor.scan_source(source)
+                    result, scan_successful = await monitor.scan_source(source)
 
         # Should succeed despite string confidence
         assert result is not None
+        assert scan_successful is True
         assert result.confidence == 0.85
 
 
@@ -3896,9 +3897,10 @@ class TestV74EdgeCases:
         mock_extract = AsyncMock(return_value=[])
 
         with patch.object(monitor, "extract_with_navigation", mock_extract):
-            result = await monitor._scan_source_paginated(source)
+            result, scan_successful = await monitor._scan_source_paginated(source)
 
         assert result is None
+        assert scan_successful is False
 
     @pytest.mark.asyncio
     async def test_extract_with_navigation_deduplicates_links(self):
@@ -4154,7 +4156,7 @@ class TestV75SmartAPIRouting:
         assert "deepseek_fallbacks" in stats
         assert "api_calls_saved" in stats
         assert "api_savings_percent" in stats
-        assert stats["version"] == "7.6"  # V7.6: Updated version
+        assert stats["version"] == "7.8"  # V7.8: Updated version (Thread-safe state management)
 
     def test_browser_monitor_api_savings_calculation(self):
         """API savings percentage is calculated correctly."""
@@ -4848,7 +4850,7 @@ class TestV76BehaviorSimulationFailures:
         monitor = BrowserMonitor()
         stats = monitor.get_stats()
 
-        assert stats["version"] == "7.6", f"Version should be 7.6, got {stats['version']}"
+        assert stats["version"] == "7.8", f"Version should be 7.8, got {stats['version']}"
 
 
 # ============================================

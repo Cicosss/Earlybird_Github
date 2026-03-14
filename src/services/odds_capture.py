@@ -108,15 +108,35 @@ def capture_kickoff_odds() -> int:
                     kickoff_odds = get_market_odds(news_log.recommended_market, match)
 
                     if kickoff_odds:
-                        news_log.odds_at_kickoff = kickoff_odds
-                        db.add(news_log)
-                        updated_count += 1
+                        # COVE FIX: Use direct SQL UPDATE for transaction safety
+                        # db.add() is incorrect for objects already in database/session
+                        # Following the pattern used in notifier.py for consistency
+                        from sqlalchemy import text
 
-                        logger.info(
-                            f"✅ Captured kickoff odds: {kickoff_odds:.2f} "
-                            f"for {news_log.recommended_market} "
-                            f"({match_info['home_team']} vs {match_info['away_team']})"
-                        )
+                        try:
+                            db.execute(
+                                text("""
+                                    UPDATE news_logs
+                                    SET odds_at_kickoff = :odds
+                                    WHERE id = :id
+                                """),
+                                {
+                                    "odds": kickoff_odds,
+                                    "id": news_log.id,
+                                },
+                            )
+                            updated_count += 1
+
+                            logger.info(
+                                f"✅ Captured kickoff odds: {kickoff_odds:.2f} "
+                                f"for {news_log.recommended_market} "
+                                f"({match_info['home_team']} vs {match_info['away_team']})"
+                            )
+                        except Exception as update_error:
+                            logger.error(
+                                f"❌ Failed to update odds_at_kickoff for NewsLog ID {news_log.id}: {update_error}",
+                                exc_info=True,
+                            )
                     else:
                         logger.warning(
                             f"⚠️  Could not capture kickoff odds for "

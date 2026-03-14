@@ -29,12 +29,21 @@ VPS Compatibility:
 import hashlib
 import json
 import logging
-import threading
 import re
+import sys
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
+
+# Python version check - This module requires Python 3.10+ for union type syntax (e.g., float | None)
+if sys.version_info < (3, 10):
+    raise ImportError(
+        f"Python 3.10+ required for telegram_trust_score module. "
+        f"Current version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}. "
+        f"This module uses modern type hint syntax (e.g., 'float | None') that is not supported in earlier versions."
+    )
 
 logger = logging.getLogger(__name__)
 

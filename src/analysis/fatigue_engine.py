@@ -18,6 +18,7 @@ Author: EarlyBird AI
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,95 @@ LOW_TIER_TEAMS = {
 }
 
 
+# ============================================
+# MATCH HISTORY TRACKING
+# ============================================
+
+# Cache for team match history to avoid repeated database queries
+_match_history_cache: dict[str, tuple[list[datetime], Optional[float], datetime]] = {}
+_CACHE_TTL = timedelta(minutes=30)  # Cache expires after 30 minutes
+
+
+def get_team_match_history(
+    team_name: str, target_match_date: datetime, window_days: int = FATIGUE_WINDOW_DAYS
+) -> tuple[list[datetime], Optional[float]]:
+    """
+    Get team's recent match history from database.
+
+    This function queries Match table to find:
+    1. All matches team played in the last `window_days` days
+    2. The hours since their last match
+
+    Args:
+        team_name: Name of team
+        target_match_date: Date of upcoming match to analyze
+        window_days: Number of days to look back (default: 21)
+
+    Returns:
+        Tuple of (list of recent match dates, hours_since_last or None)
+    """
+    from src.database.models import Match, get_db_session
+
+    # Check cache first
+    cache_key = f"{team_name.lower()}_{target_match_date.isoformat()}"
+    now = datetime.now(timezone.utc)
+
+    if cache_key in _match_history_cache:
+        cached_data, cached_time = _match_history_cache[cache_key]
+        if now - cached_time < _CACHE_TTL:
+            logger.debug(f"📦 Using cached match history for {team_name}")
+            return cached_data
+
+    try:
+        with get_db_session() as db:
+            # Calculate window start
+            window_start = target_match_date - timedelta(days=window_days)
+
+            # Query for matches where this team played (either home or away)
+            # Only include matches that have already finished (start_time < target_match_date)
+            recent_matches = (
+                db.query(Match.start_time)
+                .filter(
+                    (Match.home_team == team_name) | (Match.away_team == team_name),
+                    Match.start_time >= window_start,
+                    Match.start_time < target_match_date,
+                )
+                .order_by(Match.start_time.desc())
+                .all()
+            )
+
+            # Extract match dates
+            match_dates = [match.start_time for match in recent_matches]
+
+            # Calculate hours since last match
+            hours_since_last = None
+            if match_dates:
+                last_match = match_dates[0]  # Most recent match (sorted desc)
+                hours_since_last = (target_match_date - last_match).total_seconds() / 3600
+
+            logger.debug(
+                f"📊 Found {len(match_dates)} matches for {team_name} in last {window_days} days, "
+                f"hours_since_last: {hours_since_last}"
+            )
+
+            # Cache result
+            _match_history_cache[cache_key] = (match_dates, hours_since_last, now)
+
+            return match_dates, hours_since_last
+
+    except Exception as e:
+        logger.error(f"❌ Error getting match history for {team_name}: {e}")
+        # Return empty data on error (fallback to None hours_since_last)
+        return [], None
+
+
+def clear_match_history_cache() -> None:
+    """Clear match history cache. Useful for testing or forced refresh."""
+    global _match_history_cache
+    _match_history_cache.clear()
+    logger.debug("🧹 Match history cache cleared")
+
+
 @dataclass
 class FatigueAnalysis:
     """Result of fatigue analysis for a team."""
@@ -355,6 +445,13 @@ def get_fatigue_level(fatigue_index: float, hours_since_last: float | None) -> s
     """
     # Primary: hours since last match (most important factor)
     if hours_since_last is not None:
+        # Validation: Handle negative values (data corruption or future dates)
+        if hours_since_last < 0:
+            logger.warning(
+                f"⚠️ [FATIGUE ENGINE] Negative hours_since_last detected: {hours_since_last}. "
+                "This indicates data corruption or future match date. Assuming FRESH state."
+            )
+            return "FRESH"  # Assume fresh if data is invalid
         if hours_since_last < CRITICAL_REST_HOURS:
             return "CRITICAL"
         elif hours_since_last < OPTIMAL_REST_HOURS:
@@ -448,7 +545,7 @@ def analyze_team_fatigue(
         )
     else:
         # Fallback: estimate from hours_since_last only
-        if hours_since_last is not None:
+        if hours_since_last is not None and hours_since_last >= 0:
             if hours_since_last < 72:
                 fatigue_index = 0.8 * squad_depth
             elif hours_since_last < 96:
@@ -457,8 +554,8 @@ def analyze_team_fatigue(
                 fatigue_index = 0.2 * squad_depth
             else:
                 fatigue_index = 0.0
-            fatigue_index = min(fatigue_index, 1.0)
         else:
+            # Invalid or negative hours_since_last, assume fresh
             fatigue_index = 0.0
         matches_in_window = 0
 
@@ -472,10 +569,12 @@ def analyze_team_fatigue(
     reasoning_parts = []
 
     if hours_since_last is not None:
-        if hours_since_last < 72:
-            reasoning_parts.append(f"Solo {hours_since_last:.0f}h di riposo (critico)")
-        elif hours_since_last < 96:
-            reasoning_parts.append(f"{hours_since_last:.0f}h di riposo (sotto ottimale)")
+        # Skip negative values (data corruption or future dates)
+        if hours_since_last >= 0:
+            if hours_since_last < 72:
+                reasoning_parts.append(f"Solo {hours_since_last:.0f}h di riposo (critico)")
+            elif hours_since_last < 96:
+                reasoning_parts.append(f"{hours_since_last:.0f}h di riposo (sotto ottimale)")
 
     if matches_in_window > 0:
         reasoning_parts.append(f"{matches_in_window} partite negli ultimi 21 giorni")
@@ -608,17 +707,35 @@ def format_fatigue_context(differential: FatigueDifferential) -> str:
         f"  {home.team_name}: {home.fatigue_level} (Index: {home.fatigue_index:.2f})",
     ]
 
-    if home.hours_since_last:
+    if home.hours_since_last is not None and home.hours_since_last >= 0:
         lines.append(
-            f"    └─ {home.hours_since_last:.0f}h riposo | Late Risk: {home.late_game_risk}"
+            f"    └─ {home.hours_since_last:.0f}h riposo | Matches: {home.matches_in_window} | "
+            f"Squad Depth: {home.squad_depth_score:.1f}x | Late Risk: {home.late_game_risk}"
         )
+    else:
+        lines.append(
+            f"    └─ Matches: {home.matches_in_window} | Squad Depth: {home.squad_depth_score:.1f}x | "
+            f"Late Risk: {home.late_game_risk}"
+        )
+
+    if home.reasoning:
+        lines.append(f"    └─ Reasoning: {home.reasoning}")
 
     lines.append(f"  {away.team_name}: {away.fatigue_level} (Index: {away.fatigue_index:.2f})")
 
-    if away.hours_since_last:
+    if away.hours_since_last is not None and away.hours_since_last >= 0:
         lines.append(
-            f"    └─ {away.hours_since_last:.0f}h riposo | Late Risk: {away.late_game_risk}"
+            f"    └─ {away.hours_since_last:.0f}h riposo | Matches: {away.matches_in_window} | "
+            f"Squad Depth: {away.squad_depth_score:.1f}x | Late Risk: {away.late_game_risk}"
         )
+    else:
+        lines.append(
+            f"    └─ Matches: {away.matches_in_window} | Squad Depth: {away.squad_depth_score:.1f}x | "
+            f"Late Risk: {away.late_game_risk}"
+        )
+
+    if away.reasoning:
+        lines.append(f"    └─ Reasoning: {away.reasoning}")
 
     if differential.advantage != "NEUTRAL":
         lines.append(f"  📊 Vantaggio: {differential.advantage}")
@@ -677,12 +794,40 @@ def get_enhanced_fatigue_context(
     # Use match start time or now
     target_date = match_start_time or datetime.now(timezone.utc)
 
-    # Run enhanced analysis
+    # V6.0: Get real match history from database for enhanced fatigue analysis
+    # This enables the sophisticated exponential decay model to work with actual data
+    home_recent_matches = []
+    away_recent_matches = []
+
+    try:
+        # Get home team match history
+        home_recent_matches, home_hours_from_db = get_team_match_history(home_team, target_date)
+
+        # Use database hours if available (more accurate than FotMob)
+        if home_hours_from_db is not None:
+            home_hours = home_hours_from_db
+            logger.debug(f"📊 Using real hours_since_last for {home_team}: {home_hours:.1f}h")
+
+        # Get away team match history
+        away_recent_matches, away_hours_from_db = get_team_match_history(away_team, target_date)
+
+        # Use database hours if available (more accurate than FotMob)
+        if away_hours_from_db is not None:
+            away_hours = away_hours_from_db
+            logger.debug(f"📊 Using real hours_since_last for {away_team}: {away_hours:.1f}h")
+
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to get match history from database: {e}. Using fallback data.")
+        # Continue with FotMob data (which may be None)
+
+    # Run enhanced analysis with real match history
     differential = analyze_fatigue_differential(
         home_team=home_team,
         away_team=away_team,
         home_hours_since_last=home_hours,
         away_hours_since_last=away_hours,
+        home_recent_matches=home_recent_matches,
+        away_recent_matches=away_recent_matches,
         target_match_date=target_date,
     )
 

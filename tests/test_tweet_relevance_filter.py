@@ -124,7 +124,7 @@ class TestFreshnessCalculation:
 
         score, hours, tag = calculate_tweet_freshness("2 days ago")
 
-        assert tag == "⚠️ STALE"
+        assert tag == "📜 STALE"
         assert score == 0.1
         assert 40 <= hours <= 50
 

@@ -1,3 +1,11 @@
+[project]
+name = "earlybird"
+version = "6.0"
+description = "EarlyBird - Intelligent Sports Betting Alert System"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

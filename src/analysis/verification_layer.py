@@ -85,6 +85,10 @@ try:
         FORM_DEVIATION_THRESHOLD,
         H2H_CARDS_THRESHOLD,
         H2H_CORNERS_THRESHOLD,
+        H2H_MAX_CARDS,
+        H2H_MAX_CORNERS,
+        H2H_MAX_GOALS,
+        H2H_MIN_MATCHES,
         LOW_SCORING_THRESHOLD,
         PLAYER_KEY_IMPACT_THRESHOLD,
         REFEREE_LENIENT_THRESHOLD,
@@ -98,6 +102,10 @@ except ImportError:
     FORM_DEVIATION_THRESHOLD = 0.30  # 30% deviation = warning
     H2H_CARDS_THRESHOLD = 4.5  # Avg cards >= 4.5 = suggest Over Cards
     H2H_CORNERS_THRESHOLD = 10  # Avg corners >= 10 = suggest Over Corners
+    H2H_MIN_MATCHES = 3  # Minimum matches required for reliable H2H analysis
+    H2H_MAX_CARDS = 12  # Maximum realistic cards per match (sanity check)
+    H2H_MAX_CORNERS = 25  # Maximum realistic corners per match (sanity check)
+    H2H_MAX_GOALS = 10  # Maximum realistic goals per match (sanity check)
     COMBINED_CORNERS_THRESHOLD = 10.5  # Combined avg >= 10.5 = Over 9.5 Corners
     REFEREE_STRICT_THRESHOLD = 5.0  # Cards/game >= 5 = strict
     REFEREE_LENIENT_THRESHOLD = 3.0  # Cards/game <= 3 = lenient
@@ -341,8 +349,7 @@ class PlayerImpact:
     name: str
     impact_score: int  # 1-10 scale
     is_key_player: bool = False  # True if score >= 7
-    role: str | None = None  # "starter", "rotation", "backup"
-    position: str | None = None  # "GK", "DEF", "MID", "FWD"
+    role: str | None = None  # "starter", "backup", "unknown"
 
     def __post_init__(self):
         """Auto-classify as key player based on threshold."""
@@ -364,15 +371,61 @@ class FormStats:
     draws: int = 0
     losses: int = 0
 
+    def __post_init__(self):
+        """
+        Validate form statistics after initialization.
+
+        Ensures:
+        - Non-negative values for all fields
+        - Individual match counts capped at 5
+        - Total matches (wins + draws + losses) does not exceed 5
+
+        This prevents edge cases where external data sources provide
+        invalid or out-of-range values that could corrupt betting decisions.
+        """
+        # Ensure non-negative values
+        self.goals_scored = max(0, self.goals_scored)
+        self.goals_conceded = max(0, self.goals_conceded)
+        self.wins = max(0, min(5, self.wins))
+        self.draws = max(0, min(5, self.draws))
+        self.losses = max(0, min(5, self.losses))
+
+        # Ensure total matches doesn't exceed 5 (last 5 matches concept)
+        total = self.wins + self.draws + self.losses
+        if total > 5:
+            # Reduce the largest category first to preserve data integrity
+            while total > 5:
+                if self.wins >= self.draws and self.wins >= self.losses:
+                    self.wins -= 1
+                elif self.draws >= self.wins and self.draws >= self.losses:
+                    self.draws -= 1
+                else:
+                    self.losses -= 1
+                total -= 1
+
     @property
     def avg_goals_scored(self) -> float:
-        """Average goals scored per game in last 5."""
-        return self.goals_scored / 5.0 if self.goals_scored >= 0 else 0.0
+        """
+        Average goals scored per game.
+
+        Uses matches_played instead of hardcoded 5.0 to handle
+        incomplete data correctly (e.g., only 3 matches available).
+        """
+        if self.matches_played > 0 and self.goals_scored >= 0:
+            return self.goals_scored / self.matches_played
+        return 0.0
 
     @property
     def avg_goals_conceded(self) -> float:
-        """Average goals conceded per game in last 5."""
-        return self.goals_conceded / 5.0 if self.goals_conceded >= 0 else 0.0
+        """
+        Average goals conceded per game.
+
+        Uses matches_played instead of hardcoded 5.0 to handle
+        incomplete data correctly (e.g., only 3 matches available).
+        """
+        if self.matches_played > 0 and self.goals_conceded >= 0:
+            return self.goals_conceded / self.matches_played
+        return 0.0
 
     @property
     def matches_played(self) -> int:
@@ -394,8 +447,15 @@ class FormStats:
         return self.wins == 0 and self.matches_played >= 5
 
     def get_form_string(self) -> str:
-        """Get form as string like 'WWDLL'."""
-        return "W" * self.wins + "D" * self.draws + "L" * self.losses
+        """
+        Get form as string like 'WWDLL' (max 5 chars).
+
+        Capped at 5 characters to match the "last 5 matches" concept.
+        Defensive programming to prevent edge cases from producing
+        invalid output.
+        """
+        form_str = "W" * self.wins + "D" * self.draws + "L" * self.losses
+        return form_str[:5]  # Cap at 5 characters
 
 
 @dataclass
@@ -404,6 +464,12 @@ class H2HStats:
     Head-to-head statistics between teams.
 
     Requirements: 3.1, 3.2, 3.3, 3.4
+
+    V15.0 Enhanced:
+    - Added parsing for home_wins, away_wins, draws
+    - Added sanity checks on parsed values
+    - Added sample size consideration in suggestion methods
+    - Improved regex to handle comma-separated numbers
     """
 
     matches_analyzed: int = 0
@@ -415,16 +481,91 @@ class H2HStats:
     draws: int = 0
 
     def suggests_over_cards(self) -> bool:
-        """Check if H2H suggests Over Cards market."""
+        """
+        Check if H2H suggests Over Cards market.
+
+        V15.0: Now considers sample size reliability.
+        Only suggests if we have sufficient matches for statistical significance.
+        """
+        if not self._has_reliable_sample():
+            return False
         return self.avg_cards >= H2H_CARDS_THRESHOLD
 
     def suggests_over_corners(self) -> bool:
-        """Check if H2H suggests Over Corners market."""
+        """
+        Check if H2H suggests Over Corners market.
+
+        V15.0: Now considers sample size reliability.
+        Only suggests if we have sufficient matches for statistical significance.
+        """
+        if not self._has_reliable_sample():
+            return False
         return self.avg_corners >= H2H_CORNERS_THRESHOLD
 
     def has_data(self) -> bool:
-        """Check if H2H data is available."""
+        """
+        Check if H2H data is available.
+
+        V15.0: Added defensive None check for robustness.
+        """
+        if self.matches_analyzed is None:
+            return False
         return self.matches_analyzed > 0
+
+    def _has_reliable_sample(self) -> bool:
+        """
+        Check if the sample size is reliable for statistical analysis.
+
+        V15.0: New method to prevent false positives from small sample sizes.
+        Returns False if we have fewer than H2H_MIN_MATCHES.
+        """
+        if self.matches_analyzed is None:
+            return False
+        return self.matches_analyzed >= H2H_MIN_MATCHES
+
+    def _validate_values(self) -> bool:
+        """
+        Validate that parsed values are within realistic ranges.
+
+        V15.0: New method to detect and reject suspicious/invalid values.
+        Returns False if any value exceeds realistic maximums.
+        """
+        # Check for None values
+        if self.avg_cards is None or self.avg_corners is None or self.avg_goals is None:
+            return False
+
+        # Check for negative values
+        if self.avg_cards < 0 or self.avg_corners < 0 or self.avg_goals < 0:
+            return False
+
+        # Check for unrealistic maximums
+        if self.avg_cards > H2H_MAX_CARDS:
+            logger.warning(
+                f"⚠️ H2HStats: Suspicious avg_cards value {self.avg_cards} > {H2H_MAX_CARDS}"
+            )
+            return False
+
+        if self.avg_corners > H2H_MAX_CORNERS:
+            logger.warning(
+                f"⚠️ H2HStats: Suspicious avg_corners value {self.avg_corners} > {H2H_MAX_CORNERS}"
+            )
+            return False
+
+        if self.avg_goals > H2H_MAX_GOALS:
+            logger.warning(
+                f"⚠️ H2HStats: Suspicious avg_goals value {self.avg_goals} > {H2H_MAX_GOALS}"
+            )
+            return False
+
+        # Validate win/draw counts don't exceed matches_analyzed
+        total_results = self.home_wins + self.away_wins + self.draws
+        if total_results > self.matches_analyzed:
+            logger.warning(
+                f"⚠️ H2HStats: Total results ({total_results}) > matches_analyzed ({self.matches_analyzed})"
+            )
+            return False
+
+        return True
 
 
 @dataclass
@@ -442,8 +583,8 @@ class RefereeStats:
 
     def __post_init__(self):
         """Auto-classify strictness based on cards per game."""
-        # Keep "unknown" if cards_per_game is 0 or negative
-        if self.cards_per_game <= 0:
+        # Keep "unknown" only for negative values (0.0 means very lenient)
+        if self.cards_per_game < 0:
             self.strictness = "unknown"
         elif self.cards_per_game >= REFEREE_STRICT_THRESHOLD:
             self.strictness = "strict"
@@ -1190,19 +1331,38 @@ class OptimizedResponseParser:
         self.home_original = home_team
         self.away_original = away_team
         self.referee_original = referee_name or ""
-        self.players_original = players or []
+
+        # Intelligent type validation for players
+        # Handle edge cases: None, string, or other types
+        if players is None:
+            self.players_original = []
+            logger.warning("⚠️ [OptimizedResponseParser] players is None, using empty list")
+        elif isinstance(players, str):
+            # If a string was passed instead of a list, log warning and convert
+            logger.warning(
+                f"⚠️ [OptimizedResponseParser] players is a string, not a list: '{players}'. Converting to list with single element."
+            )
+            self.players_original = [players]
+        elif not isinstance(players, list):
+            # If another type was passed, log warning and convert to list
+            logger.warning(
+                f"⚠️ [OptimizedResponseParser] players has unexpected type {type(players).__name__}, converting to list."
+            )
+            self.players_original = list(players) if hasattr(players, "__iter__") else []
+        else:
+            self.players_original = players
 
         # Normalized versions for matching
         if TEXT_NORMALIZER_AVAILABLE:
             self.home = normalize_for_matching(home_team)
             self.away = normalize_for_matching(away_team)
             self.referee = normalize_for_matching(referee_name or "")
-            self.players = [normalize_for_matching(p) for p in (players or [])]
+            self.players = [normalize_for_matching(p) for p in self.players_original]
         else:
             self.home = home_team.lower()
             self.away = away_team.lower()
             self.referee = (referee_name or "").lower()
-            self.players = [p.lower() for p in (players or [])]
+            self.players = [p.lower() for p in self.players_original]
 
     def parse_to_verified_data(
         self, combined_text: str, request: "VerificationRequest"
@@ -1373,6 +1533,9 @@ class OptimizedResponseParser:
 
         Returns:
             Value in millions or None
+
+        Performance optimization: Early exit on exact match, limits fuzzy matching
+        to reasonable number of candidates.
         """
         if not values:
             return None
@@ -1382,11 +1545,11 @@ class OptimizedResponseParser:
         else:
             player_norm = player_name.lower()
 
-        # Exact match first
+        # Exact match first - fastest path
         if player_norm in values:
             return values[player_norm]
 
-        # Try partial match on name parts
+        # Try partial match on name parts - second fastest path
         name_parts = player_norm.split()
         for part in name_parts:
             if len(part) >= 4:  # Minimum 4 chars
@@ -1394,18 +1557,30 @@ class OptimizedResponseParser:
                     if part in key or key in part:
                         return val
 
-        # Fuzzy match if available
+        # Fuzzy match if available - most expensive, optimize it
         if TEXT_NORMALIZER_AVAILABLE and FUZZY_AVAILABLE:
             from thefuzz import fuzz
+
+            # Performance optimization: Limit fuzzy matching to reasonable number of candidates
+            # If values dict is very large (>50), limit to first 50 to avoid O(n) slowdown
+            values_items = list(values.items())
+            if len(values_items) > 50:
+                logger.warning(
+                    f"⚡ [OptimizedResponseParser] Too many values ({len(values_items)}), limiting fuzzy matching to first 50"
+                )
+                values_items = values_items[:50]
 
             best_score = 0
             best_value = None
 
-            for key, val in values.items():
+            for key, val in values_items:
                 score = fuzz.token_set_ratio(player_norm, key)
                 if score > best_score and score >= 70:
                     best_score = score
                     best_value = val
+                    # Early exit if we find a very high confidence match
+                    if score >= 90:
+                        break
 
             return best_value
 
@@ -1416,10 +1591,22 @@ class OptimizedResponseParser:
         Extract player market values with multi-currency support.
 
         Supports: €, £, $ in millions and thousands
+
+        Performance optimization: Uses set-based lookup for O(1) matching
+        instead of O(n) loop when possible.
         """
         import re
 
         values = {}
+
+        # Performance optimization: If many players, use set-based lookup
+        # This reduces complexity from O(n*m) to O(n) where n=matches, m=players
+        use_set_lookup = len(self.players) > 15
+        if use_set_lookup:
+            logger.info(
+                f"⚡ [OptimizedResponseParser] Using set-based lookup for {len(self.players)} players"
+            )
+            players_set = set(self.players)
 
         if TEXT_NORMALIZER_AVAILABLE:
             # Use comprehensive patterns from text_normalizer
@@ -1432,11 +1619,23 @@ class OptimizedResponseParser:
                             name_norm = normalize_for_matching(name)
                             value_float = float(value) * multiplier
 
-                            # Match against known players
-                            for player in self.players:
-                                if self._names_match(name_norm, player):
-                                    values[player] = value_float
-                                    break
+                            # Match against known players - optimized approach
+                            if use_set_lookup:
+                                # Fast path: Direct set lookup for exact matches
+                                if name_norm in players_set:
+                                    values[name_norm] = value_float
+                                else:
+                                    # Fallback to fuzzy matching only if needed
+                                    for player in self.players:
+                                        if self._names_match(name_norm, player):
+                                            values[player] = value_float
+                                            break
+                            else:
+                                # Standard path: Loop through all players
+                                for player in self.players:
+                                    if self._names_match(name_norm, player):
+                                        values[player] = value_float
+                                        break
         else:
             # Fallback to basic patterns
             patterns = [
@@ -1452,10 +1651,18 @@ class OptimizedResponseParser:
                         name_lower = name.lower()
                         value_float = float(value) * multiplier
 
-                        for player in self.players:
-                            if any(part in name_lower for part in player.split()):
-                                values[player] = value_float
-                                break
+                        if use_set_lookup:
+                            # Fast path: Check if any player name is in the extracted name
+                            for player in self.players:
+                                if player in name_lower or name_lower in player:
+                                    values[player] = value_float
+                                    break
+                        else:
+                            # Standard path
+                            for player in self.players:
+                                if any(part in name_lower for part in player.split()):
+                                    values[player] = value_float
+                                    break
 
         return values
 
@@ -2591,10 +2798,17 @@ class TavilyVerifier:
         """
         Parse head-to-head statistics from text.
 
+        V15.0 Enhanced:
+        - Added parsing for home_wins, away_wins, draws
+        - Improved regex to handle comma-separated numbers
+        - Added validation using _validate_values()
+
         Looks for patterns like:
         - "last 5 meetings: 3.2 goals per game"
         - "H2H: 4.5 cards average"
         - "10.2 corners per match in H2H"
+        - "Home team won 3, away team won 1, 1 draw"
+        - "3-1-1" (home wins, away wins, draws)
 
         Args:
             text: Combined text from Tavily response
@@ -2621,27 +2835,112 @@ class TavilyVerifier:
 
         h2h = H2HStats()
 
-        # Parse number of matches
-        matches_match = re.search(r"(\d+)\s*(?:matches?|meetings?|games?)", h2h_context, re.I)
+        # Helper function to parse numbers with optional commas
+        def parse_number(num_str: str) -> int | float | None:
+            """Parse a number string, handling commas."""
+            if not num_str:
+                return None
+            # Remove commas from the number string
+            cleaned = num_str.replace(",", "")
+            try:
+                # Try to parse as float first (for decimals)
+                if "." in cleaned:
+                    return float(cleaned)
+                else:
+                    return int(cleaned)
+            except (ValueError, TypeError):
+                return None
+
+        # Parse number of matches (with comma support)
+        matches_match = re.search(r"(\d+,?\d*)\s*(?:matches?|meetings?|games?)", h2h_context, re.I)
         if matches_match:
-            h2h.matches_analyzed = int(matches_match.group(1))
+            parsed = parse_number(matches_match.group(1))
+            if parsed is not None:
+                h2h.matches_analyzed = int(parsed)
 
-        # Parse average goals
-        goals_match = re.search(r"(\d+\.?\d*)\s*goals?\s*(?:per|average|avg)", h2h_context, re.I)
+        # Parse average goals (with comma support)
+        goals_match = re.search(
+            r"(\d+,?\d*\.?\d*)\s*goals?\s*(?:per|average|avg)", h2h_context, re.I
+        )
         if goals_match:
-            h2h.avg_goals = float(goals_match.group(1))
+            parsed = parse_number(goals_match.group(1))
+            if parsed is not None:
+                h2h.avg_goals = float(parsed)
 
-        # Parse average cards
-        cards_match = re.search(r"(\d+\.?\d*)\s*cards?\s*(?:per|average|avg)", h2h_context, re.I)
+        # Parse average cards (with comma support)
+        cards_match = re.search(
+            r"(\d+,?\d*\.?\d*)\s*cards?\s*(?:per|average|avg)", h2h_context, re.I
+        )
         if cards_match:
-            h2h.avg_cards = float(cards_match.group(1))
+            parsed = parse_number(cards_match.group(1))
+            if parsed is not None:
+                h2h.avg_cards = float(parsed)
 
-        # Parse average corners
+        # Parse average corners (with comma support)
         corners_match = re.search(
-            r"(\d+\.?\d*)\s*corners?\s*(?:per|average|avg)", h2h_context, re.I
+            r"(\d+,?\d*\.?\d*)\s*corners?\s*(?:per|average|avg)", h2h_context, re.I
         )
         if corners_match:
-            h2h.avg_corners = float(corners_match.group(1))
+            parsed = parse_number(corners_match.group(1))
+            if parsed is not None:
+                h2h.avg_corners = float(parsed)
+
+        # V15.0: Parse home_wins, away_wins, draws
+        # Pattern 1: "Home team won 3, away team won 1, 1 draw"
+        # Pattern 2: "Team A: 3 wins, Team B: 1 win, 1 draw"
+        # Pattern 3: "3-1-1" format (home wins, away wins, draws)
+        # Pattern 4: "won 3, lost 1, drew 1"
+
+        # Try pattern 1: "won X, won Y, Z draw(s)"
+        wdl_pattern = re.search(
+            r"(?:won|wins?)\s+(\d+).*?(?:won|wins?)\s+(\d+).*?(?:drew?|draws?)\s+(\d+)",
+            h2h_context,
+            re.I,
+        )
+        if wdl_pattern:
+            h2h.home_wins = int(wdl_pattern.group(1))
+            h2h.away_wins = int(wdl_pattern.group(2))
+            h2h.draws = int(wdl_pattern.group(3))
+
+        # Try pattern 2: "X-Y-Z" format (home wins, away wins, draws)
+        # This is a common shorthand format
+        if h2h.home_wins == 0 and h2h.away_wins == 0 and h2h.draws == 0:
+            xyz_pattern = re.search(r"(\d+)\s*-\s*(\d+)\s*-\s*(\d+)", h2h_context)
+            if xyz_pattern:
+                h2h.home_wins = int(xyz_pattern.group(1))
+                h2h.away_wins = int(xyz_pattern.group(2))
+                h2h.draws = int(xyz_pattern.group(3))
+
+        # Try pattern 3: "Team A: X wins, Team B: Y wins, Z draws"
+        if h2h.home_wins == 0 and h2h.away_wins == 0 and h2h.draws == 0:
+            team_wins_pattern = re.search(
+                r"(\w+):\s*(\d+)\s*wins?.*?(\w+):\s*(\d+)\s*wins?.*?(\d+)\s*draws?",
+                h2h_context,
+                re.I,
+            )
+            if team_wins_pattern:
+                # Determine which team is home/away based on context
+                # For simplicity, we'll assign first to home, second to away
+                h2h.home_wins = int(team_wins_pattern.group(2))
+                h2h.away_wins = int(team_wins_pattern.group(4))
+                h2h.draws = int(team_wins_pattern.group(5))
+
+        # Try pattern 4: "won X, lost Y, drew Z" (combined format)
+        if h2h.home_wins == 0 and h2h.away_wins == 0 and h2h.draws == 0:
+            combined_pattern = re.search(
+                r"won\s+(\d+).*?lost\s+(\d+).*?drew?\s+(\d+)", h2h_context, re.I
+            )
+            if combined_pattern:
+                # This pattern is ambiguous - we'll assign to home_wins, away_wins, draws
+                # In practice, this might need context to determine which team
+                h2h.home_wins = int(combined_pattern.group(1))
+                h2h.away_wins = int(combined_pattern.group(2))
+                h2h.draws = int(combined_pattern.group(3))
+
+        # V15.0: Validate parsed values before returning
+        if not h2h._validate_values():
+            logger.warning("⚠️ H2HStats: Parsed values failed validation")
+            return None
 
         return h2h if h2h.has_data() else None
 
@@ -3329,6 +3628,18 @@ class TavilyVerifier:
             referee_name = safe_dict_get(betting_stats, "referee_name", default=None)
             referee_cards_avg = safe_dict_get(betting_stats, "referee_cards_avg", default=None)
 
+            # V7.2: Extract match context data
+            match_intensity = safe_dict_get(betting_stats, "match_intensity", default="Unknown")
+            referee_strictness = safe_dict_get(
+                betting_stats, "referee_strictness", default="Unknown"
+            )
+            is_derby = safe_dict_get(betting_stats, "is_derby", default=False)
+
+            logger.debug(
+                f"🎯 [V7.2] Match context: intensity={match_intensity}, "
+                f"referee_strictness={referee_strictness}, is_derby={is_derby}"
+            )
+
             # Validate we got actual corner data
             if home_corners is None and away_corners is None:
                 logger.warning(f"⚠️ [V2.6] Perplexity found no corner averages ({elapsed:.2f}s)")
@@ -3391,9 +3702,11 @@ class TavilyVerifier:
             if referee_name and referee_name != "Unknown" and referee_cards_avg:
                 result["referee_name"] = referee_name
                 result["referee_cards_avg"] = referee_cards_avg
-                result["referee_strictness"] = safe_dict_get(
-                    betting_stats, "referee_strictness", default="Unknown"
-                )
+
+            # V7.2: Add match context data (always included)
+            result["match_intensity"] = match_intensity
+            result["referee_strictness"] = referee_strictness
+            result["is_derby"] = is_derby
 
             return result
 
@@ -3558,14 +3871,14 @@ class PerplexityVerifier:
                 score = player_impacts.get(name, 5)
                 if isinstance(score, (int, float)):
                     verified.home_player_impacts.append(
-                        PlayerImpact(name=name, impact_score=int(score))
+                        PlayerImpact(name=name, impact_score=int(round(score)))
                     )
 
             for name in request.away_missing_players:
                 score = player_impacts.get(name, 5)
                 if isinstance(score, (int, float)):
                     verified.away_player_impacts.append(
-                        PlayerImpact(name=name, impact_score=int(score))
+                        PlayerImpact(name=name, impact_score=int(round(score)))
                     )
 
         # Calculate totals
@@ -4856,4 +5169,15 @@ __all__ = [
     "VERIFICATION_SCORE_THRESHOLD",
     "PLAYER_KEY_IMPACT_THRESHOLD",
     "CRITICAL_IMPACT_THRESHOLD",
+    "H2H_CARDS_THRESHOLD",
+    "H2H_CORNERS_THRESHOLD",
+    "H2H_MIN_MATCHES",
+    "H2H_MAX_CARDS",
+    "H2H_MAX_CORNERS",
+    "H2H_MAX_GOALS",
+    "COMBINED_CORNERS_THRESHOLD",
+    "REFEREE_STRICT_THRESHOLD",
+    "REFEREE_LENIENT_THRESHOLD",
+    "FORM_DEVIATION_THRESHOLD",
+    "LOW_SCORING_THRESHOLD",
 ]

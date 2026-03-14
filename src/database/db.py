@@ -172,21 +172,21 @@ def get_upcoming_matches() -> list[MatchModel]:
     Get all upcoming matches from the database.
 
     Returns:
-        List of MatchModel objects with compatibility attributes (sport_key, commence_time)
+        List of MatchModel objects. The Match class has properties sport_key and commence_time
+        for backward compatibility with code expecting these attributes.
+
+    VPS FIX: Removed instance attribute shadowing to prevent data inconsistency.
+    The Match class already has sport_key and commence_time as properties that return
+    league and start_time respectively. Using the properties instead of instance attributes
+    ensures data consistency and prevents confusion.
     """
     with get_db_context() as session:
         try:
             matches = session.query(MatchModel).all()
 
-            # Add compatibility attributes for older code that uses sport_key and commence_time
-            for match in matches:
-                # VPS FIX: Extract Match attributes safely to prevent session detachment
-                # This prevents "Trust validation error" when Match object becomes detached
-                # from session due to connection pool recycling under high load
-                league = getattr(match, "league", None)
-                start_time = getattr(match, "start_time", None)
-                match.sport_key = league
-                match.commence_time = start_time
+            # No need to add compatibility attributes - the Match class already has
+            # sport_key and commence_time as properties that return league and start_time
+            # This prevents data inconsistency and confusion
 
             return matches
         except Exception as e:

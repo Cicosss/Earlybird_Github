@@ -48,7 +48,7 @@ class PlayerPosition(Enum):
 
 
 @dataclass
-class PlayerImpact:
+class InjuryPlayerImpact:
     """Impatto di un singolo giocatore assente."""
 
     name: str
@@ -82,7 +82,7 @@ class TeamInjuryImpact:
     key_players_out: list[str] = field(default_factory=list)
     defensive_impact: float = 0.0  # Impatto sulla difesa (0-10)
     offensive_impact: float = 0.0  # Impatto sull'attacco (0-10)
-    players: list[PlayerImpact] = field(default_factory=list)
+    players: list[InjuryPlayerImpact] = field(default_factory=list)
 
     @property
     def severity(self) -> str:
@@ -326,7 +326,7 @@ def calculate_player_impact(
     role: PlayerRole,
     reason: str,
     is_key_player: bool = False,
-) -> PlayerImpact:
+) -> InjuryPlayerImpact:
     """
     Calcola l'impatto di un singolo giocatore assente.
 
@@ -340,7 +340,7 @@ def calculate_player_impact(
         is_key_player: Se è capitano/top scorer
 
     Returns:
-        PlayerImpact con score calcolato
+        InjuryPlayerImpact con score calcolato
     """
     position_weight = POSITION_WEIGHTS.get(position, 1.5)
     role_weight = ROLE_WEIGHTS.get(role, 1.0)
@@ -354,7 +354,7 @@ def calculate_player_impact(
     # Cap a 10.0
     impact_score = min(10.0, impact_score)
 
-    return PlayerImpact(
+    return InjuryPlayerImpact(
         name=player_name,
         position=position,
         role=role,
@@ -401,7 +401,7 @@ def calculate_team_injury_impact(
         )
 
     key_players_set = set(kp.lower() for kp in (key_players or []))
-    player_impacts: list[PlayerImpact] = []
+    player_impacts: list[InjuryPlayerImpact] = []
 
     # Mappa giocatori dalla rosa per ottenere posizione/ruolo
     player_info_map = _build_player_info_map(squad_data) if squad_data else {}
@@ -559,7 +559,18 @@ class InjuryDifferential:
 
     @property
     def is_balanced(self) -> bool:
-        """True se l'impatto è bilanciato tra le due squadre."""
+        """
+        True se l'impatto è bilanciato tra le due squadre.
+
+        Il threshold di 2.0 indica che la differenza di impatto tra le squadre
+        è inferiore a 2.0 punti, il che suggerisce che nessuna squadra ha un
+        vantaggio significativo dovuto agli infortuni. Questo valore è coerente
+        con il threshold usato in _calculate_score_adjustment() per determinare
+        se applicare un aggiustamento al punteggio.
+
+        Returns:
+            True se abs(differential) < 2.0, False altrimenti
+        """
         return abs(self.differential) < 2.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -665,7 +676,7 @@ def _calculate_score_adjustment(
 
     Logica:
     - Se una squadra è molto più colpita, aumenta il valore della scommessa contro di essa
-    - Range: -1.5 a +1.5
+    - Range: -1.8 a +1.8 (base ±1.5 + bonus ±0.3 per severity CRITICAL)
     - Segno: positivo = favorisce away bet, negativo = favorisce home bet
 
     Args:
@@ -809,7 +820,7 @@ def analyze_match_injuries(
 __all__ = [
     "PlayerRole",
     "PlayerPosition",
-    "PlayerImpact",
+    "InjuryPlayerImpact",
     "TeamInjuryImpact",
     "InjuryDifferential",
     "detect_position_from_group",

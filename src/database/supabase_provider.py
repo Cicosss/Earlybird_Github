@@ -20,7 +20,7 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -261,6 +261,19 @@ class SupabaseProvider:
             "cached_keys_count": len(self._cache),
         }
 
+    def reset_cache_lock_stats(self):
+        """
+        Reset cache lock contention statistics.
+
+        Issue 2 fix: Reset lock stats periodically to prevent averages from becoming
+        meaningless over time. This method is thread-safe and should be called by
+        the metrics collector every hour.
+        """
+        with self._cache_lock:
+            self._cache_lock_wait_time = 0.0
+            self._cache_lock_wait_count = 0
+            self._cache_lock_timeout_count = 0
+
     def invalidate_cache(self, cache_key: str | None = None) -> None:
         """
         Invalidate cache for a specific key or all cache entries.
@@ -297,6 +310,7 @@ class SupabaseProvider:
 
         V12.5: Convenience method to clear league cache when leagues are modified.
         V12.5: Optimized to acquire lock ONCE for all keys (reduced lock contention).
+        V13.0: CRITICAL FIX - Moved key listing inside lock to prevent race condition.
 
         This clears cache for:
         - active_leagues_full
@@ -311,20 +325,24 @@ class SupabaseProvider:
             "continents",
         ]
 
-        # Also invalidate any keys that contain "leagues", "countries", or "continents"
-        all_keys = list(self._cache.keys())
-        for key in all_keys:
-            if any(keyword in key.lower() for keyword in ["leagues", "countries", "continents"]):
-                league_related_keys.append(key)
-
-        # Remove duplicates while preserving order
-        league_related_keys = list(dict.fromkeys(league_related_keys))
-
-        # V12.5: OPTIMIZATION - Acquire lock ONCE, invalidate all keys, then release
-        # This is much more efficient than calling invalidate_cache() for each key
-        # which would acquire/release the lock multiple times
+        # V13.0: CRITICAL FIX - Acquire lock BEFORE getting keys to prevent race condition
+        # Previous version had race condition where keys were fetched outside lock
         if self._acquire_cache_lock_with_monitoring(timeout=CACHE_LOCK_TIMEOUT):
             try:
+                # Also invalidate any keys that contain "leagues", "countries", or "continents"
+                all_keys = list(self._cache.keys())
+                for key in all_keys:
+                    if any(
+                        keyword in key.lower() for keyword in ["leagues", "countries", "continents"]
+                    ):
+                        league_related_keys.append(key)
+
+                # Remove duplicates while preserving order
+                league_related_keys = list(dict.fromkeys(league_related_keys))
+
+                # V12.5: OPTIMIZATION - Acquire lock ONCE, invalidate all keys, then release
+                # This is much more efficient than calling invalidate_cache() for each key
+                # which would acquire/release the lock multiple times
                 cleared_count = 0
                 for key in league_related_keys:
                     if key in self._cache:
@@ -525,6 +543,7 @@ class SupabaseProvider:
 
         V11.1: Check for required top-level keys.
         V12.5: Added structural validation for nested data to prevent corruption.
+        V13.0: HIGH FIX - Added "social_sources" to required keys to match mirror data.
 
         Args:
             data: Data to validate
@@ -533,7 +552,8 @@ class SupabaseProvider:
             True if data is complete and structurally valid, False otherwise
         """
         # V11.1: Check for required top-level keys
-        required_keys = ["continents", "countries", "leagues", "news_sources"]
+        # V13.0: Added "social_sources" to match what create_local_mirror() and update_mirror() save
+        required_keys = ["continents", "countries", "leagues", "news_sources", "social_sources"]
         missing_keys = [key for key in required_keys if key not in data]
 
         if missing_keys:
@@ -575,6 +595,9 @@ class SupabaseProvider:
                     required_fields = ["id", "api_key", "tier_name", "country_id"]
                 elif key == "news_sources":
                     required_fields = ["id", "name", "league_id"]
+                elif key == "social_sources":
+                    # V13.0: Added validation for social_sources items
+                    required_fields = ["id", "name", "league_id"]
                 else:
                     required_fields = []
 
@@ -613,7 +636,7 @@ class SupabaseProvider:
             checksum = self._calculate_checksum(data)
 
             mirror_data = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": version,
                 "checksum": checksum,
                 "data": data,
@@ -719,6 +742,8 @@ class SupabaseProvider:
         """
         Load data from local mirror file with checksum validation.
 
+        V13.0: HIGH FIX - Added "social_sources" to validation to match mirror data.
+
         Returns:
             Mirror data dict or None if file doesn't exist or validation fails
         """
@@ -737,6 +762,7 @@ class SupabaseProvider:
 
             # Validate checksum if present
             # V12.5: Enhanced checksum validation with structural checks and fallback
+            # V13.0: Added "social_sources" to required keys validation
             if checksum:
                 calculated_checksum = self._calculate_checksum(data)
                 if calculated_checksum != checksum:
@@ -746,9 +772,16 @@ class SupabaseProvider:
                     # V12.5: Try to validate JSON structure before deciding to use or reject
                     try:
                         # Validate JSON structure - check for required top-level keys
+                        # V13.0: Added "social_sources" to match what create_local_mirror() and update_mirror() save
                         if isinstance(data, dict) and all(
                             k in data
-                            for k in ["continents", "countries", "leagues", "news_sources"]
+                            for k in [
+                                "continents",
+                                "countries",
+                                "leagues",
+                                "news_sources",
+                                "social_sources",
+                            ]
                         ):
                             logger.warning(
                                 "⚠️ Mirror checksum failed but JSON structure is valid - using with caution"
@@ -987,6 +1020,11 @@ class SupabaseProvider:
         continents = self.fetch_continents()
         hierarchical_data = {"continents": []}
 
+        # V13.0: Collect all data during iteration to avoid redundant fetches
+        all_countries = []
+        all_leagues = []
+        all_sources = []
+
         for continent in continents:
             continent_data = {
                 "id": continent.get("id"),
@@ -995,17 +1033,22 @@ class SupabaseProvider:
             }
 
             countries = self.fetch_countries(continent.get("id"))
+            all_countries.extend(countries)
 
             for country in countries:
                 country_data = {"id": country.get("id"), "name": country.get("name"), "leagues": []}
 
                 leagues = self.fetch_leagues(country.get("id"))
+                all_leagues.extend(leagues)
 
                 for league in leagues:
+                    sources = self.fetch_sources(league.get("id"))
+                    all_sources.extend(sources)
+
                     league_data = {
                         "id": league.get("id"),
                         "name": league.get("name"),
-                        "sources": self.fetch_sources(league.get("id")),
+                        "sources": sources,
                     }
                     country_data["leagues"].append(league_data)
 
@@ -1016,12 +1059,12 @@ class SupabaseProvider:
         # Cache the result
         self._set_cache(cache_key, hierarchical_data)
 
-        # Save to mirror
+        # V13.0: Use collected data instead of fetching again
         mirror_data = {
             "continents": continents,
-            "countries": self.fetch_countries(),
-            "leagues": self.fetch_leagues(),
-            "news_sources": self.fetch_sources(),
+            "countries": all_countries,
+            "leagues": all_leagues,
+            "news_sources": all_sources,
         }
         self._save_to_mirror(mirror_data)
 
@@ -1080,15 +1123,14 @@ class SupabaseProvider:
             logger.warning("No active leagues found in database")
             return []
 
-        # Collect unique country_ids and continent_ids from active leagues
+        # V13.0: MEDIUM FIX - Collect unique country_ids from active leagues
+        # Removed incorrect continent_id assignment and unused continent_ids set
+        # Continent info is fetched through countries (see line 1137)
         country_ids = set()
-        continent_ids = set()
         for league in leagues:
             country_id = league.get("country_id")
             if country_id:
                 country_ids.add(country_id)
-            continent_id = league.get("country_id")  # Use country_id to get continent
-            # Note: We'll fetch continent info through countries
 
         # Fetch only the countries and continents needed for active leagues
         # This is much more efficient than fetching all countries/continents
@@ -1261,33 +1303,8 @@ class SupabaseProvider:
         cache_key = f"social_sources_{league_id}"
         return self._execute_query("social_sources", cache_key, filters={"league_id": league_id})
 
-    def get_continental_sources(self, continent_id: str) -> list[dict[str, Any]]:
-        """
-        Fetch all news sources for leagues in a continent.
-
-        Args:
-            continent_id: Continent UUID or ID
-
-        Returns:
-            List of news source records for the continent
-        """
-        # Get all countries in the continent
-        countries = self.fetch_countries(continent_id)
-
-        # Get all leagues in those countries
-        all_leagues = []
-        for country in countries:
-            leagues = self.fetch_leagues(country["id"])
-            all_leagues.extend(leagues)
-
-        # Get all sources for those leagues
-        all_sources = []
-        for league in all_leagues:
-            sources = self.get_news_sources(league["id"])
-            all_sources.extend(sources)
-
-        logger.debug(f"Found {len(all_sources)} sources for continent {continent_id}")
-        return all_sources
+    # V13.0: Removed dead code - get_continental_sources() was never called anywhere in the codebase
+    # Verified by searching for all references across the project
 
     def validate_api_keys(self, leagues: list[dict[str, Any]]) -> dict[str, Any]:
         """

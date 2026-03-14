@@ -337,6 +337,15 @@ except ImportError:
     _DISCOVERY_QUEUE_AVAILABLE = False
     DiscoveryQueue = Any  # Type placeholder
 
+# V2.0: Try to use NewsDeduplicator for intelligent deduplication
+try:
+    from src.utils.url_normalizer import get_deduplicator
+
+    _NEWS_DEDUPLICATOR_AVAILABLE = True
+except ImportError:
+    _NEWS_DEDUPLICATOR_AVAILABLE = False
+    logging.debug("NewsDeduplicator not available for news_hunter")
+
 # Legacy storage (kept for backward compatibility during transition)
 _browser_monitor_discoveries: dict[str, list[dict]] = {}
 _browser_monitor_lock = Lock()
@@ -355,6 +364,7 @@ try:
         FRESHNESS_AGING_THRESHOLD_MIN,
         FRESHNESS_FRESH_THRESHOLD_MIN,
         get_freshness_tag,
+        get_league_aware_freshness,
     )
 
     _FRESHNESS_MODULE_AVAILABLE = True
@@ -383,6 +393,7 @@ def register_browser_monitor_discovery(news: Any) -> None:
 
     V7.0: Now uses DiscoveryQueue for thread-safe communication.
     V6.2: Uses centralized get_freshness_tag() for DRY compliance.
+    V2.0: Uses NewsDeduplicator for intelligent deduplication (COVE fixes).
 
     Args:
         news: DiscoveredNews object from browser monitor
@@ -409,6 +420,23 @@ def register_browser_monitor_discovery(news: Any) -> None:
     except Exception as e:
         logging.warning(f"Failed to extract news attributes: {e}")
         return
+
+    # V2.0: Check for duplicates using NewsDeduplicator (COVE fix)
+    # This prevents duplicate news from being pushed to DiscoveryQueue
+    if _NEWS_DEDUPLICATOR_AVAILABLE:
+        try:
+            dedup = get_deduplicator()
+            is_duplicate, reason = dedup.is_duplicate(url, title, snippet, check_content=True)
+
+            if is_duplicate:
+                # Log duplicate detection with reason
+                title_preview = title[:50] if len(title) > 50 else title
+                logging.info(
+                    f"🔁 [NEWS-DEDUP] Duplicate detected ({reason}): {title_preview} for {affected_team}"
+                )
+                return  # Skip this discovery, it's a duplicate
+        except Exception as e:
+            logging.warning(f"NewsDeduplicator check failed, continuing: {e}")
 
     # Calculate freshness for News Decay integration
     now = datetime.now(timezone.utc)
@@ -454,6 +482,14 @@ def register_browser_monitor_discovery(news: Any) -> None:
         "validation_tag": validation_tag,
         "boosted_confidence": boosted_confidence,
     }
+
+    # V2.0: Mark as seen in NewsDeduplicator after successful deduplication check (COVE fix)
+    if _NEWS_DEDUPLICATOR_AVAILABLE:
+        try:
+            dedup = get_deduplicator()
+            dedup.mark_seen(url, title, snippet)
+        except Exception as e:
+            logging.warning(f"Failed to mark news as seen in deduplicator: {e}")
 
     # V7.0: Use DiscoveryQueue if available
     if _DISCOVERY_QUEUE_AVAILABLE:
@@ -926,6 +962,7 @@ def search_beat_writers_priority(team_alias: str, league_key: str, match_id: str
                 result["beat_writer_outlet"] = source_writer.outlet
                 result["beat_writer_specialty"] = source_writer.specialty
                 result["beat_writer_reliability"] = source_writer.reliability
+                result["avg_lead_time_min"] = source_writer.avg_lead_time_min
 
             results.append(result)
 

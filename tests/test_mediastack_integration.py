@@ -850,11 +850,11 @@ class TestMediastackQuerySanitization:
 
     def test_clean_query_removes_exclusion_terms(self):
         """Query cleaner should remove -term patterns."""
-        from src.ingestion.mediastack_provider import _clean_query_for_mediastack
+        from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 
         # Standard exclusions from search_provider
         query = "Serie A injury -basket -basketball -women -femminile"
-        cleaned = _clean_query_for_mediastack(query)
+        cleaned = MediaStackQueryBuilder._clean_query(query)
 
         assert "-basket" not in cleaned
         assert "-basketball" not in cleaned
@@ -864,10 +864,10 @@ class TestMediastackQuerySanitization:
 
     def test_clean_query_handles_spaced_exclusions(self):
         """Query cleaner should handle '- term' with space."""
-        from src.ingestion.mediastack_provider import _clean_query_for_mediastack
+        from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 
         query = "football news - basket - nba"
-        cleaned = _clean_query_for_mediastack(query)
+        cleaned = MediaStackQueryBuilder._clean_query(query)
 
         assert "basket" not in cleaned
         assert "nba" not in cleaned
@@ -875,37 +875,37 @@ class TestMediastackQuerySanitization:
 
     def test_clean_query_preserves_positive_terms(self):
         """Query cleaner should preserve positive search terms."""
-        from src.ingestion.mediastack_provider import _clean_query_for_mediastack
+        from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 
         query = "Milan Inter injury lineup"
-        cleaned = _clean_query_for_mediastack(query)
+        cleaned = MediaStackQueryBuilder._clean_query(query)
 
         assert cleaned == "Milan Inter injury lineup"
 
     def test_clean_query_preserves_legitimate_dashes(self):
         """Query cleaner should preserve legitimate dashes (not exclusions)."""
-        from src.ingestion.mediastack_provider import _clean_query_for_mediastack
+        from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 
         # Dash between teams
-        assert _clean_query_for_mediastack("Milan - Inter derby") == "Milan - Inter derby"
+        assert MediaStackQueryBuilder._clean_query("Milan - Inter derby") == "Milan - Inter derby"
         # Dash in compound word
-        assert _clean_query_for_mediastack("pre-season injury") == "pre-season injury"
+        assert MediaStackQueryBuilder._clean_query("pre-season injury") == "pre-season injury"
         # Mix of legitimate dash and exclusion
-        assert _clean_query_for_mediastack("Milan - Inter -basket") == "Milan - Inter"
+        assert MediaStackQueryBuilder._clean_query("Milan - Inter -basket") == "Milan - Inter"
 
     def test_clean_query_handles_empty_input(self):
         """Query cleaner should handle empty/None input."""
-        from src.ingestion.mediastack_provider import _clean_query_for_mediastack
+        from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 
-        assert _clean_query_for_mediastack("") == ""
-        assert _clean_query_for_mediastack(None) == ""
+        assert MediaStackQueryBuilder._clean_query("") == ""
+        assert MediaStackQueryBuilder._clean_query(None) == ""
 
     def test_clean_query_normalizes_whitespace(self):
         """Query cleaner should normalize multiple spaces."""
-        from src.ingestion.mediastack_provider import _clean_query_for_mediastack
+        from src.ingestion.mediastack_query_builder import MediaStackQueryBuilder
 
         query = "football  -basket   injury  -nba  news"
-        cleaned = _clean_query_for_mediastack(query)
+        cleaned = MediaStackQueryBuilder._clean_query(query)
 
         # Should have single spaces, no double spaces
         assert "  " not in cleaned

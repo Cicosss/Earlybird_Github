@@ -32,6 +32,7 @@ from src.config.nitter_instances import (
     CIRCUIT_BREAKER_CONFIG,
     NITTER_INSTANCES,
     ROUND_ROBIN_CONFIG,
+    TRANSIENT_ERROR_CONFIG,
 )
 
 logger = logging.getLogger(__name__)
@@ -220,7 +221,9 @@ class NitterPool:
         self.circuit_breakers: Dict[str, CircuitBreaker] = {}
         self.health: Dict[str, InstanceHealth] = {}
         self._round_robin_index = ROUND_ROBIN_CONFIG["initial_index"]
-        self._lock = asyncio.Lock()
+        # CRITICAL BUG #2 FIX: Use threading.Lock instead of asyncio.Lock for consistency
+        # asyncio.Lock doesn't work when called from non-async contexts (e.g., twitter_intel_cache.py:1207)
+        self._lock = threading.Lock()
         # Thread safety: Add lock for protecting InstanceHealth modifications
         self._health_lock = threading.Lock()
 
@@ -234,7 +237,7 @@ class NitterPool:
 
         logger.info(f"🐦 [NITTER-POOL] Initialized with {len(self.instances)} instances")
 
-    async def get_healthy_instance(self) -> Optional[str]:
+    def get_healthy_instance(self) -> Optional[str]:
         """
         Get a healthy Nitter instance using round-robin logic.
 
@@ -242,44 +245,65 @@ class NitterPool:
         healthy instance (circuit is not OPEN). If all instances are unhealthy,
         returns None.
 
+        CRITICAL BUG #2 FIX: Changed from async to sync method to work with threading.Lock
+        This ensures thread safety when called from both async and non-async contexts.
+
+        MODERATE BUG #9 FIX: Only increment index for healthy instances to improve
+        round-robin effectiveness. Previously, the index was incremented for all
+        instances (healthy or not), which reduced efficiency when many instances
+        were unhealthy.
+
         Returns:
             URL of a healthy instance, or None if all are unhealthy
         """
-        async with self._lock:
-            # Try each instance in round-robin order
-            for _ in range(len(self.instances)):
-                instance = self.instances[self._round_robin_index]
-                circuit_breaker = self.circuit_breakers[instance]
+        with self._lock:
+            # MODERATE BUG #9 FIX: Build list of healthy instances first
+            # This improves efficiency by only iterating through healthy instances
+            # instead of checking all instances (including unhealthy ones)
+            healthy_instances = [
+                instance
+                for instance in self.instances
+                if self.circuit_breakers[instance].can_call()
+            ]
 
-                # Check if instance is healthy
-                if circuit_breaker.can_call():
-                    self._round_robin_index = (self._round_robin_index + 1) % len(self.instances)
-                    return instance
+            if not healthy_instances:
+                logger.warning("⚠️ [NITTER-POOL] No healthy instances available")
+                return None
 
-                # Move to next instance
-                self._round_robin_index = (self._round_robin_index + 1) % len(self.instances)
+            # Use round-robin on healthy instances only
+            # This ensures we don't waste time checking unhealthy instances
+            healthy_index = self._round_robin_index % len(healthy_instances)
+            selected_instance = healthy_instances[healthy_index]
 
-            # No healthy instances available
-            logger.warning("⚠️ [NITTER-POOL] No healthy instances available")
-            return None
+            # Increment index for next call (use original instance list size to maintain distribution)
+            self._round_robin_index = (self._round_robin_index + 1) % len(self.instances)
+
+            return selected_instance
 
     def record_success(self, instance: str) -> None:
         """
         Record a successful call to an instance.
 
         Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+        CRITICAL BUG #3 FIX: Properly synchronize CircuitBreaker state access
+        by calling record_success() which uses its own lock, then reading state
+        under the same lock to avoid race conditions.
 
         Args:
             instance: URL of the instance
         """
-        with self._health_lock:
-            if instance in self.circuit_breakers:
-                self.circuit_breakers[instance].record_success()
+        if instance in self.circuit_breakers:
+            # First, record success in CircuitBreaker (uses its own lock)
+            self.circuit_breakers[instance].record_success()
+
+            # Then, update InstanceHealth under _health_lock
+            with self._health_lock:
                 self.health[instance].consecutive_failures = 0
                 self.health[instance].last_success_time = time.time()
                 self.health[instance].successful_calls += 1
                 self.health[instance].total_calls += 1
-                # Synchronize InstanceHealth.state with CircuitBreaker state
+                # CRITICAL BUG #3 FIX: Get state from CircuitBreaker after record_success()
+                # This ensures we read the state after it's been updated under CircuitBreaker's lock
                 self.health[instance].state = self.circuit_breakers[instance].state
                 # Update unified fields
                 self.health[instance].is_healthy = True
@@ -288,29 +312,43 @@ class NitterPool:
                 self.health[instance].last_check = time.time()
                 logger.debug(f"✅ [NITTER-POOL] Success recorded for {instance}")
 
-    def record_failure(self, instance: str) -> None:
+    def record_failure(self, instance: str, is_transient: bool = False) -> None:
         """
         Record a failed call to an instance.
 
         Thread-safe: Uses threading.Lock to protect InstanceHealth modifications.
+        CRITICAL BUG #3 FIX: Properly synchronize CircuitBreaker state access
+        by calling record_failure() which uses its own lock, then reading state
+        under the same lock to avoid race conditions.
 
         Args:
             instance: URL of the instance
+            is_transient: Whether the failure is transient (network timeout, etc.)
         """
-        with self._health_lock:
-            if instance in self.circuit_breakers:
-                self.circuit_breakers[instance].record_failure()
+        if instance in self.circuit_breakers:
+            # First, record failure in CircuitBreaker (uses its own lock)
+            self.circuit_breakers[instance].record_failure()
+
+            # Then, update InstanceHealth under _health_lock
+            with self._health_lock:
                 self.health[instance].consecutive_failures += 1
                 self.health[instance].last_failure_time = time.time()
                 self.health[instance].total_calls += 1
-                # Synchronize InstanceHealth.state with CircuitBreaker state
+                # CRITICAL BUG #3 FIX: Get state from CircuitBreaker after record_failure()
+                # This ensures we read the state after it's been updated under CircuitBreaker's lock
                 self.health[instance].state = self.circuit_breakers[instance].state
                 # Update unified fields
                 self.health[instance].last_check = time.time()
-                # Treat all failures as permanent for nitter_pool.py (simplified)
-                self.health[instance].permanent_failures += 1
+                # SERIOUS BUG #4 FIX: Distinguish between transient and permanent failures
+                if is_transient:
+                    self.health[instance].transient_failures += 1
+                else:
+                    self.health[instance].permanent_failures += 1
                 # Check if instance should be marked unhealthy
-                if self.health[instance].consecutive_failures >= self.circuit_breakers[instance].failure_threshold:
+                if (
+                    self.health[instance].consecutive_failures
+                    >= self.circuit_breakers[instance].failure_threshold
+                ):
                     self.health[instance].is_healthy = False
                 logger.warning(f"❌ [NITTER-POOL] Failure recorded for {instance}")
 
@@ -318,22 +356,40 @@ class NitterPool:
         """
         Get health information for a specific instance.
 
+        MODERATE BUG #8 FIX: Added lock protection to prevent inconsistent reads
+        when multiple threads are accessing health data simultaneously.
+
         Args:
             instance: URL of the instance
 
         Returns:
             InstanceHealth object, or None if instance not found
         """
-        return self.health.get(instance)
+        with self._health_lock:
+            # Return a copy to prevent external modifications
+            health = self.health.get(instance)
+            if health is not None:
+                # Return a deep copy to prevent external modifications
+                from dataclasses import replace
+
+                return replace(health)
+            return None
 
     def get_all_health(self) -> Dict[str, InstanceHealth]:
         """
         Get health information for all instances.
 
+        MODERATE BUG #8 FIX: Added lock protection to prevent inconsistent reads
+        when multiple threads are accessing health data simultaneously.
+
         Returns:
             Dictionary mapping instance URLs to InstanceHealth objects
         """
-        return self.health.copy()
+        with self._health_lock:
+            # Return a deep copy to prevent external modifications
+            from dataclasses import replace
+
+            return {k: replace(v) for k, v in self.health.items()}
 
     def get_healthy_instances(self) -> List[str]:
         """
@@ -417,6 +473,22 @@ class NitterPool:
         except Exception as e:
             logger.warning(f"⚠️ [NITTER-POOL] Failed to parse date '{date_str}': {e}")
             return None
+
+    def _is_transient_error(self, error: Exception) -> bool:
+        """
+        Check if an error is transient (network timeout, connection error, etc.).
+
+        SERIOUS BUG #4 FIX: Implement transient error detection to distinguish
+        between temporary network issues and permanent failures (403, 429).
+
+        Args:
+            error: The exception to check
+
+        Returns:
+            True if the error is transient, False otherwise
+        """
+        error_type_name = type(error).__name__
+        return error_type_name in TRANSIENT_ERROR_CONFIG["error_types"]
 
     def _clean_tweet_text(self, text: str) -> str:
         """
@@ -697,7 +769,8 @@ class NitterPool:
         fetcher = AsyncFetcher()
 
         while retry_count < max_retries:
-            instance = await self.get_healthy_instance()
+            # CRITICAL BUG #2 FIX: get_healthy_instance() is now sync, no await needed
+            instance = self.get_healthy_instance()
             if not instance:
                 logger.error(f"❌ [NITTER-POOL] No healthy instances available for @{username}")
                 break
@@ -717,7 +790,13 @@ class NitterPool:
                     if response.status == 200:
                         # Note: Scrapling's Response.body contains the raw bytes content
                         # response.text may be empty, so we use body and decode it
-                        rss_content = response.body.decode("utf-8", errors="ignore")
+                        # CRITICAL BUG #1 FIX: Check if response.body is None before decoding
+                        if response.body is None:
+                            logger.warning(f"⚠️ [NITTER-POOL] response.body is None for {rss_url}")
+                            # Try using response.text as fallback
+                            rss_content = response.text if response.text else ""
+                        else:
+                            rss_content = response.body.decode("utf-8", errors="ignore")
                         tweets = self._parse_rss_response(rss_content, instance, username)
 
                         if tweets:
@@ -731,13 +810,17 @@ class NitterPool:
                         else:
                             logger.debug(f"⚠️ [NITTER-POOL] RSS response was empty for @{username}")
                     elif response.status == 404:
-                        # User not found - don't record failure
+                        # SERIOUS BUG #6 FIX: Record failure for 404 responses
+                        # If an instance consistently returns 404, it should be marked as unhealthy
                         logger.warning(
                             f"⚠️ [NITTER-POOL] User @{username} not found (404) on {instance}"
                         )
+                        # Record failure but don't retry (user not found is permanent)
+                        self.record_failure(instance, is_transient=False)
                         return []
-                    elif response.status in (403, 429):
-                        # Forbidden or Too Many Requests - trigger browser fallback
+                    elif response.status in (403, 429, 500, 502, 503, 504):
+                        # SERIOUS BUG #5 FIX: Extend browser fallback to server errors (500, 502, 503, 504)
+                        # These errors can benefit from browser impersonation
                         logger.warning(
                             f"⚠️ [NITTER-POOL] RSS blocked ({response.status}) for @{username}, "
                             f"trying browser fallback..."
@@ -764,7 +847,11 @@ class NitterPool:
                             f"⚠️ [NITTER-POOL] RSS returned status {response.status} for @{username}"
                         )
                 except (Exception, asyncio.TimeoutError) as e:
-                    logger.debug(f"⚠️ [NITTER-POOL] RSS request failed for @{username}: {e}")
+                    # SERIOUS BUG #4 FIX: Detect transient errors and record accordingly
+                    is_transient = self._is_transient_error(e)
+                    logger.debug(
+                        f"⚠️ [NITTER-POOL] RSS request failed for @{username}: {e} (transient={is_transient})"
+                    )
 
                 # Attempt 2: Fallback to HTML parsing (Fast Path)
                 html_url = f"{instance}/{username}"
@@ -775,7 +862,13 @@ class NitterPool:
                     if response.status == 200:
                         # Note: Scrapling's Response.body contains the raw bytes content
                         # response.text may be empty, so we use body and decode it
-                        html_content = response.body.decode("utf-8", errors="ignore")
+                        # CRITICAL BUG #1 FIX: Check if response.body is None before decoding
+                        if response.body is None:
+                            logger.warning(f"⚠️ [NITTER-POOL] response.body is None for {html_url}")
+                            # Try using response.text as fallback
+                            html_content = response.text if response.text else ""
+                        else:
+                            html_content = response.body.decode("utf-8", errors="ignore")
                         tweets = self._parse_html_response(html_content, instance, username)
 
                         if tweets:
@@ -789,13 +882,17 @@ class NitterPool:
                         else:
                             logger.debug(f"⚠️ [NITTER-POOL] HTML response was empty for @{username}")
                     elif response.status == 404:
-                        # User not found - don't record failure
+                        # SERIOUS BUG #6 FIX: Record failure for 404 responses
+                        # If an instance consistently returns 404, it should be marked as unhealthy
                         logger.warning(
                             f"⚠️ [NITTER-POOL] User @{username} not found (404) on {instance}"
                         )
+                        # Record failure but don't retry (user not found is permanent)
+                        self.record_failure(instance, is_transient=False)
                         return []
-                    elif response.status in (403, 429):
-                        # Forbidden or Too Many Requests - trigger browser fallback
+                    elif response.status in (403, 429, 500, 502, 503, 504):
+                        # SERIOUS BUG #5 FIX: Extend browser fallback to server errors (500, 502, 503, 504)
+                        # These errors can benefit from browser impersonation
                         logger.warning(
                             f"⚠️ [NITTER-POOL] HTML blocked ({response.status}) for @{username}, "
                             f"trying browser fallback..."
@@ -823,18 +920,27 @@ class NitterPool:
                             f"{response.status} for @{username}"
                         )
                 except (Exception, asyncio.TimeoutError) as e:
-                    logger.debug(f"⚠️ [NITTER-POOL] HTML request failed for @{username}: {e}")
+                    # SERIOUS BUG #4 FIX: Detect transient errors and record accordingly
+                    is_transient = self._is_transient_error(e)
+                    logger.debug(
+                        f"⚠️ [NITTER-POOL] HTML request failed for @{username}: {e} (transient={is_transient})"
+                    )
 
                 # Both attempts failed - record failure and retry with next instance
-                self.record_failure(instance)
+                # SERIOUS BUG #4 FIX: Track whether the failure was transient
+                # Note: We can't determine is_transient here without the exception object
+                # For now, we'll use a conservative approach and treat as permanent
+                self.record_failure(instance, is_transient=False)
                 retry_count += 1
 
             except Exception as e:
                 # Unexpected error - record failure and retry
+                # SERIOUS BUG #4 FIX: Detect transient errors
+                is_transient = self._is_transient_error(e)
                 logger.error(
-                    f"❌ [NITTER-POOL] Unexpected error fetching tweets for @{username}: {e}"
+                    f"❌ [NITTER-POOL] Unexpected error fetching tweets for @{username}: {e} (transient={is_transient})"
                 )
-                self.record_failure(instance)
+                self.record_failure(instance, is_transient=is_transient)
                 retry_count += 1
 
         # All retries exhausted

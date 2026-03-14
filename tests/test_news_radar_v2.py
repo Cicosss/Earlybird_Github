@@ -452,3 +452,294 @@ class TestPatternRegression:
         assert SignalType.FINANCIAL_CRISIS in result.all_signals, (
             f"FINANCIAL_CRISIS should be detected, got: {result.all_signals}"
         )
+
+
+class TestGarbageFilterVPSFixes:
+    """
+    VPS FIX: Comprehensive tests for GarbageFilter edge cases.
+
+    Tests for:
+    - All-caps navigation menus (long ones)
+    - Mixed-case navigation menus
+    - Multilingual content (German, French, Polish)
+    - Edge cases for caps ratio
+    - Performance with high volumes
+    """
+
+    def test_all_caps_navigation_menu_long(self):
+        """Test that long all-caps navigation menus are filtered out."""
+        gf = get_garbage_filter()
+
+        # Long all-caps menu (>50 chars) - should be filtered by clean_content()
+        content = """
+        HOME ABOUT CONTACT MORE NEWS SPORTS FOOTBALL LIVE SCORES
+        The team will play with their youth squad tomorrow due to injuries.
+        This is a significant decision by the coach as they prepare for the cup.
+        """
+
+        cleaned = gf.clean_content(content)
+        # The all-caps line should be removed
+        assert "HOME ABOUT" not in cleaned
+        assert "youth squad" in cleaned
+
+    def test_mixed_case_navigation_menu(self):
+        """Test that mixed-case navigation menus are filtered out."""
+        gf = get_garbage_filter()
+
+        # Mixed-case menu (HOME About Contact MORE)
+        content = """
+        HOME About Contact MORE
+        The player will miss the next match due to injury.
+        This is a blow for the team as they face their rivals.
+        """
+
+        cleaned = gf.clean_content(content)
+        # The mixed-case menu should be removed by NAVIGATION_MENU_PATTERN
+        assert "HOME About" not in cleaned
+        assert "miss the next match" in cleaned
+
+    def test_title_case_navigation_menu(self):
+        """Test that title-case navigation menus are filtered out."""
+        gf = get_garbage_filter()
+
+        # Title-case menu (Home News Sport Football)
+        content = """
+        Home News Sport Football Live
+        The goalkeeper is injured and will miss the upcoming match.
+        The backup goalkeeper will take his place in the starting lineup.
+        """
+
+        cleaned = gf.clean_content(content)
+        # The title-case menu should be removed by NAVIGATION_MENU_PATTERN
+        assert "Home News" not in cleaned
+        assert "goalkeeper is injured" in cleaned
+
+    def test_multilingual_german_content(self):
+        """Test that German content is handled correctly."""
+        gf = get_garbage_filter()
+
+        content = """
+        Ohne sieben Spieler für das Spiel morgen
+        Der Trainer muss eine Notelf zusammenstellen.
+        Dies ist eine schwierige Situation für den Verein.
+        """
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should not be garbage - it's valid German football content
+        assert is_garbage is False, f"German content should not be garbage, reason: {reason}"
+
+    def test_multilingual_french_content(self):
+        """Test that French content is handled correctly."""
+        gf = get_garbage_filter()
+
+        content = """
+        Sans cinq joueurs pour le match de demain
+        L'entraîneur doit composer une équipe d'urgence.
+        C'est une situation difficile pour le club.
+        """
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should not be garbage - it's valid French football content
+        assert is_garbage is False, f"French content should not be garbage, reason: {reason}"
+
+    def test_multilingual_polish_content(self):
+        """Test that Polish content is handled correctly."""
+        gf = get_garbage_filter()
+
+        content = """
+        Bez sześciu graczy na jutrzejszy mecz
+        Trener musi stworzyć drużynę z dostępnych zawodników.
+        To trudna sytuacja dla klubu przed ważnym spotkaniem.
+        """
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should not be garbage - it's valid Polish football content
+        assert is_garbage is False, f"Polish content should not be garbage, reason: {reason}"
+
+    def test_caps_ratio_edge_case_just_below_threshold(self):
+        """Test content with caps ratio just below the threshold (39%)."""
+        gf = get_garbage_filter()
+
+        # Create content with ~39% caps (just below 40% threshold)
+        # Need: caps_count / alpha_count < 0.4
+        # Let's create: 39 uppercase, 61 lowercase = 39 / 100 = 39%
+        # Add enough words to pass minimum word count (15 words)
+        content = (
+            "The "
+            + ("A" * 39 + "a" * 61)
+            + " team will play their match tomorrow with full squad available and ready for the important game against their rivals."
+        )
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should not be garbage - caps ratio is below threshold
+        assert is_garbage is False, f"Content with 39% caps should not be garbage, reason: {reason}"
+
+    def test_caps_ratio_edge_case_just_above_threshold(self):
+        """Test content with caps ratio just above the threshold (41%)."""
+        gf = get_garbage_filter()
+
+        # Create content with ~41% caps (just above 40% threshold)
+        # Need: caps_count / alpha_count > 0.4
+        # Use uppercase words to maintain ratio while meeting word count
+        content = (
+            "THE TEAM WILL PLAY THEIR MATCH TOMORROW WITH FULL SQUAD "
+            "available and ready for the important game against their rivals."
+        )
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should be garbage - caps ratio is above threshold
+        assert is_garbage is True
+        assert "caps" in reason.lower()
+
+    def test_excluded_sports_basketball(self):
+        """Test that basketball content is excluded."""
+        gf = get_garbage_filter()
+
+        content = """
+        The basketball team won the NBA championship last night.
+        They played an excellent game and defeated their rivals.
+        The MVP scored 30 points in the final quarter.
+        """
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should be garbage - basketball is excluded
+        assert is_garbage is True
+        assert "basketball" in reason.lower() or "excluded" in reason.lower()
+
+    def test_excluded_sports_womens_football(self):
+        """Test that women's football content is excluded."""
+        gf = get_garbage_filter()
+
+        content = """
+        The women's team will play in the WSL final tomorrow.
+        They have prepared well for this important match.
+        The coach is confident in her players' abilities.
+        """
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should be garbage - women's football is excluded
+        assert is_garbage is True
+        assert "women" in reason.lower() or "excluded" in reason.lower()
+
+    def test_excluded_sports_nfl(self):
+        """Test that NFL content is excluded."""
+        gf = get_garbage_filter()
+
+        content = """
+        The NFL season starts next week with exciting matchups.
+        The Super Bowl champions will face their division rivals.
+        Fans are eager to see their favorite teams in action.
+        """
+
+        is_garbage, reason = gf.is_garbage(content)
+        # Should be garbage - NFL is excluded
+        assert is_garbage is True
+        assert "nfl" in reason.lower() or "excluded" in reason.lower()
+
+    def test_performance_high_volume_content(self):
+        """Test that GarbageFilter handles high volume content efficiently."""
+        gf = get_garbage_filter()
+        import time
+
+        # Create a large piece of content (simulating high volume)
+        large_content = (
+            """
+        The team will play with their youth squad tomorrow due to injuries.
+        This is a significant decision by the coach as they prepare for the cup.
+        """
+            * 1000
+        )  # ~150k characters
+
+        # Measure time to process
+        start_time = time.time()
+        is_garbage, reason = gf.is_garbage(large_content)
+        end_time = time.time()
+
+        # Should process in reasonable time (< 1 second)
+        processing_time = end_time - start_time
+        assert processing_time < 1.0, f"Processing took too long: {processing_time:.2f}s"
+        # Should not be garbage - it's valid content
+        assert is_garbage is False
+
+    def test_clean_content_removes_multiple_navigation_lines(self):
+        """Test that clean_content removes multiple navigation lines."""
+        gf = get_garbage_filter()
+
+        content = """
+        HOME ABOUT CONTACT MORE
+        The team will play with their youth squad tomorrow.
+        Home News Sport Football Live
+        This is a significant decision by the coach.
+        HOME About Contact MORE
+        They prepare for the cup match against their rivals.
+        """
+
+        cleaned = gf.clean_content(content)
+        # All navigation lines should be removed
+        assert "HOME ABOUT" not in cleaned
+        assert "Home News" not in cleaned
+        # Actual content should remain
+        assert "youth squad" in cleaned
+        assert "significant decision" in cleaned
+        assert "cup match" in cleaned
+
+    def test_clean_content_preserves_normal_uppercase_words(self):
+        """Test that clean_content doesn't remove normal uppercase words."""
+        gf = get_garbage_filter()
+
+        content = """
+        The FIFA World Cup is the most prestigious football tournament.
+        UEFA organizes the Champions League for top European clubs.
+        The Premier League is known for its competitive matches.
+        """
+
+        cleaned = gf.clean_content(content)
+        # Normal uppercase words should remain
+        assert "FIFA" in cleaned
+        assert "World Cup" in cleaned
+        assert "UEFA" in cleaned
+        assert "Champions League" in cleaned
+        assert "Premier League" in cleaned
+
+    def test_excluded_sports_multilingual(self):
+        """Test that excluded sports are detected in multiple languages."""
+        gf = get_garbage_filter()
+
+        # Test basketball in Italian (make it long enough to pass minimum word count)
+        content_it = """
+        La squadra di pallacanestro ha vinto il campionato nazionale.
+        Hanno giocato una partita eccellente contro i loro principali rivali.
+        La vittoria è stata celebrata dai tifosi in tutto lo stadio.
+        L'allenatore ha elogiato la dedizione e la professionalità della squadra.
+        """
+
+        is_garbage, reason = gf.is_garbage(content_it)
+        assert is_garbage is True
+        assert "pallacanestro" in reason.lower() or "basket" in reason.lower()
+
+        # Test basketball in Spanish (make it long enough to pass minimum word count)
+        content_es = """
+        El equipo de baloncesto ganó el campeonato nacional de la liga.
+        Jugaron un excelente partido contra sus principales rivales del torneo.
+        La victoria fue celebrada por los aficionados en todo el estadio.
+        El entrenador elogió la dedicación y profesionalidad del equipo.
+        """
+
+        is_garbage, reason = gf.is_garbage(content_es)
+        assert is_garbage is True
+        assert "baloncesto" in reason.lower() or "basket" in reason.lower()
+
+    def test_navigation_menu_with_special_characters(self):
+        """Test that navigation menus with special characters are handled."""
+        gf = get_garbage_filter()
+
+        content = """
+        HOME | ABOUT | CONTACT | MORE
+        The team will play with their youth squad tomorrow.
+        """
+
+        cleaned = gf.clean_content(content)
+        # The navigation line should be removed
+        assert "HOME" not in cleaned or "|" not in cleaned
+        # Actual content should remain
+        assert "youth squad" in cleaned

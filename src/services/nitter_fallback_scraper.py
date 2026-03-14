@@ -175,47 +175,163 @@ RELEVANCE_KEYWORDS = [
 
 # Native language keywords for pre-AI filtering
 # These are betting-relevant terms in non-English/Italian languages
+# VPS FIX: Updated to match intelligence_gate.py keywords for consistency
+# Now covers 9 languages instead of 3 (spanish, arabic, french, german, portuguese, polish, turkish, russian, dutch)
 NATIVE_KEYWORDS = {
     "spanish": [
         "lesión",  # injury
-        "bajas",  # absences/misses
-        "reserva",  # reserve/bench
-        "equipo alternativo",  # alternative team/bench
-        "sueldos",  # salaries (contract news)
         "huelga",  # strike
-        "convocatoria",  # call-up/squad announcement
         "lesionado",  # injured
+        "dolor",  # pain
+        "problema físico",  # physical problem
+        "baja",  # absence/miss
+        "reserva",  # reserve/bench
         "descartado",  # ruled out
         "duda",  # doubtful
+        "convocatoria",  # call-up/squad announcement
+        "equipo",  # team
+        "jugador",  # player
+        "entrenador",  # coach
+        "club",  # club
         "alineación",  # lineup
         "once titular",  # starting eleven
         "banquillo",  # bench
     ],
     "arabic": [
         "إصابة",  # injury
-        "تشكيلة",  # lineup/formation
-        "بدلاء",  # substitutes/bench
         "أزمة",  # crisis
-        "إضراب",  # strike
-        "مصاب",  # injured
+        "إصابة طبية",  # medical injury
+        "مشكلة صحية",  # health problem
         "غياب",  # absence
+        "مصاب",  # injured
         "الاحتياط",  # reserve/bench
+        "تشكيلة",  # lineup/formation
+        "فريق",  # team
+        "لاعب",  # player
+        "مدرب",  # coach
+        "نادي",  # club
         "الفريق الأساسي",  # starting team
-        "المعسكر",  # training camp
         "القائمة",  # squad list
     ],
     "french": [
         "blessure",  # injury
+        "grève",  # strike
+        "douleur",  # pain
+        "problème physique",  # physical problem
+        "absence",  # absence
+        "blessé",  # injured
         "forfait",  # ruled out
         "réserve",  # reserve/bench
-        "grève",  # strike
-        "équipe B",  # B team
-        "blessé",  # injured
-        "absence",  # absence
+        "composition",  # lineup/formation
+        "équipe",  # team
+        "joueur",  # player
+        "entraîneur",  # coach
+        "club",  # club
         "titulaire",  # starter
         "remplaçant",  # substitute
-        "composition",  # lineup/formation
         "effectif",  # squad
+    ],
+    "german": [
+        "verletzung",  # injury
+        "streik",  # strike
+        "schmerz",  # pain
+        "körperliches problem",  # physical problem
+        "abwesenheit",  # absence
+        "verletzt",  # injured
+        "reservist",  # reserve/bench
+        "aufstellung",  # lineup/formation
+        "mannschaft",  # team
+        "spieler",  # player
+        "trainer",  # coach
+        "verein",  # club
+        "stammspieler",  # starter
+        "ersatzspieler",  # substitute
+        "kader",  # squad
+    ],
+    "portuguese": [
+        "lesão",  # injury
+        "greve",  # strike
+        "dor",  # pain
+        "problema físico",  # physical problem
+        "ausência",  # absence
+        "lesionado",  # injured
+        "reserva",  # reserve/bench
+        "escalação",  # lineup/formation
+        "equipe",  # team
+        "jogador",  # player
+        "treinador",  # coach
+        "clube",  # club
+        "titular",  # starter
+        "reserva",  # substitute
+        "elenco",  # squad
+    ],
+    "polish": [
+        "kontuzja",  # injury
+        "strajk",  # strike
+        "ból",  # pain
+        "problem fizyczny",  # physical problem
+        "nieobecność",  # absence
+        "kontuzjowany",  # injured
+        "rezerwowy",  # reserve/bench
+        "skład",  # lineup/formation
+        "drużyna",  # team
+        "zawodnik",  # player
+        "trener",  # coach
+        "klub",  # club
+        "wyjściowy",  # starter
+        "rezerwowy",  # substitute
+        "kadr",  # squad
+    ],
+    "turkish": [
+        "sakatlık",  # injury
+        "grev",  # strike
+        "ağrı",  # pain
+        "fiziksel sorun",  # physical problem
+        "yokluk",  # absence
+        "sakat",  # injured
+        "yedek",  # reserve/bench
+        "kadro",  # lineup/formation
+        "takım",  # team
+        "oyuncu",  # player
+        "antrenör",  # coach
+        "kulüp",  # club
+        "ilk on bir",  # starting eleven
+        "yedek",  # substitute
+        "squad",  # squad
+    ],
+    "russian": [
+        "травма",  # injury
+        "забастовка",  # strike
+        "боль",  # pain
+        "физическая проблема",  # physical problem
+        "отсутствие",  # absence
+        "травмирован",  # injured
+        "запасной",  # reserve/bench
+        "состав",  # lineup/formation
+        "команда",  # team
+        "игрок",  # player
+        "тренер",  # coach
+        "клуб",  # club
+        "основной",  # starter
+        "запасной",  # substitute
+        "состав",  # squad
+    ],
+    "dutch": [
+        "blessure",  # injury
+        "staking",  # strike
+        "pijn",  # pain
+        "fysiek probleem",  # physical problem
+        "afwezigheid",  # absence
+        "geblesseerd",  # injured
+        "reservespeler",  # reserve/bench
+        "opstelling",  # lineup/formation
+        "team",  # team
+        "speler",  # player
+        "trainer",  # coach
+        "club",  # club
+        "basis",  # starter
+        "wisselspeler",  # substitute
+        "selectie",  # squad
     ],
 }
 
@@ -399,12 +515,14 @@ class NitterCache:
         self._cache_file = Path(cache_file)
         self._ttl_hours = ttl_hours
         self._cache: dict[str, dict] = {}
+        self._cache_lock = threading.Lock()  # VPS FIX: Thread safety for cache operations
         self._load_cache()
 
     def _load_cache(self) -> None:
         """Load cache from file."""
         if not self._cache_file.exists():
-            self._cache = {}
+            with self._cache_lock:  # VPS FIX: Thread-safe initialization
+                self._cache = {}
             return
 
         try:
@@ -412,11 +530,13 @@ class NitterCache:
                 data = json.load(f)
                 # Filter expired entries
                 now = datetime.now(timezone.utc)
-                self._cache = {k: v for k, v in data.items() if self._is_valid_entry(v, now)}
+                with self._cache_lock:  # VPS FIX: Thread-safe write
+                    self._cache = {k: v for k, v in data.items() if self._is_valid_entry(v, now)}
             logger.debug(f"🐦 [NITTER-CACHE] Loaded {len(self._cache)} entries")
         except Exception as e:
             logger.warning(f"⚠️ [NITTER-CACHE] Failed to load cache: {e}")
-            self._cache = {}
+            with self._cache_lock:  # VPS FIX: Thread-safe initialization on error
+                self._cache = {}
 
     def _is_valid_entry(self, entry: dict, now: datetime) -> bool:
         """Check if cache entry is still valid."""
@@ -439,31 +559,39 @@ class NitterCache:
             logger.warning(f"⚠️ [NITTER-CACHE] Failed to save cache: {e}")
 
     def get(self, handle: str) -> list[dict] | None:
-        """Get cached tweets for a handle."""
-        handle_key = handle.lower().replace("@", "")
-        entry = self._cache.get(handle_key)
-        if entry and self._is_valid_entry(entry, datetime.now(timezone.utc)):
-            return entry.get("tweets", [])
-        return None
+        """
+        Get cached tweets for a handle.
+
+        Returns:
+            list[dict] | None: Cached tweets if found and valid, None if not found or expired.
+        """
+        with self._cache_lock:  # VPS FIX: Thread-safe read
+            handle_key = handle.lower().replace("@", "")
+            entry = self._cache.get(handle_key)
+            if entry and self._is_valid_entry(entry, datetime.now(timezone.utc)):
+                return entry.get("tweets", [])
+            return None
 
     def set(self, handle: str, tweets: list[dict]) -> None:
         """Cache tweets for a handle."""
-        handle_key = handle.lower().replace("@", "")
-        self._cache[handle_key] = {
-            "tweets": tweets,
-            "cached_at": datetime.now(timezone.utc).isoformat(),
-        }
-        self._save_cache()
+        with self._cache_lock:  # VPS FIX: Thread-safe write
+            handle_key = handle.lower().replace("@", "")
+            self._cache[handle_key] = {
+                "tweets": tweets,
+                "cached_at": datetime.now(timezone.utc).isoformat(),
+            }
+            self._save_cache()  # This is already inside the lock
 
     def clear_expired(self) -> int:
         """Remove expired entries. Returns count removed."""
-        now = datetime.now(timezone.utc)
-        expired = [k for k, v in self._cache.items() if not self._is_valid_entry(v, now)]
-        for k in expired:
-            del self._cache[k]
-        if expired:
-            self._save_cache()
-        return len(expired)
+        with self._cache_lock:  # VPS FIX: Thread-safe modification
+            now = datetime.now(timezone.utc)
+            expired = [k for k, v in self._cache.items() if not self._is_valid_entry(v, now)]
+            for k in expired:
+                del self._cache[k]
+            if expired:
+                self._save_cache()  # This is already inside the lock
+            return len(expired)
 
 
 # ============================================
@@ -511,6 +639,9 @@ class NitterFallbackScraper:
         self._playwright = None
         self._browser = None
 
+        # VPS FIX: Lock for thread-safe browser initialization
+        self._browser_lock = asyncio.Lock()
+
         # Stats
         self._total_scraped = 0
         self._cache_hits = 0
@@ -523,26 +654,31 @@ class NitterFallbackScraper:
         if self._browser and self._browser.is_connected():
             return True
 
-        try:
-            from playwright.async_api import async_playwright
+        async with self._browser_lock:  # VPS FIX: Thread-safe browser initialization
+            # Double-check after acquiring lock
+            if self._browser and self._browser.is_connected():
+                return True
 
-            if not self._playwright:
-                self._playwright = await async_playwright().start()
+            try:
+                from playwright.async_api import async_playwright
 
-            self._browser = await self._playwright.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-gpu",
-                    "--disable-dev-shm-usage",
-                    "--no-sandbox",
-                    "--disable-extensions",
-                ],
-            )
-            logger.info("✅ [NITTER-FALLBACK] Browser initialized")
-            return True
-        except Exception as e:
-            logger.error(f"❌ [NITTER-FALLBACK] Failed to init browser: {e}")
-            return False
+                if not self._playwright:
+                    self._playwright = await async_playwright().start()
+
+                self._browser = await self._playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-gpu",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox",
+                        "--disable-extensions",
+                    ],
+                )
+                logger.info("✅ [NITTER-FALLBACK] Browser initialized")
+                return True
+            except Exception as e:
+                logger.error(f"❌ [NITTER-FALLBACK] Failed to init browser: {e}")
+                return False
 
     async def close(self) -> None:
         """Close browser resources."""
@@ -1774,11 +1910,12 @@ class NitterFallbackScraper:
             )
 
             # V10.5 FIX: Store intel in shared cache for main.py to access
-            _nitter_intel_cache[match_id] = {
-                "handle": handle,
-                "intel": forced_narrative,
-                "timestamp": datetime.now(timezone.utc),
-            }
+            with _nitter_intel_cache_lock:  # VPS FIX: Thread-safe write
+                _nitter_intel_cache[match_id] = {
+                    "handle": handle,
+                    "intel": forced_narrative,
+                    "timestamp": datetime.now(timezone.utc),
+                }
 
             logger.info(
                 f"✅ [NITTER-CYCLE] Intel cached for match {match_id}: {forced_narrative[:100]}..."
@@ -1795,6 +1932,7 @@ class NitterFallbackScraper:
 # Cache for storing Nitter intel that main.py can access
 # Format: {match_id: {"handle": str, "intel": str, "timestamp": datetime}}
 _nitter_intel_cache: dict[str, dict[str, Any]] = {}
+_nitter_intel_cache_lock = threading.Lock()  # VPS FIX: Thread safety for concurrent access
 
 
 def get_nitter_intel_for_match(match_id: str) -> dict[str, Any] | None:
@@ -1809,7 +1947,8 @@ def get_nitter_intel_for_match(match_id: str) -> dict[str, Any] | None:
     Returns:
         Dict with 'handle', 'intel', 'timestamp' keys, or None if no intel exists
     """
-    return _nitter_intel_cache.get(match_id)
+    with _nitter_intel_cache_lock:  # VPS FIX: Thread-safe read
+        return _nitter_intel_cache.get(match_id)
 
 
 def clear_nitter_intel_cache() -> None:
@@ -1823,13 +1962,14 @@ def clear_nitter_intel_cache() -> None:
     now = datetime.now(timezone.utc)
     expired_keys = []
 
-    for match_id, intel_data in _nitter_intel_cache.items():
-        intel_time = intel_data.get("timestamp")
-        if intel_time and (now - intel_time).total_seconds() > 86400:  # 24 hours
-            expired_keys.append(match_id)
+    with _nitter_intel_cache_lock:  # VPS FIX: Thread-safe modification
+        for match_id, intel_data in _nitter_intel_cache.items():
+            intel_time = intel_data.get("timestamp")
+            if intel_time and (now - intel_time).total_seconds() > 86400:  # 24 hours
+                expired_keys.append(match_id)
 
-    for key in expired_keys:
-        del _nitter_intel_cache[key]
+        for key in expired_keys:
+            del _nitter_intel_cache[key]
 
     if expired_keys:
         logger.debug(f"🗑️ [NITTER-CACHE] Cleared {len(expired_keys)} expired entries")

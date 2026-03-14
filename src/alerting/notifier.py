@@ -42,6 +42,15 @@ except ImportError:
     _CONTRACTS_AVAILABLE = False
     logging.debug("Contracts module not available for notifier")
 
+# V14.0: Import EnhancedMatchAlert for type-safe alert handling
+try:
+    from src.models import EnhancedMatchAlert
+
+    _ENHANCED_ALERT_AVAILABLE = True
+except ImportError:
+    _ENHANCED_ALERT_AVAILABLE = False
+    logging.debug("EnhancedMatchAlert not available for notifier")
+
 # Log version on import
 logger = logging.getLogger(__name__)
 logger.info(f"📦 {get_version_with_module('Notifier')}")
@@ -1028,17 +1037,22 @@ def _truncate_message_if_needed(
 # ============================================
 
 
-def send_alert_wrapper(**kwargs) -> None:
+def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> None:
     """
-    V9.5: Wrapper function to convert main.py keyword arguments to notifier.send_alert positional arguments.
+    V14.0: Wrapper function to convert alert data to notifier.send_alert parameters.
 
-    Main.py calls send_alert with keyword arguments that don't match the function signature.
-    This wrapper handles the conversion.
+    V14.0 UPDATE: Now accepts EnhancedMatchAlert objects for type safety,
+    while maintaining backward compatibility with legacy kwargs.
 
     Args:
-        **kwargs: Keyword arguments from main.py
+        alert: EnhancedMatchAlert object (preferred, V14.0)
+        **kwargs: Legacy keyword arguments for backward compatibility
 
-    Keyword argument mapping:
+    Alert Data Sources (priority order):
+        1. alert: EnhancedMatchAlert object (preferred, V14.0)
+        2. **kwargs: Legacy keyword arguments (backward compatibility)
+
+    Keyword argument mapping (legacy):
         - match -> match_obj
         - score -> score
         - market -> recommended_market
@@ -1057,45 +1071,138 @@ def send_alert_wrapper(**kwargs) -> None:
         - analysis_result -> NewsLog object to update with odds_at_alert (V8.3)
         - db_session -> Database session for updating NewsLog (V8.3)
     """
-    # Extract and convert keyword arguments
-    match_obj = kwargs.get("match")
-    score = kwargs.get("score")
-    league = kwargs.get("league", "") or getattr(match_obj, "league", "")
+    # V14.0: Handle EnhancedMatchAlert object or legacy kwargs
+    if alert is not None:
+        # Use EnhancedMatchAlert object (preferred path)
+        # Extract fields from the structured alert object
+        match_obj = alert.analysis_result
+        score = alert.score
+        league = alert.league
+        news_summary = alert.news_summary
+        news_url = alert.news_url
+        combo_suggestion = alert.combo_suggestion
+        combo_reasoning = alert.combo_reasoning
+        recommended_market = alert.recommended_market
+        math_edge = alert.math_edge
+        is_update = alert.is_update
+        financial_risk = alert.financial_risk
+        intel_source = alert.intel_source
+        referee_intel = alert.referee_intel
+        twitter_intel = alert.twitter_intel
+        validated_home_team = alert.validated_home_team
+        validated_away_team = alert.validated_away_team
+        verification_info = alert.verification_info
+        final_verification_info = alert.final_verification_info
+        injury_intel = alert.injury_intel
+        confidence_breakdown = alert.confidence_breakdown
+        is_convergent = alert.is_convergent
+        convergence_sources = alert.convergence_sources
+        market_warning = alert.market_warning
+        analysis_result = alert.analysis_result
+        db_session = alert.db_session
 
-    # Build news_summary from news_articles
-    news_articles = kwargs.get("news_articles", [])
-    news_summary = news_articles[0].get("snippet", "") if news_articles else ""
-    news_url = news_articles[0].get("link", "") if news_articles else ""
+        logging.info(
+            "📊 V14.0: Using EnhancedMatchAlert object for alert - "
+            f"score={score}, market={recommended_market}"
+        )
+    else:
+        # Legacy path: Extract and convert keyword arguments
+        logging.info("📊 V14.0: Using legacy kwargs for alert (backward compatibility)")
+        match_obj = kwargs.get("match")
+        score = kwargs.get("score")
+        league = kwargs.get("league", "") or getattr(match_obj, "league", "")
 
-    # Extract optional parameters with defaults
-    combo_suggestion = kwargs.get("combo_suggestion")
-    combo_reasoning = kwargs.get("combo_reasoning")
-    recommended_market = kwargs.get("market") or kwargs.get("recommended_market")
-    math_edge = kwargs.get("math_edge")
-    is_update = kwargs.get("is_update", False)
-    financial_risk = kwargs.get("financial_risk")
-    intel_source = kwargs.get("intel_source", "web")
-    referee_intel = kwargs.get("referee_intel")
-    twitter_intel = kwargs.get("twitter_intel")
-    validated_home_team = kwargs.get("validated_home_team")
-    validated_away_team = kwargs.get("validated_away_team")
-    verification_info = kwargs.get("verification_result")
-    final_verification_info = kwargs.get(
-        "final_verification_info"
-    )  # BUG #2 FIX: Extract final verification info
-    injury_intel = kwargs.get("injury_impact_home") or kwargs.get("injury_impact_away")
-    confidence_breakdown = kwargs.get("confidence_breakdown")
+        # Build news_summary from news_articles
+        news_articles = kwargs.get("news_articles", [])
+        news_summary = news_articles[0].get("snippet", "") if news_articles else ""
+        news_url = news_articles[0].get("link", "") if news_articles else ""
 
-    # V9.5: Extract convergence parameters
-    is_convergent = kwargs.get("is_convergent", False)
-    convergence_sources = kwargs.get("convergence_sources")
+        # Extract optional parameters with defaults
+        combo_suggestion = kwargs.get("combo_suggestion")
+        combo_reasoning = kwargs.get("combo_reasoning")
+        recommended_market = kwargs.get("market") or kwargs.get("recommended_market")
+        math_edge = kwargs.get("math_edge")
+        is_update = kwargs.get("is_update", False)
+        financial_risk = kwargs.get("financial_risk")
+        intel_source = kwargs.get("intel_source", "web")
+        referee_intel = kwargs.get("referee_intel")
+        twitter_intel = kwargs.get("twitter_intel")
+        validated_home_team = kwargs.get("validated_home_team")
+        validated_away_team = kwargs.get("validated_away_team")
+        verification_info = kwargs.get("verification_result")
+        final_verification_info = kwargs.get(
+            "final_verification_info"
+        )  # BUG #2 FIX: Extract final verification info
+        injury_intel = kwargs.get("injury_impact_home") or kwargs.get("injury_impact_away")
+        confidence_breakdown = kwargs.get("confidence_breakdown")
 
-    # V11.1 FIX: Extract market_warning parameter
-    market_warning = kwargs.get("market_warning")
+        # V9.5: Extract convergence parameters
+        is_convergent = kwargs.get("is_convergent", False)
+        convergence_sources = kwargs.get("convergence_sources")
 
-    # V8.3: Extract NewsLog update parameters
-    analysis_result = kwargs.get("analysis_result")
-    db_session = kwargs.get("db_session")
+        # V11.1 FIX: Extract market_warning parameter
+        market_warning = kwargs.get("market_warning")
+
+        # V8.3: Extract NewsLog update parameters
+        analysis_result = kwargs.get("analysis_result")
+        db_session = kwargs.get("db_session")
+
+    # VPS CRITICAL FIX: Thread-safe alert flag check with row-level locking
+    # This prevents race conditions where multiple threads could check the flag
+    # simultaneously and both send alerts before the flag is updated.
+    # Uses SELECT ... FOR UPDATE to lock the row atomically.
+    from src.database.models import Match as MatchModel
+
+    if match_obj and db_session:
+        match_id = getattr(match_obj, "id", None)
+        if match_id:
+            try:
+                # Query with row-level lock to prevent race conditions
+                locked_match = (
+                    db_session.query(MatchModel)
+                    .filter(MatchModel.id == match_id)
+                    .with_for_update()
+                    .first()
+                )
+
+                if locked_match and locked_match.odds_alert_sent:
+                    home_team = getattr(match_obj, "home_team", "Unknown")
+                    away_team = getattr(match_obj, "away_team", "Unknown")
+                    logging.warning(
+                        f"🚫 COVE: Skipping duplicate odds alert for Match ID {match_id} "
+                        f"({home_team} vs {away_team}) - odds_alert_sent flag is already True "
+                        f"(thread-safe check with row-level lock)"
+                    )
+                    return
+            except Exception as e:
+                # If locking fails, fall back to non-thread-safe check
+                logging.warning(
+                    f"⚠️ COVE: Row-level lock failed for match {match_id}, falling back to non-thread-safe check: {e}"
+                )
+                if match_obj and hasattr(match_obj, "odds_alert_sent"):
+                    if match_obj.odds_alert_sent:
+                        match_id = getattr(match_obj, "id", "unknown")
+                        home_team = getattr(match_obj, "home_team", "Unknown")
+                        away_team = getattr(match_obj, "away_team", "Unknown")
+                        logging.warning(
+                            f"🚫 COVE: Skipping duplicate odds alert for Match ID {match_id} "
+                            f"({home_team} vs {away_team}) - odds_alert_sent flag is already True"
+                        )
+                        return
+
+    # COVE FIX: Check if match is upcoming before sending alert
+    if match_obj and hasattr(match_obj, "is_upcoming"):
+        if not match_obj.is_upcoming():
+            match_id = getattr(match_obj, "id", "unknown")
+            home_team = getattr(match_obj, "home_team", "Unknown")
+            away_team = getattr(match_obj, "away_team", "Unknown")
+            start_time = getattr(match_obj, "start_time", None)
+            logging.warning(
+                f"🚫 COVE: Skipping odds alert for Match ID {match_id} "
+                f"({home_team} vs {away_team}) - match is not upcoming "
+                f"(start_time: {start_time})"
+            )
+            return
 
     # V8.3 FIX: Save odds_at_alert and alert_sent_at to NewsLog
     if analysis_result and db_session and match_obj:
@@ -1226,6 +1333,64 @@ def send_alert_wrapper(**kwargs) -> None:
         convergence_sources=convergence_sources,
         market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
     )
+
+    # COVE FIX: Update odds_alert_sent flag and last_alert_time after sending alert
+    if db_session and match_obj:
+        try:
+            from datetime import datetime, timezone
+
+            from sqlalchemy import text
+
+            match_id = getattr(match_obj, "id", None)
+            if match_id:
+                try:
+                    db_session.execute(
+                        text("""
+                            UPDATE matches
+                            SET odds_alert_sent = 1,
+                                last_alert_time = :alert_time
+                            WHERE id = :id
+                        """),
+                        {
+                            "alert_time": datetime.now(timezone.utc),
+                            "id": match_id,
+                        },
+                    )
+                    db_session.commit()  # Explicit commit
+
+                    logging.info(f"📊 COVE: Updated odds_alert_sent flag for Match ID {match_id}")
+                except Exception as commit_error:
+                    db_session.rollback()  # Explicit rollback on error
+                    raise commit_error
+        except Exception as e:
+            # Log error but don't fail the alert (alert was already sent)
+            import traceback
+
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "match_id": getattr(match_obj, "id", "unknown"),
+                "match": f"{getattr(match_obj, 'home_team', 'Unknown')} vs {getattr(match_obj, 'away_team', 'Unknown')}",
+                "traceback": traceback.format_exc()
+                if logging.getLogger().level <= logging.DEBUG
+                else "disabled (set DEBUG level to see)",
+            }
+
+            # Explicit rollback on error
+            try:
+                db_session.rollback()
+            except Exception:
+                pass  # Ignore rollback errors
+
+            logging.error(
+                f"❌ COVE: Failed to update odds_alert_sent flag for Match ID {error_details['match_id']}. "
+                f"Match: {error_details['match']}. "
+                f"Error: {error_details['error_type']}: {error_details['error_message']}"
+            )
+            logging.info(
+                "ℹ️ COVE: Alert was sent to Telegram but odds_alert_sent flag update failed. "
+                "Duplicate alerts may occur for this match."
+            )
 
 
 # ============================================
@@ -1498,6 +1663,15 @@ def send_alert(
             logging.info(
                 f"Telegram Alert sent for {match_str} | Movement: {movement['message']} | {link_status}"
             )
+            # Record alert in health monitor
+            try:
+                from src.alerting.health_monitor import get_health_monitor
+
+                health = get_health_monitor()
+                health.record_alert_sent()
+            except Exception as e:
+                logging.warning(f"Failed to record alert in health monitor: {e}")
+                # Continue anyway - alert was sent successfully
         else:
             # HTML parsing failed - fallback to plain text
             _send_plain_text_fallback(url, message, news_url, match_str)
@@ -1537,6 +1711,15 @@ def _send_plain_text_fallback(
         )
         if response_plain.status_code == 200:
             logging.info(f"Telegram Alert sent (plain text fallback) for {match_str}")
+            # Record alert in health monitor
+            try:
+                from src.alerting.health_monitor import get_health_monitor
+
+                health = get_health_monitor()
+                health.record_alert_sent()
+            except Exception as e:
+                logging.warning(f"Failed to record alert in health monitor: {e}")
+                # Continue anyway - alert was sent successfully
         else:
             logging.error(f"Invio alert fallito: {response_plain.text}")
     except Exception as e2:
@@ -1708,11 +1891,14 @@ def send_biscotto_alert(
     zscore: float | None = None,
     mutual_benefit: bool | None = None,
     betting_recommendation: str | None = None,
+    # COVE FIX: Database session for updating alert flags
+    db_session: Any = None,
 ) -> None:
     """
     Send a specialized alert for Biscotto (mutual draw benefit) detection.
 
     V13.0: Enhanced with Advanced Biscotto Engine V2.0 fields
+    COVE FIX: Added db_session parameter for updating alert flags
 
     Args:
         match_obj: Match database object with team info and odds
@@ -1730,10 +1916,68 @@ def send_biscotto_alert(
         zscore: Z-score statistical anomaly from Advanced Biscotto Engine (optional)
         mutual_benefit: Whether both teams benefit from draw from Advanced Biscotto Engine (optional)
         betting_recommendation: Betting recommendation from Advanced Biscotto Engine (optional)
+        db_session: Database session for updating biscotto_alert_sent flag (optional)
     """
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping biscotto alert.")
         return
+
+    # VPS CRITICAL FIX: Thread-safe alert flag check with row-level locking
+    # This prevents race conditions where multiple threads could check flag
+    # simultaneously and both send alerts before flag is updated.
+    # Uses SELECT ... FOR UPDATE to lock row atomically.
+    from src.database.models import Match as MatchModel
+
+    if match_obj and db_session:
+        match_id = getattr(match_obj, "id", None)
+        if match_id:
+            try:
+                # Query with row-level lock to prevent race conditions
+                locked_match = (
+                    db_session.query(MatchModel)
+                    .filter(MatchModel.id == match_id)
+                    .with_for_update()
+                    .first()
+                )
+
+                if locked_match and locked_match.biscotto_alert_sent:
+                    home_team = getattr(match_obj, "home_team", "Unknown")
+                    away_team = getattr(match_obj, "away_team", "Unknown")
+                    logging.warning(
+                        f"🚫 COVE: Skipping duplicate biscotto alert for Match ID {match_id} "
+                        f"({home_team} vs {away_team}) - biscotto_alert_sent flag is already True "
+                        f"(thread-safe check with row-level lock)"
+                    )
+                    return
+            except Exception as e:
+                # If locking fails, fall back to non-thread-safe check
+                logging.warning(
+                    f"⚠️ COVE: Row-level lock failed for match {match_id}, falling back to non-thread-safe check: {e}"
+                )
+                if match_obj and hasattr(match_obj, "biscotto_alert_sent"):
+                    if match_obj.biscotto_alert_sent:
+                        match_id = getattr(match_obj, "id", "unknown")
+                        home_team = getattr(match_obj, "home_team", "Unknown")
+                        away_team = getattr(match_obj, "away_team", "Unknown")
+                        logging.warning(
+                            f"🚫 COVE: Skipping duplicate biscotto alert for Match ID {match_id} "
+                            f"({home_team} vs {away_team}) - biscotto_alert_sent flag is already True"
+                        )
+                        return
+
+    # COVE FIX: Check if match is upcoming before sending alert
+    if match_obj and hasattr(match_obj, "is_upcoming"):
+        if not match_obj.is_upcoming():
+            match_id = getattr(match_obj, "id", "unknown")
+            home_team = getattr(match_obj, "home_team", "Unknown")
+            away_team = getattr(match_obj, "away_team", "Unknown")
+            start_time = getattr(match_obj, "start_time", None)
+            logging.warning(
+                f"🚫 COVE: Skipping biscotto alert for Match ID {match_id} "
+                f"({home_team} vs {away_team}) - match is not upcoming "
+                f"(start_time: {start_time})"
+            )
+            return
 
     home_team = getattr(match_obj, "home_team", "Unknown")
     away_team = getattr(match_obj, "away_team", "Unknown")
@@ -1843,6 +2087,75 @@ def send_biscotto_alert(
             logging.info(
                 f"Biscotto Alert sent for {match_str} | Severity: {severity_normalized} | {link_status}"
             )
+            # Record alert in health monitor
+            try:
+                from src.alerting.health_monitor import get_health_monitor
+
+                health = get_health_monitor()
+                health.record_alert_sent()
+            except Exception as e:
+                logging.warning(f"Failed to record biscotto alert in health monitor: {e}")
+                # Continue anyway - alert was sent successfully
+
+            # COVE FIX: Update biscotto_alert_sent flag and last_alert_time after sending alert
+            if db_session and match_obj:
+                try:
+                    from datetime import datetime, timezone
+
+                    from sqlalchemy import text
+
+                    match_id = getattr(match_obj, "id", None)
+                    if match_id:
+                        try:
+                            db_session.execute(
+                                text("""
+                                    UPDATE matches
+                                    SET biscotto_alert_sent = 1,
+                                        last_alert_time = :alert_time
+                                    WHERE id = :id
+                                """),
+                                {
+                                    "alert_time": datetime.now(timezone.utc),
+                                    "id": match_id,
+                                },
+                            )
+                            db_session.commit()  # Explicit commit
+
+                            logging.info(
+                                f"📊 COVE: Updated biscotto_alert_sent flag for Match ID {match_id}"
+                            )
+                        except Exception as commit_error:
+                            db_session.rollback()  # Explicit rollback on error
+                            raise commit_error
+                except Exception as e:
+                    # Log error but don't fail the alert (alert was already sent)
+                    import traceback
+
+                    error_details = {
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                        "match_id": getattr(match_obj, "id", "unknown"),
+                        "match": f"{getattr(match_obj, 'home_team', 'Unknown')} vs {getattr(match_obj, 'away_team', 'Unknown')}",
+                        "traceback": traceback.format_exc()
+                        if logging.getLogger().level <= logging.DEBUG
+                        else "disabled (set DEBUG level to see)",
+                    }
+
+                    # Explicit rollback on error
+                    try:
+                        db_session.rollback()
+                    except Exception:
+                        pass  # Ignore rollback errors
+
+                    logging.error(
+                        f"❌ COVE: Failed to update biscotto_alert_sent flag for Match ID {error_details['match_id']}. "
+                        f"Match: {error_details['match']}. "
+                        f"Error: {error_details['error_type']}: {error_details['error_message']}"
+                    )
+                    logging.info(
+                        "ℹ️ COVE: Alert was sent to Telegram but biscotto_alert_sent flag update failed. "
+                        "Duplicate alerts may occur for this match."
+                    )
         else:
             # HTML parsing failed - fallback to plain text
             _send_plain_text_fallback(url, message, news_url, match_str)

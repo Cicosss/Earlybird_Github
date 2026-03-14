@@ -23,7 +23,7 @@ import urllib.parse
 from collections.abc import Callable
 from datetime import datetime
 from difflib import SequenceMatcher
-from typing import Any
+from typing import Any, Protocol
 
 import pytz
 import requests
@@ -64,6 +64,43 @@ except ImportError:
     _TEAM_MAPPING_AVAILABLE = False
     get_fotmob_team_id = None
     logger.warning("⚠️ FotMob team mapping not available - using dynamic search only")
+
+# ============================================
+# TYPE DEFINITIONS
+# ============================================
+
+
+class ResponseLike(Protocol):
+    """Protocol for response-like objects with status_code and json() method."""
+
+    status_code: int
+
+    def json(self) -> dict:
+        """Parse and return JSON data from the response."""
+        ...
+
+
+class _MockResponse:
+    """
+    Mock response object for Playwright fallback.
+
+    This class provides a duck-typed response object that is compatible
+    with requests.Response for the subset of methods used by FotMobProvider.
+    """
+
+    def __init__(self, data: dict):
+        """Initialize mock response with JSON data."""
+        self.status_code = 200
+        self._data = data
+
+    def json(self) -> dict:
+        """Return the JSON data."""
+        return self._data
+
+    def __repr__(self) -> str:
+        """Return a string representation for debugging."""
+        return f"_MockResponse(status_code={self.status_code}, data_keys={list(self._data.keys())})"
+
 
 # ============================================
 # RATE LIMITING & CACHING CONFIGURATION
@@ -855,7 +892,7 @@ class FotMobProvider:
 
     def _make_request_with_fallback(
         self, url: str, retries: int = FOTMOB_MAX_RETRIES
-    ) -> requests.Response | None:
+    ) -> ResponseLike | None:
         """
         V7.0: Hybrid approach - Try requests first, fallback to Playwright on 403.
 
@@ -937,16 +974,8 @@ class FotMobProvider:
         data = self._fetch_with_playwright(url)
 
         if data is not None:
-            # Create a mock response object
-            class MockResponse:
-                def __init__(self, data):
-                    self.status_code = 200
-                    self._data = data
-
-                def json(self):
-                    return self._data
-
-            return MockResponse(data)
+            # Create a mock response object using module-level class
+            return _MockResponse(data)
 
         logger.error("❌ [FOTMOB] Both requests and Playwright failed")
         return None

@@ -32,7 +32,6 @@ class ModificationType(Enum):
     SCORE_ADJUSTMENT = "score_adjustment"
     DATA_CORRECTION = "data_correction"
     REASONING_UPDATE = "reasoning_update"
-    COMBO_MODIFICATION = "combo_modification"
 
 
 class ModificationPriority(Enum):
@@ -45,7 +44,17 @@ class ModificationPriority(Enum):
 
 
 class FeedbackDecision(Enum):
-    """Decision on feedback loop application."""
+    """Decision on feedback loop application.
+
+    Note:
+        - AUTO_APPLY: Automatically apply modifications via feedback loop
+        - MANUAL_REVIEW: Log for manual human review
+        - IGNORE: No modifications needed (early exit, not a decision type)
+
+    IGNORE is returned by analyze_verifier_suggestions() when no modifications
+    are needed, before the decision logic is invoked. The decision logic
+    (_make_feedback_decision) only returns AUTO_APPLY or MANUAL_REVIEW.
+    """
 
     AUTO_APPLY = "auto_apply"  # Automatic feedback loop
     MANUAL_REVIEW = "manual_review"  # Log for manual review
@@ -97,7 +106,8 @@ class IntelligentModificationLogger:
         # VPS FIX #1: Thread-safe locks for concurrent access
         # Using threading.Lock() because all methods are synchronous
         self._learning_patterns_lock = threading.Lock()
-        self._component_registry_lock = threading.Lock()
+        # Note: _component_registry_lock removed (unused) - component_registry
+        # is only modified by StepByStepFeedbackLoop with its own lock
 
         # VPS FIX #2: Learning patterns loaded from database
         self.learning_patterns = {}
@@ -107,6 +117,7 @@ class IntelligentModificationLogger:
         # Data is already persisted in ModificationHistory database table
 
         # Component registry for tracking component communications
+        # This is modified by StepByStepFeedbackLoop with its own lock
         self.component_registry = {}
 
     def _load_learning_patterns_from_db(self):
@@ -120,30 +131,34 @@ class IntelligentModificationLogger:
             with get_db_session() as db:
                 patterns = db.query(LearningPattern).all()
 
-                for pattern in patterns:
-                    # Convert database pattern to in-memory format
-                    pattern_key = pattern.pattern_key
-                    self.learning_patterns[pattern_key] = {
-                        "modification_count": pattern.modification_count,
-                        "confidence_level": pattern.confidence_level,
-                        "discrepancy_count": pattern.discrepancy_count,
-                        "total_occurrences": pattern.total_occurrences,
-                        "auto_apply_count": pattern.auto_apply_count,
-                        "manual_review_count": pattern.manual_review_count,
-                        "ignore_count": pattern.ignore_count,
-                        "success_rate": pattern.success_rate,
-                        "last_updated": pattern.last_updated.isoformat()
-                        if pattern.last_updated
-                        else None,
-                    }
+                # Thread-safe access to learning_patterns
+                with self._learning_patterns_lock:
+                    for pattern in patterns:
+                        # Convert database pattern to in-memory format
+                        pattern_key = pattern.pattern_key
+                        self.learning_patterns[pattern_key] = {
+                            "modification_count": pattern.modification_count,
+                            "confidence_level": pattern.confidence_level,
+                            "discrepancy_count": pattern.discrepancy_count,
+                            "total_occurrences": pattern.total_occurrences,
+                            "auto_apply_count": pattern.auto_apply_count,
+                            "manual_review_count": pattern.manual_review_count,
+                            "ignore_count": pattern.ignore_count,
+                            "success_rate": pattern.success_rate,
+                            "last_updated": pattern.last_updated.isoformat()
+                            if pattern.last_updated
+                            else None,
+                        }
 
                 logger.info(
                     f"🧠 [INTELLIGENT LOGGER] Loaded {len(patterns)} learning patterns from database"
                 )
         except Exception as e:
             logger.error(f"❌ [INTELLIGENT LOGGER] Failed to load learning patterns: {e}")
-            # Continue with empty patterns - system will learn from scratch
-            self.learning_patterns = {}
+            # Thread-safe access to learning_patterns
+            with self._learning_patterns_lock:
+                # Continue with empty patterns - system will learn from scratch
+                self.learning_patterns = {}
 
     def analyze_verifier_suggestions(
         self,
@@ -206,7 +221,7 @@ class IntelligentModificationLogger:
 
         # Step 4: Create execution plan
         execution_plan = self._create_execution_plan(
-            modifications, feedback_decision, situation_assessment
+            modifications, feedback_decision, situation_assessment, analysis
         )
 
         # Step 5: Log for learning
@@ -250,6 +265,22 @@ class IntelligentModificationLogger:
 
         return modifications
 
+    def _map_confidence_level(self, confidence_level: str) -> float:
+        """Map confidence_level string to float value (0-1 range).
+
+        Args:
+            confidence_level: String value "HIGH", "MEDIUM", or "LOW"
+
+        Returns:
+            Float value: 1.0 for HIGH, 0.7 for MEDIUM, 0.5 for LOW
+        """
+        mapping = {
+            "HIGH": 1.0,
+            "MEDIUM": 0.7,
+            "LOW": 0.5,
+        }
+        return mapping.get(confidence_level, 0.5)
+
     def _parse_market_change(
         self, suggestion_text: str, alert_data: dict, verification_result: dict
     ) -> SuggestedModification | None:
@@ -257,13 +288,38 @@ class IntelligentModificationLogger:
         current_market = alert_data.get("recommended_market", "")
 
         # Look for market change patterns
+        # Expanded pattern set to capture more variations from verifier responses
         market_patterns = [
+            # Direct change patterns
             (r"change.*market.*over.*under", "Over to Under"),
             (r"change.*market.*under.*over", "Under to Over"),
+            # Switch patterns
+            (r"switch.*from.*over.*to.*under", "Over to Under"),
+            (r"switch.*from.*under.*to.*over", "Under to Over"),
+            # Replace patterns
+            (r"replace.*over.*with.*under", "Over to Under"),
+            (r"replace.*under.*with.*over", "Under to Over"),
+            # Should be patterns
             (r"market.*should be.*over", "Switch to Over"),
             (r"market.*should be.*under", "Switch to Under"),
-            (r"consider.*under.*instead", "Under instead of Over"),
-            (r"consider.*over.*instead", "Over instead of Under"),
+            # Consider instead patterns
+            (r"consider.*under.*instead.*of.*over", "Under instead of Over"),
+            (r"consider.*over.*instead.*of.*under", "Over instead of Under"),
+            # Use instead patterns
+            (r"use.*under.*instead.*of.*over", "Under instead of Over"),
+            (r"use.*over.*instead.*of.*under", "Over instead of Under"),
+            # Better suited patterns
+            (r"better.*suited.*for.*under", "Under instead of Over"),
+            (r"better.*suited.*for.*over", "Over instead of Under"),
+            # More appropriate patterns
+            (r"more.*appropriate.*under", "Under instead of Over"),
+            (r"more.*appropriate.*over", "Over instead of Under"),
+            # Recommendation patterns
+            (r"recommend.*under.*market", "Switch to Under"),
+            (r"recommend.*over.*market", "Switch to Over"),
+            # Prefer patterns
+            (r"prefer.*under.*over.*over", "Under instead of Over"),
+            (r"prefer.*over.*over.*under", "Over instead of Under"),
         ]
 
         import re
@@ -280,7 +336,9 @@ class IntelligentModificationLogger:
                         original_value=current_market,
                         suggested_value=new_market,
                         reason=f"Market direction corrected: {description}",
-                        confidence=verification_result.get("confidence_level", "LOW") == "HIGH",
+                        confidence=self._map_confidence_level(
+                            verification_result.get("confidence_level", "LOW")
+                        ),
                         impact_assessment="HIGH",
                         verification_context={
                             "original_confidence": verification_result.get("confidence_level"),
@@ -364,7 +422,11 @@ class IntelligentModificationLogger:
         elif impact == "MEDIUM":
             priority = ModificationPriority.HIGH
             confidence = 0.8
+        elif impact == "LOW":
+            priority = ModificationPriority.LOW
+            confidence = 0.6
         else:
+            # Unexpected impact level - default to MEDIUM for safety
             priority = ModificationPriority.MEDIUM
             confidence = 0.7
 
@@ -428,6 +490,7 @@ class IntelligentModificationLogger:
         )
         high_count = len([m for m in modifications if m.priority == ModificationPriority.HIGH])
         medium_count = len([m for m in modifications if m.priority == ModificationPriority.MEDIUM])
+        low_count = len([m for m in modifications if m.priority == ModificationPriority.LOW])
 
         # Calculate risk factors
         discrepancy_count = len(verification_result.get("data_discrepancies", []))
@@ -444,6 +507,7 @@ class IntelligentModificationLogger:
             "critical_modifications": critical_count,
             "high_modifications": high_count,
             "medium_modifications": medium_count,
+            "low_modifications": low_count,
             "total_modifications": len(modifications),
             "discrepancy_count": discrepancy_count,
             "confidence_level": confidence_level,
@@ -490,7 +554,12 @@ class IntelligentModificationLogger:
             situation["confidence_level"] in ["HIGH", "MEDIUM"],
             situation["discrepancy_count"] <= 1,
             all(
-                m.priority in [ModificationPriority.MEDIUM, ModificationPriority.HIGH]
+                m.priority
+                in [
+                    ModificationPriority.LOW,
+                    ModificationPriority.MEDIUM,
+                    ModificationPriority.HIGH,
+                ]
                 for m in modifications
             ),
             situation["data_quality_score"] >= 0.7,
@@ -508,8 +577,16 @@ class IntelligentModificationLogger:
         modifications: list[SuggestedModification],
         feedback_decision: FeedbackDecision,
         situation: dict,
+        analysis: NewsLog,
     ) -> ModificationPlan:
-        """Create step-by-step execution plan with component communication."""
+        """Create step-by-step execution plan with component communication.
+
+        Args:
+            modifications: List of suggested modifications
+            feedback_decision: Whether to auto-apply or manual review
+            situation: Situation assessment dictionary
+            analysis: Original NewsLog analysis (needed for alert_id)
+        """
 
         # Sort modifications by priority and dependency
         sorted_modifications = self._sort_modifications_by_priority(modifications)
@@ -527,7 +604,7 @@ class IntelligentModificationLogger:
         execution_order = [mod.id for mod in sorted_modifications]
 
         return ModificationPlan(
-            alert_id=f"alert_{datetime.now().timestamp()}",
+            alert_id=str(analysis.id),  # Use original alert ID for database referential integrity
             modifications=sorted_modifications,
             feedback_decision=feedback_decision,
             estimated_success_rate=success_rate,
@@ -716,6 +793,12 @@ class IntelligentModificationLogger:
         elif "switch to under" in description.lower():
             if "over" in current_lower:
                 return current_market.replace("Over", "Under").replace("over", "under")
+        elif "under instead of over" in description.lower():
+            if "over" in current_lower:
+                return current_market.replace("Over", "Under").replace("over", "under")
+        elif "over instead of under" in description.lower():
+            if "under" in current_lower:
+                return current_market.replace("Under", "Over").replace("under", "over")
 
         return None
 

@@ -17,7 +17,7 @@ import os
 import re
 import threading
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -27,6 +27,10 @@ from src.database.models import NewsLog
 from src.ingestion.data_provider import get_data_provider
 from src.utils.ai_parser import extract_json as _extract_json_core
 from src.utils.validators import safe_get
+
+# Import TeamInjuryImpact for type hints (TYPE_CHECKING only to avoid runtime issues)
+if TYPE_CHECKING:
+    from src.analysis.injury_impact_engine import TeamInjuryImpact
 
 # V11.0: Import Contract Validation
 try:
@@ -40,6 +44,16 @@ try:
 except ImportError:
     _CONTRACTS_AVAILABLE = False
     logging.debug("Contracts module not available for analyzer")
+
+# V14.0: Import News Scorer for quantitative news credibility scoring
+try:
+    from src.analysis.news_scorer import format_news_score_for_prompt, score_news_item
+
+    _NEWS_SCORER_AVAILABLE = True
+    logging.info("✅ News Scorer module loaded")
+except ImportError:
+    _NEWS_SCORER_AVAILABLE = False
+    logging.debug("News Scorer module not available for analyzer")
 
 
 def _validate_newslog_contract(newslog: NewsLog, context: str = "") -> NewsLog:
@@ -1514,8 +1528,8 @@ def analyze_with_triangulation(
     news_articles: list | None = None,
     twitter_intel_for_ai: str | None = None,
     fatigue_differential: Any = None,
-    injury_impact_home: Any = None,
-    injury_impact_away: Any = None,
+    injury_impact_home: "TeamInjuryImpact | None" = None,
+    injury_impact_away: "TeamInjuryImpact | None" = None,
     biscotto_result: dict | None = None,
     market_intel: Any = None,
     referee_info: Any = None,
@@ -1602,6 +1616,7 @@ def analyze_with_triangulation(
             news_snippets = []
             team_names = set()  # Track which teams have news
             source_credibility_info = []  # Track BeatWriter metadata
+            scored_articles = []  # V14.0: Track scored articles with NewsScore
 
             for article in news_articles:
                 snippet = article.get("snippet", article.get("title", ""))
@@ -1612,32 +1627,83 @@ def analyze_with_triangulation(
                     if team:
                         team_names.add(team)
 
-                    # Preserve BeatWriter metadata for source credibility analysis
-                    beat_writer_name = article.get("beat_writer_name")
-                    beat_writer_outlet = article.get("beat_writer_outlet")
-                    beat_writer_specialty = article.get("beat_writer_specialty")
-                    beat_writer_reliability = article.get("beat_writer_reliability")
-                    avg_lead_time_min = article.get("avg_lead_time_min")
+                    # V14.0: Use News Scorer for quantitative credibility scoring
+                    # This provides structured, reproducible scoring instead of manual text formatting
+                    if _NEWS_SCORER_AVAILABLE:
+                        try:
+                            news_score = score_news_item(article)
+                            scored_articles.append(
+                                {
+                                    "article": article,
+                                    "score": news_score,
+                                    "snippet_preview": snippet[:100] + "..."
+                                    if len(snippet) > 100
+                                    else snippet,
+                                }
+                            )
+                            logging.debug(
+                                f"📊 News scored: {news_score.raw_score:.1f}/10 "
+                                f"(tier: {news_score.tier}, driver: {news_score.primary_driver})"
+                            )
+                        except Exception as e:
+                            logging.warning(f"⚠️ Failed to score news item: {e}")
+                            # Fallback to manual formatting if scoring fails
+                            scored_articles.append(
+                                {
+                                    "article": article,
+                                    "score": None,
+                                    "snippet_preview": snippet[:100] + "..."
+                                    if len(snippet) > 100
+                                    else snippet,
+                                }
+                            )
+                    else:
+                        # Fallback: Manual extraction if news_scorer not available
+                        beat_writer_name = article.get("beat_writer_name")
+                        beat_writer_outlet = article.get("beat_writer_outlet")
+                        beat_writer_specialty = article.get("beat_writer_specialty")
+                        beat_writer_reliability = article.get("beat_writer_reliability")
+                        avg_lead_time_min = article.get("avg_lead_time_min")
 
-                    if beat_writer_name and beat_writer_reliability is not None:
-                        source_credibility_info.append(
-                            {
-                                "name": beat_writer_name,
-                                "outlet": beat_writer_outlet or "Unknown",
-                                "specialty": beat_writer_specialty or "general",
-                                "reliability": beat_writer_reliability,
-                                "lead_time_min": avg_lead_time_min or 0,
-                                "snippet_preview": snippet[:100] + "..."
-                                if len(snippet) > 100
-                                else snippet,
-                            }
-                        )
+                        if beat_writer_name and beat_writer_reliability is not None:
+                            source_credibility_info.append(
+                                {
+                                    "name": beat_writer_name,
+                                    "outlet": beat_writer_outlet or "Unknown",
+                                    "specialty": beat_writer_specialty or "general",
+                                    "reliability": beat_writer_reliability,
+                                    "lead_time_min": avg_lead_time_min or 0,
+                                    "snippet_preview": snippet[:100] + "..."
+                                    if len(snippet) > 100
+                                    else snippet,
+                                }
+                            )
 
             news_snippet = "\n\n".join(news_snippets) if news_snippets else "No news available"
 
-            # Format source credibility information for AI analysis
+            # V14.0: Format source credibility information using News Scorer
             source_credibility_section = ""
-            if source_credibility_info:
+            if _NEWS_SCORER_AVAILABLE and scored_articles:
+                # Use quantitative scoring from news_scorer
+                credibility_lines = []
+                for i, item in enumerate(scored_articles, 1):
+                    score = item["score"]
+                    if score:
+                        # Use format_news_score_for_prompt for structured output
+                        credibility_lines.append(format_news_score_for_prompt(score))
+                        # Add snippet preview for context
+                        credibility_lines.append(f"   Preview: {item['snippet_preview']}")
+                    else:
+                        # Fallback for articles that failed scoring
+                        credibility_lines.append(
+                            f"{i}. [SCORING FAILED] Preview: {item['snippet_preview']}"
+                        )
+                source_credibility_section = (
+                    "\n\n**NEWS CREDIBILITY ANALYSIS (Quantitative Scoring):**\n"
+                    + "\n".join(credibility_lines)
+                )
+            elif source_credibility_info:
+                # Fallback: Manual formatting if news_scorer not available
                 credibility_lines = []
                 for i, source in enumerate(source_credibility_info, 1):
                     reliability_pct = int(source["reliability"] * 100)
@@ -1691,23 +1757,42 @@ def analyze_with_triangulation(
 
         # Build market_status from match and market_intel
         if market_status is None:
-            movement = match.get_odds_movement()
-            market_status_parts = []
-            if movement.get("home"):
-                market_status_parts.append(f"Home odds moved {movement['home']:+.1f}%")
-            if movement.get("away"):
-                market_status_parts.append(f"Away odds moved {movement['away']:+.1f}%")
-            if movement.get("draw"):
-                market_status_parts.append(f"Draw odds moved {movement['draw']:+.1f}%")
+            try:
+                # Use enhanced odds movement analysis for more intelligent market status
+                from src.utils.radar_odds_check import get_radar_odds_checker
 
-            if market_intel and hasattr(market_intel, "summary"):
-                market_status_parts.append(market_intel.summary)
+                checker = get_radar_odds_checker()
+                match_movement = checker.check_match_movement(match_id=match.id)
 
-            market_status = (
-                " | ".join(market_status_parts)
-                if market_status_parts
-                else "No market movement detected"
-            )
+                market_status_parts = [match_movement.to_market_status_string()]
+
+                if market_intel and hasattr(market_intel, "summary"):
+                    market_status_parts.append(market_intel.summary)
+
+                market_status = (
+                    " | ".join(market_status_parts)
+                    if market_status_parts
+                    else "No market movement detected"
+                )
+            except Exception:
+                # Fallback to simple calculation if checker not available
+                movement = match.get_odds_movement()
+                market_status_parts = []
+                if movement.get("home"):
+                    market_status_parts.append(f"Home odds moved {movement['home']:+.1f}%")
+                if movement.get("away"):
+                    market_status_parts.append(f"Away odds moved {movement['away']:+.1f}%")
+                if movement.get("draw"):
+                    market_status_parts.append(f"Draw odds moved {movement['draw']:+.1f}%")
+
+                if market_intel and hasattr(market_intel, "summary"):
+                    market_status_parts.append(market_intel.summary)
+
+                market_status = (
+                    " | ".join(market_status_parts)
+                    if market_status_parts
+                    else "No market movement detected"
+                )
 
         # Build official_data from contexts
         if official_data is None:
@@ -1750,15 +1835,47 @@ def analyze_with_triangulation(
             tactical_parts = []
 
             # Add fatigue differential if available
-            if fatigue_differential and hasattr(fatigue_differential, "summary"):
-                tactical_parts.append(f"Fatigue Analysis: {fatigue_differential.summary}")
+            if fatigue_differential:
+                try:
+                    from src.analysis.fatigue_engine import (
+                        FatigueDifferential,
+                        format_fatigue_context,
+                    )
+
+                    if isinstance(fatigue_differential, FatigueDifferential):
+                        fatigue_summary = format_fatigue_context(fatigue_differential)
+                        tactical_parts.append(fatigue_summary)
+                except Exception as e:
+                    logging.warning(f"⚠️ Failed to format fatigue context: {e}")
 
             # Add injury impact if available
-            if injury_impact_home and hasattr(injury_impact_home, "summary"):
-                tactical_parts.append(f"Home Injury Impact: {injury_impact_home.summary}")
+            if injury_impact_home:
+                try:
+                    from src.analysis.injury_impact_engine import TeamInjuryImpact
 
-            if injury_impact_away and hasattr(injury_impact_away, "summary"):
-                tactical_parts.append(f"Away Injury Impact: {injury_impact_away.summary}")
+                    if isinstance(injury_impact_home, TeamInjuryImpact):
+                        home_injury_summary = (
+                            f"Home Injury Impact: {injury_impact_home.missing_starters} starters missing, "
+                            f"{injury_impact_home.total_missing} total missing, "
+                            f"severity: {injury_impact_home.severity}"
+                        )
+                        tactical_parts.append(home_injury_summary)
+                except Exception as e:
+                    logging.warning(f"⚠️ Failed to format home injury context: {e}")
+
+            if injury_impact_away:
+                try:
+                    from src.analysis.injury_impact_engine import TeamInjuryImpact
+
+                    if isinstance(injury_impact_away, TeamInjuryImpact):
+                        away_injury_summary = (
+                            f"Away Injury Impact: {injury_impact_away.missing_starters} starters missing, "
+                            f"{injury_impact_away.total_missing} total missing, "
+                            f"severity: {injury_impact_away.severity}"
+                        )
+                        tactical_parts.append(away_injury_summary)
+                except Exception as e:
+                    logging.warning(f"⚠️ Failed to format away injury context: {e}")
 
             # Add biscotto result if suspect
             if biscotto_result and biscotto_result.get("is_suspect"):
@@ -2474,46 +2591,279 @@ def analyze_with_triangulation(
             score = 4
             category = "NO_BET"
 
-        # MOTIVATION BONUS (V4.2) - Safe application with cap
-        # High motivation (relegation/title) = +0.5, Dead rubber = -1.0
+        # MOTIVATION BONUS (V6.0+) - Intelligent context-aware calculation
+        # Enhanced to consider relative importance, market direction, and tactical impact
+        # Maximum impact: ±1.5 (increased from ±1.0 for better discrimination)
         motivation_bonus = 0.0
         mot_home_lower = (motivation_home or "").lower()
         mot_away_lower = (motivation_away or "").lower()
 
-        # Positive signals (both teams fighting = more intensity)
-        if any(
-            kw in mot_home_lower for kw in ["relegation", "title", "championship", "golden boot"]
-        ):
-            motivation_bonus += 0.3
-        if any(
-            kw in mot_away_lower for kw in ["relegation", "title", "championship", "golden boot"]
-        ):
-            motivation_bonus += 0.2
+        # V6.0: Calculate motivation intensity for each team (0.0 to 1.0)
+        home_motivation_intensity = 0.0
+        away_motivation_intensity = 0.0
 
-        # Negative signals (dead rubber = less intensity, unpredictable)
-        if any(
-            kw in mot_home_lower
-            for kw in ["dead rubber", "nothing to play", "mid-table safe", "friendly"]
-        ):
-            motivation_bonus -= 0.5
-        if any(
-            kw in mot_away_lower
-            for kw in ["dead rubber", "nothing to play", "mid-table safe", "friendly"]
-        ):
-            motivation_bonus -= 0.5
+        # High-intensity signals (title race, relegation battle, cup finals)
+        high_intensity_keywords = [
+            "relegation",
+            "title",
+            "championship",
+            "golden boot",
+            "cup final",
+            "playoff",
+            "promotion",
+            "survival",
+        ]
+        for kw in high_intensity_keywords:
+            if kw in mot_home_lower:
+                home_motivation_intensity = max(home_motivation_intensity, 1.0)
+            if kw in mot_away_lower:
+                away_motivation_intensity = max(away_motivation_intensity, 1.0)
+
+        # Medium-intensity signals (european spots, top 4 race, top 6 race)
+        medium_intensity_keywords = [
+            "european",
+            "champions league",
+            "europa league",
+            "conference league",
+            "top 4",
+            "top 6",
+            "top 8",
+            "continental",
+        ]
+        for kw in medium_intensity_keywords:
+            if kw in mot_home_lower and home_motivation_intensity < 0.8:
+                home_motivation_intensity = max(home_motivation_intensity, 0.8)
+            if kw in mot_away_lower and away_motivation_intensity < 0.8:
+                away_motivation_intensity = max(away_motivation_intensity, 0.8)
+
+        # Low-intensity signals (mid-table, nothing to play for)
+        low_intensity_keywords = [
+            "dead rubber",
+            "nothing to play",
+            "mid-table safe",
+            "friendly",
+            "consolidation",
+            "safe",
+            "secure",
+            "no pressure",
+        ]
+        for kw in low_intensity_keywords:
+            if kw in mot_home_lower:
+                home_motivation_intensity = min(home_motivation_intensity, 0.2)
+            if kw in mot_away_lower:
+                away_motivation_intensity = min(away_motivation_intensity, 0.2)
+
+        # V6.0: Calculate motivation differential (home - away)
+        # Positive = home more motivated, Negative = away more motivated
+        motivation_differential = home_motivation_intensity - away_motivation_intensity
+
+        # V6.0: Apply motivation bonus based on betting market direction
+        market_lower = (primary_market or recommended_market or "").lower().strip()
+        is_home_bet = market_lower in ("1", "1x") or "home" in market_lower
+        is_away_bet = market_lower in ("2", "x2") or "away" in market_lower
+        is_draw_bet = market_lower == "x" or market_lower == "draw"
+
+        # Calculate base motivation impact (0.0 to 1.5)
+        total_motivation = (home_motivation_intensity + away_motivation_intensity) / 2.0
+
+        if is_home_bet:
+            # Betting on home: favor when home is more motivated
+            motivation_bonus = motivation_differential * 1.0
+            # Additional bonus if both teams are highly motivated (intense match)
+            if total_motivation > 0.8:
+                motivation_bonus += 0.3
+        elif is_away_bet:
+            # Betting on away: favor when away is more motivated
+            motivation_bonus = -motivation_differential * 1.0
+            # Additional bonus if both teams are highly motivated (intense match)
+            if total_motivation > 0.8:
+                motivation_bonus += 0.3
+        elif is_draw_bet:
+            # Draw bet: favor when both teams have similar motivation
+            # Low differential = more likely draw
+            motivation_bonus = (1.0 - abs(motivation_differential)) * 0.5 - 0.25
+            # Additional bonus if both teams are poorly motivated (boring match)
+            if total_motivation < 0.4:
+                motivation_bonus += 0.2
+        else:
+            # Non-result markets (BTTS, Over/Under, Corners, Cards)
+            # High motivation from both teams = more goals, more cards, more corners
+            motivation_bonus = total_motivation * 0.8 - 0.4
+
+        # Cap motivation bonus at ±1.5
+        motivation_bonus = max(-1.5, min(1.5, motivation_bonus))
 
         # Apply bonus and cap at 10.0 (never exceed max score)
-        if motivation_bonus != 0.0:
+        if abs(motivation_bonus) >= 0.1:
             original_score = score
             score = max(0, min(10.0, score + motivation_bonus))
+
+            # Detailed logging with context
+            motivation_context = []
+            if home_motivation_intensity >= 0.8:
+                motivation_context.append(f"Home: HIGH ({home_motivation_intensity:.1f})")
+            elif home_motivation_intensity >= 0.5:
+                motivation_context.append(f"Home: MED ({home_motivation_intensity:.1f})")
+            elif home_motivation_intensity >= 0.2:
+                motivation_context.append(f"Home: LOW ({home_motivation_intensity:.1f})")
+            else:
+                motivation_context.append(f"Home: MIN ({home_motivation_intensity:.1f})")
+
+            if away_motivation_intensity >= 0.8:
+                motivation_context.append(f"Away: HIGH ({away_motivation_intensity:.1f})")
+            elif away_motivation_intensity >= 0.5:
+                motivation_context.append(f"Away: MED ({away_motivation_intensity:.1f})")
+            elif away_motivation_intensity >= 0.2:
+                motivation_context.append(f"Away: LOW ({away_motivation_intensity:.1f})")
+            else:
+                motivation_context.append(f"Away: MIN ({away_motivation_intensity:.1f})")
+
+            motivation_str = " | ".join(motivation_context)
+
             if motivation_bonus > 0:
                 logging.info(
-                    f"🔥 Motivation bonus: +{motivation_bonus:.1f} (score {original_score} → {score})"
+                    f"🔥 Motivation bonus: +{motivation_bonus:.2f} (score {original_score} → {score}) "
+                    f"| Market: {market_lower} | {motivation_str}"
                 )
             else:
                 logging.info(
-                    f"💤 Motivation penalty: {motivation_bonus:.1f} (score {original_score} → {score})"
+                    f"💤 Motivation penalty: {motivation_bonus:.2f} (score {original_score} → {score}) "
+                    f"| Market: {market_lower} | {motivation_str}"
                 )
+
+        # TABLE CONTEXT ADJUSTMENT (V6.0+) - Intelligent league position analysis
+        # Analyzes league table context to adjust score based on:
+        # - Home advantage vs away team quality
+        # - Form trends (recent performance)
+        # - Head-to-head history
+        # Maximum impact: ±1.0
+        table_context_adjustment = 0.0
+        table_context_lower = (table_context or "").lower()
+
+        if table_context and table_context_lower != "unknown":
+            # V6.0: Extract table context signals
+            # Home advantage signals
+            home_advantage_keywords = [
+                "home strong",
+                "home dominant",
+                "home fortress",
+                "unbeaten at home",
+                "home win streak",
+                "home form",
+                "home advantage",
+            ]
+            # Away team quality signals
+            away_quality_keywords = [
+                "away strong",
+                "away form",
+                "away unbeaten",
+                "away win streak",
+                "top away",
+                "away dominant",
+            ]
+            # Form mismatch signals
+            form_mismatch_keywords = [
+                "poor form",
+                "bad form",
+                "losing streak",
+                "struggling",
+                "inconsistent",
+                "dip in form",
+            ]
+            # Balanced match signals
+            balanced_keywords = [
+                "evenly matched",
+                "closely matched",
+                "balanced",
+                "similar level",
+                "neck and neck",
+                "tight contest",
+            ]
+
+            # Calculate table context score
+            home_advantage_score = 0.0
+            away_quality_score = 0.0
+            form_mismatch_score = 0.0
+            balanced_score = 0.0
+
+            for kw in home_advantage_keywords:
+                if kw in table_context_lower:
+                    home_advantage_score = max(home_advantage_score, 0.8)
+                    break
+
+            for kw in away_quality_keywords:
+                if kw in table_context_lower:
+                    away_quality_score = max(away_quality_score, 0.8)
+                    break
+
+            for kw in form_mismatch_keywords:
+                if kw in table_context_lower:
+                    form_mismatch_score = max(form_mismatch_score, 0.6)
+                    break
+
+            for kw in balanced_keywords:
+                if kw in table_context_lower:
+                    balanced_score = max(balanced_score, 0.7)
+                    break
+
+            # V6.0: Apply table context adjustment based on betting market direction
+            if is_home_bet:
+                # Betting on home: favor home advantage, penalize away quality
+                table_context_adjustment = home_advantage_score * 0.6 - away_quality_score * 0.4
+                # Additional penalty if home has poor form
+                if "home" in table_context_lower and any(
+                    kw in table_context_lower for kw in form_mismatch_keywords
+                ):
+                    table_context_adjustment -= 0.3
+            elif is_away_bet:
+                # Betting on away: favor away quality, penalize home advantage
+                table_context_adjustment = away_quality_score * 0.6 - home_advantage_score * 0.4
+                # Additional penalty if away has poor form
+                if "away" in table_context_lower and any(
+                    kw in table_context_lower for kw in form_mismatch_keywords
+                ):
+                    table_context_adjustment -= 0.3
+            elif is_draw_bet:
+                # Draw bet: favor balanced matches
+                table_context_adjustment = balanced_score * 0.5 - 0.25
+                # Additional bonus if both teams have poor form (boring match)
+                if form_mismatch_score > 0:
+                    table_context_adjustment += 0.2
+            else:
+                # Non-result markets: favor high-quality matches
+                table_context_adjustment = (home_advantage_score + away_quality_score) * 0.3 - 0.3
+
+            # Cap table context adjustment at ±1.0
+            table_context_adjustment = max(-1.0, min(1.0, table_context_adjustment))
+
+            # Apply adjustment
+            if abs(table_context_adjustment) >= 0.1:
+                original_score = score
+                score = max(0, min(10.0, score + table_context_adjustment))
+
+                # Detailed logging
+                context_signals = []
+                if home_advantage_score >= 0.6:
+                    context_signals.append("Home Advantage")
+                if away_quality_score >= 0.6:
+                    context_signals.append("Away Quality")
+                if form_mismatch_score >= 0.4:
+                    context_signals.append("Form Mismatch")
+                if balanced_score >= 0.5:
+                    context_signals.append("Balanced")
+
+                context_str = ", ".join(context_signals) if context_signals else "General Context"
+
+                if table_context_adjustment > 0:
+                    logging.info(
+                        f"📊 Table context bonus: +{table_context_adjustment:.2f} "
+                        f"(score {original_score} → {score}) | Market: {market_lower} | {context_str}"
+                    )
+                else:
+                    logging.info(
+                        f"📊 Table context penalty: {table_context_adjustment:.2f} "
+                        f"(score {original_score} → {score}) | Market: {market_lower} | {context_str}"
+                    )
 
         # INJURY IMPACT ADJUSTMENT (V5.3.1) - Context-aware balanced assessment
         # Evaluates importance of missing players (starter vs backup) for both teams

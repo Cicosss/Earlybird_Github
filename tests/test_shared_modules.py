@@ -111,7 +111,7 @@ class TestFreshnessModule:
         assert result.tag == "🔥 FRESH"
         assert result.category == "FRESH"
         assert 29 <= result.minutes_old <= 31
-        assert 0 < result.decay_multiplier < 1
+        assert 0 < result.freshness_multiplier < 1
 
     def test_parse_relative_time(self):
         """Test parsing of relative time strings."""

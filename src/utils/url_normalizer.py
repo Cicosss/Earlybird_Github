@@ -7,14 +7,22 @@ Prevents duplicate news from being counted multiple times by:
 3. Fuzzy matching for similar articles from different sources
 
 V1.0 - Initial implementation for Deep Research improvements
+V2.0 - Thread-safe, memory-bounded, TTL-aware implementation (COVE fixes)
 """
 
 import hashlib
 import logging
 import re
+import threading
+from collections import OrderedDict
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 logger = logging.getLogger(__name__)
+
+# Default configuration (consistent with ContentCache)
+DEFAULT_MAX_ENTRIES = 10000
+DEFAULT_TTL_HOURS = 24
 
 # ============================================
 # URL NORMALIZATION
@@ -106,13 +114,22 @@ def get_url_hash(url: str) -> str:
     """
     Get hash of normalized URL for deduplication.
 
+    V2.0 COVE FIX: Returns empty string for None/empty URLs to prevent
+    false positives (all None/empty URLs would otherwise have the same hash).
+
     Args:
         url: URL to hash
 
     Returns:
-        16-char hash of normalized URL
+        16-char hash of normalized URL, or empty string if url is None/empty
     """
+    if not url:
+        return ""
+
     normalized = normalize_url(url)
+    if not normalized:
+        return ""
+
     return hashlib.md5(normalized.encode()).hexdigest()[:16]
 
 
@@ -321,22 +338,57 @@ class NewsDeduplicator:
     """
     Intelligent news deduplication with multiple strategies.
 
+    V2.0 COVE FIXES:
+    - Thread-safe: Uses threading.RLock for all operations
+    - Memory-bounded: LRU eviction with max_entries
+    - TTL-aware: Entries expire after ttl_hours
+    - Safe error handling: Properly handles None/empty values
+
     Strategies:
     1. URL-based: Normalized URL hash
     2. Content-based: Title/snippet signature
     3. Source-aware: Same news from different sources
     """
 
-    def __init__(self):
-        self._seen_urls: set[str] = set()
-        self._seen_content: set[str] = set()
-        self._url_to_content: dict[str, str] = {}  # Map URL hash to content signature
+    def __init__(self, max_entries: int = DEFAULT_MAX_ENTRIES, ttl_hours: int = DEFAULT_TTL_HOURS):
+        """
+        Initialize the deduplicator.
+
+        Args:
+            max_entries: Maximum entries before LRU eviction
+            ttl_hours: Hours before entries expire
+        """
+        self._max_entries = max_entries
+        self._ttl_hours = ttl_hours
+
+        # URL cache: url_hash -> timestamp
+        self._seen_urls: "OrderedDict[str, datetime]" = OrderedDict()
+
+        # Content cache: content_sig -> timestamp
+        self._seen_content: "OrderedDict[str, datetime]" = OrderedDict()
+
+        # URL to content mapping: url_hash -> content_sig
+        self._url_to_content: "dict[str, str]" = {}
+
+        # Thread-safe lock (RLock allows reentrant calls)
+        self._lock = threading.RLock()
+
+        # Statistics
+        self._stats = {
+            "checked": 0,
+            "duplicates": 0,
+            "added": 0,
+            "expired": 0,
+            "evicted": 0,
+        }
 
     def is_duplicate(
         self, url: str, title: str, snippet: str = "", check_content: bool = True
     ) -> tuple[bool, str]:
         """
         Check if news item is a duplicate.
+
+        V2.0 COVE FIX: Thread-safe, checks TTL on every access.
 
         Args:
             url: Article URL
@@ -347,64 +399,138 @@ class NewsDeduplicator:
         Returns:
             Tuple of (is_duplicate, reason)
         """
-        # Strategy 1: URL-based deduplication
-        url_hash = get_url_hash(url)
+        with self._lock:
+            self._stats["checked"] += 1
 
-        if url_hash in self._seen_urls:
-            return True, "duplicate_url"
+            # Strategy 1: URL-based deduplication
+            url_hash = get_url_hash(url)
 
-        # Strategy 2: Content-based deduplication
-        if check_content and title:
-            content_sig = extract_content_signature(title, snippet)
+            if url_hash and url_hash in self._seen_urls:
+                # Check if expired
+                timestamp = self._seen_urls[url_hash]
+                if datetime.now(timezone.utc) - timestamp > timedelta(hours=self._ttl_hours):
+                    # Expired, remove it
+                    del self._seen_urls[url_hash]
+                    self._stats["expired"] += 1
+                else:
+                    # Valid duplicate
+                    self._stats["duplicates"] += 1
+                    # Move to end (LRU)
+                    self._seen_urls.move_to_end(url_hash)
+                    return True, "duplicate_url"
 
-            if content_sig and content_sig in self._seen_content:
-                return True, "duplicate_content"
+            # Strategy 2: Content-based deduplication
+            if check_content and title:
+                content_sig = extract_content_signature(title, snippet)
 
-        return False, ""
+                if content_sig and content_sig in self._seen_content:
+                    # Check if expired
+                    timestamp = self._seen_content[content_sig]
+                    if datetime.now(timezone.utc) - timestamp > timedelta(hours=self._ttl_hours):
+                        # Expired, remove it
+                        del self._seen_content[content_sig]
+                        self._stats["expired"] += 1
+                    else:
+                        # Valid duplicate
+                        self._stats["duplicates"] += 1
+                        # Move to end (LRU)
+                        self._seen_content.move_to_end(content_sig)
+                        return True, "duplicate_content"
+
+            return False, ""
 
     def mark_seen(self, url: str, title: str, snippet: str = ""):
         """
         Mark a news item as seen.
+
+        V2.0 COVE FIX: Thread-safe, enforces max_entries with LRU eviction.
 
         Args:
             url: Article URL
             title: Article title
             snippet: Article snippet
         """
-        url_hash = get_url_hash(url)
-        self._seen_urls.add(url_hash)
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            url_hash = get_url_hash(url)
 
-        if title:
-            content_sig = extract_content_signature(title, snippet)
-            if content_sig:
-                self._seen_content.add(content_sig)
-                self._url_to_content[url_hash] = content_sig
+            if url_hash:
+                self._seen_urls[url_hash] = now
+
+                if title:
+                    content_sig = extract_content_signature(title, snippet)
+                    if content_sig:
+                        self._seen_content[content_sig] = now
+                        self._url_to_content[url_hash] = content_sig
+
+                self._stats["added"] += 1
+
+                # Enforce max_entries (LRU eviction)
+                self._evict_if_needed()
+
+    def _evict_if_needed(self):
+        """
+        Evict oldest entries if at capacity.
+
+        V2.0 COVE FIX: Thread-safe LRU eviction.
+        """
+        # Evict URLs if at capacity
+        while len(self._seen_urls) >= self._max_entries:
+            self._seen_urls.popitem(last=False)
+            self._stats["evicted"] += 1
+
+        # Evict content if at capacity
+        while len(self._seen_content) >= self._max_entries:
+            self._seen_content.popitem(last=False)
+            self._stats["evicted"] += 1
 
     def clear(self):
-        """Clear all caches."""
-        self._seen_urls.clear()
-        self._seen_content.clear()
-        self._url_to_content.clear()
+        """
+        Clear all caches.
+
+        V2.0 COVE FIX: Thread-safe.
+        """
+        with self._lock:
+            self._seen_urls.clear()
+            self._seen_content.clear()
+            self._url_to_content.clear()
 
     def get_stats(self) -> dict[str, int]:
-        """Get deduplication statistics."""
-        return {
-            "unique_urls": len(self._seen_urls),
-            "unique_content": len(self._seen_content),
-        }
+        """
+        Get deduplication statistics.
+
+        V2.0 COVE FIX: Includes additional statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
+        with self._lock:
+            return {
+                "unique_urls": len(self._seen_urls),
+                "unique_content": len(self._seen_content),
+                **self._stats,
+            }
 
 
 # ============================================
 # SINGLETON INSTANCE
 # ============================================
-_deduplicator: NewsDeduplicator | None = None
+_deduplicator: "NewsDeduplicator | None" = None
+_deduplicator_lock = threading.Lock()
 
 
-def get_deduplicator() -> NewsDeduplicator:
-    """Get singleton deduplicator instance."""
+def get_deduplicator() -> "NewsDeduplicator":
+    """
+    Get singleton deduplicator instance.
+
+    V2.0 COVE FIX: Thread-safe singleton pattern with lock.
+    """
     global _deduplicator
     if _deduplicator is None:
-        _deduplicator = NewsDeduplicator()
+        with _deduplicator_lock:
+            # Double-checked locking pattern
+            if _deduplicator is None:
+                _deduplicator = NewsDeduplicator()
     return _deduplicator
 
 

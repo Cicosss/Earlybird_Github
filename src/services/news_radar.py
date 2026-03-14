@@ -1123,39 +1123,27 @@ class ContentExtractor:
 
     def _extract_with_trafilatura(self, html: str) -> str | None:
         """
-        Extract clean article text using Trafilatura.
+        Extract clean article text using Trafilatura with intelligent fallback.
 
-        V8.4: Now uses centralized extractor with:
+        V8.5: Fixed to avoid duplicate trafilatura calls.
+        Now uses centralized extract_with_fallback() which includes:
         - Pre-validation to avoid "discarding data: None" warnings
         - Intelligent fallback chain (trafilatura → regex → raw)
+        - Proper failure recording for all methods
 
         Requirements: 2.1
         """
         if not TRAFILATURA_AVAILABLE or not html:
             return None
 
-        # V8.4: Use centralized extractor with pre-validation
-        if _central_extract is not None:
-            # Pre-validate HTML to avoid trafilatura warnings
-            if not is_valid_html(html):
-                logger.debug("[NEWS-RADAR] HTML validation failed, skipping trafilatura")
-                record_extraction("validation", False)
-                return None
-
-            text = _central_extract(html)
+        # V8.5: Use centralized extractor with full fallback chain
+        # This eliminates duplicate trafilatura calls (was calling _central_extract
+        # and then _extract_with_fallback which also calls trafilatura)
+        if _extract_with_fallback is not None:
+            text, method = _extract_with_fallback(html)
             if text:
-                record_extraction("trafilatura", True)
+                logger.debug(f"[NEWS-RADAR] Extraction succeeded: {method}")
                 return text
-
-            # Try fallback extraction (regex/raw)
-            if _extract_with_fallback is not None:
-                text, method = _extract_with_fallback(html)
-                if text:
-                    record_extraction(method, True)
-                    logger.debug(f"[NEWS-RADAR] Fallback extraction succeeded: {method}")
-                    return text
-
-            record_extraction("trafilatura", False)
             return None
 
         # Legacy fallback if centralized extractor not available
@@ -2155,6 +2143,7 @@ class NewsRadarMonitor:
         # Stats
         self._urls_scanned = 0
         self._alerts_sent = 0
+        self._excluded_count = 0  # VPS FIX: Track excluded content statistics
         self._last_cycle_time: datetime | None = None
 
         logger.info("🔔 [NEWS-RADAR] V2.0 Monitor created")
@@ -2837,19 +2826,22 @@ class NewsRadarMonitor:
             logger.debug(f"🗑️ [NEWS-RADAR] Content too short after cleaning: {url[:50]}...")
             return None
 
-        # Step 2: Apply exclusion filter (basketball, women's, etc.)
-        exclusion_filter = get_exclusion_filter()
-        if exclusion_filter.is_excluded(cleaned_content):
-            reason = exclusion_filter.get_exclusion_reason(cleaned_content)
-            logger.debug(f"🚫 [NEWS-RADAR] Excluded ({reason}): {url[:50]}...")
-            return None
+        # VPS FIX: Removed redundant exclusion filter check
+        # The garbage_filter.is_garbage() already checks for excluded sports (basketball, women's, NFL, etc.)
+        # using the same exclusion patterns from centralized config (src/config/exclusion_lists.py)
+        # This eliminates duplicate regex matching and improves performance
 
-        # Step 3: Apply positive news filter (player returning = skip)
-        positive_filter = get_positive_news_filter()
-        if positive_filter.is_positive_news(cleaned_content):
-            reason = positive_filter.get_positive_reason(cleaned_content)
-            logger.debug(f"✅ [NEWS-RADAR] Skipping positive news ({reason}): {url[:50]}...")
-            return None
+        # Step 2: Apply positive news filter (player returning = skip)
+        # VPS FIX: Add error handling to prevent bot crash
+        try:
+            positive_filter = get_positive_news_filter()
+            if positive_filter.is_positive_news(cleaned_content):
+                reason = positive_filter.get_positive_reason(cleaned_content)
+                logger.debug(f"✅ [NEWS-RADAR] Skipping positive news ({reason}): {url[:50]}...")
+                return None
+        except Exception as e:
+            logger.warning(f"⚠️ [NEWS-RADAR] Error checking positive news filter: {e}")
+            # Continue to next check
 
         # Step 4: High-value signal detection
         signal_detector = get_signal_detector()
@@ -3426,6 +3418,7 @@ class GlobalRadarMonitor:
         # Stats
         self._urls_scanned = 0
         self._alerts_sent = 0
+        self._excluded_count = 0  # VPS FIX: Track excluded content statistics
         self._last_cycle_time: datetime | None = None
 
         logger.info("🌐 [GLOBAL-RADAR] V11.0 Monitor created")
@@ -3855,6 +3848,7 @@ class GlobalRadarMonitor:
         exclusion_filter = get_exclusion_filter()
         if exclusion_filter.is_excluded(content):
             logger.debug(f"🚫 [GLOBAL-RADAR] Content excluded: {source.name}")
+            self._excluded_count += 1  # VPS FIX: Track excluded content statistics
             return None
 
         # Analyze relevance

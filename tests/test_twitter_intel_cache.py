@@ -370,50 +370,6 @@ class TestMainIntegration:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_enrich_alert_with_empty_cache(self):
-        """Enriching alert with empty cache should not crash."""
-        from src.services.twitter_intel_cache import TwitterIntelCache
-
-        cache = TwitterIntelCache.__new__(TwitterIntelCache)
-        cache._initialized = False
-        cache.__init__()
-        cache._cache = {}
-        cache._cycle_id = "test"
-        cache._last_full_refresh = datetime.now()
-
-        alert = {"score": 8, "market": "Home Win"}
-
-        enriched = cache.enrich_alert_with_twitter_intel(
-            alert=alert,
-            home_team="Galatasaray",
-            away_team="Fenerbahce",
-            league_key="soccer_turkey_super_league",
-        )
-
-        assert "twitter_intel" in enriched
-        assert enriched["twitter_intel"]["tweets"] == []
-
-    def test_enrich_alert_preserves_original_data(self):
-        """Enriching alert should preserve original alert data."""
-        from src.services.twitter_intel_cache import TwitterIntelCache
-
-        cache = TwitterIntelCache.__new__(TwitterIntelCache)
-        cache._initialized = False
-        cache.__init__()
-        cache._cache = {}
-        cache._cycle_id = "test"
-        cache._last_full_refresh = datetime.now()
-
-        alert = {"score": 8, "market": "Home Win", "custom_field": "should_be_preserved"}
-
-        enriched = cache.enrich_alert_with_twitter_intel(
-            alert=alert, home_team="Test", away_team="Test2", league_key="test"
-        )
-
-        assert enriched["score"] == 8
-        assert enriched["market"] == "Home Win"
-        assert enriched["custom_field"] == "should_be_preserved"
-
     def test_cache_is_fresh_after_refresh(self):
         """Cache should be fresh immediately after refresh."""
         from src.services.twitter_intel_cache import TwitterIntelCache
