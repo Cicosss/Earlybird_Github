@@ -48,6 +48,19 @@ except ImportError:
     _tavily_verify_line_movement = None
     logger.warning("⚠️ [SETTLEMENT] _tavily_verify_line_movement not available")
 
+# Import Telegram prediction verification (V1.1 - Post-match feedback loop)
+try:
+    from src.analysis.telegram_trust_score import verify_prediction_against_result
+    from src.database.telegram_channel_model import (
+        get_pending_predictions_for_match,
+        verify_prediction,
+    )
+
+    _TELEGRAM_PREDICTION_TRACKING_AVAILABLE = True
+except ImportError:
+    _TELEGRAM_PREDICTION_TRACKING_AVAILABLE = False
+    logger.debug("Telegram prediction tracking not available")
+
 # Result status constants
 RESULT_WIN = "WIN"
 RESULT_LOSS = "LOSS"
@@ -125,6 +138,9 @@ class SettlementService:
         # PHASE 3: Save to DB (fast batch update)
         logger.info(f"💾 Saving {len(results_cache)} results to DB...")
         self._save_settlement_results(results_cache, stats)
+
+        # PHASE 3.5: Verify Telegram predictions (V1.1 - Post-match feedback loop)
+        self._verify_telegram_predictions(results_cache)
 
         # PHASE 4: Calculate final statistics
         self._calculate_final_statistics(stats)
@@ -616,6 +632,79 @@ class SettlementService:
                 logger.warning("⚠️ Learning loop failed - optimizer weights not updated")
         except Exception as e:
             logger.error(f"❌ Learning loop error: {e}", exc_info=True)
+
+    def _verify_telegram_predictions(self, results_cache: list[dict]) -> None:
+        """
+        V1.1: Verify Telegram channel predictions after match settlement.
+
+        This is the feedback loop that updates predictions_made and predictions_correct
+        for each Telegram channel based on actual match results.
+
+        Called after _save_settlement_results to verify any pending predictions.
+
+        Args:
+            results_cache: List of result dictionaries with match data and results
+        """
+        if not _TELEGRAM_PREDICTION_TRACKING_AVAILABLE:
+            return
+
+        verified_count = 0
+        correct_count = 0
+
+        for item in results_cache:
+            match_data = item.get("match_data", {})
+            result = item.get("result", {})
+
+            # Skip if no match_id or result
+            match_id = match_data.get("match_id")
+            if not match_id or not result:
+                continue
+
+            # Skip if match not finished
+            if result.get("status") != "FINISHED":
+                continue
+
+            home_score = result.get("home_score")
+            away_score = result.get("away_score")
+            if home_score is None or away_score is None:
+                continue
+
+            # Get pending predictions for this match
+            try:
+                pending_predictions = get_pending_predictions_for_match(str(match_id))
+
+                for pred in pending_predictions:
+                    prediction_type = pred.get("prediction_type")
+                    prediction_team = pred.get("prediction_team")
+
+                    # Verify the prediction
+                    was_correct = verify_prediction_against_result(
+                        prediction_type=prediction_type,
+                        prediction_team=prediction_team,
+                        home_score=home_score,
+                        away_score=away_score,
+                        home_team=match_data.get("home_team"),
+                        away_team=match_data.get("away_team"),
+                    )
+
+                    if was_correct is not None:
+                        # Update the prediction record and channel metrics
+                        verify_prediction(
+                            prediction_id=pred["id"],
+                            was_correct=was_correct,
+                        )
+                        verified_count += 1
+                        if was_correct:
+                            correct_count += 1
+
+            except Exception as e:
+                logger.warning(f"⚠️ Error verifying predictions for match {match_id}: {e}")
+
+        if verified_count > 0:
+            accuracy = (correct_count / verified_count) * 100 if verified_count > 0 else 0
+            logger.info(
+                f"📊 TELEGRAM PREDICTIONS VERIFIED: {correct_count}/{verified_count} correct ({accuracy:.1f}%)"
+            )
 
     def _get_bet_odds(self, match_data: dict) -> float:
         """

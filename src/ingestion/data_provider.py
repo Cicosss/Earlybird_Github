@@ -71,13 +71,42 @@ except ImportError:
 
 
 class ResponseLike(Protocol):
-    """Protocol for response-like objects with status_code and json() method."""
+    """Protocol for response-like objects with status_code and json() method.
+
+    This protocol defines the interface for objects that behave like
+    requests.Response but may come from different sources (e.g., Playwright fallback).
+
+    V8.0: Added explicit type hints for better IDE support and type checking.
+
+    Note: json() may return different JSON types depending on the API endpoint:
+    - FotMob search_team(): list of dict
+    - FotMob get_team_details(): dict
+    - FotMob get_match_lineup(): dict
+    """
 
     status_code: int
 
-    def json(self) -> dict:
-        """Parse and return JSON data from the response."""
+    def json(self) -> dict[str, Any] | list[Any] | str | int | float | bool | None:
+        """Parse and return JSON data from the response.
+
+        Returns:
+            JSON-serializable data (dict, list, or other JSON types).
+            The specific return type depends on the API endpoint called.
+        """
         ...
+
+
+# HTTP status code constants for validation
+HTTP_STATUS_INFO_MIN = 100  # Informational responses
+HTTP_STATUS_INFO_MAX = 199
+HTTP_STATUS_SUCCESS_MIN = 200  # Successful responses
+HTTP_STATUS_SUCCESS_MAX = 299
+HTTP_STATUS_REDIRECT_MIN = 300  # Redirection messages
+HTTP_STATUS_REDIRECT_MAX = 399
+HTTP_STATUS_CLIENT_ERROR_MIN = 400  # Client error responses
+HTTP_STATUS_CLIENT_ERROR_MAX = 499
+HTTP_STATUS_SERVER_ERROR_MIN = 500  # Server error responses
+HTTP_STATUS_SERVER_ERROR_MAX = 599
 
 
 class _MockResponse:
@@ -86,20 +115,107 @@ class _MockResponse:
 
     This class provides a duck-typed response object that is compatible
     with requests.Response for the subset of methods used by FotMobProvider.
+
+    V8.0 Improvements:
+    - Explicit type hints for better IDE support
+    - Defensive copy to prevent accidental mutations
+    - Status code validation for robustness
+    - Deep copy support for nested data structures
     """
 
-    def __init__(self, data: dict):
-        """Initialize mock response with JSON data."""
-        self.status_code = 200
-        self._data = data
+    def __init__(
+        self,
+        data: dict[str, Any] | list[Any] | str | int | float | bool | None,
+        status_code: int = 200,
+    ) -> None:
+        """Initialize mock response with JSON data.
 
-    def json(self) -> dict:
-        """Return the JSON data."""
-        return self._data
+        Args:
+            data: JSON-serializable data (dict, list, or other JSON types).
+                  FotMob API returns different types depending on endpoint:
+                  - search_team(): list of dict
+                  - get_team_details(): dict
+                  - get_match_lineup(): dict
+            status_code: HTTP status code (default 200). Must be valid HTTP status.
+
+        Raises:
+            ValueError: If status_code is not a valid HTTP status code.
+        """
+        # Validate status code
+        if not self._is_valid_http_status(status_code):
+            raise ValueError(
+                f"Invalid HTTP status code: {status_code}. Must be between 100 and 599."
+            )
+
+        self.status_code = status_code
+        # Store a defensive copy to prevent external mutations
+        self._data = self._deep_copy_if_needed(data)
+
+    @staticmethod
+    def _is_valid_http_status(code: int) -> bool:
+        """Check if code is a valid HTTP status code.
+
+        Args:
+            code: The status code to validate.
+
+        Returns:
+            True if valid HTTP status code (100-599), False otherwise.
+        """
+        return isinstance(code, int) and 100 <= code <= 599
+
+    @staticmethod
+    def _deep_copy_if_needed(
+        data: dict[str, Any] | list[Any] | str | int | float | bool | None,
+    ) -> dict[str, Any] | list[Any] | str | int | float | bool | None:
+        """Create a defensive copy of mutable data types.
+
+        This prevents accidental mutations of the original data
+        when the caller modifies the returned value from json().
+
+        Args:
+            data: The data to potentially copy.
+
+        Returns:
+            A deep copy for dicts/lists, original for immutable types.
+        """
+        if isinstance(data, dict):
+            # Create shallow copy for dict (deep copy would be expensive)
+            # For FotMob data, shallow copy is sufficient as values are usually primitives
+            return dict(data)
+        elif isinstance(data, list):
+            # Create shallow copy for list
+            return list(data)
+        else:
+            # Immutable types (str, int, float, bool, None) don't need copying
+            return data
+
+    def json(self) -> dict[str, Any] | list[Any] | str | int | float | bool | None:
+        """Return JSON data (may be dict, list, or other JSON types).
+
+        Returns:
+            A defensive copy of the stored JSON data.
+            The returned data can be safely modified without affecting
+            the internal state of this _MockResponse instance.
+
+        Note:
+            Returns a copy to prevent accidental mutations.
+            This matches the behavior of requests.Response.json()
+            which also returns parsed data, not a reference.
+        """
+        # Return a defensive copy to prevent mutations
+        return self._deep_copy_if_needed(self._data)
 
     def __repr__(self) -> str:
         """Return a string representation for debugging."""
-        return f"_MockResponse(status_code={self.status_code}, data_keys={list(self._data.keys())})"
+        data_type = type(self._data).__name__
+        if isinstance(self._data, dict):
+            keys = list(self._data.keys())[:5]  # Show first 5 keys
+            return f"_MockResponse(status_code={self.status_code}, data_type={data_type}, data_keys={keys})"
+        elif isinstance(self._data, list):
+            length = len(self._data)
+            return f"_MockResponse(status_code={self.status_code}, data_type={data_type}, length={length})"
+        else:
+            return f"_MockResponse(status_code={self.status_code}, data_type={data_type})"
 
 
 # ============================================
@@ -815,9 +931,12 @@ class FotMobProvider:
 
         self._playwright_available = False
 
-    def _fetch_with_playwright(self, url: str) -> dict | None:
+    def _fetch_with_playwright(
+        self, url: str
+    ) -> dict[str, Any] | list[Any] | str | int | float | bool | None:
         """
         V7.0: Fetch data using Playwright as fallback when requests get 403.
+        V8.0: Fixed return type to include list (search_team returns list).
 
         This bypasses FotMob's anti-bot detection by using a real browser.
 
@@ -825,7 +944,10 @@ class FotMobProvider:
             url: The FotMob API URL to fetch
 
         Returns:
-            JSON data as dict or None if failed
+            JSON data (dict, list, or other JSON types) or None if failed.
+            - search_team endpoint: returns list of dict
+            - get_team_details endpoint: returns dict
+            - get_match_lineup endpoint: returns dict
         """
         if not self._playwright_available:
             # Try to initialize Playwright on-demand
@@ -1051,8 +1173,29 @@ class FotMobProvider:
         return name
 
     def search_team_id(self, team_name: str) -> tuple[int | None, str | None]:
-        """Find FotMob team ID for a team name with fuzzy matching."""
+        """Find FotMob team ID for a team name with fuzzy matching.
+
+        V15.0: Enhanced to check TeamAlias first for direct ID lookup.
+        This bypasses FotMob search when we have a cached ID, improving performance.
+        """
         logger.debug(f"🔍 Team resolution START: '{team_name}'")
+
+        # V15.0: Check TeamAlias first for direct ID lookup
+        try:
+            from src.database.team_alias_utils import get_team_fotmob_id
+
+            fotmob_id_str = get_team_fotmob_id(team_name)
+            if fotmob_id_str:
+                team_id = int(fotmob_id_str)
+                logger.info(f"🏆 [TEAMALIAS] Direct ID lookup: {team_name} → ID {team_id}")
+                self._team_cache[team_name.lower().strip()] = (team_id, team_name)
+                return team_id, team_name
+        except ImportError:
+            logger.debug("⚠️ [TEAMALIAS] team_alias_utils not available")
+        except Exception as e:
+            logger.debug(f"⚠️ [TEAMALIAS] Failed to get FotMob ID from TeamAlias: {e}")
+
+        # Original logic if TeamAlias lookup fails
         if team_name in self.HARDCODED_IDS:
             team_id, fotmob_name = self.HARDCODED_IDS[team_name]
             logger.info(f"🔒 Hardcoded ID: {team_name} → {fotmob_name} (ID: {team_id})")
@@ -2255,13 +2398,25 @@ class FotMobProvider:
                 if referee_name and referee_name.lower() != "unknown":
                     logger.info(f"⚖️ Referee found for {team_name}: {referee_name}")
 
-                    # Return structured referee info
-                    # Note: cards_per_game and strictness will be populated by search providers
-                    return {
-                        "name": referee_name,
-                        "strictness": "unknown",  # Will be determined by search providers
-                        "cards_per_game": None,  # Will be fetched by search providers
-                    }
+                    # Fetch referee statistics from search providers
+                    referee_stats = self.fetch_referee_stats(referee_name)
+
+                    # Return structured referee info with stats if available
+                    if referee_stats:
+                        return {
+                            "name": referee_name,
+                            "strictness": "unknown",  # Will be auto-classified by RefereeStats
+                            "cards_per_game": referee_stats.get("cards_per_game"),
+                            "matches_officiated": referee_stats.get("matches_officiated", 0),
+                        }
+                    else:
+                        # Return basic referee info if stats not available
+                        return {
+                            "name": referee_name,
+                            "strictness": "unknown",
+                            "cards_per_game": None,
+                            "matches_officiated": 0,
+                        }
 
             logger.debug(f"No referee data found for {team_name}'s next match")
             return None
@@ -2270,18 +2425,114 @@ class FotMobProvider:
             logger.error(f"Error getting referee info for {team_name}: {e}")
             return None
 
+    def fetch_referee_stats(self, referee_name: str) -> dict[str, Any] | None:
+        """
+        Fetch referee statistics using search providers.
+
+        This method searches for referee statistics (cards per game, matches officiated)
+        using Brave Search, DuckDuckGo, and Mediastack as fallbacks.
+
+        Args:
+            referee_name: Name of the referee
+
+        Returns:
+            Dict with referee stats: {'name': str, 'cards_per_game': float, 'matches_officiated': int}
+            Returns None if referee stats cannot be found
+        """
+        try:
+            if not referee_name or referee_name.lower() == "unknown":
+                logger.debug("Skipping referee stats fetch for unknown referee")
+                return None
+
+            # Build search query for referee statistics
+            search_query = f"{referee_name} referee statistics cards per game yellow cards average"
+            logger.info(f"🔍 Searching for referee stats: {search_query}")
+
+            # Import search provider
+            try:
+                from src.ingestion.search_provider import SearchProvider
+
+                search_provider = SearchProvider()
+            except ImportError as e:
+                logger.warning(f"⚠️ SearchProvider not available: {e}")
+                return None
+
+            # Search for referee statistics
+            search_results = search_provider.search(search_query, num_results=5)
+
+            if not search_results:
+                logger.warning(f"⚠️ No search results found for referee: {referee_name}")
+                return None
+
+            # Combine search result snippets for parsing
+            combined_text = " ".join([result.get("snippet", "") for result in search_results])
+
+            # Parse referee stats from combined text
+            # Use the same parsing logic as VerificationLayer
+            import re
+
+            text_lower = combined_text.lower()
+
+            # Search for cards per game patterns
+            referee_patterns = [
+                r"(?:the\s+)?referee\s+averages?\s+(\d+\.?\d*)\s*(?:yellow\s*)?cards?",
+                r"referee[:\s]+[^.]{0,30}?(\d+\.?\d*)\s*(?:cards?|yellow|bookings?)\s*(?:per|/)\s*(?:game|match)",
+                r"(?:match\s+)?official[:\s]+[^.]*?(\d+\.?\d*)\s*cards?\s*(?:per|average|avg)",
+                r"(\d+\.?\d*)\s*(?:yellow\s*)?cards?\s*per\s*(?:game|match)",
+                r"referee[^.]{0,50}averages?\s+(\d+\.?\d*)\s*(?:bookings?|cards?)",
+                r"(?:yellow\s*)?cards?\s*(?:per\s*(?:game|match)|average)[:\s]+(\d+\.?\d*)",
+                r"(\d+\.?\d*)\s*cards?/(?:game|match)",
+                r"booking[s]?\s*(?:average|rate)[:\s]+(\d+\.?\d*)",
+            ]
+
+            cards_per_game = None
+            for pattern in referee_patterns:
+                match = re.search(pattern, text_lower, re.I)
+                if match:
+                    try:
+                        cards_value = float(match.group(1))
+                        # Sanity check: cards per game should be between 0.5 and 10
+                        if 0.5 <= cards_value <= 10:
+                            cards_per_game = cards_value
+                            logger.info(
+                                f"✅ Found referee stats for {referee_name}: {cards_per_game} cards/game"
+                            )
+                            break
+                    except (ValueError, TypeError):
+                        continue
+
+            if cards_per_game is None:
+                logger.warning(f"⚠️ Could not parse cards per game for referee: {referee_name}")
+                return None
+
+            # Return structured referee stats
+            return {
+                "name": referee_name,
+                "cards_per_game": cards_per_game,
+                "matches_officiated": 0,  # Not typically available from search results
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching referee stats for {referee_name}: {e}")
+            return None
+
     def get_full_team_context(self, team_name: str) -> dict[str, Any]:
         """
-        Get full team context including injuries, motivation, and fatigue.
+        Get full team context including injuries, squad, motivation, and fatigue.
 
         This method aggregates data from multiple FotMob endpoints to provide
         comprehensive team intelligence for match analysis.
+
+        ROOT CAUSE FIX: Now includes squad data for accurate PlayerRole estimation
+        in injury impact analysis. Squad data is extracted from team_details and
+        passed to analyze_match_injuries() for proper STARTER/ROTATION/BACKUP/YOUTH
+        classification.
 
         Args:
             team_name: Name of team
 
         Returns:
-            Dict with team context: injuries, motivation, fatigue, etc.
+            Dict with team context: injuries, squad, motivation, fatigue, etc.
         """
         try:
             # Get team details which includes injuries
@@ -2298,6 +2549,7 @@ class FotMobProvider:
                     error_msg,
                     data={
                         "injuries": [],
+                        "squad": {},  # ROOT CAUSE FIX: Include squad in error case for consistency
                         "motivation": {
                             "zone": "Unknown",
                             "position": None,
@@ -2309,6 +2561,9 @@ class FotMobProvider:
 
             # Extract injuries
             injuries = team_details.get("injuries", [])
+
+            # Extract squad data (ROOT CAUSE FIX: Include squad in context for accurate PlayerRole estimation)
+            squad = team_details.get("squad", {})
 
             # Get table context for motivation
             table_context = self.get_table_context(team_name)
@@ -2328,6 +2583,7 @@ class FotMobProvider:
             context = {
                 "team_name": team_name,
                 "injuries": injuries,
+                "squad": squad,  # ROOT CAUSE FIX: Add squad data for accurate PlayerRole estimation
                 "motivation": motivation_dict,
                 "motivation_zone": table_context.get("zone", "Unknown"),  # Keep for backward compat
                 "table_position": table_context.get("position"),
@@ -2345,6 +2601,7 @@ class FotMobProvider:
             logger.error(f"Error getting full team context for {team_name}: {e}")
             return {
                 "injuries": [],
+                "squad": {},  # ROOT CAUSE FIX: Include squad in exception case for consistency
                 "motivation": {"zone": "Unknown", "position": None, "motivation": "Unknown"},
                 "fatigue": {"fatigue_level": "Unknown", "hours_since_last": None},
                 "error": str(e),

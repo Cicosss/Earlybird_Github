@@ -377,6 +377,246 @@ class TestModelIntegration:
         assert betting.corners_signal == betting_restored.corners_signal
 
 
+class TestCaseSensitivityFixes:
+    """Test suite for case-sensitivity fixes (COVE Double Verification)."""
+
+    def test_risk_levels_case_insensitive(self):
+        """Test that risk levels are case-insensitive."""
+        # Test lowercase
+        data_lower = {
+            "internal_crisis": "high - Player unrest",
+            "turnover_risk": "medium - Squad rotation",
+            "referee_intel": "strict - High card rate",
+            "biscotto_potential": "no - Both need win",
+            "injury_impact": "manageable - Minor injuries",
+            "btts_impact": "positive - Attacking matchup",
+            "motivation_home": "high - Title race",
+            "motivation_away": "low - Safe from relegation",
+            "table_context": "Valid context",
+        }
+
+        response = DeepDiveResponse(**data_lower)
+        # Should normalize to proper case
+        assert response.internal_crisis == "High - Player unrest"
+        assert response.turnover_risk == "Medium - Squad rotation"
+        assert response.referee_intel == "Strict - High card rate"
+        assert response.biscotto_potential == "No - Both need win"
+        assert response.injury_impact == "Manageable - Minor injuries"
+        assert response.btts_impact == "Positive - Attacking matchup"
+        assert response.motivation_home == "High - Title race"
+        assert response.motivation_away == "Low - Safe from relegation"
+
+    def test_risk_levels_uppercase(self):
+        """Test that risk levels work with uppercase."""
+        data_upper = {
+            "internal_crisis": "HIGH - Crisis",
+            "turnover_risk": "MEDIUM - Risk",
+            "referee_intel": "STRICT - Strict",
+            "biscotto_potential": "YES - Yes",
+            "injury_impact": "CRITICAL - Critical",
+            "btts_impact": "NEGATIVE - Negative",
+            "motivation_home": "HIGH - High",
+            "motivation_away": "MEDIUM - Medium",
+            "table_context": "Valid",
+        }
+
+        response = DeepDiveResponse(**data_upper)
+        # Should normalize to proper case
+        assert response.internal_crisis == "High - Crisis"
+        assert response.turnover_risk == "Medium - Risk"
+        assert response.referee_intel == "Strict - Strict"
+        assert response.biscotto_potential == "Yes - Yes"
+        assert response.injury_impact == "Critical - Critical"
+        assert response.btts_impact == "Negative - Negative"
+        assert response.motivation_home == "High - High"
+        assert response.motivation_away == "Medium - Medium"
+
+    def test_risk_levels_mixed_case(self):
+        """Test that risk levels work with mixed case."""
+        data_mixed = {
+            "internal_crisis": "HiGh - Mixed case",
+            "turnover_risk": "MeDiUm - Mixed",
+            "referee_intel": "StRiCt - Mixed",
+            "biscotto_potential": "UnKnOwN - Unknown",
+            "injury_impact": "MaNaGeAbLe - Mixed",
+            "btts_impact": "NeUtRaL - Mixed",
+            "motivation_home": "LoW - Mixed",
+            "motivation_away": "UnKnOwN - Unknown",
+            "table_context": "Valid",
+        }
+
+        response = DeepDiveResponse(**data_mixed)
+        # Should normalize to proper case
+        assert response.internal_crisis == "High - Mixed case"
+        assert response.turnover_risk == "Medium - Mixed"
+        assert response.referee_intel == "Strict - Mixed"
+        assert response.biscotto_potential == "Unknown - Unknown"
+        assert response.injury_impact == "Manageable - Mixed"
+        assert response.btts_impact == "Neutral - Mixed"
+        assert response.motivation_home == "Low - Mixed"
+        assert response.motivation_away == "Unknown - Unknown"
+
+    def test_unknown_with_explanation(self):
+        """Test that 'Unknown' with explanation works correctly."""
+        data = {
+            "internal_crisis": "Unknown - No data available",
+            "turnover_risk": "Unknown - Insufficient info",
+            "referee_intel": "Unknown - New referee",
+            "biscotto_potential": "Unknown - Uncertain",
+            "injury_impact": "Unknown - No injury report",
+            "btts_impact": "Unknown - No tactical data",
+            "motivation_home": "Unknown - Early season",
+            "motivation_away": "Unknown - Unclear stakes",
+            "table_context": "Valid context",
+        }
+
+        response = DeepDiveResponse(**data)
+        assert response.internal_crisis == "Unknown - No data available"
+        assert response.turnover_risk == "Unknown - Insufficient info"
+        assert response.referee_intel == "Unknown - New referee"
+        assert response.biscotto_potential == "Unknown - Uncertain"
+        assert response.injury_impact == "Unknown - No injury report"
+        assert response.btts_impact == "Unknown - No tactical data"
+        assert response.motivation_home == "Unknown - Early season"
+        assert response.motivation_away == "Unknown - Unclear stakes"
+
+
+class TestFormatForPrompt:
+    """Test suite for format_for_prompt case-sensitivity fixes."""
+
+    def test_format_for_prompt_ignores_lowercase_unknown(self):
+        """Test that format_for_prompt ignores lowercase 'unknown' values."""
+        from src.ingestion.deepseek_intel_provider import DeepSeekIntelProvider
+
+        provider = DeepSeekIntelProvider()
+
+        # Test with lowercase 'unknown'
+        deep_dive = {
+            "internal_crisis": "unknown - No data",
+            "turnover_risk": "High - Risk",
+            "referee_intel": "unknown - No referee data",
+            "biscotto_potential": "No - No biscotto",
+            "injury_impact": "Critical - Key injuries",
+            "btts_impact": "unknown - No data",
+            "motivation_home": "High - Motivated",
+            "motivation_away": "unknown - No data",
+            "table_context": "Valid",
+        }
+
+        formatted = provider.format_for_prompt(deep_dive)
+
+        # Should not include 'unknown' fields
+        assert "INTERNAL CRISIS" not in formatted
+        assert "REFEREE" not in formatted
+        assert "BTTS TACTICAL" not in formatted
+        assert "MOTIVATION AWAY" not in formatted
+
+        # Should include non-unknown fields
+        assert "TURNOVER RISK" in formatted
+        assert "BISCOTTO" in formatted
+        assert "INJURY IMPACT" in formatted
+        assert "MOTIVATION HOME" in formatted
+        assert "TABLE" in formatted
+
+    def test_format_for_prompt_ignores_uppercase_unknown(self):
+        """Test that format_for_prompt ignores uppercase 'Unknown' values."""
+        from src.ingestion.deepseek_intel_provider import DeepSeekIntelProvider
+
+        provider = DeepSeekIntelProvider()
+
+        deep_dive = {
+            "internal_crisis": "Unknown - No data",
+            "turnover_risk": "High - Risk",
+            "referee_intel": "Unknown - No referee data",
+            "biscotto_potential": "No - No biscotto",
+            "injury_impact": "Critical - Key injuries",
+            "btts_impact": "Unknown - No data",
+            "motivation_home": "High - Motivated",
+            "motivation_away": "Unknown - No data",
+            "table_context": "Valid",
+        }
+
+        formatted = provider.format_for_prompt(deep_dive)
+
+        # Should not include 'Unknown' fields
+        assert "INTERNAL CRISIS" not in formatted
+        assert "REFEREE" not in formatted
+        assert "BTTS TACTICAL" not in formatted
+        assert "MOTIVATION AWAY" not in formatted
+
+        # Should include non-unknown fields
+        assert "TURNOVER RISK" in formatted
+        assert "BISCOTTO" in formatted
+        assert "INJURY IMPACT" in formatted
+        assert "MOTIVATION HOME" in formatted
+        assert "TABLE" in formatted
+
+
+class TestNormalizeDeepDiveResponse:
+    """Test suite for normalize_deep_dive_response normalization."""
+
+    def test_normalize_lowercase_values(self):
+        """Test that normalize_deep_dive_response normalizes lowercase values."""
+        from src.utils.ai_parser import normalize_deep_dive_response
+
+        data = {
+            "internal_crisis": "high - Crisis",
+            "turnover_risk": "medium - Risk",
+            "referee_intel": "strict - Strict",
+            "biscotto_potential": "no - No",
+            "injury_impact": "manageable - Manageable",
+            "btts_impact": "positive - Positive",
+            "motivation_home": "high - High",
+            "motivation_away": "low - Low",
+            "table_context": "Valid",
+        }
+
+        normalized = normalize_deep_dive_response(data)
+
+        # Should normalize to proper case
+        assert normalized["internal_crisis"] == "High - Crisis"
+        assert normalized["turnover_risk"] == "Medium - Risk"
+        assert normalized["referee_intel"] == "Strict - Strict"
+        assert normalized["biscotto_potential"] == "No - No"
+        assert normalized["injury_impact"] == "Manageable - Manageable"
+        assert normalized["btts_impact"] == "Positive - Positive"
+        assert normalized["motivation_home"] == "High - High"
+        assert normalized["motivation_away"] == "Low - Low"
+        assert normalized["table_context"] == "Valid"
+
+    def test_normalize_handles_none_input(self):
+        """Test that normalize_deep_dive_response handles None input."""
+        from src.utils.ai_parser import normalize_deep_dive_response
+
+        result = normalize_deep_dive_response(None)
+        assert result == {}
+
+    def test_normalize_handles_empty_dict(self):
+        """Test that normalize_deep_dive_response handles empty dict."""
+        from src.utils.ai_parser import normalize_deep_dive_response
+
+        result = normalize_deep_dive_response({})
+        assert result == {}
+
+    def test_normalize_provides_defaults(self):
+        """Test that normalize_deep_dive_response provides defaults for missing fields."""
+        from src.utils.ai_parser import normalize_deep_dive_response
+
+        data = {"internal_crisis": "High - Crisis"}
+        normalized = normalize_deep_dive_response(data)
+
+        # Should provide defaults for missing fields
+        assert normalized["internal_crisis"] == "High - Crisis"
+        assert normalized["turnover_risk"] == "Unknown"
+        assert normalized["referee_intel"] == "Unknown"
+        assert normalized["biscotto_potential"] == "Unknown"
+        assert normalized["injury_impact"] == "None reported"
+        assert normalized["btts_impact"] == "Unknown"
+        assert normalized["motivation_home"] == "Unknown"
+        assert normalized["motivation_away"] == "Unknown"
+        assert normalized["table_context"] == "Unknown"
+
+
 if __name__ == "__main__":
     # Run tests directly
     pytest.main([__file__, "-v"])

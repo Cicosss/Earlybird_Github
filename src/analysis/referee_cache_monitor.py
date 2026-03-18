@@ -20,12 +20,13 @@ Usage:
 """
 
 import json
+import logging
 import time
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Dict, Any
-from threading import Lock
-import logging
+from threading import Event, Lock, Timer
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,15 @@ class RefereeCacheMonitor:
     Thread-safe for concurrent access.
     """
 
-    def __init__(self, metrics_file: Path = METRICS_FILE):
+    def __init__(self, metrics_file: Path = METRICS_FILE, flush_interval: float = 30.0):
         self.metrics_file = metrics_file
         self._lock = Lock()
         self._metrics = self._load_metrics()
+        self._dirty = False  # Track if metrics have been modified
+        self._flush_interval = flush_interval  # Seconds between automatic flushes
+        self._flush_timer = None
+        self._shutdown_event = Event()
+        self._start_flush_timer()
 
     def _load_metrics(self) -> Dict[str, Any]:
         """Load metrics from file."""
@@ -56,7 +62,10 @@ class RefereeCacheMonitor:
             with open(self.metrics_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            logger.warning(f"Failed to load cache metrics: {e}")
+            logger.error(
+                f"❌ [REFEREE-CACHE-MONITOR] Failed to load cache metrics from {self.metrics_file}: {e}\n"
+                f"Stack trace:\n{traceback.format_exc()}"
+            )
             return self._create_empty_metrics()
 
     def _create_empty_metrics(self) -> Dict[str, Any]:
@@ -68,6 +77,7 @@ class RefereeCacheMonitor:
             "hit_rate": 0.0,
             "last_updated": None,
             "referee_stats": {},
+            "boost_usage": {},  # Track referee data usage for boost calculations
             "performance": {
                 "avg_hit_time_ms": 0.0,
                 "avg_miss_time_ms": 0.0,
@@ -77,13 +87,63 @@ class RefereeCacheMonitor:
         }
 
     def _save_metrics(self):
-        """Save metrics to file."""
+        """Save metrics to file (called outside lock to reduce contention)."""
         try:
             self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.metrics_file, "w", encoding="utf-8") as f:
                 json.dump(self._metrics, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Metrics saved to {self.metrics_file}")
         except Exception as e:
             logger.warning(f"Failed to save cache metrics: {e}")
+
+    def _flush_metrics(self):
+        """Flush metrics to disk if dirty."""
+        if not self._dirty:
+            return
+
+        # Copy metrics outside lock to minimize lock time
+        with self._lock:
+            if not self._dirty:
+                return
+            metrics_copy = self._metrics.copy()
+            self._dirty = False
+
+        # Perform I/O outside lock
+        try:
+            self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.metrics_file, "w", encoding="utf-8") as f:
+                json.dump(metrics_copy, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Metrics flushed to {self.metrics_file}")
+        except Exception as e:
+            logger.warning(f"Failed to flush cache metrics: {e}")
+            # Mark as dirty again if save failed
+            with self._lock:
+                self._dirty = True
+
+    def _schedule_flush(self):
+        """Schedule next flush if not shutting down."""
+        if self._shutdown_event.is_set():
+            return
+
+        self._flush_timer = Timer(self._flush_interval, self._flush_metrics)
+        self._flush_timer.daemon = True  # Don't prevent program shutdown
+        self._flush_timer.start()
+
+    def _start_flush_timer(self):
+        """Start the periodic flush timer."""
+        self._schedule_flush()
+
+    def flush(self):
+        """Force immediate flush of metrics to disk."""
+        self._flush_metrics()
+
+    def shutdown(self):
+        """Shutdown monitor and flush metrics."""
+        self._shutdown_event.set()
+        if self._flush_timer:
+            self._flush_timer.cancel()
+        self.flush()
+        logger.info("RefereeCacheMonitor shutdown complete")
 
     def record_hit(self, referee_name: str, hit_time_ms: Optional[float] = None):
         """
@@ -119,7 +179,7 @@ class RefereeCacheMonitor:
                     self._metrics["performance"]["total_hit_time_ms"] / self._metrics["hits"]
                 )
 
-            self._save_metrics()
+            self._dirty = True
             logger.debug(f"Cache hit recorded for referee: {referee_name}")
 
     def record_miss(self, referee_name: str, miss_time_ms: Optional[float] = None):
@@ -156,8 +216,32 @@ class RefereeCacheMonitor:
                     self._metrics["performance"]["total_miss_time_ms"] / self._metrics["misses"]
                 )
 
-            self._save_metrics()
+            self._dirty = True
             logger.debug(f"Cache miss recorded for referee: {referee_name}")
+
+    def record_boost_usage(self, referee_name: str):
+        """
+        Record that referee data was used for boost calculation.
+
+        This is separate from cache hit tracking because:
+        1. Cache hit tracking measures cache effectiveness
+        2. Boost usage tracking measures how often referee data influences decisions
+
+        Args:
+            referee_name: Name of the referee whose data was used
+        """
+        with self._lock:
+            # Initialize boost_usage tracking if not present
+            if "boost_usage" not in self._metrics:
+                self._metrics["boost_usage"] = {}
+
+            # Track per-referee boost usage
+            if referee_name not in self._metrics["boost_usage"]:
+                self._metrics["boost_usage"][referee_name] = 0
+
+            self._metrics["boost_usage"][referee_name] += 1
+            self._dirty = True
+            logger.debug(f"Boost usage recorded for referee: {referee_name}")
 
     def _calculate_hit_rate(self) -> float:
         """Calculate current hit rate."""
@@ -198,7 +282,7 @@ class RefereeCacheMonitor:
         with self._lock:
             return self._metrics["referee_stats"].get(referee_name)
 
-    def get_top_referees(self, limit: int = 10) -> list:
+    def get_top_referees(self, limit: int = 10) -> List[Tuple[str, int]]:
         """
         Get top referees by access count.
 
@@ -219,7 +303,7 @@ class RefereeCacheMonitor:
         """Reset all metrics to zero."""
         with self._lock:
             self._metrics = self._create_empty_metrics()
-            self._save_metrics()
+            self._dirty = True
             logger.info("Cache metrics reset")
 
     def get_performance_summary(self) -> Dict[str, Any]:
@@ -304,16 +388,18 @@ _monitor_lock = Lock()
 
 def get_referee_cache_monitor() -> RefereeCacheMonitor:
     """
-    Get the global referee cache monitor instance.
+    Get the global referee cache monitor instance (thread-safe singleton).
 
     Returns:
         RefereeCacheMonitor instance
     """
     global _referee_cache_monitor
-    with _monitor_lock:
-        if _referee_cache_monitor is None:
-            _referee_cache_monitor = RefereeCacheMonitor()
-        return _referee_cache_monitor
+    if _referee_cache_monitor is None:
+        with _monitor_lock:
+            # Double-checked locking pattern for thread safety
+            if _referee_cache_monitor is None:
+                _referee_cache_monitor = RefereeCacheMonitor()
+    return _referee_cache_monitor
 
 
 # Decorator for automatic monitoring

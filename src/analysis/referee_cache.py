@@ -44,6 +44,7 @@ class RefereeCache:
         Acquire lock with contention monitoring.
 
         V12.1: Track lock wait times and contention for production observability.
+        V12.3: Use adaptive threshold based on cache size and recent performance.
         """
         start_time = time.time()
         self._lock.acquire()
@@ -53,11 +54,20 @@ class RefereeCache:
         self._lock_wait_time += wait_time
         self._lock_wait_count += 1
 
-        # Log warnings for high contention
-        if wait_time > 0.1:  # More than 100ms
+        # V12.3: Calculate adaptive threshold based on cache size and recent performance
+        cache_size = len(self._cache)
+        recent_avg_wait = (
+            self._lock_wait_time / self._lock_wait_count if self._lock_wait_count > 0 else 0.0
+        )
+        # Adaptive threshold: base 100ms + cache size factor + recent performance factor
+        adaptive_threshold = 0.1 + (cache_size * 0.001) + (recent_avg_wait * 0.5)
+
+        # Log warnings for high contention using adaptive threshold
+        if wait_time > adaptive_threshold:
             logger.warning(
                 f"⚠️ [REFEREE-CACHE] High lock contention detected: "
-                f"waited {wait_time:.3f}s (total waits: {self._lock_wait_count}, "
+                f"waited {wait_time:.3f}s (threshold: {adaptive_threshold:.3f}s, "
+                f"cache_size: {cache_size}, total waits: {self._lock_wait_count}, "
                 f"avg wait: {self._lock_wait_time / self._lock_wait_count:.3f}s)"
             )
 
@@ -72,13 +82,17 @@ class RefereeCache:
         Load cache from file (thread-safe).
 
         V12.2: Added error logging and alert via orchestration_metrics on cache corruption.
+        V12.3: Update in-memory cache to ensure consistency.
         """
         if not self.cache_file.exists():
             return {}
 
         try:
             with open(self.cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cache_data = json.load(f)
+                # V12.3: Update in-memory cache for consistency
+                self._cache = cache_data
+                return cache_data
         except Exception as e:
             logger.error(
                 f"❌ [REFEREE-CACHE] Failed to load referee cache: {e}. "
@@ -114,6 +128,9 @@ class RefereeCache:
         Returns:
             Dict with referee stats or None if not found/expired
         """
+        # V12.3: Load cache from file outside lock to reduce contention
+        cache = self._load_cache()
+
         # V12.1: Acquire lock with contention monitoring
         self._acquire_lock_with_monitoring()
         try:
@@ -127,7 +144,13 @@ class RefereeCache:
             if not cached_at:
                 return None
 
-            cached_date = datetime.fromisoformat(cached_at)
+            # V12.3: Add error handling for datetime parsing
+            try:
+                cached_date = datetime.fromisoformat(cached_at)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"⚠️ [REFEREE-CACHE] Invalid cache timestamp for {referee_name}: {e}")
+                return None
+
             expiry_date = cached_date + timedelta(days=self.ttl_days)
 
             # Use timezone-aware datetime for comparison
@@ -155,17 +178,33 @@ class RefereeCache:
             cache[referee_name] = {
                 "cached_at": datetime.now(timezone.utc).isoformat(),
                 "stats": stats,
+                "referee_strictness": stats.get(
+                    "strictness", "unknown"
+                ),  # Store strictness separately for consistency
             }
             self._save_cache(cache)
+            # V12.3: Update in-memory cache to ensure consistency
+            self._cache = cache
             logger.info(f"Referee cache updated for {referee_name}")
         finally:
             self._lock.release()
 
     def clear(self):
-        """Clear all cache entries."""
-        if self.cache_file.exists():
-            self.cache_file.unlink()
+        """
+        Clear all cache entries (thread-safe).
+
+        V12.3: Added lock acquisition to prevent race conditions.
+        """
+        # V12.3: Acquire lock with contention monitoring
+        self._acquire_lock_with_monitoring()
+        try:
+            if self.cache_file.exists():
+                self.cache_file.unlink()
+            # V12.3: Clear in-memory cache
+            self._cache = {}
             logger.info("Referee cache cleared")
+        finally:
+            self._lock.release()
 
     def get_stats(self) -> dict:
         """
@@ -174,21 +213,27 @@ class RefereeCache:
         Returns:
             Dict with cache stats (total_entries, expired_entries, etc.)
         """
+        # V12.3: Load cache from file outside lock to reduce contention
+        cache = self._load_cache()
+
         # V12.1: Acquire lock with contention monitoring
         self._acquire_lock_with_monitoring()
         try:
-            cache = self._load_cache()
-
             total_entries = len(cache)
             expired_entries = 0
 
             for entry in cache.values():
                 cached_at = entry.get("cached_at")
                 if cached_at:
-                    cached_date = datetime.fromisoformat(cached_at)
-                    expiry_date = cached_date + timedelta(days=self.ttl_days)
-                    # Use timezone-aware datetime for comparison
-                    if datetime.now(timezone.utc) > expiry_date:
+                    # V12.3: Add error handling for datetime parsing
+                    try:
+                        cached_date = datetime.fromisoformat(cached_at)
+                        expiry_date = cached_date + timedelta(days=self.ttl_days)
+                        # Use timezone-aware datetime for comparison
+                        if datetime.now(timezone.utc) > expiry_date:
+                            expired_entries += 1
+                    except (ValueError, TypeError):
+                        # Invalid timestamp, treat as expired
                         expired_entries += 1
 
             return {
@@ -231,11 +276,17 @@ class RefereeCache:
         Issue 2 fix: Reset lock stats periodically to prevent averages from becoming
         meaningless over time. This method is thread-safe and should be called by
         the metrics collector every hour.
+
+        V12.3: Use consistent lock pattern with monitoring.
         """
-        with self._lock:
+        # V12.3: Acquire lock with contention monitoring for consistency
+        self._acquire_lock_with_monitoring()
+        try:
             self._lock_wait_time = 0.0
             self._lock_wait_count = 0
             self._lock_timeout_count = 0
+        finally:
+            self._lock.release()
 
 
 # Global cache instance

@@ -119,23 +119,31 @@ class RateLimiter:
         """
         Wait for rate limit (synchronous).
 
+        V8.1: Moved sleep outside lock to improve performance in multi-threaded contexts.
+
         Returns:
             Actual delay applied in seconds
         """
         with self._lock:
             delay = self.get_delay()
+            # Update last_request_time before releasing lock
             if delay > 0:
-                logger.debug(f"Rate limit: sleeping {delay:.2f}s")
-                time.sleep(delay)
-            self.last_request_time = time.time()
-            return delay
+                self.last_request_time = time.time() + delay
+            else:
+                self.last_request_time = time.time()
+
+        # Sleep outside lock to avoid blocking other threads
+        if delay > 0:
+            logger.debug(f"Rate limit: sleeping {delay:.2f}s")
+            time.sleep(delay)
+
+        return delay
 
     async def wait_async(self) -> float:
         """
         Wait for rate limit (asynchronous).
 
-        Uses asyncio.Lock to properly serialize async requests.
-        The lock is held during the entire wait to prevent race conditions.
+        V8.1: Moved sleep outside lock to improve performance in async contexts.
 
         Returns:
             Actual delay applied in seconds
@@ -143,11 +151,18 @@ class RateLimiter:
         async_lock = self._get_async_lock()
         async with async_lock:
             delay = self.get_delay()
+            # Update last_request_time before releasing lock
             if delay > 0:
-                logger.debug(f"Rate limit: sleeping {delay:.2f}s (async)")
-                await asyncio.sleep(delay)
-            self.last_request_time = time.time()
-            return delay
+                self.last_request_time = time.time() + delay
+            else:
+                self.last_request_time = time.time()
+
+        # Sleep outside lock to avoid blocking other async tasks
+        if delay > 0:
+            logger.debug(f"Rate limit: sleeping {delay:.2f}s (async)")
+            await asyncio.sleep(delay)
+
+        return delay
 
 
 # ============================================
@@ -159,7 +174,10 @@ RATE_LIMIT_CONFIGS: dict[str, dict] = {
     "brave": {"min_interval": 2.0, "jitter_min": 0.0, "jitter_max": 0.0},
     "serper": {"min_interval": 0.3, "jitter_min": 0.0, "jitter_max": 0.0},
     # V6.2: Increased interval from 1.0s to 2.0s and added jitter for anti-bot evasion
-    "fotmob": {"min_interval": 2.0, "jitter_min": -0.5, "jitter_max": 0.5},
+    # V8.1: Fixed negative jitter that could violate min_interval contract
+    "fotmob": {"min_interval": 2.0, "jitter_min": 0.0, "jitter_max": 0.5},
+    # V8.1: Added rate limiting for news_radar (24/7 component that extracts content from web sources)
+    "news_radar": {"min_interval": 2.0, "jitter_min": 0.5, "jitter_max": 1.0},
     "default": {"min_interval": 1.0, "jitter_min": 0.0, "jitter_max": 0.0},
 }
 

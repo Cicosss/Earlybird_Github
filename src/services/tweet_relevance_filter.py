@@ -490,7 +490,14 @@ def resolve_conflict_via_gemini(
     fotmob_claim: str,
 ) -> dict[str, Any] | None:
     """
-    Resolve conflict via Gemini AI integration.
+    Resolve conflict via IntelligenceRouter (DeepSeek primary, Tavily/Claude fallback).
+
+    V13.0 FIX: Replaced non-existent _resolve_conflict_via_gemini() with proper
+    IntelligenceRouter.verify_news_item() integration.
+
+    The original implementation called AnalysisEngine._resolve_conflict_via_gemini()
+    which NEVER EXISTED - this method was never implemented. Now uses the proper
+    LLM routing system (DeepSeek → Tavily → Claude 3 Haiku fallback chain).
 
     Args:
         conflict_description: Description of the conflict
@@ -500,21 +507,67 @@ def resolve_conflict_via_gemini(
         fotmob_claim: FotMob's claim
 
     Returns:
-        Resolution dict or None if Gemini unavailable
+        Resolution dict with keys:
+        - verification_status: CONFIRMED | DENIED | OUTDATED | UNVERIFIED
+        - confidence_level: HIGH | MEDIUM | LOW
+        - additional_context: str
+        - verified: bool
+        Or None if intelligence router unavailable
     """
     try:
-        # Try to import Gemini integration
-        from src.core.analysis_engine import AnalysisEngine
+        # V13.0: Use IntelligenceRouter singleton (DeepSeek primary)
+        from src.services.intelligence_router import get_intelligence_router
 
-        engine = AnalysisEngine()
-        return engine._resolve_conflict_via_gemini(
-            conflict_description, home_team, away_team, twitter_claim, fotmob_claim
+        router = get_intelligence_router()
+
+        if not router or not router.is_available():
+            logger.debug("[TWEET-FILTER] IntelligenceRouter not available for conflict resolution")
+            return None
+
+        # Build news verification request from conflict data
+        # Map conflict parameters to verify_news_item() signature:
+        # - news_title: Brief conflict summary
+        # - news_snippet: Combined claims from both sources
+        # - team_name: Primary team (home)
+        # - news_source: Indicate this is a cross-source conflict
+        # - match_context: Full match context
+
+        news_title = (
+            f"Conflict: {conflict_description[:80]}..."
+            if len(conflict_description) > 80
+            else f"Conflict: {conflict_description}"
         )
-    except ImportError:
-        logger.debug("[TWEET-FILTER] Gemini integration not available")
+
+        news_snippet = f"TWITTER CLAIM: {twitter_claim[:300]}\n\nFOTMOB CLAIM: {fotmob_claim[:300]}"
+
+        match_context = f"{home_team} vs {away_team}"
+
+        logger.info(f"[TWEET-FILTER] Resolving conflict via IntelligenceRouter for {match_context}")
+
+        # Call verify_news_item through the router
+        # This routes to: DeepSeek (primary) → Claude 3 Haiku (fallback)
+        result = router.verify_news_item(
+            news_title=news_title,
+            news_snippet=news_snippet,
+            team_name=home_team,
+            news_source="Twitter vs FotMob Conflict",
+            match_context=match_context,
+        )
+
+        if result:
+            status = result.get("verification_status", "UNVERIFIED")
+            confidence = result.get("confidence_level", "LOW")
+            logger.info(f"[TWEET-FILTER] Conflict resolution: {status} (confidence: {confidence})")
+        else:
+            logger.warning("[TWEET-FILTER] Conflict resolution returned no result")
+
+        return result
+
+    except ImportError as e:
+        logger.debug(f"[TWEET-FILTER] IntelligenceRouter not available: {e}")
         return None
     except Exception as e:
-        logger.warning(f"[TWEET-FILTER] Error resolving conflict via Gemini: {e}")
+        logger.warning(f"[TWEET-FILTER] Error resolving conflict via IntelligenceRouter: {e}")
         return None
 
 
@@ -528,6 +581,7 @@ def filter_tweets_for_match(
     away_team: str,
     league_key: str,
     max_tweets: int = 10,
+    fotmob_data: str | None = None,
 ) -> TweetFilterResult:
     """
     Filter and score tweets for a specific match.
@@ -537,6 +591,7 @@ def filter_tweets_for_match(
         away_team: Away team name
         league_key: League identifier
         max_tweets: Maximum number of tweets to return
+        fotmob_data: Optional FotMob status data as JSON string
 
     Returns:
         TweetFilterResult with filtered and scored tweets
@@ -613,7 +668,9 @@ def filter_tweets_for_match(
         scored_tweets = scored_tweets[:max_tweets]
 
         # Detect conflicts
-        fotmob_data = cache.get_fotmob_status_for_match(home_team, away_team, league_key)
+        # Use provided fotmob_data if available, otherwise fetch from cache
+        if fotmob_data is None:
+            fotmob_data = cache.get_fotmob_status_for_match(home_team, away_team, league_key)
         has_conflicts, conflict_desc = detect_conflicts(scored_tweets, fotmob_data)
 
         # Format for AI

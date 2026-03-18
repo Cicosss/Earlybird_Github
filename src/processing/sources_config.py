@@ -16,6 +16,7 @@ Usage:
 """
 
 import logging
+import threading
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -608,6 +609,7 @@ class SourceTier:
 _TRUSTED_DOMAINS_CACHE: set[str] = set()
 _TRUSTED_HANDLES_CACHE: set[str] = set()
 _WHITE_LIST_INITIALIZED = False
+_WHITE_LIST_LOCK = threading.Lock()  # Thread-safe initialization
 
 
 def _initialize_white_list() -> None:
@@ -616,45 +618,62 @@ def _initialize_white_list() -> None:
 
     Fetches all news_sources (domains) and social_sources (handles)
     and caches them in memory for fast lookups.
+
+    Thread-safe: Uses lock to prevent race conditions during initialization.
     """
     global _TRUSTED_DOMAINS_CACHE, _TRUSTED_HANDLES_CACHE, _WHITE_LIST_INITIALIZED
 
+    # Fast path: already initialized (no lock needed for read)
     if _WHITE_LIST_INITIALIZED:
         return
 
-    try:
-        from src.database.supabase_provider import get_supabase
+    # Acquire lock for initialization (prevents race condition)
+    with _WHITE_LIST_LOCK:
+        # Double-check pattern: another thread might have initialized while we waited
+        if _WHITE_LIST_INITIALIZED:
+            return
 
-        supabase = get_supabase()
+        try:
+            from src.database.supabase_provider import get_supabase
 
-        # Fetch all news sources (domains)
-        all_news_sources = supabase.fetch_all_news_sources()
-        for source in all_news_sources:
-            domain = source.get("domain", "").strip().lower()
-            if domain:
-                # Remove www. prefix for normalization
-                if domain.startswith("www."):
-                    domain = domain[4:]
-                _TRUSTED_DOMAINS_CACHE.add(domain)
+            supabase = get_supabase()
 
-        # Fetch all social sources (Twitter handles)
-        all_social_sources = supabase.get_social_sources()
-        for source in all_social_sources:
-            handle = source.get("identifier", "").strip().lower()
-            if handle:
-                # Ensure handle starts with @
-                if not handle.startswith("@"):
-                    handle = f"@{handle.lstrip('@')}"
-                _TRUSTED_HANDLES_CACHE.add(handle)
+            # Fetch all news sources (domains)
+            all_news_sources = supabase.fetch_all_news_sources()
+            for source in all_news_sources:
+                domain = source.get("domain", "").strip().lower()
+                if domain:
+                    # Remove www. prefix for normalization
+                    if domain.startswith("www."):
+                        domain = domain[4:]
+                    _TRUSTED_DOMAINS_CACHE.add(domain)
 
-        _WHITE_LIST_INITIALIZED = True
-        logger.info(
-            f"✅ [WHITE-LIST] Initialized with {len(_TRUSTED_DOMAINS_CACHE)} domains and {len(_TRUSTED_HANDLES_CACHE)} handles"
-        )
+            # Fetch all social sources (Twitter handles)
+            all_social_sources = supabase.get_social_sources()
+            for source in all_social_sources:
+                handle = source.get("identifier", "").strip().lower()
+                if handle:
+                    # Ensure handle starts with @
+                    if not handle.startswith("@"):
+                        handle = f"@{handle.lstrip('@')}"
+                    _TRUSTED_HANDLES_CACHE.add(handle)
 
-    except Exception as e:
-        logger.warning(f"⚠️ [WHITE-LIST] Failed to initialize from Supabase: {e}")
-        # Fall back to empty cache - will use DEFAULT_SOURCE_TIER
+            # Mark as initialized (even if cache is empty, prevents infinite retry loop)
+            _WHITE_LIST_INITIALIZED = True
+            logger.info(
+                f"✅ [WHITE-LIST] Initialized with {len(_TRUSTED_DOMAINS_CACHE)} domains and {len(_TRUSTED_HANDLES_CACHE)} handles"
+            )
+
+        except Exception as e:
+            # CRITICAL FIX: Set flag even on failure to prevent infinite retry loop
+            # This ensures that if Supabase is down, we don't keep retrying
+            _WHITE_LIST_INITIALIZED = True
+            logger.warning(
+                f"⚠️ [WHITE-LIST] Failed to initialize from Supabase: {e}. "
+                f"Using empty cache - sources will get DEFAULT_SOURCE_TIER (Tier 3). "
+                f"Cache will be refreshed on next bot restart."
+            )
+            # Fall back to empty cache - will use DEFAULT_SOURCE_TIER
 
 
 def get_trust_score(url_or_handle: str) -> SourceTier:

@@ -59,6 +59,8 @@ class MatchAttributes:
     opening_away_odd: Optional[float] = None
     opening_over_2_5: Optional[float] = None
     opening_under_2_5: Optional[float] = None
+    opening_btts_yes: Optional[float] = None  # V12.7: BTTS odds
+    opening_btts_no: Optional[float] = None  # V12.7: BTTS odds
 
     # Current odds
     current_home_odd: Optional[float] = None
@@ -66,6 +68,8 @@ class MatchAttributes:
     current_away_odd: Optional[float] = None
     current_over_2_5: Optional[float] = None
     current_under_2_5: Optional[float] = None
+    current_btts_yes: Optional[float] = None  # V12.7: BTTS odds
+    current_btts_no: Optional[float] = None  # V12.7: BTTS odds
 
     # Internal storage for extra fields (for flexible composition)
     _extra_fields: dict[str, Any] = None
@@ -259,11 +263,15 @@ def extract_match_attributes(match: Any, attributes: Optional[list[str]] = None)
             opening_away_odd=getattr(match, "opening_away_odd", None),
             opening_over_2_5=getattr(match, "opening_over_2_5", None),
             opening_under_2_5=getattr(match, "opening_under_2_5", None),
+            opening_btts_yes=getattr(match, "opening_btts_yes", None),  # V12.7
+            opening_btts_no=getattr(match, "opening_btts_no", None),  # V12.7
             current_home_odd=getattr(match, "current_home_odd", None),
             current_draw_odd=getattr(match, "current_draw_odd", None),
             current_away_odd=getattr(match, "current_away_odd", None),
             current_over_2_5=getattr(match, "current_over_2_5", None),
             current_under_2_5=getattr(match, "current_under_2_5", None),
+            current_btts_yes=getattr(match, "current_btts_yes", None),  # V12.7
+            current_btts_no=getattr(match, "current_btts_no", None),  # V12.7
         )
     else:
         # Extract only specified attributes
@@ -306,11 +314,15 @@ def extract_match_odds(match: Any) -> MatchAttributes:
         opening_away_odd=getattr(match, "opening_away_odd", None),
         opening_over_2_5=getattr(match, "opening_over_2_5", None),
         opening_under_2_5=getattr(match, "opening_under_2_5", None),
+        opening_btts_yes=getattr(match, "opening_btts_yes", None),  # V12.7
+        opening_btts_no=getattr(match, "opening_btts_no", None),  # V12.7
         current_home_odd=getattr(match, "current_home_odd", None),
         current_draw_odd=getattr(match, "current_draw_odd", None),
         current_away_odd=getattr(match, "current_away_odd", None),
         current_over_2_5=getattr(match, "current_over_2_5", None),
         current_under_2_5=getattr(match, "current_under_2_5", None),
+        current_btts_yes=getattr(match, "current_btts_yes", None),  # V12.7
+        current_btts_no=getattr(match, "current_btts_no", None),  # V12.7
     )
 
 

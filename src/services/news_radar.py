@@ -49,9 +49,16 @@ from src.utils.content_analysis import (
 
 # V2.0: Import high-value signal detection
 from src.utils.high_value_detector import (
+    SignalType,
+    StructuredAnalysis,
     get_garbage_filter,
     get_signal_detector,
 )
+
+# V8.1: Import centralized HTTP client for rate limiting
+from src.utils.http_client import get_http_client
+
+# V8.1: Import centralized HTTP client for rate limiting
 from src.utils.radar_prompts import (
     BETTING_IMPACT_EMOJI,
     CATEGORY_EMOJI,
@@ -218,6 +225,8 @@ class RadarSource:
         During off-peak hours (midnight-6am local time), extends interval
         to save resources since news is less likely to be published.
 
+        V14.0: Enhanced timezone validation with specific logging for invalid timezones.
+
         Returns:
             Effective interval in minutes
         """
@@ -226,7 +235,7 @@ class RadarSource:
 
         try:
             # Try to get local hour for the source
-            from zoneinfo import ZoneInfo
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
             tz = ZoneInfo(self.source_timezone)
             local_now = datetime.now(tz)
@@ -240,8 +249,20 @@ class RadarSource:
             # Peak hours: normal interval
             return self.scan_interval_minutes
 
-        except Exception:
-            # If timezone parsing fails, use default interval
+        except ZoneInfoNotFoundError:
+            # Specific logging for invalid timezone
+            logger.warning(
+                f"⚠️ [NEWS-RADAR] Invalid timezone '{self.source_timezone}' for source '{self.name}'. "
+                f"Using default interval ({self.scan_interval_minutes} min). "
+                f"Valid timezone format: 'Europe/London', 'America/Sao_Paulo', etc."
+            )
+            return self.scan_interval_minutes
+        except Exception as e:
+            # Generic error handling for other timezone issues
+            logger.warning(
+                f"⚠️ [NEWS-RADAR] Error parsing timezone '{self.source_timezone}' for source '{self.name}': {e}. "
+                f"Using default interval ({self.scan_interval_minutes} min)."
+            )
             return self.scan_interval_minutes
 
 
@@ -262,11 +283,11 @@ class RadarAlert:
         category: Type of signal (MASS_ABSENCE, DECIMATED, YOUTH_TEAM, etc.)
         absent_count: Number of players unavailable
         absent_players: List of player names (if known)
-        betting_impact: CRITICAL, HIGH, MEDIUM, LOW
+        betting_impact: CRITICAL, HIGH, MEDIUM, LOW (validated in __post_init__)
         summary: Brief summary of the news (in Italian)
         confidence: Confidence score (0.0-1.0)
         discovered_at: Timestamp when news was discovered
-        enrichment_context: Optional enrichment data from database
+        enrichment_context: Optional enrichment data from database (must have format_context_line() method)
 
     Requirements: 6.1, 6.2
     """
@@ -286,6 +307,31 @@ class RadarAlert:
     betting_impact: str = "MEDIUM"
     discovered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     enrichment_context: Any | None = None
+
+    def __post_init__(self):
+        """
+        Validate and normalize fields after initialization.
+
+        Ensures betting_impact is a valid value and enrichment_context has required method.
+        """
+        # Validate betting_impact
+        VALID_BETTING_IMPACTS = {"CRITICAL", "HIGH", "MEDIUM", "LOW"}
+        if self.betting_impact not in VALID_BETTING_IMPACTS:
+            logger.warning(
+                f"⚠️ [RADAR-ALERT] Invalid betting_impact: '{self.betting_impact}', "
+                f"valid values: {VALID_BETTING_IMPACTS}. Defaulting to MEDIUM."
+            )
+            # Use object.__setattr__ to bypass dataclass frozen field restriction
+            object.__setattr__(self, "betting_impact", "MEDIUM")
+
+        # Validate enrichment_context has format_context_line method
+        if self.enrichment_context is not None:
+            if not hasattr(self.enrichment_context, "format_context_line"):
+                logger.warning(
+                    f"⚠️ [RADAR-ALERT] enrichment_context does not have format_context_line() method. "
+                    f"Type: {type(self.enrichment_context).__name__}. "
+                    f"Enrichment context will not be displayed in alert."
+                )
 
     def to_telegram_message(self) -> str:
         """
@@ -366,6 +412,226 @@ class RadarAlert:
 
 
 # NOTE: AnalysisResult is now imported from src.utils.content_analysis
+
+
+# ============================================
+# SIGNAL CROSS-VALIDATION (V3.0)
+# ============================================
+
+
+def cross_validate_signals(
+    signal_type: SignalType,
+    deepseek_category: str,
+    deepseek_absent_count: int,
+    extracted_number: int | None = None,
+) -> dict[str, Any]:
+    """
+    Intelligently cross-validate pattern-detected signal with DeepSeek analysis.
+
+    V3.0: Implements intelligent two-level analysis coordination:
+    - Validates consistency between signal_detector and DeepSeek
+    - Makes intelligent decisions when there's disagreement
+    - Adjusts confidence based on validation results
+    - Preserves valuable context from both sources
+
+    Args:
+        signal_type: Signal type detected by pattern matching
+        deepseek_category: Category returned by DeepSeek
+        deepseek_absent_count: Absent count from DeepSeek
+        extracted_number: Number extracted by pattern detector (optional)
+
+    Returns:
+        Dict with:
+            - is_validated: bool - Whether signals are consistent
+            - final_category: str - Final category decision
+            - final_absent_count: int - Final absent count decision
+            - confidence_adjustment: float - Adjustment to apply to confidence
+            - validation_reason: str - Explanation of validation decision
+            - validation_level: str - "HIGH", "MEDIUM", or "LOW" confidence
+    """
+    # Mapping from SignalType to DeepSeek categories
+    SIGNAL_TO_CATEGORY = {
+        SignalType.MASS_ABSENCE: "MASS_ABSENCE",
+        SignalType.DECIMATED: "DECIMATED",
+        SignalType.YOUTH_TEAM: "YOUTH_TEAM",
+        SignalType.TURNOVER: "TURNOVER",
+        SignalType.FINANCIAL_CRISIS: "FINANCIAL_CRISIS",
+        SignalType.LOGISTICAL_CRISIS: "LOGISTICAL_CRISIS",
+        SignalType.GOALKEEPER_OUT: "GOALKEEPER_OUT",
+        SignalType.MOTIVATION: "MOTIVATION",
+        SignalType.KEY_PLAYER: "LOW_VALUE",  # Key player alone is low value
+        SignalType.CONFIRMED_LINEUP: "CONFIRMED_LINEUP",
+        SignalType.NONE: "NOT_RELEVANT",
+    }
+
+    # Get expected category from signal type
+    expected_category = SIGNAL_TO_CATEGORY.get(signal_type, "OTHER")
+
+    # Case 1: Perfect agreement - HIGH confidence
+    if expected_category == deepseek_category:
+        # Validate absent count if available
+        final_absent_count = deepseek_absent_count
+
+        # Only boost confidence if they agree on a HIGH-VALUE signal, not on NOT_RELEVANT
+        confidence_adjustment = 0.0 if deepseek_category == "NOT_RELEVANT" else 0.1
+
+        # Use extracted_number if it's more specific
+        if extracted_number is not None and signal_type == SignalType.MASS_ABSENCE:
+            # If both sources agree on MASS_ABSENCE, use the more precise number
+            if deepseek_absent_count == 0 or extracted_number > deepseek_absent_count:
+                final_absent_count = extracted_number
+                confidence_adjustment = 0.15  # Extra boost for precise data
+
+        return {
+            "is_validated": True,
+            "final_category": deepseek_category,
+            "final_absent_count": final_absent_count,
+            "confidence_adjustment": confidence_adjustment,
+            "validation_reason": f"✅ Perfect agreement: Pattern '{signal_type.value}' matches DeepSeek '{deepseek_category}'",
+            "validation_level": "HIGH",
+        }
+
+    # Case 2: Related but different signals - MEDIUM confidence
+    related_signals = {
+        SignalType.MASS_ABSENCE: ["DECIMATED", "YOUTH_TEAM"],
+        SignalType.DECIMATED: ["MASS_ABSENCE", "YOUTH_TEAM"],
+        SignalType.YOUTH_TEAM: ["MASS_ABSENCE", "DECIMATED", "TURNOVER"],
+        SignalType.TURNOVER: ["YOUTH_TEAM"],
+    }
+
+    if signal_type in related_signals and deepseek_category in related_signals[signal_type]:
+        # Signals are related - make intelligent choice
+        # Prefer DeepSeek for category, but consider signal type for context
+        confidence_adjustment = 0.0  # No adjustment
+
+        # If signal detected MASS_ABSENCE with a number, but DeepSeek says DECIMATED
+        if signal_type == SignalType.MASS_ABSENCE and deepseek_category == "DECIMATED":
+            if extracted_number is not None and extracted_number >= 5:
+                # Strong evidence for MASS_ABSENCE - override DeepSeek
+                return {
+                    "is_validated": True,
+                    "final_category": "MASS_ABSENCE",
+                    "final_absent_count": extracted_number,
+                    "confidence_adjustment": 0.05,
+                    "validation_reason": f"🔄 Related signals: Pattern '{signal_type.value}' (n={extracted_number}) overrides DeepSeek '{deepseek_category}' due to strong evidence",
+                    "validation_level": "MEDIUM",
+                }
+
+        # Default to DeepSeek for related signals
+        return {
+            "is_validated": True,
+            "final_category": deepseek_category,
+            "final_absent_count": deepseek_absent_count,
+            "confidence_adjustment": 0.0,
+            "validation_reason": f"🔄 Related signals: Pattern '{signal_type.value}' and DeepSeek '{deepseek_category}' are consistent",
+            "validation_level": "MEDIUM",
+        }
+
+    # Case 3: Disagreement - LOW confidence, need intelligent resolution
+    # Check if one source has stronger evidence
+    if signal_type != SignalType.NONE and deepseek_category != "NOT_RELEVANT":
+        # Both detected something, but different - analyze evidence strength
+
+        # If pattern detector has extracted number, it has strong evidence
+        if extracted_number is not None and extracted_number >= 3:
+            # Pattern detector has strong numerical evidence
+            return {
+                "is_validated": False,
+                "final_category": expected_category,
+                "final_absent_count": extracted_number,
+                "confidence_adjustment": -0.1,  # Reduce confidence due to disagreement
+                "validation_reason": f"⚠️ Disagreement: Pattern '{signal_type.value}' (n={extracted_number}) vs DeepSeek '{deepseek_category}'. Using pattern due to strong numerical evidence.",
+                "validation_level": "LOW",
+            }
+
+        # If DeepSeek detected high-value signal but pattern didn't
+        if deepseek_category in ["MASS_ABSENCE", "DECIMATED", "YOUTH_TEAM", "TURNOVER"]:
+            # DeepSeek might be more nuanced - trust it
+            return {
+                "is_validated": False,
+                "final_category": deepseek_category,
+                "final_absent_count": deepseek_absent_count,
+                "confidence_adjustment": -0.05,
+                "validation_reason": f"⚠️ Disagreement: Pattern '{signal_type.value}' vs DeepSeek '{deepseek_category}'. Using DeepSeek due to high-value detection.",
+                "validation_level": "LOW",
+            }
+
+        # Default: prefer pattern detector for specific signals
+        if signal_type in [
+            SignalType.MASS_ABSENCE,
+            SignalType.GOALKEEPER_OUT,
+            SignalType.KEY_PLAYER,
+        ]:
+            return {
+                "is_validated": False,
+                "final_category": expected_category,
+                "final_absent_count": extracted_number
+                if extracted_number is not None
+                else deepseek_absent_count,
+                "confidence_adjustment": -0.15,  # Significant reduction
+                "validation_reason": f"⚠️ Disagreement: Pattern '{signal_type.value}' vs DeepSeek '{deepseek_category}'. Using pattern due to specific signal detection.",
+                "validation_level": "LOW",
+            }
+
+    # Case 4: Pattern detected but DeepSeek says NOT_RELEVANT
+    if signal_type != SignalType.NONE and deepseek_category == "NOT_RELEVANT":
+        # Pattern detector found something DeepSeek missed
+        if extracted_number is not None and extracted_number >= 3:
+            # Strong evidence - override DeepSeek
+            return {
+                "is_validated": False,
+                "final_category": expected_category,
+                "final_absent_count": extracted_number,
+                "confidence_adjustment": -0.05,
+                "validation_reason": f"🔍 DeepSeek missed: Pattern '{signal_type.value}' (n={extracted_number}) overrides DeepSeek 'NOT_RELEVANT' due to strong evidence",
+                "validation_level": "MEDIUM",
+            }
+
+        # Pattern detected but weak evidence - trust DeepSeek
+        return {
+            "is_validated": True,
+            "final_category": "NOT_RELEVANT",
+            "final_absent_count": 0,
+            "confidence_adjustment": 0.0,
+            "validation_reason": f"✅ DeepSeek correct: Pattern '{signal_type.value}' overridden by DeepSeek 'NOT_RELEVANT' due to weak evidence",
+            "validation_level": "HIGH",
+        }
+
+    # Case 5: DeepSeek detected but pattern didn't
+    if signal_type == SignalType.NONE and deepseek_category != "NOT_RELEVANT":
+        # DeepSeek found something pattern detector missed
+        if deepseek_category in ["MASS_ABSENCE", "DECIMATED", "YOUTH_TEAM", "TURNOVER"]:
+            # High-value signal - trust DeepSeek
+            return {
+                "is_validated": True,
+                "final_category": deepseek_category,
+                "final_absent_count": deepseek_absent_count,
+                "confidence_adjustment": 0.0,
+                "validation_reason": f"🔍 Pattern missed: DeepSeek '{deepseek_category}' overrides pattern 'NONE' due to high-value detection",
+                "validation_level": "MEDIUM",
+            }
+
+        # Low-value signal - trust pattern detector
+        return {
+            "is_validated": True,
+            "final_category": "NOT_RELEVANT",
+            "final_absent_count": 0,
+            "confidence_adjustment": 0.0,
+            "validation_reason": f"✅ Pattern correct: DeepSeek '{deepseek_category}' overridden by pattern 'NONE' due to low-value detection",
+            "validation_level": "HIGH",
+        }
+
+    # Default: both agree it's not relevant
+    # Only boost confidence if they agree on a HIGH-VALUE signal, not on NOT_RELEVANT
+    confidence_adj = 0.0 if deepseek_category == "NOT_RELEVANT" else 0.1
+    return {
+        "is_validated": True,
+        "final_category": "NOT_RELEVANT",
+        "final_absent_count": 0,
+        "confidence_adjustment": confidence_adj,
+        "validation_reason": f"✅ Both agree: Pattern '{signal_type.value}' and DeepSeek '{deepseek_category}'",
+        "validation_level": "HIGH",
+    }
 
 
 @dataclass
@@ -799,15 +1065,49 @@ def load_config_from_supabase() -> RadarConfig:
                 logger.debug(f"⚠️ [NEWS-RADAR] Failed to parse URL {url}: {e}")
                 continue
 
-            # Create RadarSource from Supabase data
+            # V14.0: Validate critical fields before creating RadarSource
+            # This prevents unexpected behavior with invalid data from Supabase
+
+            # Validate URL (already validated above, but double-check)
+            if not url or not url.startswith(("http://", "https://")):
+                logger.warning(
+                    f"⚠️ [NEWS-RADAR] Skipping source with invalid URL: {url} (data: {src_data})"
+                )
+                continue
+
+            # Validate priority (must be positive integer)
+            priority = src_data.get("priority", 1)
+            if not isinstance(priority, int) or priority < 1:
+                logger.warning(
+                    f"⚠️ [NEWS-RADAR] Invalid priority '{priority}' for {url}, using default 1"
+                )
+                priority = 1
+
+            # Validate scan_interval_minutes (must be positive integer, min 1)
+            scan_interval = src_data.get("scan_interval_minutes", DEFAULT_SCAN_INTERVAL_MINUTES)
+            if not isinstance(scan_interval, int) or scan_interval < 1:
+                logger.warning(
+                    f"⚠️ [NEWS-RADAR] Invalid scan_interval_minutes '{scan_interval}' for {url}, "
+                    f"using default {DEFAULT_SCAN_INTERVAL_MINUTES}"
+                )
+                scan_interval = DEFAULT_SCAN_INTERVAL_MINUTES
+
+            # Validate navigation_mode (must be "single" or "paginated")
+            navigation_mode = src_data.get("navigation_mode", "single")
+            if navigation_mode not in ("single", "paginated"):
+                logger.warning(
+                    f"⚠️ [NEWS-RADAR] Invalid navigation_mode '{navigation_mode}' for {url}, "
+                    f"using default 'single'"
+                )
+                navigation_mode = "single"
+
+            # Create RadarSource from validated Supabase data
             source = RadarSource(
                 url=url,
                 name=src_data.get("name", url[:50]),
-                priority=src_data.get("priority", 1),
-                scan_interval_minutes=src_data.get(
-                    "scan_interval_minutes", DEFAULT_SCAN_INTERVAL_MINUTES
-                ),
-                navigation_mode=src_data.get("navigation_mode", "single"),
+                priority=priority,
+                scan_interval_minutes=scan_interval,
+                navigation_mode=navigation_mode,
                 link_selector=src_data.get("link_selector"),
                 source_timezone=src_data.get("source_timezone"),
             )
@@ -1169,6 +1469,8 @@ class ContentExtractor:
         """
         Try to extract content using pure HTTP (no browser).
 
+        V8.1: Uses centralized HTTP client with rate limiting to prevent bans.
+
         Requirements: 2.1
         """
         try:
@@ -1178,8 +1480,15 @@ class ContentExtractor:
                 "Accept-Language": "en-US,en;q=0.5",
             }
 
+            # V8.1: Use centralized HTTP client with rate limiting
+            http_client = get_http_client()
             response = await asyncio.to_thread(
-                requests.get, url, timeout=HTTP_TIMEOUT, headers=headers
+                http_client.get_sync,
+                url,
+                rate_limit_key="news_radar",
+                use_fingerprint=False,  # Use custom headers instead
+                timeout=HTTP_TIMEOUT,
+                headers=headers,
             )
 
             if response.status_code != 200:
@@ -1195,9 +1504,6 @@ class ContentExtractor:
 
             return None
 
-        except requests.Timeout:
-            logger.debug(f"⏱️ [NEWS-RADAR] HTTP timeout: {url[:40]}...")
-            return None
         except Exception as e:
             logger.debug(f"⚠️ [NEWS-RADAR] HTTP extraction failed: {e}")
             return None
@@ -1565,7 +1871,12 @@ class DeepSeekFallback:
         return data
 
     async def analyze_v2(
-        self, content: str, timeout: int = 60, max_retries: int = 3
+        self,
+        content: str,
+        detected_signal: str | None = None,
+        extracted_number: int | None = None,
+        timeout: int = 60,
+        max_retries: int = 3,
     ) -> dict[str, Any] | None:
         """
         V2.0: Analyze content with structured extraction.
@@ -1577,6 +1888,11 @@ class DeepSeekFallback:
         - Increased default max_retries from 2 to 3 (4 total attempts)
         - Added jitter to backoff to prevent thundering herd
         - Enhanced logging with raw response details for debugging
+
+        V3.0 FIX (2026-03-16): Added signal context integration for cross-validation:
+        - Accepts detected_signal and extracted_number from pattern detector
+        - Passes signal context to DeepSeek for intelligent cross-validation
+        - Enables coordinated two-level analysis architecture
 
         Returns dict with:
         - is_high_value: bool
@@ -1595,6 +1911,8 @@ class DeepSeekFallback:
 
         Args:
             content: The text content to analyze
+            detected_signal: Signal type detected by pattern matching (optional)
+            extracted_number: Number extracted from text (optional)
             timeout: Maximum time to wait for API response in seconds (default: 60)
             max_retries: Maximum number of retries for network errors and empty responses (default: 3)
         """
@@ -1604,7 +1922,7 @@ class DeepSeekFallback:
             return None
 
         model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
-        prompt = build_analysis_prompt_v2(content)
+        prompt = build_analysis_prompt_v2(content, detected_signal, extracted_number)
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -2285,10 +2603,20 @@ class NewsRadarMonitor:
         Reload sources from config file or Supabase (hot reload).
 
         V8.0: Added Supabase support for dynamic source reloading.
+        V14.0: Preserves last_scanned timestamps during hot reload to prevent duplicate scans.
 
         Requirements: 8.2
         """
         old_count = len(self._config.sources)
+
+        # Preserve last_scanned timestamps before reload
+        # This prevents duplicate scans immediately after hot reload
+        preserved_last_scanned = {}
+        for source in self._config.sources:
+            if source.last_scanned is not None:
+                # Use URL as key since it's unique per source
+                preserved_last_scanned[source.url] = source.last_scanned
+
         if self._use_supabase:
             logger.info("🔄 [NEWS-RADAR] Reloading sources from Supabase...")
             self._config = load_config_from_supabase()
@@ -2303,8 +2631,19 @@ class NewsRadarMonitor:
             self._config = load_config(self._config_file)
             self._update_config_mtime()
 
+        # Restore last_scanned timestamps after reload
+        # This maintains scan timing continuity across hot reloads
+        restored_count = 0
+        for source in self._config.sources:
+            if source.url in preserved_last_scanned:
+                source.last_scanned = preserved_last_scanned[source.url]
+                restored_count += 1
+
         new_count = len(self._config.sources)
-        logger.info(f"🔄 [NEWS-RADAR] Reloaded config: {old_count} → {new_count} sources")
+        logger.info(
+            f"🔄 [NEWS-RADAR] Reloaded config: {old_count} → {new_count} sources "
+            f"(preserved {restored_count} last_scanned timestamps)"
+        )
 
     def _get_circuit_breaker(self, url: str) -> CircuitBreaker:
         """Get or create circuit breaker for a URL."""
@@ -2551,11 +2890,14 @@ class NewsRadarMonitor:
                             if self._alerter and await self._alerter.send_alert(alert):
                                 alerts_sent += 1
                                 self._alerts_sent += 1
+
+                        # Update last scanned time ONLY on success
+                        # This ensures circuit breaker effectiveness and proper retry timing
+                        source.last_scanned = datetime.now(timezone.utc)
                     else:
                         breaker.record_failure()
-
-                    # Update last scanned time
-                    source.last_scanned = datetime.now(timezone.utc)
+                        # DO NOT update last_scanned on failure
+                        # This allows circuit breaker to work correctly and retry sooner
 
         # V8.0: Process paginated sources concurrently using 3 browser contexts (tabs)
         if paginated_sources:
@@ -2871,8 +3213,16 @@ class NewsRadarMonitor:
                 f"🎯 [NEWS-RADAR] High-value signal: {signal.signal_type} ({signal.matched_pattern})"
             )
 
-        # Step 5: DeepSeek structured extraction
-        deep_result = await self._deepseek.analyze_v2(cleaned_content)
+        # Step 5: DeepSeek structured extraction with signal context
+        # V3.0: Pass signal detection information to DeepSeek for intelligent cross-validation
+        detected_signal_str = signal.signal_type.value if signal.detected else None
+        extracted_number = signal.extracted_number if signal.detected else None
+
+        deep_result = await self._deepseek.analyze_v2(
+            cleaned_content,
+            detected_signal=detected_signal_str,
+            extracted_number=extracted_number,
+        )
 
         if not deep_result:
             logger.debug(f"❌ [NEWS-RADAR] DeepSeek analysis failed: {url[:50]}...")
@@ -2884,24 +3234,90 @@ class NewsRadarMonitor:
             logger.debug(f"🚫 [NEWS-RADAR] Quality gate failed ({reason}): {url[:50]}...")
             return None
 
-        # Step 7: Create alert with structured data
+        # Step 7: V3.0 NEW - Convert dict to StructuredAnalysis for intelligent processing
+        # This enables component communication and intelligent validation
+        structured_analysis = StructuredAnalysis.from_dict(deep_result)
+
+        # Store pattern detection data for cross-validation
+        structured_analysis.pattern_detected_signal = detected_signal_str
+        structured_analysis.pattern_extracted_number = extracted_number
+
+        # Step 8: V3.0 NEW - Intelligent self-validation using StructuredAnalysis methods
+        # This allows the component to validate itself before proceeding
+        if not structured_analysis.is_valid_for_alert():
+            logger.debug(f"🚫 [NEWS-RADAR] StructuredAnalysis validation failed: {url[:50]}...")
+            return None
+
+        # Step 9: V3.0 NEW - Intelligent cross-validation between signal_detector and DeepSeek
+        # This creates a coordinated two-level analysis architecture
+        is_valid, confidence_adjustment = structured_analysis.cross_validate_with_pattern(
+            signal_type=detected_signal_str,
+            extracted_number=extracted_number,
+        )
+
+        if not is_valid:
+            logger.debug(f"🚫 [NEWS-RADAR] Cross-validation failed: {url[:50]}...")
+            return None
+
+        # Step 10: V3.0 NEW - Enrich StructuredAnalysis with database context
+        # This enables intelligent component communication with enrichment system
+        enrichment_context = None  # Initialize to None for reuse
+        if _ENRICHMENT_AVAILABLE:
+            # Get enrichment context before creating alert
+            try:
+                enrichment_context = await enrich_radar_alert_async(
+                    affected_team=structured_analysis.team,
+                    team=structured_analysis.team,  # Alias for compatibility
+                    opponent=structured_analysis.opponent,
+                    competition=structured_analysis.competition,
+                    match_date=structured_analysis.match_date,
+                )
+                if enrichment_context:
+                    # Extract enrichment data for StructuredAnalysis
+                    enrichment_data = {
+                        "motivation_home": getattr(enrichment_context, "motivation_home", None),
+                        "motivation_away": getattr(enrichment_context, "motivation_away", None),
+                        "match_importance": getattr(enrichment_context, "match_importance", None),
+                        "opponent": getattr(enrichment_context, "opponent", None),
+                        "competition": getattr(enrichment_context, "competition", None),
+                        "match_date": getattr(enrichment_context, "match_date", None),
+                    }
+                    # Enrich the analysis
+                    structured_analysis.enrich_with_context(enrichment_data)
+            except Exception as e:
+                logger.debug(f"⚠️ [NEWS-RADAR] Enrichment failed: {e}")
+
+        # Step 11: V3.0 NEW - Get intelligent priority from StructuredAnalysis
+        # This uses the component's own logic to determine priority
+        intelligent_priority = structured_analysis.get_alert_priority()
+
+        # Step 12: Apply confidence adjustment from cross-validation
+        base_confidence = structured_analysis.confidence
+        adjusted_confidence = max(0.0, min(1.0, base_confidence + confidence_adjustment))
+
+        # Step 13: Create alert with validated and enriched data
+        # Convert StructuredAnalysis back to dict for RadarAlert creation
+        alert_dict = structured_analysis.to_dict()
+
         alert = RadarAlert(
             source_name=source.name,
             source_url=url,
-            affected_team=deep_result.get("team", "Unknown"),
-            opponent=deep_result.get("opponent"),
-            competition=deep_result.get("competition"),
-            match_date=deep_result.get("match_date"),
-            category=deep_result.get("category", "OTHER"),
-            absent_count=deep_result.get("absent_count", 0),
-            absent_players=deep_result.get("absent_players", []),
-            betting_impact=deep_result.get("betting_impact", "MEDIUM"),
-            summary=deep_result.get("summary_italian", "Notizia rilevante per betting"),
-            confidence=float(deep_result.get("confidence", 0.8)),
+            affected_team=alert_dict.get("team", "Unknown"),
+            opponent=alert_dict.get("opponent"),
+            competition=alert_dict.get("competition"),
+            match_date=alert_dict.get("match_date"),
+            category=alert_dict.get("category"),
+            absent_count=alert_dict.get("absent_count"),
+            absent_players=alert_dict.get("absent_players"),
+            betting_impact=intelligent_priority,  # V3.0: Use intelligent priority
+            summary=alert_dict.get("summary_italian", "Notizia rilevante per betting"),
+            confidence=adjusted_confidence,  # V3.0: Use adjusted confidence
         )
 
-        # Step 8: Enrich alert with database context
-        alert = await self._enrich_alert(alert)
+        # Step 14: Store enrichment context for later use
+        # Reuse the enrichment_context from Step 10 instead of calling again
+        if enrichment_context:
+            alert.enrichment_context = enrichment_context
 
         # ============================================
         # V7.3: NEW VALIDATION STEPS
@@ -2920,8 +3336,20 @@ class NewsRadarMonitor:
         if _ODDS_CHECK_AVAILABLE and alert.affected_team and alert.affected_team != "Unknown":
             try:
                 match_id = alert.enrichment_context.match_id if alert.enrichment_context else None
+
+                # Determine if the affected team is home or away
+                is_home_team = None
+                if alert.enrichment_context:
+                    home_team = alert.enrichment_context.home_team
+                    away_team = alert.enrichment_context.away_team
+                    if home_team and away_team:
+                        if alert.affected_team.lower() in home_team.lower():
+                            is_home_team = True
+                        elif alert.affected_team.lower() in away_team.lower():
+                            is_home_team = False
+
                 odds_result, odds_suffix = await check_odds_for_alert_async(
-                    alert.affected_team, match_id=match_id
+                    alert.affected_team, match_id=match_id, is_home_team=is_home_team
                 )
 
                 # Log odds status
@@ -3166,14 +3594,48 @@ class NewsRadarMonitor:
             def db_operations():
                 db = SessionLocal()
                 try:
+                    # V15.0 FIX: Apply optimizer weight to radar handoff score (Learning Loop Integration)
+                    # This ensures that weights learned from historical performance are applied
+                    # to radar handoff scores
+                    base_score = int(alert.confidence * 10) if alert.confidence is not None else 8
+                    score = base_score
+
+                    try:
+                        from src.analysis.optimizer import get_optimizer
+                        from src.database.models import Match
+
+                        optimizer = get_optimizer()
+
+                        # Query match to get league information
+                        match = (
+                            db.query(Match)
+                            .filter(Match.id == alert.enrichment_context.match_id)
+                            .first()
+                        )
+                        league = match.league if match else None
+
+                        # Radar handoff doesn't have a specific market, use None
+                        # The optimizer will use league-level weights
+                        if league:
+                            adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
+                                base_score=score,
+                                league=league,
+                                market=None,  # No specific market for radar handoff
+                                driver=alert.category,  # Use alert category as driver
+                            )
+                            if weight_log_msg:
+                                logger.info(weight_log_msg)
+                            score = adjusted_score
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to apply optimizer weight to radar handoff: {e}")
+                        # Continue with original score
+
                     # Create NewsLog entry with PENDING_RADAR_TRIGGER status
                     news_log = NewsLog(
                         match_id=alert.enrichment_context.match_id,
                         url=alert.source_url,
                         summary=f"RADAR HANDOFF: {alert.summary}",
-                        score=int(alert.confidence * 10)
-                        if alert.confidence is not None
-                        else 8,  # Convert 0.7-1.0 to 7-10, fallback to 8 if None
+                        score=score,
                         category=alert.category,
                         affected_team=alert.affected_team,
                         status="PENDING_RADAR_TRIGGER",  # Special status for cross-process handoff
@@ -3804,6 +4266,8 @@ class GlobalRadarMonitor:
         """
         HTTP-based content extraction (faster than Playwright).
 
+        V8.1: Uses centralized HTTP client with rate limiting to prevent bans.
+
         Args:
             url: URL to extract from
 
@@ -3811,9 +4275,13 @@ class GlobalRadarMonitor:
             Extracted content or None
         """
         try:
+            # V8.1: Use centralized HTTP client with rate limiting
+            http_client = get_http_client()
             response = await asyncio.to_thread(
-                requests.get,
+                http_client.get_sync,
                 url,
+                rate_limit_key="news_radar",
+                use_fingerprint=False,  # Use custom headers instead
                 timeout=15,
                 headers={"User-Agent": "EarlyBird-Radar/11.0"},
             )

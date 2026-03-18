@@ -70,6 +70,12 @@ class Match(Base):
     current_over_2_5 = Column(Float, nullable=True, comment="Current over 2.5 goals odds")
     current_under_2_5 = Column(Float, nullable=True, comment="Current under 2.5 goals odds")
 
+    # BTTS Market (Both Teams To Score) - V12.7
+    opening_btts_yes = Column(Float, nullable=True, comment="Opening BTTS Yes odds")
+    opening_btts_no = Column(Float, nullable=True, comment="Opening BTTS No odds")
+    current_btts_yes = Column(Float, nullable=True, comment="Current BTTS Yes odds")
+    current_btts_no = Column(Float, nullable=True, comment="Current BTTS No odds")
+
     # Sharp Odds (Smart Money Detection)
     sharp_bookie = Column(String, nullable=True, comment="Sharp bookie name (e.g., 'pinnacle')")
     sharp_home_odd = Column(Float, nullable=True, comment="Sharp bookie home odds")

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/budget_persistence.py
+# hypothesis_version: 6.151.4
+
+['component_usage', 'daily_used', 'data', 'is_degraded', 'is_disabled', 'last_reset_day', 'last_reset_month', 'last_updated', 'monthly_limit', 'monthly_used', 'timestamp', 'usage_percentage']

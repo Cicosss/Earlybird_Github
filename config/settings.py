@@ -58,6 +58,11 @@ def _inject_default_env_vars():
         if not os.getenv(key_name):
             os.environ[key_name] = ""
 
+    # Also set TAVILY_API_KEY to first key if not set
+    # This ensures StartupValidator can detect Tavily availability
+    if not os.getenv("TAVILY_API_KEY"):
+        os.environ["TAVILY_API_KEY"] = os.environ.get("TAVILY_API_KEY_1", "")
+
     # MEDIASTACK API Keys (placeholder defaults)
     for i in range(1, 5):  # MEDIASTACK_API_KEY_1 through MEDIASTACK_API_KEY_4
         key_name = f"MEDIASTACK_API_KEY_{i}"
@@ -681,6 +686,7 @@ COMBINED_CORNERS_THRESHOLD = float(
 # Referee Thresholds
 REFEREE_STRICT_THRESHOLD = 5.0  # Cards/game >= 5 = strict referee
 REFEREE_LENIENT_THRESHOLD = 3.0  # Cards/game <= 3 = lenient referee
+REFEREE_CARDS_BOOST_THRESHOLD = 4.0  # Cards/game >= 4 = boost Over Cards
 
 # Score Adjustment Penalties
 CRITICAL_INJURY_OVER_PENALTY = 1.5  # Points to subtract for critical injury + Over
@@ -838,6 +844,7 @@ __all__ = [
     "COMBINED_CORNERS_THRESHOLD",
     "REFEREE_STRICT_THRESHOLD",
     "REFEREE_LENIENT_THRESHOLD",
+    "REFEREE_CARDS_BOOST_THRESHOLD",
     "CRITICAL_INJURY_OVER_PENALTY",
     "FORM_WARNING_PENALTY",
     "INCONSISTENCY_PENALTY",

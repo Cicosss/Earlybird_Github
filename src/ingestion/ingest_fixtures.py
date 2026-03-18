@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from config.settings import ODDS_API_KEY, ODDS_API_KEYS, ODDS_SMART_FREQUENCY_ENABLED
 from src.database.models import Match as MatchModel
 from src.database.models import SessionLocal, TeamAlias
+from src.database.team_alias_enrichment import enrich_team_alias_data
 from src.ingestion.league_manager import (
     MAX_LEAGUES_PER_RUN,
     get_active_niche_leagues,
@@ -398,6 +399,40 @@ def extract_totals_odds(bookmakers_data: list) -> tuple[float | None, float | No
     return None, None
 
 
+def extract_btts_odds(bookmakers_data: list) -> tuple[float | None, float | None]:
+    """
+    Extract BTTS (Both Teams To Score) odds from bookmakers data.
+    V12.7: Full BTTS market support for intelligent betting.
+
+    Returns (btts_yes, btts_no) or (None, None) if not found.
+    """
+    if not bookmakers_data:
+        return None, None
+
+    for bookmaker in bookmakers_data:
+        markets = bookmaker.get("markets", [])
+        for market in markets:
+            if market.get("key") == "btts":
+                outcomes = market.get("outcomes", [])
+                btts_yes = None
+                btts_no = None
+
+                for outcome in outcomes:
+                    name = outcome.get("name", "").lower()
+                    price = outcome.get("price")
+
+                    if price:
+                        if name == "yes":
+                            btts_yes = float(price)
+                        elif name == "no":
+                            btts_no = float(price)
+
+                if btts_yes and btts_no:
+                    return btts_yes, btts_no
+
+    return None, None
+
+
 # ============================================
 # LAYER 3: SHARP vs SOFT ODDS DETECTION
 # ============================================
@@ -590,8 +625,32 @@ def update_team_aliases(matches):
                 existing = db.query(TeamAlias).filter(TeamAlias.api_name == team_name).first()
                 if not existing:
                     clean_name = clean_team_name(team_name)
-                    logging.info(f"Creating Alias: {team_name} -> {clean_name}")
-                    alias = TeamAlias(api_name=team_name, search_name=clean_name)
+
+                    # Get enriched data for this team
+                    enriched_data = enrich_team_alias_data(team_name)
+
+                    # Create TeamAlias with enriched data
+                    alias = TeamAlias(
+                        api_name=team_name,
+                        search_name=clean_name,
+                        twitter_handle=enriched_data.get("twitter_handle"),
+                        telegram_channel=enriched_data.get("telegram_channel"),
+                        fotmob_id=str(enriched_data.get("fotmob_id"))
+                        if enriched_data.get("fotmob_id")
+                        else None,
+                        country=enriched_data.get("country"),
+                        league=enriched_data.get("league"),
+                    )
+
+                    # Log enrichment results
+                    enriched_fields = [k for k, v in enriched_data.items() if v is not None]
+                    if enriched_fields:
+                        logging.info(
+                            f"Creating Alias: {team_name} -> {clean_name} (enriched: {', '.join(enriched_fields)})"
+                        )
+                    else:
+                        logging.info(f"Creating Alias: {team_name} -> {clean_name}")
+
                     db.add(alias)
                 processed_teams.add(team_name)
         db.commit()
@@ -760,7 +819,7 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                     params = {
                         "apiKey": _get_current_odds_key(),
                         "regions": regions,
-                        "markets": "h2h,totals",  # Now fetching totals for Over/Under
+                        "markets": "h2h,totals,btts",  # V12.7: Added BTTS market for full odds support
                         "dateFormat": "iso",
                         "oddsFormat": "decimal",
                     }
@@ -844,12 +903,15 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                         # Convert to naive datetime for DB storage (remove timezone)
                         commence_time_naive = commence_time.replace(tzinfo=None)
 
-                        # Extract odds (H2H + Totals)
+                        # Extract odds (H2H + Totals + BTTS)
                         bookmakers = event.get("bookmakers", [])
                         home_odd, draw_odd, away_odd = extract_h2h_odds(
                             bookmakers, home_team, away_team
                         )
                         over_2_5, under_2_5 = extract_totals_odds(bookmakers)
+                        btts_yes, btts_no = extract_btts_odds(
+                            bookmakers
+                        )  # V12.7: BTTS odds extraction
 
                         # LAYER 3: Sharp odds analysis
                         sharp_analysis = extract_sharp_odds_analysis(
@@ -882,6 +944,12 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                                 existing.current_over_2_5 = over_2_5
                             if under_2_5 is not None:
                                 existing.current_under_2_5 = under_2_5
+
+                            # V12.7: Update BTTS odds (current only)
+                            if btts_yes is not None:
+                                existing.current_btts_yes = btts_yes
+                            if btts_no is not None:
+                                existing.current_btts_no = btts_no
 
                             # Update sharp odds analysis
                             existing.sharp_bookie = sharp_analysis.get("sharp_bookie")
@@ -937,6 +1005,11 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                                 # Totals Current
                                 current_over_2_5=over_2_5,
                                 current_under_2_5=under_2_5,
+                                # V12.7: BTTS Opening & Current
+                                opening_btts_yes=btts_yes,
+                                opening_btts_no=btts_no,
+                                current_btts_yes=btts_yes,
+                                current_btts_no=btts_no,
                                 # LAYER 3: Sharp odds
                                 sharp_bookie=sharp_analysis.get("sharp_bookie"),
                                 sharp_home_odd=sharp_analysis.get("sharp_home"),
@@ -969,10 +1042,10 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                             processed_match_ids.add(match_id)
 
                             logging.info(
-                                f"New: {home_team} vs {away_team} | H{home_odd}/X{draw_odd}/A{away_odd} | O{over_2_5}/U{under_2_5}"
+                                f"New: {home_team} vs {away_team} | H{home_odd}/X{draw_odd}/A{away_odd} | O{over_2_5}/U{under_2_5} | BTTS Y{btts_yes}/N{btts_no}"
                             )
 
-                            # Create aliases
+                            # Create aliases with enrichment
                             for team_name in [home_team, away_team]:
                                 if team_name not in processed_teams:
                                     if (
@@ -981,10 +1054,40 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
                                         .first()
                                     ):
                                         clean_name = clean_team_name(team_name)
+
+                                        # Get enriched data for this team
+                                        from src.database.team_alias_enrichment import (
+                                            enrich_team_alias_data,
+                                        )
+
+                                        enriched_data = enrich_team_alias_data(team_name)
+
+                                        # Create TeamAlias with enriched data
                                         alias = TeamAlias(
-                                            api_name=team_name, search_name=clean_name
+                                            api_name=team_name,
+                                            search_name=clean_name,
+                                            twitter_handle=enriched_data.get("twitter_handle"),
+                                            telegram_channel=enriched_data.get("telegram_channel"),
+                                            fotmob_id=str(enriched_data.get("fotmob_id"))
+                                            if enriched_data.get("fotmob_id")
+                                            else None,
+                                            country=enriched_data.get("country"),
+                                            league=enriched_data.get("league"),
                                         )
                                         db.add(alias)
+
+                                        # Log enrichment results
+                                        enriched_fields = [
+                                            k for k, v in enriched_data.items() if v is not None
+                                        ]
+                                        if enriched_fields:
+                                            logging.debug(
+                                                f"Creating Alias: {team_name} -> {clean_name} (enriched: {', '.join(enriched_fields)})"
+                                            )
+                                        else:
+                                            logging.debug(
+                                                f"Creating Alias: {team_name} -> {clean_name}"
+                                            )
                                     processed_teams.add(team_name)
 
                         matches_processed += 1

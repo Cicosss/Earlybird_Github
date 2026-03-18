@@ -69,6 +69,9 @@ from config.twitter_intel_accounts import (
 # V10.5: Import TweetRelevanceFilter for precision gating
 _tweet_relevance_filter = None
 
+# V10.5: Lazy import for FotMobProvider for team status
+_get_data_provider = None
+
 
 def _get_tweet_relevance_filter():
     """Lazy import of TweetRelevanceFilter to avoid circular dependencies."""
@@ -84,6 +87,21 @@ def _get_tweet_relevance_filter():
         except ImportError as e:
             logging.warning(f"🐦 [FILTER] TweetRelevanceFilter not available: {e}")
     return _tweet_relevance_filter
+
+
+def _get_data_provider():
+    """Lazy import of FotMobProvider to avoid circular dependencies."""
+    global _get_data_provider
+    if _get_data_provider is None:
+        try:
+            from src.ingestion.data_provider import get_data_provider
+
+            _get_data_provider = get_data_provider
+            logging.info("🐦 [FOTMOB] FotMobProvider loaded successfully")
+        except ImportError as e:
+            logging.warning(f"🐦 [FOTMOB] FotMobProvider not available: {e}")
+            _get_data_provider = None
+    return _get_data_provider
 
 
 # V7.0: Tavily integration for Twitter recovery
@@ -125,6 +143,7 @@ def get_social_sources_from_supabase(league_key: str = None) -> list[str]:
     """
     Fetch Twitter/X handles from Supabase social_sources table.
 
+    V15.0: Enhanced to include team-specific handles from TeamAlias.
     Falls back to local twitter_intel_accounts.py if Supabase is unavailable.
 
     Args:
@@ -133,13 +152,14 @@ def get_social_sources_from_supabase(league_key: str = None) -> list[str]:
     Returns:
         List of Twitter handles (with @)
     """
+    handles = []
+
     # Try Supabase first
     if _SUPABASE_AVAILABLE and _SUPABASE_PROVIDER:
         try:
             all_social_sources = _SUPABASE_PROVIDER.get_social_sources()
 
             if all_social_sources:
-                handles = []
                 for source in all_social_sources:
                     # Note: Supabase field is 'identifier', not 'handle'
                     identifier = source.get("identifier", "")
@@ -148,17 +168,37 @@ def get_social_sources_from_supabase(league_key: str = None) -> list[str]:
                         handle = identifier.strip()
                         if not handle.startswith("@"):
                             handle = f"@{handle.lstrip('@')}"
+
                         handles.append(handle)
 
                 logging.info(f"📡 [SUPABASE] Fetched {len(handles)} social sources")
-                return handles
 
         except Exception as e:
             logging.warning(f"⚠️ [SUPABASE] Failed to fetch social sources: {e}")
 
-    # Fallback to local config
-    logging.info("🔄 [FALLBACK] Using local twitter_intel_accounts.py")
-    return get_all_twitter_handles()
+    # V15.0: Add team-specific handles from TeamAlias
+    try:
+        from src.database.team_alias_utils import get_all_teams_with_twitter_handles
+
+        team_handles = get_all_teams_with_twitter_handles()
+        for team_data in team_handles:
+            handle = team_data.get("twitter_handle")
+            if handle and handle not in handles:
+                handles.append(handle)
+
+        if team_handles:
+            logging.info(f"🏆 [TEAMALIAS] Added {len(team_handles)} team-specific handles")
+    except ImportError:
+        logging.debug("⚠️ [TEAMALIAS] team_alias_utils not available")
+    except Exception as e:
+        logging.warning(f"⚠️ [TEAMALIAS] Failed to get team handles: {e}")
+
+    # Fallback to local config if still no handles
+    if not handles:
+        logging.info("🔄 [FALLBACK] Using local twitter_intel_accounts.py")
+        handles = get_all_twitter_handles()
+
+    return handles
 
 
 @dataclass
@@ -174,15 +214,23 @@ class CachedTweet:
 
 @dataclass
 class TwitterIntelCacheEntry:
-    """Entry della cache per un account"""
+    """
+    Entry della cache per un account Twitter.
+
+    Contiene i tweet estratti per un account specifico insieme
+    ai metadati dell'account stesso.
+
+    Attributes:
+        handle: Twitter handle (senza @, normalizzato in lowercase)
+        account_name: Nome display dell'account
+        league_focus: Lega principale di competenza dell'account
+        tweets: Lista di tweet cachati per questo account
+    """
 
     handle: str
     account_name: str
     league_focus: str
     tweets: list[CachedTweet] = field(default_factory=list)
-    last_refresh: datetime = None
-    extraction_success: bool = False
-    error_message: str = None
 
 
 class TwitterIntelCache:
@@ -558,8 +606,6 @@ class TwitterIntelCache:
                                 )
                                 for t in tweets
                             ],
-                            last_refresh=datetime.now(timezone.utc),
-                            extraction_success=True,
                         )
 
                         # Use normalized handle for cache key
@@ -575,15 +621,13 @@ class TwitterIntelCache:
 
         # V7.0: Attempt Tavily recovery for accounts without data
         if self._tavily and hasattr(self._tavily, "is_available") and self._tavily.is_available():
-            failed_handles = [
-                h
-                for h in all_handles
-                if self._normalize_handle(h) not in self._cache
-                or not self._cache.get(
-                    self._normalize_handle(h),
-                    TwitterIntelCacheEntry(handle="", account_name="", league_focus=""),
-                ).tweets
-            ]
+            # COVE FIX: Refactored anti-pattern - use proper None check instead of creating empty entry
+            failed_handles = []
+            for h in all_handles:
+                handle_key = self._normalize_handle(h)
+                entry = self._cache.get(handle_key)
+                if entry is None or not entry.tweets:
+                    failed_handles.append(h)
 
             if failed_handles:
                 logging.info(
@@ -740,6 +784,113 @@ class TwitterIntelCache:
                         results.append(tweet)
 
         return results
+
+    def get_cached_tweets_for_match(
+        self, home_team: str, away_team: str, league_key: str
+    ) -> list[dict[str, Any]]:
+        """
+        Get cached tweets for a specific match.
+
+        Searches for tweets that mention either home_team or away_team
+        in the cached intel for the specified league.
+
+        Args:
+            home_team: Home team name
+            away_team: Away team name
+            league_key: League identifier
+
+        Returns:
+            List of tweet dictionaries with keys: handle, content, date, topics
+        """
+        try:
+            # Search for tweets mentioning home team
+            home_tweets = self.search_intel(home_team, league_key=league_key)
+
+            # Search for tweets mentioning away team
+            away_tweets = self.search_intel(away_team, league_key=league_key)
+
+            # Combine and deduplicate tweets
+            seen_tweets = set()
+            unique_tweets = []
+
+            for tweet in home_tweets + away_tweets:
+                # Create unique identifier (handle + content + date)
+                tweet_id = (tweet.handle, tweet.content, tweet.date)
+
+                if tweet_id not in seen_tweets:
+                    seen_tweets.add(tweet_id)
+                    # Convert CachedTweet to dict format expected by filter_tweets_for_match
+                    unique_tweets.append(
+                        {
+                            "handle": tweet.handle,
+                            "content": tweet.content,
+                            "date": tweet.date,
+                            "topics": tweet.topics,
+                        }
+                    )
+
+            logging.info(
+                f"🐦 [MATCH] Found {len(unique_tweets)} unique tweets for {home_team} vs {away_team}"
+            )
+
+            return unique_tweets
+
+        except Exception as e:
+            logging.error(f"🐦 [MATCH] Error getting cached tweets for match: {e}", exc_info=True)
+            return []
+
+    def get_fotmob_status_for_match(
+        self, home_team: str, away_team: str, league_key: str
+    ) -> str | None:
+        """
+        Get FotMob status for both teams in a match.
+
+        Retrieves team context from FotMobProvider including injuries,
+        squad, motivation, and fatigue for both teams.
+
+        Args:
+            home_team: Home team name
+            away_team: Away team name
+            league_key: League identifier (currently unused, kept for consistency)
+
+        Returns:
+            JSON string with team status data, or None if unavailable
+        """
+        try:
+            # Lazy import FotMobProvider
+            get_provider = _get_data_provider()
+            if not get_provider:
+                logging.warning("🐦 [FOTMOB] FotMobProvider not available")
+                return None
+
+            provider = get_provider()
+
+            # Get context for both teams
+            home_context = provider.get_full_team_context(home_team)
+            away_context = provider.get_full_team_context(away_team)
+
+            # Build status dictionary
+            status = {
+                "home_team": home_team,
+                "away_team": away_team,
+                "home_status": home_context,
+                "away_status": away_context,
+            }
+
+            # Convert to JSON string for conflict detection
+            status_json = json.dumps(status, default=str, ensure_ascii=False)
+
+            logging.info(
+                f"🐦 [FOTMOB] Retrieved status for {home_team} vs {away_team}: "
+                f"{len(home_context.get('injuries', []))} home injuries, "
+                f"{len(away_context.get('injuries', []))} away injuries"
+            )
+
+            return status_json
+
+        except Exception as e:
+            logging.error(f"🐦 [FOTMOB] Error getting FotMob status for match: {e}", exc_info=True)
+            return None
 
     # ============================================
     # V7.0: TAVILY TWITTER RECOVERY
@@ -1109,9 +1260,6 @@ class TwitterIntelCache:
                     account_name=account_info.name if account_info else handle,
                     league_focus=account_info.focus if account_info else "unknown",
                     tweets=tweets,
-                    last_refresh=datetime.now(timezone.utc),
-                    extraction_success=True,
-                    error_message=None,
                 )
 
                 with self._cache_lock:
@@ -1273,9 +1421,6 @@ class TwitterIntelCache:
                             account_name=account_info.name if account_info else handle,
                             league_focus=account_info.focus if account_info else "unknown",
                             tweets=cached_tweets,
-                            last_refresh=datetime.now(timezone.utc),
-                            extraction_success=True,
-                            error_message=None,
                         )
 
                         with self._cache_lock:
@@ -1436,8 +1581,6 @@ if __name__ == "__main__":
                     topics=["injury"],
                 )
             ],
-            last_refresh=datetime.now(),
-            extraction_success=True,
         )
 
         cache._last_full_refresh = datetime.now()

@@ -107,8 +107,23 @@ class TelegramMessageLog(Base):
     validation_reason = Column(String, nullable=True)
     red_flags_detected = Column(Text, nullable=True)  # JSON list
 
+    # Prediction tracking (V1.1 - Post-match feedback loop)
+    prediction_type = Column(
+        String, nullable=True
+    )  # HOME_WIN, AWAY_WIN, DRAW, OVER_2.5, UNDER_2.5, BTTS_YES, BTTS_NO, etc.
+    prediction_team = Column(String, nullable=True)  # Team name if prediction is team-specific
+    prediction_verified = Column(
+        Boolean, default=False
+    )  # Has this prediction been checked against match result?
+    prediction_correct = Column(
+        Boolean, nullable=True
+    )  # Was the prediction correct? (None = not verified yet)
+
     # Index for cleanup queries
-    __table_args__ = (Index("idx_msg_channel_time", "channel_id", "message_time"),)
+    __table_args__ = (
+        Index("idx_msg_channel_time", "channel_id", "message_time"),
+        Index("idx_msg_match_prediction", "match_id", "prediction_type"),
+    )
 
 
 # ============================================
@@ -338,6 +353,11 @@ def log_telegram_message(
     trust_multiplier: float = None,
     validation_reason: str = None,
     red_flags: list = None,
+    # V1.1: Prediction tracking parameters
+    prediction_type: str = None,
+    prediction_team: str = None,
+    # V1.2: Edit/Delete tracking
+    was_edited: bool = False,
 ):
     """
     Log a processed Telegram message for audit trail.
@@ -356,6 +376,9 @@ def log_telegram_message(
         trust_multiplier: Calculated trust multiplier
         validation_reason: Why this multiplier
         red_flags: Detected red flags
+        prediction_type: Type of prediction (HOME_WIN, AWAY_WIN, DRAW, OVER_2.5, etc.)
+        prediction_team: Team name if prediction is team-specific
+        was_edited: True if message was edited after posting (from Telethon msg.edit_date)
     """
     try:
         import json
@@ -370,11 +393,17 @@ def log_telegram_message(
                 match_id=match_id,
                 timestamp_lag_minutes=timestamp_lag,
                 was_insider_hit=was_insider_hit,
+                was_edited=was_edited,  # V1.2: Track edited messages
                 is_echo=is_echo,
                 echo_source_channel=echo_source,
                 trust_multiplier=trust_multiplier,
                 validation_reason=validation_reason,
                 red_flags_detected=json.dumps(red_flags) if red_flags else None,
+                # V1.1: Prediction tracking
+                prediction_type=prediction_type,
+                prediction_team=prediction_team,
+                prediction_verified=False,
+                prediction_correct=None,
             )
 
             db.add(log)
@@ -501,3 +530,178 @@ def get_blacklisted_channels() -> list:
     except Exception as e:
         logger.error(f"Error getting blacklisted channels: {e}")
         return []
+
+
+# ============================================
+# PREDICTION TRACKING (V1.1 - Post-match Feedback Loop)
+# ============================================
+
+
+def update_channel_predictions(
+    channel_id: str,
+    is_prediction: bool = False,
+    was_correct: bool = False,
+):
+    """
+    Update channel prediction metrics after match settlement.
+
+    This function is called by the settlement service after a match ends
+    to update the predictions_made and predictions_correct counters.
+
+    Args:
+        channel_id: Channel to update
+        is_prediction: Whether this message contained a prediction
+        was_correct: Whether the prediction was correct (only relevant if is_prediction=True)
+    """
+    if not is_prediction:
+        return  # No prediction to track
+
+    try:
+        with get_db_session() as db:
+            channel = (
+                db.query(TelegramChannel).filter(TelegramChannel.channel_id == channel_id).first()
+            )
+
+            if not channel:
+                logger.warning(f"Channel not found for prediction update: {channel_id}")
+                return
+
+            # Increment predictions_made
+            channel.predictions_made += 1
+
+            # Increment predictions_correct if prediction was correct
+            if was_correct:
+                channel.predictions_correct += 1
+
+            channel.last_updated = datetime.now(timezone.utc)
+
+            # Log the update
+            accuracy = (
+                channel.predictions_correct / channel.predictions_made
+                if channel.predictions_made > 0
+                else 0.0
+            )
+            logger.info(
+                f"📊 Channel @{channel.channel_name} prediction tracked: "
+                f"{'CORRECT' if was_correct else 'INCORRECT'} | "
+                f"Accuracy: {accuracy:.1%} ({channel.predictions_correct}/{channel.predictions_made})"
+            )
+
+            # Recalculate trust score with new prediction data
+            from src.analysis.telegram_trust_score import ChannelMetrics, calculate_trust_score
+
+            metrics = ChannelMetrics(
+                channel_id=channel.channel_id,
+                channel_name=channel.channel_name,
+                total_messages=channel.total_messages,
+                messages_with_odds_impact=channel.messages_with_odds_impact,
+                avg_timestamp_lag_minutes=channel.avg_timestamp_lag_minutes,
+                insider_hits=channel.insider_hits,
+                late_messages=channel.late_messages,
+                total_edits=channel.total_edits,
+                total_deletes=channel.total_deletes,
+                predictions_made=channel.predictions_made,
+                predictions_correct=channel.predictions_correct,
+                red_flags_count=channel.red_flags_count,
+                echo_messages=channel.echo_messages,
+            )
+
+            trust_score, trust_level = calculate_trust_score(metrics)
+            channel.trust_score = trust_score
+            channel.trust_level = trust_level.value
+
+            # Check for auto-blacklist due to poor accuracy
+            if channel.predictions_made >= 10 and accuracy < 0.25:
+                channel.is_blacklisted = True
+                channel.blacklist_reason = (
+                    f"Auto-blacklisted: Prediction accuracy below 25% ({accuracy:.1%})"
+                )
+                logger.warning(
+                    f"🚫 Channel auto-blacklisted due to poor accuracy: @{channel.channel_name}"
+                )
+
+            # commit is automatic in context manager
+
+    except Exception as e:
+        logger.error(f"Error updating channel predictions: {e}")
+
+
+def get_pending_predictions_for_match(match_id: str) -> list[dict]:
+    """
+    Get all unverified predictions for a specific match.
+
+    Called by settlement service after match ends to verify predictions.
+
+    Args:
+        match_id: Match ID to query
+
+    Returns:
+        List of dicts with prediction data
+    """
+    try:
+        with get_db_session() as db:
+            predictions = (
+                db.query(TelegramMessageLog)
+                .filter(
+                    TelegramMessageLog.match_id == match_id,
+                    TelegramMessageLog.prediction_type.isnot(None),
+                    TelegramMessageLog.prediction_verified == False,
+                )
+                .all()
+            )
+
+            return [
+                {
+                    "id": p.id,
+                    "channel_id": p.channel_id,
+                    "prediction_type": p.prediction_type,
+                    "prediction_team": p.prediction_team,
+                    "message_time": p.message_time,
+                }
+                for p in predictions
+            ]
+    except Exception as e:
+        logger.error(f"Error getting pending predictions: {e}")
+        return []
+
+
+def verify_prediction(
+    prediction_id: int,
+    was_correct: bool,
+):
+    """
+    Mark a prediction as verified and update channel metrics.
+
+    Args:
+        prediction_id: ID of the TelegramMessageLog to update
+        was_correct: Whether the prediction was correct
+    """
+    try:
+        with get_db_session() as db:
+            prediction = (
+                db.query(TelegramMessageLog).filter(TelegramMessageLog.id == prediction_id).first()
+            )
+
+            if not prediction:
+                logger.warning(f"Prediction not found: {prediction_id}")
+                return
+
+            # Mark as verified
+            prediction.prediction_verified = True
+            prediction.prediction_correct = was_correct
+
+            # Update channel metrics
+            channel_id = prediction.channel_id
+
+            # Commit first, then update channel (to avoid session conflicts)
+            db.flush()
+
+        # Now update channel predictions (in a new session)
+        update_channel_predictions(
+            channel_id=channel_id,
+            is_prediction=True,
+            was_correct=was_correct,
+        )
+
+    except Exception as e:
+        logger.error(f"Error verifying prediction: {e}")

@@ -158,6 +158,7 @@ class MessageValidation:
     is_insider_hit: bool = False
     red_flags: list[str] = field(default_factory=list)
     is_echo: bool = False
+    echo_source_channel: str | None = None  # Original channel if this is an echo
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -169,6 +170,7 @@ class MessageValidation:
             "is_insider_hit": self.is_insider_hit,
             "red_flags": self.red_flags,
             "is_echo": self.is_echo,
+            "echo_source_channel": self.echo_source_channel,
         }
 
 
@@ -244,6 +246,198 @@ def detect_red_flags(text: str) -> list[str]:
             flags.append(f"PATTERN:{pattern[:20]}")
 
     return flags
+
+
+# ============================================
+# PREDICTION EXTRACTION (V1.1)
+# ============================================
+
+# Prediction type enum values
+# IMPORTANT: Order matters! More specific patterns (OVER/UNDER/BTTS) must come BEFORE
+# generic patterns (HOME_WIN/AWAY_WIN) to avoid false matches.
+# Example: "over2.5" contains "2" which would match AWAY_WIN if checked first.
+PREDICTION_TYPES = {
+    # Specific patterns first (multi-character, less ambiguous)
+    "OVER_2_5": ["over 2.5", "ov25", "o2.5", "+2.5", "over 2,5", "goals over", "over2.5"],
+    "UNDER_2_5": ["under 2.5", "un25", "u2.5", "-2.5", "under 2,5", "goals under", "under2.5"],
+    "OVER_1_5": ["over 1.5", "ov15", "o1.5", "+1.5", "over1.5"],
+    "UNDER_1_5": ["under 1.5", "un15", "u1.5", "-1.5", "under1.5"],
+    "OVER_3_5": ["over 3.5", "ov35", "o3.5", "+3.5", "over3.5"],
+    "UNDER_3_5": ["under 3.5", "un35", "u3.5", "-3.5", "under3.5"],
+    "BTTS_YES": ["btts", "gg", "both teams to score", "both score", "gol gol"],
+    "BTTS_NO": ["ng", "no btts", "both teams not to score", "no goal"],
+    "DRAW": [
+        " x ",
+        "draw",
+        "tie",
+        "pareggio",
+        "empate",
+    ],  # Added spaces to avoid matching "x" in other contexts
+    # Generic patterns last (single characters that could appear in other text)
+    "HOME_WIN": [
+        " 1 ",
+        "1x",
+        "home win",
+        "home team",
+        "(1)",
+        "[1]",
+    ],  # Added spaces/brackets for specificity
+    "AWAY_WIN": [
+        " 2 ",
+        "x2",
+        "away win",
+        "away team",
+        "(2)",
+        "[2]",
+    ],  # Added spaces/brackets for specificity
+}
+
+# Confidence indicators
+HIGH_CONFIDENCE_PATTERNS = [
+    r"💯",
+    r"✅",
+    r"🔥",
+    r"confirmed",
+    r"official",
+    r"sure",
+    r"lock",
+    r"strong",
+    r"banker",
+]
+
+
+def extract_prediction_from_text(text: str, home_team: str = None, away_team: str = None) -> dict:
+    """
+    Extract prediction from Telegram message text.
+
+    Analyzes message content to identify betting predictions/tips.
+
+    Args:
+        text: Message text to analyze
+        home_team: Optional home team name for team-specific predictions
+        away_team: Optional away team name for team-specific predictions
+
+    Returns:
+        Dict with:
+        - prediction_type: Type of prediction (HOME_WIN, OVER_2_5, etc.) or None
+        - prediction_team: Team name if team-specific prediction
+        - confidence: "high", "medium", or "low"
+    """
+    if not text:
+        return {"prediction_type": None, "prediction_team": None, "confidence": "low"}
+
+    text_lower = text.lower()
+
+    # Check for team-specific predictions first
+    prediction_team = None
+    if home_team and home_team.lower() in text_lower:
+        prediction_team = home_team
+    elif away_team and away_team.lower() in text_lower:
+        prediction_team = away_team
+
+    # Detect prediction type
+    detected_type = None
+    for pred_type, patterns in PREDICTION_TYPES.items():
+        for pattern in patterns:
+            if pattern in text_lower:
+                detected_type = pred_type
+                break
+        if detected_type:
+            break
+
+    # If no standard pattern found, check for team-specific win predictions
+    if not detected_type and prediction_team:
+        team_lower = prediction_team.lower()
+        win_patterns = ["win", "victory", "beat", "defeat", "beat"]
+        for pattern in win_patterns:
+            # Check if pattern appears near team name
+            if pattern in text_lower:
+                idx = text_lower.find(team_lower)
+                if idx != -1:
+                    # Check within 30 chars of team name
+                    context_start = max(0, idx - 30)
+                    context_end = min(len(text_lower), idx + len(team_lower) + 30)
+                    context = text_lower[context_start:context_end]
+                    if pattern in context:
+                        # Determine if it's home or away team
+                        if home_team and team_lower == home_team.lower():
+                            detected_type = "HOME_WIN"
+                        elif away_team and team_lower == away_team.lower():
+                            detected_type = "AWAY_WIN"
+                        break
+
+    # Determine confidence level
+    confidence = "low"
+    for pattern in HIGH_CONFIDENCE_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            confidence = "high"
+            break
+
+    # Medium confidence if prediction type found but no high confidence indicators
+    if detected_type and confidence == "low":
+        confidence = "medium"
+
+    return {
+        "prediction_type": detected_type,
+        "prediction_team": prediction_team,
+        "confidence": confidence,
+    }
+
+
+def verify_prediction_against_result(
+    prediction_type: str,
+    prediction_team: str | None,
+    home_score: int,
+    away_score: int,
+    home_team: str = None,
+    away_team: str = None,
+) -> bool | None:
+    """
+    Verify if a prediction was correct based on match result.
+
+    Args:
+        prediction_type: Type of prediction (HOME_WIN, OVER_2_5, etc.)
+        prediction_team: Team name if team-specific prediction
+        home_score: Final home team score
+        away_score: Final away team score
+        home_team: Home team name
+        away_team: Away team name
+
+    Returns:
+        True if correct, False if incorrect, None if cannot verify
+    """
+    if not prediction_type:
+        return None
+
+    total_goals = home_score + away_score
+
+    # Result-based predictions
+    if prediction_type == "HOME_WIN":
+        return home_score > away_score
+    elif prediction_type == "AWAY_WIN":
+        return away_score > home_score
+    elif prediction_type == "DRAW":
+        return home_score == away_score
+
+    # Goals-based predictions
+    elif prediction_type == "OVER_2_5":
+        return total_goals > 2.5
+    elif prediction_type == "UNDER_2_5":
+        return total_goals < 2.5
+    elif prediction_type == "OVER_1_5":
+        return total_goals > 1.5
+    elif prediction_type == "UNDER_1_5":
+        return total_goals < 1.5
+
+    # BTTS predictions
+    elif prediction_type == "BTTS_YES":
+        return home_score > 0 and away_score > 0
+    elif prediction_type == "BTTS_NO":
+        return home_score == 0 or away_score == 0
+
+    # Unknown prediction type
+    logger.warning(f"Unknown prediction type: {prediction_type}")
+    return None
 
 
 # ============================================
@@ -555,6 +749,7 @@ def validate_telegram_message(
             trust_multiplier=0.1,  # Very low multiplier for echoes
             reason=f"ECHO: Copied from @{original_channel}",
             is_echo=True,
+            echo_source_channel=original_channel,  # Propagate original channel
         )
 
     # 3. Calculate timestamp lag
@@ -610,6 +805,7 @@ def validate_telegram_message(
         is_insider_hit=is_insider,
         red_flags=red_flags,
         is_echo=False,
+        echo_source_channel=None,  # Not an echo
     )
 
 

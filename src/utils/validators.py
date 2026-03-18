@@ -559,6 +559,78 @@ def validate_analysis_result(analysis: dict[str, Any]) -> ValidationResult:
 
 
 # ============================================
+# VALIDATOR: NewsLog SQLAlchemy Model (Analysis Engine)
+# ============================================
+
+
+def validate_news_log(news_log: Any) -> ValidationResult:
+    """
+    Validate a NewsLog SQLAlchemy model instance from analyze_with_triangulation.
+
+    V1.2: New validator for NewsLog model (COVE FIX 2026-03-16)
+    This bridges the gap between Contract validation and ValidationResult system.
+
+    Args:
+        news_log: NewsLog instance from analyzer.py
+
+    Returns:
+        ValidationResult with errors if invalid
+
+    Edge cases handled:
+        - None news_log
+        - Missing required attributes
+        - Invalid score range
+        - Invalid confidence range
+        - Missing recommended_market when score >= threshold
+    """
+    result = ok()
+
+    # Check if news_log is None
+    if news_log is None:
+        return fail("NewsLog: è None")
+
+    # Validate score is in range [0, 10]
+    score = getattr(news_log, "score", None)
+    if score is not None:
+        if not isinstance(score, (int, float)):
+            result.add_error(f"score: tipo {type(score).__name__}, atteso int")
+        elif not (0 <= score <= 10):
+            result.add_error(f"score: {score} fuori range [0, 10]")
+    else:
+        result.add_warning("score: è None (default 0 will be used)")
+
+    # Validate confidence is in range [0, 100] (V11.1)
+    confidence = getattr(news_log, "confidence", None)
+    if confidence is not None:
+        if not isinstance(confidence, (int, float)):
+            result.add_error(f"confidence: tipo {type(confidence).__name__}, atteso float")
+        elif not (0 <= confidence <= 100):
+            result.add_error(f"confidence: {confidence} fuori range [0, 100]")
+
+    # Validate match_id exists
+    match_id = getattr(news_log, "match_id", None)
+    if match_id is None:
+        result.add_error("match_id: è None (richiesto)")
+
+    # Validate primary_driver if present
+    primary_driver = getattr(news_log, "primary_driver", None)
+    if primary_driver and primary_driver not in VALID_PRIMARY_DRIVERS:
+        result.add_warning(f"primary_driver: '{primary_driver}' non standard")
+
+    # Validate recommended_market for high-score alerts
+    recommended_market = getattr(news_log, "recommended_market", None)
+    if score is not None and score >= 7 and not recommended_market:
+        result.add_warning(f"score {score} >= 7 ma recommended_market è mancante")
+
+    # Validate summary exists for meaningful alerts
+    summary = getattr(news_log, "summary", None)
+    if score is not None and score >= 5 and not summary:
+        result.add_warning(f"score {score} >= 5 ma summary è mancante")
+
+    return result
+
+
+# ============================================
 # VALIDATOR: AnalysisResult dataclass (News Radar)
 # ============================================
 

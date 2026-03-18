@@ -51,6 +51,15 @@ except ImportError:
     _ENHANCED_ALERT_AVAILABLE = False
     logging.debug("EnhancedMatchAlert not available for notifier")
 
+# Import RefereeStrictness for enum handling
+try:
+    from src.schemas.perplexity_schemas import RefereeStrictness
+
+    _REFEREE_STRICTNESS_AVAILABLE = True
+except ImportError:
+    _REFEREE_STRICTNESS_AVAILABLE = False
+    logging.debug("RefereeStrictness not available for notifier")
+
 # Log version on import
 logger = logging.getLogger(__name__)
 logger.info(f"📦 {get_version_with_module('Notifier')}")
@@ -577,6 +586,9 @@ def _build_referee_section(
     ref_name = referee_intel.get("referee_name", "Unknown")
     ref_cards_avg = referee_intel.get("referee_cards_avg")
     ref_strictness = referee_intel.get("referee_strictness", "Unknown")
+    # Convert enum to string for consistent handling
+    if _REFEREE_STRICTNESS_AVAILABLE and isinstance(ref_strictness, RefereeStrictness):
+        ref_strictness = ref_strictness.value
     home_cards = referee_intel.get("home_cards_avg")
     away_cards = referee_intel.get("away_cards_avg")
     cards_reasoning = referee_intel.get("cards_reasoning", "")
@@ -706,6 +718,9 @@ def _build_verification_section(verification_info: dict[str, Any] | None) -> str
     if status == "confirm":
         status_emoji = "✅"
         status_label = "VERIFICATO"
+    elif status == "reject":
+        status_emoji = "❌"
+        status_label = "RESPINTO"
     elif status == "change_market":
         status_emoji = "🔄"
         status_label = "MERCATO MODIFICATO"
@@ -1224,15 +1239,12 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                 elif "under" in market_lower:
                     odds_to_save = getattr(match_obj, "current_under_2_5", None)
                 # V8.3 COVE FIX: Add support for BTTS (Both Teams to Score)
+                # V12.7: BTTS now has dedicated odds fields in DB
                 elif "btts" in market_lower:
-                    # BTTS doesn't have a dedicated odds field, use average of home/away as fallback
-                    home_odd = getattr(match_obj, "current_home_odd", None)
-                    away_odd = getattr(match_obj, "current_away_odd", None)
-                    if home_odd and away_odd:
-                        odds_to_save = (home_odd + away_odd) / 2
+                    odds_to_save = getattr(match_obj, "current_btts_yes", None)
+                    if odds_to_save:
                         logging.info(
-                            f"📊 V8.3: BTTS market detected, using average of home/away odds: {odds_to_save:.2f} "
-                            f"(home: {home_odd:.2f}, away: {away_odd:.2f})"
+                            f"📊 V12.7: BTTS market detected, using dedicated BTTS Yes odds: {odds_to_save:.2f}"
                         )
 
             # Update NewsLog with V8.3 fields
@@ -1274,7 +1286,8 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                     f"away: {getattr(match_obj, 'current_away_odd', None)}, "
                     f"draw: {getattr(match_obj, 'current_draw_odd', None)}, "
                     f"over_2.5: {getattr(match_obj, 'current_over_2_5', None)}, "
-                    f"under_2.5: {getattr(match_obj, 'current_under_2_5', None)}"
+                    f"under_2.5: {getattr(match_obj, 'current_under_2_5', None)}, "
+                    f"btts_yes: {getattr(match_obj, 'current_btts_yes', None)}"
                 )
         except Exception as e:
             # V8.3 COVE FIX: Improve error handling with more details and explicit rollback

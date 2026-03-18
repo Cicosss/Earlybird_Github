@@ -52,6 +52,36 @@ logger = logging.getLogger(__name__)
 # Tavily API endpoint
 TAVILY_API_URL = "https://api.tavily.com/search"
 
+
+def _normalize_score(score_raw: float | str | None) -> float:
+    """
+    Normalize and validate score to be within [0.0, 1.0].
+
+    Args:
+        score_raw: Raw score from API (can be float, string, or None)
+
+    Returns:
+        Normalized score in range [0.0, 1.0]
+
+    This function handles edge cases:
+    - None values → 0.0
+    - String values → converted to float
+    - Values < 0.0 → clamped to 0.0
+    - Values > 1.0 → clamped to 1.0
+    - Invalid strings → 0.0
+    """
+    if score_raw is None:
+        return 0.0
+
+    try:
+        score_float = float(score_raw)
+    except (ValueError, TypeError):
+        return 0.0
+
+    # Clamp to [0.0, 1.0]
+    return max(0.0, min(1.0, score_float))
+
+
 # Circuit breaker settings
 CIRCUIT_BREAKER_THRESHOLD = 3  # Open after 3 consecutive failures
 CIRCUIT_BREAKER_RECOVERY_SECONDS = 60  # Try recovery every 60 seconds
@@ -231,6 +261,9 @@ class TavilyProvider:
         self._daily_limit: int = 250  # ~7000 monthly / 28 days
         self._last_reset_date: str | None = None
 
+        # V7.5: Thread safety for cache operations
+        self._cache_lock = threading.Lock()
+
         if TAVILY_ENABLED and self._key_rotator.is_available():
             cache_status = "with shared cache" if self._shared_cache else "local cache only"
             logger.info(f"✅ Tavily AI Search initialized with circuit breaker ({cache_status})")
@@ -308,14 +341,15 @@ class TavilyProvider:
 
         Requirements: 1.3
         """
-        if cache_key in self._cache:
-            entry = self._cache[cache_key]
-            if not entry.is_expired():
-                logger.debug(f"📦 [TAVILY] Cache hit for key {cache_key[:8]}...")
-                return entry.response
-            else:
-                # Clean up expired entry
-                del self._cache[cache_key]
+        with self._cache_lock:
+            if cache_key in self._cache:
+                entry = self._cache[cache_key]
+                if not entry.is_expired():
+                    logger.debug(f"📦 [TAVILY] Cache hit for key {cache_key[:8]}...")
+                    return entry.response
+                else:
+                    # Clean up expired entry
+                    del self._cache[cache_key]
 
         return None
 
@@ -329,14 +363,22 @@ class TavilyProvider:
 
         Requirements: 1.3
         """
-        self._cache[cache_key] = CacheEntry(response=response, cached_at=datetime.now(timezone.utc))
+        with self._cache_lock:
+            self._cache[cache_key] = CacheEntry(
+                response=response, cached_at=datetime.now(timezone.utc)
+            )
 
-        # Cleanup old entries (keep cache size reasonable)
-        if len(self._cache) > 1000:
-            self._cleanup_cache()
+            # Cleanup old entries (keep cache size reasonable)
+            if len(self._cache) > 1000:
+                self._cleanup_cache()
 
     def _cleanup_cache(self) -> None:
-        """Remove expired cache entries."""
+        """
+        Remove expired cache entries.
+
+        Note: This method assumes the caller holds self._cache_lock.
+        It should only be called from within a 'with self._cache_lock:' block.
+        """
         expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
         for key in expired_keys:
             del self._cache[key]
@@ -487,8 +529,8 @@ class TavilyProvider:
                     TavilyResult(
                         title=item.get("title", ""),
                         url=item.get("url", ""),
-                        content=item.get("content", ""),
-                        score=item.get("score", 0.0),
+                        content=item.get("content", "") or "",
+                        score=_normalize_score(item.get("score", 0.0)),
                         published_date=item.get("published_date"),
                     )
                 )
@@ -595,8 +637,8 @@ class TavilyProvider:
                     TavilyResult(
                         title=item.get("title", ""),
                         url=item.get("url", ""),
-                        content=item.get("description", ""),
-                        score=0.5,  # Default score for fallback
+                        content=item.get("description", "") or "",
+                        score=_normalize_score(0.5),  # Default score for fallback
                         published_date=item.get("age"),
                     )
                 )
@@ -709,8 +751,8 @@ class TavilyProvider:
                     TavilyResult(
                         title=item.get("title", ""),
                         url=item.get("href", item.get("link", "")),
-                        content=item.get("body", item.get("snippet", "")),
-                        score=0.4,  # Lower score for DDG fallback
+                        content=item.get("body", item.get("snippet", "")) or "",
+                        score=_normalize_score(0.4),  # Lower score for DDG fallback
                         published_date=None,
                     )
                 )

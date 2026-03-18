@@ -447,13 +447,14 @@ class TestRefereeStatsEdgeCases:
         assert referee.should_boost_cards() is True
 
     def test_manual_strictness_override(self):
-        """Manual strictness setting should be preserved."""
+        """Manual strictness setting should be overridden by auto-classification."""
         referee = RefereeStats(
             name="Manual Referee", cards_per_game=0.0, strictness="strict", matches_officiated=100
         )
         # Note: __post_init__ will override this based on cards_per_game
         # So this tests that auto-classification takes precedence
-        assert referee.strictness == "unknown"  # Auto-classified as unknown
+        # 0.0 cards/game <= 3.0 (lenient threshold), so auto-classified as "lenient"
+        assert referee.strictness == "lenient"  # Auto-classified as lenient
 
     def test_dict_conversion(self):
         """Test converting RefereeStats to dict and back."""

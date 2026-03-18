@@ -82,6 +82,16 @@ LEAGUE_AVG_GOALS = {
 # ============================================
 
 
+class VetoReason(Enum):
+    """Enumeration of possible veto reasons."""
+
+    MARKET_CRASHED = "MARKET_CRASHED"  # Odds dropped >= 15%
+    ODDS_TOO_LOW = "ODDS_TOO_LOW"  # Odds <= 1.05
+    PROBABILITY_TOO_HIGH = "PROBABILITY_TOO_HIGH"  # Probability >= 99%
+    NO_VALUE = "NO_VALUE"  # Edge <= 0
+    SAFETY_VIOLATION = "SAFETY_VIOLATION"  # General safety violation
+
+
 @dataclass
 class BettingDecision:
     """
@@ -111,7 +121,7 @@ class BettingDecision:
     final_stake: float  # Final stake % after all risk filters
 
     # Risk Management
-    veto_reason: str | None  # Reason if vetoed
+    veto_reason: VetoReason | None  # Reason if vetoed (enum, not string)
     safety_violation: str | None  # Safety check violation if any
     volatility_adjusted: bool  # Whether volatility guard was applied
     market_warning: str | None  # Warning message (e.g., late to market)
@@ -128,16 +138,6 @@ class BettingDecision:
         self.implied_prob = max(0.0, min(100.0, self.implied_prob))
         self.kelly_stake = max(0.0, min(100.0, self.kelly_stake))
         self.final_stake = max(0.0, min(100.0, self.final_stake))
-
-
-class VetoReason(Enum):
-    """Enumeration of possible veto reasons."""
-
-    MARKET_CRASHED = "MARKET_CRASHED"  # Odds dropped >= 15%
-    ODDS_TOO_LOW = "ODDS_TOO_LOW"  # Odds <= 1.05
-    PROBABILITY_TOO_HIGH = "PROBABILITY_TOO_HIGH"  # Probability >= 99%
-    NO_VALUE = "NO_VALUE"  # Edge <= 0
-    SAFETY_VIOLATION = "SAFETY_VIOLATION"  # General safety violation
 
 
 # ============================================
@@ -226,6 +226,8 @@ class BettingQuant:
             return self._create_no_bet_decision(
                 reason="Match object is None - invalid input",
                 market_odds=market_odds,
+                veto_reason=VetoReason.SAFETY_VIOLATION,
+                ai_prob=ai_prob,
             )
 
         # VPS FIX: Copy all needed Match attributes before using them
@@ -235,7 +237,9 @@ class BettingQuant:
         home_team = match.home_team
         away_team = match.away_team
         league = match.league
-        start_time = match.start_time
+        match_start_time = (
+            match.start_time
+        )  # VPS FIX: Renamed to avoid shadowing performance monitoring variable
         opening_home_odd = match.opening_home_odd
         opening_draw_odd = match.opening_draw_odd
         opening_away_odd = match.opening_away_odd
@@ -343,7 +347,7 @@ class BettingQuant:
             market_warning=market_warning,  # V11.1: Market warning for late-to-market alerts
             poisson_result=poisson_result,
             balanced_prob=balanced_prob * 100.0,
-            ai_prob=ai_prob * 100.0 if ai_prob else None,
+            ai_prob=ai_prob * 100.0 if ai_prob is not None else None,
         )
 
         # PERFORMANCE MONITORING: Log execution time
@@ -618,7 +622,10 @@ class BettingQuant:
                 "away": ("opening_away_odd", "current_away_odd"),
                 "over_25": ("opening_over_2_5", "current_over_2_5"),
                 "under_25": ("opening_under_2_5", "current_under_2_5"),
-                "btts": None,  # BTTS doesn't have dedicated odds fields
+                "btts": (
+                    "opening_btts_yes",
+                    "current_btts_yes",
+                ),  # V12.7: BTTS now has dedicated odds fields
             }
 
             # Get the correct odd fields for this market
@@ -780,8 +787,18 @@ class BettingQuant:
         reason: str,
         market_odds: dict[str, float],
         poisson_result: PoissonResult | None = None,
+        veto_reason: VetoReason | None = None,
+        ai_prob: float | None = None,
     ) -> BettingDecision:
-        """Create a NO BET decision."""
+        """Create a NO BET decision.
+
+        Args:
+            reason: Human-readable reason for the no-bet decision
+            market_odds: Dictionary of market odds
+            poisson_result: Optional Poisson simulation result
+            veto_reason: Optional specific veto reason (defaults to NO_VALUE if not provided)
+            ai_prob: Optional AI probability (for preserving in decision)
+        """
         return BettingDecision(
             should_bet=False,
             verdict="NO BET",
@@ -795,13 +812,13 @@ class BettingQuant:
             actual_odd=market_odds.get("home", 0.0),
             kelly_stake=0.0,
             final_stake=0.0,
-            veto_reason=VetoReason.NO_VALUE,
+            veto_reason=veto_reason if veto_reason is not None else VetoReason.NO_VALUE,
             safety_violation=reason,
             volatility_adjusted=False,
             market_warning=None,  # V11.1: No warning for no-bet decisions
             poisson_result=poisson_result,
             balanced_prob=0.0,
-            ai_prob=None,
+            ai_prob=ai_prob * 100.0 if ai_prob is not None else None,
         )
 
     def _create_vetoed_decision(
@@ -833,9 +850,9 @@ class BettingQuant:
             market_warning=None,  # V11.1: No warning for vetoed decisions
             poisson_result=poisson_result,
             balanced_prob=(edge_result.math_prob / 100.0 + ai_prob) / 2
-            if ai_prob
+            if ai_prob is not None
             else edge_result.math_prob / 100.0,
-            ai_prob=ai_prob * 100.0 if ai_prob else None,
+            ai_prob=ai_prob * 100.0 if ai_prob is not None else None,
         )
 
     def _create_no_value_decision(
@@ -865,9 +882,9 @@ class BettingQuant:
             market_warning=None,  # V11.1: No warning for no-value decisions
             poisson_result=poisson_result,
             balanced_prob=(edge_result.math_prob / 100.0 + ai_prob) / 2
-            if ai_prob
+            if ai_prob is not None
             else edge_result.math_prob / 100.0,
-            ai_prob=ai_prob * 100.0 if ai_prob else None,
+            ai_prob=ai_prob * 100.0 if ai_prob is not None else None,
         )
 
 

@@ -314,8 +314,8 @@ def get_optimizer_state(n_samples: int) -> OptimizerState:
 def calculate_advanced_weight(
     roi: float,
     sharpe: float,
-    max_drawdown: float,
-    n_samples: int,
+    max_drawdown: float = 0.0,
+    n_samples: int = 0,
     sortino: float = None,
     previous_weight: float = None,
 ) -> float:
@@ -330,18 +330,22 @@ def calculate_advanced_weight(
     V4.3: Now uses Sortino Ratio as primary risk metric (better for betting).
     Sortino only penalizes downside volatility, not winning streaks.
 
+    V8.1 FIX: max_drawdown is now optional (default=0.0) to support driver weights
+    which don't track pnl_history. When max_drawdown=0.0, the Drawdown Brake
+    is skipped but other risk metrics (Sharpe, Sortino) are still applied.
+
     Formula (when ACTIVE):
     1. Base: Start at 1.0
     2. Sample Size Shrinkage: confidence_factor = min(1.0, n_samples / 50)
     3. Performance Impact: weight += (roi * 2.0) * confidence_factor
     4. Volatility Penalty: If sortino < 1.5 AND n_samples > 30: weight *= 0.8
-    5. Drawdown Brake: If drawdown < -0.20: weight *= 0.5
+    5. Drawdown Brake: If drawdown < -0.20: weight *= 0.5 (skipped if max_drawdown=0.0)
     6. Clamp: max(0.2, min(2.0, weight))
 
     Args:
         roi: Return on Investment as decimal
         sharpe: Sharpe ratio (kept for backward compatibility)
-        max_drawdown: Maximum drawdown (negative decimal)
+        max_drawdown: Maximum drawdown (negative decimal, default=0.0 for drivers)
         n_samples: Number of bets
         sortino: Sortino ratio (V4.3 - preferred metric)
         previous_weight: Previous weight value (for WARMING_UP state limiting)
@@ -379,7 +383,12 @@ def calculate_advanced_weight(
 
     # Drawdown Brake (emergency cut on losing streaks)
     # V5.0: Only activate if we have enough data to trust the drawdown calculation
-    if max_drawdown < DRAWDOWN_BRAKE_THRESHOLD and n_samples >= MIN_SAMPLE_SIZE:
+    # V8.1 FIX: Skip if max_drawdown=0.0 (drivers don't track pnl_history)
+    if (
+        max_drawdown < DRAWDOWN_BRAKE_THRESHOLD
+        and n_samples >= MIN_SAMPLE_SIZE
+        and max_drawdown != 0.0
+    ):
         weight *= 0.5
         logger.warning(f"⚠️ Drawdown brake activated (DD={max_drawdown * 100:.1f}%)")
 
@@ -526,15 +535,18 @@ class StrategyOptimizer:
         V4.1 FIX: Write to temp file first, then atomic rename.
         V5.3 FIX: Thread-safe with lock to prevent concurrent writes.
         V7.3 FIX: Update weight cache after successful save (only for production file).
+        V8.1 FIX: Define temp_file before try block to prevent NameError in except cleanup.
         This prevents corruption if process crashes during write.
         """
         with self._data_lock:
+            # V8.1 FIX: Define temp_file before try block for cleanup in except
+            temp_file = self.weights_file + ".tmp"
+
             try:
                 Path(self.weights_file).parent.mkdir(parents=True, exist_ok=True)
                 self.data["last_updated"] = datetime.now(timezone.utc).isoformat()
 
                 # Atomic write: temp file + rename
-                temp_file = self.weights_file + ".tmp"
 
                 with open(temp_file, "w") as f:
                     json.dump(self.data, f, indent=2)
@@ -553,8 +565,7 @@ class StrategyOptimizer:
                 return True
             except Exception as e:
                 logger.error(f"Error saving optimizer data: {e}")
-                # Clean up temp file if it exists
-                temp_file = self.weights_file + ".tmp"
+                # Clean up temp file if it exists (temp_file defined before try block)
                 if os.path.exists(temp_file):
                     try:
                         os.remove(temp_file)
@@ -776,30 +787,18 @@ class StrategyOptimizer:
                 calc_sortino(driver_stats["returns"]), 3
             )  # V4.2: Sortino
 
-            # V6.1 FIX: Driver weights now use State Machine (same as league/market)
-            # Previously: jumped directly from FROZEN to full adjustment (inconsistent)
-            driver_state = get_optimizer_state(driver_stats["bets"])
+            # V8.1 FIX: Driver weights now use calculate_advanced_weight() for consistency
+            # This applies the same risk metrics (ROI, Sharpe, Sortino) as league/market weights
+            # Note: Drivers don't track pnl_history, so max_drawdown=0.0 (Drawdown Brake skipped)
             previous_driver_weight = driver_stats.get("weight", NEUTRAL_WEIGHT)
-
-            if driver_state == OptimizerState.FROZEN:
-                # No adjustment - keep neutral
-                driver_stats["weight"] = NEUTRAL_WEIGHT
-            elif driver_state == OptimizerState.WARMING_UP:
-                # Limited adjustment: ±0.1 max
-                raw_weight = NEUTRAL_WEIGHT + driver_stats["roi"] * 2.0
-                raw_weight = max(MIN_WEIGHT, min(MAX_WEIGHT, raw_weight))
-                max_delta = 0.1
-                if raw_weight > previous_driver_weight + max_delta:
-                    driver_stats["weight"] = round(previous_driver_weight + max_delta, 3)
-                elif raw_weight < previous_driver_weight - max_delta:
-                    driver_stats["weight"] = round(previous_driver_weight - max_delta, 3)
-                else:
-                    driver_stats["weight"] = round(raw_weight, 3)
-            else:  # ACTIVE
-                # Full adjustment
-                driver_stats["weight"] = round(
-                    max(MIN_WEIGHT, min(MAX_WEIGHT, NEUTRAL_WEIGHT + driver_stats["roi"] * 2.0)), 3
-                )
+            driver_stats["weight"] = calculate_advanced_weight(
+                roi=driver_stats["roi"],
+                sharpe=driver_stats["sharpe"],
+                max_drawdown=0.0,  # Drivers don't track pnl_history
+                n_samples=driver_stats["bets"],
+                sortino=driver_stats["sortino"],
+                previous_weight=previous_driver_weight,
+            )
 
             # Update global stats
             self.data["global"]["total_bets"] += 1
@@ -970,12 +969,13 @@ class StrategyOptimizer:
                 outcome = bet.get("outcome", "LOSS")
                 odds = bet.get("odds", 1.9)
                 driver = bet.get("driver", "UNKNOWN")
+                expansion_type = bet.get("expansion_type")  # V7.4 FIX: Extract expansion_type
 
                 # V5.2 FIX: Skip invalid bets before processing
                 if not league or not market:
                     continue
 
-                self.record_bet_result(league, market, outcome, odds, driver)
+                self.record_bet_result(league, market, outcome, odds, driver, expansion_type)
 
                 league_key = self._normalize_key(league)
                 market_type = categorize_market(market)
@@ -1192,39 +1192,6 @@ class StrategyOptimizer:
 
             return report
 
-    def get_risky_combinations(self, threshold: float = -0.1) -> list:
-        """
-        Get league/market combinations with negative ROI or high drawdown.
-
-        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
-        during concurrent settlement and analysis operations.
-        """
-        with self._data_lock:
-            risky = []
-            for league, markets in self.data.get("stats", {}).items():
-                for market_type, stats in markets.items():
-                    n_bets = stats.get("bets", 0)
-                    # V5.0: Only flag as risky if we have enough data to trust the metrics
-                    is_risky = (stats.get("roi", 0) < threshold and n_bets >= MIN_SAMPLE_SIZE) or (
-                        stats.get("max_drawdown", 0) < DRAWDOWN_BRAKE_THRESHOLD
-                        and n_bets >= MIN_SAMPLE_SIZE
-                    )
-                    if is_risky:
-                        risky.append(
-                            {
-                                "league": league,
-                                "market": market_type,
-                                "roi": stats["roi"],
-                                "sharpe": stats.get("sharpe", 0),
-                                "sortino": stats.get("sortino", 0),
-                                "max_drawdown": stats.get("max_drawdown", 0),
-                                "bets": n_bets,
-                                "weight": stats["weight"],
-                                "state": get_optimizer_state(n_bets).value,
-                            }
-                        )
-            return sorted(risky, key=lambda x: x["roi"])
-
     def _record_expansion_performance(
         self, league_key: str, expansion_type: str, outcome: str, odds: float
     ) -> None:
@@ -1236,6 +1203,10 @@ class StrategyOptimizer:
 
         V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
         during concurrent settlement and analysis operations.
+
+        V7.4.1 FIX: NOTE - Expansion tracking is GLOBAL across all leagues.
+        The league_key parameter is passed for context but NOT used for filtering.
+        Expansion performance is aggregated across all leagues combined.
         """
         with self._data_lock:
             if "expansion_stats" not in self.data:
@@ -1304,58 +1275,6 @@ class StrategyOptimizer:
             "returns": [],
             "pnl_history": [],
         }
-
-    def get_expansion_performance(self, expansion_type: str = None) -> dict:
-        """
-        V7.4: Get performance stats for expansion types.
-
-        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
-        during concurrent settlement and analysis operations.
-
-        Args:
-            expansion_type: Specific expansion type or None for all
-
-        Returns:
-            Performance statistics dictionary
-        """
-        with self._data_lock:
-            if "expansion_stats" not in self.data:
-                return {}
-
-            if expansion_type:
-                return self.data["expansion_stats"].get(expansion_type, {})
-
-            return self.data["expansion_stats"]
-
-    def get_best_expansions_for_league(
-        self, league_key: str, top_n: int = 3
-    ) -> list[tuple[str, float]]:
-        """
-        V7.4: Get best performing expansion types for a specific league.
-
-        V8.0 FIX: Thread-safe with _data_lock to prevent race conditions
-        during concurrent settlement and analysis operations.
-
-        Returns list of (expansion_type, performance_score) tuples.
-        """
-        with self._data_lock:
-            if "expansion_stats" not in self.data:
-                return []
-
-            expansion_scores = []
-            for exp_type, stats in self.data["expansion_stats"].items():
-                if stats["bets"] >= MIN_SAMPLE_SIZE:  # Only consider reliable data
-                    # Performance score combines ROI, win rate, and Sharpe
-                    score = (
-                        stats["roi"] * 0.4  # 40% weight on ROI
-                        + stats["win_rate"] * 0.3  # 30% weight on win rate
-                        + (stats["sharpe"] / 10) * 0.3  # 30% weight on risk-adjusted returns
-                    )
-                    expansion_scores.append((exp_type, score))
-
-            # Sort by score descending and return top N
-            expansion_scores.sort(key=lambda x: x[1], reverse=True)
-            return expansion_scores[:top_n]
 
 
 # ============================================

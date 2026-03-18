@@ -69,6 +69,15 @@ class EnrichmentContext:
     biscotto_severity: str | None = None
     current_draw_odd: float | None = None
 
+    # V3.0: StructuredAnalysis enrichment fields
+    # These fields enable intelligent component communication
+    motivation_home: Optional[str] = None  # "HIGH", "MEDIUM", "LOW", "NORMAL"
+    motivation_away: Optional[str] = None  # "HIGH", "MEDIUM", "LOW", "NORMAL"
+    match_importance: Optional[str] = None  # "CRITICAL", "IMPORTANT", "NORMAL", "LOW"
+    opponent: Optional[str] = None  # Opponent team name (derived from home_team/away_team)
+    competition: Optional[str] = None  # Competition name (mapped from league)
+    match_date: Optional[str] = None  # Match date string (derived from match_time)
+
     # Metadata
     enrichment_source: str = "database"  # "database", "cache", "fotmob_light"
 
@@ -381,11 +390,83 @@ class RadarLightEnricher:
             logger.debug(f"⚠️ [RADAR-ENRICH] Biscotto check failed: {e}")
             return False, None
 
+    def _derive_motivation_from_zone(self, zone: str) -> str:
+        """
+        Derive motivation level from team zone.
+
+        This enables intelligent component communication by converting
+        league position context into motivation levels that StructuredAnalysis
+        can use for enrichment.
+
+        Args:
+            zone: Team zone (Title Race, Relegation, etc.)
+
+        Returns:
+            Motivation level: "HIGH", "MEDIUM", "LOW", or "NORMAL"
+        """
+        if not zone or zone == "Unknown":
+            return "NORMAL"
+
+        # High motivation zones
+        if zone in ["Title Race", "Relegation"]:
+            return "HIGH"
+
+        # Medium motivation zones
+        if zone in ["European Spots", "Danger Zone"]:
+            return "MEDIUM"
+
+        # Low motivation zones
+        if zone == "Mid-Table":
+            return "LOW"
+
+        return "NORMAL"
+
+    def _derive_match_importance(self, zone: str, matches_remaining: int | None) -> str:
+        """
+        Derive match importance from team context.
+
+        This enables intelligent component communication by analyzing
+        the strategic importance of the upcoming match.
+
+        Args:
+            zone: Team zone
+            matches_remaining: Number of matches remaining in season
+
+        Returns:
+            Match importance: "CRITICAL", "IMPORTANT", "NORMAL", or "LOW"
+        """
+        # Critical: End of season in high-stakes zones
+        if matches_remaining is not None and matches_remaining <= 3:
+            if zone in ["Title Race", "Relegation", "Danger Zone"]:
+                return "CRITICAL"
+
+        # Important: High-stakes zones with few matches remaining
+        if matches_remaining is not None and matches_remaining <= 10:
+            if zone in ["Title Race", "Relegation", "Danger Zone", "European Spots"]:
+                return "IMPORTANT"
+
+        # Normal: Mid-season or mid-table
+        if zone in ["Mid-Table", "Unknown"]:
+            return "NORMAL"
+
+        # Normal: Early season with many matches remaining
+        if matches_remaining is not None and matches_remaining > 20:
+            return "NORMAL"
+
+        # Important: High-stakes zones during season
+        if zone in ["Title Race", "Relegation", "Danger Zone", "European Spots"]:
+            return "IMPORTANT"
+
+        return "NORMAL"
+
     def enrich(self, affected_team: str) -> EnrichmentContext:
         """
         Arricchisci un alert con contesto dal database.
 
         Metodo principale da chiamare dal News Radar.
+
+        V3.0: Enhanced to populate StructuredAnalysis fields with intelligent
+        derivation from team context (zone, position, matches_remaining).
 
         Args:
             affected_team: Nome della squadra dall'alert
@@ -422,6 +503,33 @@ class RadarLightEnricher:
         context.matches_remaining = team_context.get("matches_remaining")
         context.enrichment_source = team_context.get("source", "database")
 
+        # V3.0: NEW - Populate StructuredAnalysis enrichment fields
+        # Derive motivation from team zone
+        context.motivation_home = self._derive_motivation_from_zone(context.team_zone)
+
+        # For away team motivation, we need to get their context too
+        if context.away_team:
+            away_team_context = self.get_team_context_light(context.away_team)
+            context.motivation_away = self._derive_motivation_from_zone(
+                away_team_context.get("zone")
+            )
+
+        # Derive match importance from team context
+        context.match_importance = self._derive_match_importance(
+            context.team_zone, context.matches_remaining
+        )
+
+        # Derive opponent from match info
+        is_home = match_info.get("is_home", False)
+        context.opponent = context.away_team if is_home else context.home_team
+
+        # Map league to competition
+        context.competition = context.league
+
+        # Derive match date string from match_time
+        if context.match_time:
+            context.match_date = context.match_time.strftime("%Y-%m-%d")
+
         # Step 3: Check biscotto se fine stagione
         if context.is_end_of_season():
             is_suspect, severity = self.check_biscotto_light(match_info)
@@ -430,7 +538,8 @@ class RadarLightEnricher:
 
         logger.info(
             f"✨ [RADAR-ENRICH] Enriched {affected_team}: "
-            f"{context.team_zone}, match in {context.match_time}"
+            f"{context.team_zone}, match in {context.match_time}, "
+            f"motivation={context.motivation_home}, importance={context.match_importance}"
         )
 
         return context
@@ -463,23 +572,49 @@ def get_radar_enricher() -> RadarLightEnricher:
     return _enricher_instance
 
 
-async def enrich_radar_alert_async(affected_team: str) -> EnrichmentContext:
+async def enrich_radar_alert_async(
+    affected_team: str,
+    team: str | None = None,
+    opponent: str | None = None,
+    competition: str | None = None,
+    match_date: str | None = None,
+) -> EnrichmentContext:
     """
     Async wrapper per l'enrichment (per compatibilità con news_radar async).
 
+    V3.0: Enhanced to accept additional parameters for StructuredAnalysis integration.
+    These parameters are accepted for API compatibility but are not used directly,
+    as the enrichment system derives all needed information from team context.
+
     Args:
-        affected_team: Nome della squadra dall'alert
+        affected_team: Nome della squadra dall'alert (required)
+        team: Alias for affected_team (optional, for backward compatibility)
+        opponent: Opponent team name (optional, not used - derived from DB)
+        competition: Competition name (optional, not used - derived from DB)
+        match_date: Match date string (optional, not used - derived from DB)
 
     Returns:
-        EnrichmentContext con tutti i dati disponibili
+        EnrichmentContext con tutti i dati disponibili, including:
+        - motivation_home/away: Derived from team zone
+        - match_importance: Derived from zone and matches_remaining
+        - opponent: Derived from match info
+        - competition: Mapped from league
+        - match_date: Derived from match_time
     """
     import asyncio
+
+    # Use affected_team parameter (primary parameter)
+    # team parameter is accepted but ignored (alias for compatibility)
+    team_to_enrich = affected_team if affected_team else team
+
+    if not team_to_enrich or team_to_enrich == "Unknown":
+        return EnrichmentContext()
 
     enricher = get_radar_enricher()
 
     # Esegui in thread pool per non bloccare event loop
     # (le query DB sono sync)
     loop = asyncio.get_event_loop()
-    context = await loop.run_in_executor(None, enricher.enrich, affected_team)
+    context = await loop.run_in_executor(None, enricher.enrich, team_to_enrich)
 
     return context

@@ -285,6 +285,37 @@ class StartupValidator:
             is_empty=is_empty,
         )
 
+    def _validate_python_version(self) -> ValidationResult:
+        """
+        Validate Python version meets minimum requirements.
+
+        EarlyBird requires Python 3.10+ for:
+        - str | None type hints (PEP 604)
+        - ZoneInfo (Python 3.9+, but 3.10+ required for type hints)
+
+        Returns:
+            ValidationResult with status and message
+        """
+        required_version = (3, 10)
+        current_version = sys.version_info[:2]
+
+        if current_version >= required_version:
+            return ValidationResult(
+                key="PYTHON_VERSION",
+                status=ValidationStatus.READY,
+                message=f"Python {sys.version.split()[0]}: OK (requires 3.10+)",
+                is_critical=True,
+                is_empty=False,
+            )
+        else:
+            return ValidationResult(
+                key="PYTHON_VERSION",
+                status=ValidationStatus.FAIL,
+                message=f"Python {sys.version.split()[0]}: FAIL (requires 3.10+ for str | None type hints and ZoneInfo)",
+                is_critical=True,
+                is_empty=True,
+            )
+
     def test_odds_api_connectivity(self) -> APIConnectivityResult:
         """Test Odds API connectivity and quota."""
         api_key = os.getenv("ODDS_API_KEY", "")
@@ -675,6 +706,10 @@ class StartupValidator:
         """
         critical_results = []
         optional_results = []
+
+        # Validate Python version FIRST (critical for type hints and ZoneInfo)
+        python_version_result = self._validate_python_version()
+        critical_results.append(python_version_result)
 
         # Validate critical keys
         for key, config in self.CRITICAL_KEYS.items():

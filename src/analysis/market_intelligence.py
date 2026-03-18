@@ -354,14 +354,14 @@ def _estimate_rlm_time_window(match_id: str | None) -> int:
 
 @dataclass
 class ReverseLineSignal:
-    """Result of reverse line movement detection."""
+    """
+    Result of reverse line movement detection.
+
+    NOTE: Only 'detected' and 'message' fields are actively used in the codebase.
+    Other fields were removed to reduce unnecessary data storage.
+    """
 
     detected: bool
-    market: str
-    public_side: str
-    sharp_side: str
-    odds_movement_pct: float
-    confidence: str
     message: str
 
 
@@ -416,9 +416,9 @@ def detect_reverse_line_movement(
     Returns:
         ReverseLineSignal if detected, None otherwise
     """
-    # VPS FIX: Extract Match attributes safely to prevent session detachment
-    # This prevents "Trust validation error" when Match object becomes detached
-    # from session due to connection pool recycling under high load
+    # Extract Match attributes safely using getattr() to prevent AttributeError
+    # if attributes are missing. This is a defensive programming pattern
+    # that handles edge cases where Match objects may not have all expected fields.
     opening_home_odd = getattr(match, "opening_home_odd", None)
     opening_away_odd = getattr(match, "opening_away_odd", None)
     current_home_odd = getattr(match, "current_home_odd", None)
@@ -436,10 +436,22 @@ def detect_reverse_line_movement(
         logger.debug(f"RLM V1: Invalid odds (< {RLM_MIN_VALID_ODD}), skipping")
         return None
 
+    # Additional validation: Ensure odds are positive to prevent division by zero
+    # This is a defensive programming measure even though odds should never be 0.0
+    if opening_home_odd <= 0.0 or opening_away_odd <= 0.0:
+        logger.debug("RLM V1: Invalid odds (<= 0.0), skipping")
+        return None
+
     home_movement_pct = ((current_home_odd - opening_home_odd) / opening_home_odd) * 100
     away_movement_pct = ((current_away_odd - opening_away_odd) / opening_away_odd) * 100
 
     if public_bet_distribution is None:
+        # Additional validation: Ensure odds are positive to prevent division by zero
+        # This is a defensive programming measure even though odds should never be 0.0
+        if opening_home_odd <= 0.0 or opening_away_odd <= 0.0:
+            logger.debug("RLM V1: Invalid odds (<= 0.0) for public estimation, skipping")
+            return None
+
         total_implied = (1 / opening_home_odd) + (1 / opening_away_odd)
         if total_implied <= 0:
             return None
@@ -465,28 +477,16 @@ def detect_reverse_line_movement(
     if public_home >= RLM_PUBLIC_THRESHOLD and home_movement_pct >= (
         RLM_ODDS_INCREASE_THRESHOLD * 100
     ):
-        confidence = "HIGH" if home_movement_pct >= 5 else "MEDIUM"
         signal = ReverseLineSignal(
             detected=True,
-            market="AWAY",
-            public_side="HOME",
-            sharp_side="AWAY",
-            odds_movement_pct=home_movement_pct,
-            confidence=confidence,
             message=f"🔄 REVERSE LINE: {public_home * 100:.0f}% public on HOME, but odds RISING {home_movement_pct:+.1f}% → SHARP on AWAY",
         )
 
     elif public_away >= RLM_PUBLIC_THRESHOLD and away_movement_pct >= (
         RLM_ODDS_INCREASE_THRESHOLD * 100
     ):
-        confidence = "HIGH" if away_movement_pct >= 5 else "MEDIUM"
         signal = ReverseLineSignal(
             detected=True,
-            market="HOME",
-            public_side="AWAY",
-            sharp_side="HOME",
-            odds_movement_pct=away_movement_pct,
-            confidence=confidence,
             message=f"🔄 REVERSE LINE: {public_away * 100:.0f}% public on AWAY, but odds RISING {away_movement_pct:+.1f}% → SHARP on HOME",
         )
 
@@ -524,9 +524,9 @@ def detect_rlm_v2(
     Returns:
         RLMSignalV2 if detected, None otherwise
     """
-    # VPS FIX: Extract Match attributes safely to prevent session detachment
-    # This prevents "Trust validation error" when Match object becomes detached
-    # from session due to connection pool recycling under high load
+    # Extract Match attributes safely using getattr() to prevent AttributeError
+    # if attributes are missing. This is a defensive programming pattern
+    # that handles edge cases where Match objects may not have all expected fields.
     match_id = getattr(match, "id", None)
     opening_home_odd = getattr(match, "opening_home_odd", None)
     opening_away_odd = getattr(match, "opening_away_odd", None)
@@ -548,20 +548,27 @@ def detect_rlm_v2(
         logger.debug(f"RLM V2: Invalid odds (< {RLM_MIN_VALID_ODD})")
         return None
 
+    # Additional validation: Ensure odds are positive to prevent division by zero
+    # This is a defensive programming measure even though odds should never be 0.0
+    if opening_home_odd <= 0.0 or opening_away_odd <= 0.0:
+        logger.debug("RLM V2: Invalid odds (<= 0.0), skipping")
+        return None
+
     home_movement_pct = ((current_home_odd - opening_home_odd) / opening_home_odd) * 100
     away_movement_pct = ((current_away_odd - opening_away_odd) / opening_away_odd) * 100
 
     time_window_min = _estimate_rlm_time_window(match_id)
 
     if public_bet_distribution is None:
+        # Additional validation: Ensure odds are positive to prevent division by zero
+        # This is a defensive programming measure even though odds should never be 0.0
+        if opening_home_odd <= 0.0 or opening_away_odd <= 0.0:
+            logger.debug("RLM V2: Invalid odds (<= 0.0) for public estimation, skipping")
+            return None
+
         total_implied = (1 / opening_home_odd) + (1 / opening_away_odd)
         if total_implied <= 0:
             return None
-
-        # VPS FIX: Extract Match attributes safely to prevent session detachment
-        # This prevents "Trust validation error" when Match object becomes detached
-        # from session due to connection pool recycling under high load
-        opening_home_odd = getattr(match, "opening_home_odd", None)
 
         home_implied = (1 / opening_home_odd) / total_implied
 
@@ -576,8 +583,43 @@ def detect_rlm_v2(
 
         public_bet_distribution = {"home": public_home, "away": public_away}
 
+    # Validate and normalize public_bet_distribution
+    # Detect if values are in 0-100 scale instead of 0-1 scale
     public_home = public_bet_distribution.get("home", 0.5)
     public_away = public_bet_distribution.get("away", 0.5)
+
+    # Check for scale mismatch (values > 1 suggest 0-100 scale)
+    if public_home > 1.0 or public_away > 1.0:
+        logger.warning(
+            f"RLM V2: Detected public_bet_distribution in 0-100 scale (home={public_home}, away={public_away}). "
+            f"Normalizing to 0-1 scale."
+        )
+        public_home = public_home / 100.0
+        public_away = public_away / 100.0
+
+    # Validate non-negative values
+    if public_home < 0 or public_away < 0:
+        logger.warning(
+            f"RLM V2: Invalid negative values in public_bet_distribution (home={public_home}, away={public_away}). "
+            f"Using defaults (0.5, 0.5)."
+        )
+        public_home = 0.5
+        public_away = 0.5
+
+    # Validate sum is approximately 1.0 (with tolerance for floating point errors)
+    total = public_home + public_away
+    if abs(total - 1.0) > 0.1:  # 10% tolerance
+        logger.warning(
+            f"RLM V2: public_bet_distribution sum is {total:.2f}, expected ~1.0. "
+            f"Normalizing to maintain proportions."
+        )
+        if total > 0:
+            public_home = public_home / total
+            public_away = public_away / total
+        else:
+            logger.warning("RLM V2: Both values are 0, using defaults (0.5, 0.5)")
+            public_home = 0.5
+            public_away = 0.5
 
     min_odds_increase_pct = min_odds_increase * 100
 
@@ -869,7 +911,7 @@ def calculate_news_freshness_multiplier(
 
     # Use centralized get_league_aware_freshness() for league-specific decay
     # Calculate datetime from minutes_old for get_league_aware_freshness()
-    news_datetime = reference_time - timezone.timedelta(minutes=minutes_old)
+    news_datetime = reference_time - timedelta(minutes=minutes_old)
 
     try:
         from src.utils.freshness import get_league_aware_freshness
@@ -1027,9 +1069,9 @@ def analyze_market_intelligence(
 
     effective_league = league_key or getattr(match, "league", None)
 
-    # VPS FIX: Extract Match odds safely to prevent session detachment
-    # This prevents "Trust validation error" when Match object becomes detached
-    # from session due to connection pool recycling under high load
+    # Extract Match odds safely using getattr() to prevent AttributeError
+    # if attributes are missing. This is a defensive programming pattern
+    # that handles edge cases where Match objects may not have all expected fields.
     current_home_odd = getattr(match, "current_home_odd", None)
     current_draw_odd = getattr(match, "current_draw_odd", None)
     current_away_odd = getattr(match, "current_away_odd", None)
@@ -1040,7 +1082,7 @@ def analyze_market_intelligence(
         "away": current_away_odd,
     }
 
-    # VPS FIX: Extract match_id safely to prevent session detachment
+    # Extract match_id safely using getattr() to prevent AttributeError
     match_id = getattr(match, "id", None)
     steam_signal = detect_steam_move(match_id, current_odds, league_key=effective_league)
 

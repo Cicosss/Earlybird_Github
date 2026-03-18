@@ -13,7 +13,20 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class RiskLevel(str, Enum):
-    """Standard risk levels for analysis."""
+    """
+    Standard risk levels for analysis.
+
+    NOTE: This enum is reused for motivation levels (motivation_home, motivation_away)
+    because they share the same semantic scale (High/Medium/Low/Unknown). While conceptually
+    different (risk vs motivation), they represent the same intensity levels, so reusing
+    this enum avoids unnecessary code duplication while maintaining type safety.
+
+    Values:
+    - High: High risk or high motivation
+    - Medium: Medium risk or medium motivation
+    - Low: Low risk or low motivation
+    - Unknown: Insufficient data
+    """
 
     HIGH = "High"
     MEDIUM = "Medium"
@@ -22,7 +35,19 @@ class RiskLevel(str, Enum):
 
 
 class RefereeStrictness(str, Enum):
-    """Referee strictness levels."""
+    """Referee strictness levels.
+
+    IMPORTANT: This is the ONLY RefereeStrictness enum in the codebase.
+    Do not create duplicate enums in other modules.
+
+    Values:
+    - Strict: High card issuance rate (>= 5.0 cards/game)
+    - Medium: Moderate card issuance rate (3.0-5.0 cards/game)
+    - Lenient: Low card issuance rate (<= 3.0 cards/game)
+    - Unknown: Insufficient data
+
+    Used by AI providers (Perplexity/DeepSeek) to classify referee behavior.
+    """
 
     STRICT = "Strict"
     MEDIUM = "Medium"
@@ -112,29 +137,37 @@ class DeepDiveResponse(BaseModel):
     @field_validator("internal_crisis", "turnover_risk")
     @classmethod
     def validate_risk_levels(cls, v):
-        """Ensure risk levels start with valid enum values."""
-        for risk in [RiskLevel.HIGH, RiskLevel.MEDIUM, RiskLevel.LOW, RiskLevel.UNKNOWN]:
-            if v.startswith(risk.value):
-                return v
-        raise ValueError(
-            f"Must start with valid risk level: {', '.join([r.value for r in RiskLevel])}"
-        )
+        """Ensure risk levels start with valid enum values (case-insensitive)."""
+        if isinstance(v, str):
+            v_lower = v.lower()
+            for risk in [RiskLevel.HIGH, RiskLevel.MEDIUM, RiskLevel.LOW, RiskLevel.UNKNOWN]:
+                if v_lower.startswith(risk.value.lower()):
+                    # Normalize the case: preserve the explanation but use correct case for the risk level
+                    return risk.value + v[len(risk.value) :]
+            raise ValueError(
+                f"Must start with valid risk level: {', '.join([r.value for r in RiskLevel])}"
+            )
+        return v
 
     @field_validator("referee_intel")
     @classmethod
     def validate_referee_intel(cls, v):
-        """Ensure referee intel starts with valid strictness."""
-        for strictness in [
-            RefereeStrictness.STRICT,
-            RefereeStrictness.MEDIUM,
-            RefereeStrictness.LENIENT,
-            RefereeStrictness.UNKNOWN,
-        ]:
-            if v.startswith(strictness.value):
-                return v
-        raise ValueError(
-            f"Must start with valid referee strictness: {', '.join([s.value for s in RefereeStrictness])}"
-        )
+        """Ensure referee intel starts with valid strictness (case-insensitive)."""
+        if isinstance(v, str):
+            v_lower = v.lower()
+            for strictness in [
+                RefereeStrictness.STRICT,
+                RefereeStrictness.MEDIUM,
+                RefereeStrictness.LENIENT,
+                RefereeStrictness.UNKNOWN,
+            ]:
+                if v_lower.startswith(strictness.value.lower()):
+                    # Normalize the case: preserve the explanation but use correct case for the strictness
+                    return strictness.value + v[len(strictness.value) :]
+            raise ValueError(
+                f"Must start with valid referee strictness: {', '.join([s.value for s in RefereeStrictness])}"
+            )
+        return v
 
     @field_validator("biscotto_potential")
     @classmethod
@@ -157,13 +190,17 @@ class DeepDiveResponse(BaseModel):
     @field_validator("injury_impact")
     @classmethod
     def validate_injury_impact(cls, v):
-        """Ensure injury impact starts with valid enum."""
-        for impact in [InjuryImpact.CRITICAL, InjuryImpact.MANAGEABLE, InjuryImpact.UNKNOWN]:
-            if v.startswith(impact.value):
-                return v
-        raise ValueError(
-            f"Must start with valid injury impact: {', '.join([i.value for i in InjuryImpact])}"
-        )
+        """Ensure injury impact starts with valid enum (case-insensitive)."""
+        if isinstance(v, str):
+            v_lower = v.lower()
+            for impact in [InjuryImpact.CRITICAL, InjuryImpact.MANAGEABLE, InjuryImpact.UNKNOWN]:
+                if v_lower.startswith(impact.value.lower()):
+                    # Normalize the case: preserve the explanation but use correct case for the impact
+                    return impact.value + v[len(impact.value) :]
+            raise ValueError(
+                f"Must start with valid injury impact: {', '.join([i.value for i in InjuryImpact])}"
+            )
+        return v
 
     @field_validator("btts_impact")
     @classmethod
@@ -187,13 +224,23 @@ class DeepDiveResponse(BaseModel):
     @field_validator("motivation_home", "motivation_away")
     @classmethod
     def validate_motivation(cls, v):
-        """Ensure motivation starts with valid enum."""
-        for risk in [RiskLevel.HIGH, RiskLevel.MEDIUM, RiskLevel.LOW, RiskLevel.UNKNOWN]:
-            if v.startswith(risk.value):
-                return v
-        raise ValueError(
-            f"Must start with valid motivation level: {', '.join([r.value for r in RiskLevel])}"
-        )
+        """
+        Ensure motivation starts with valid enum (case-insensitive).
+
+        NOTE: Uses RiskLevel enum for motivation levels. While conceptually different
+        from risk (motivation vs risk), they share the same semantic scale, so we reuse
+        the enum to avoid code duplication. See RiskLevel enum documentation for details.
+        """
+        if isinstance(v, str):
+            v_lower = v.lower()
+            for risk in [RiskLevel.HIGH, RiskLevel.MEDIUM, RiskLevel.LOW, RiskLevel.UNKNOWN]:
+                if v_lower.startswith(risk.value.lower()):
+                    # Normalize the case: preserve the explanation but use correct case for the risk level
+                    return risk.value + v[len(risk.value) :]
+            raise ValueError(
+                f"Must start with valid motivation level: {', '.join([r.value for r in RiskLevel])}"
+            )
+        return v
 
 
 class BettingStatsResponse(BaseModel):
@@ -323,9 +370,15 @@ class BettingStatsResponse(BaseModel):
     @field_validator("referee_strictness", mode="before")
     @classmethod
     def validate_referee_strictness(cls, v):
-        """Validate referee strictness is a valid enum (case-insensitive)."""
+        """Validate referee strictness is a valid enum (case-insensitive).
+
+        Handles backward compatibility: accepts "average" as alias for "medium".
+        """
         if isinstance(v, str):
             v_lower = v.lower()
+            # Handle backward compatibility: "average" -> MEDIUM
+            if v_lower == "average":
+                return RefereeStrictness.MEDIUM
             for strictness in [
                 RefereeStrictness.STRICT,
                 RefereeStrictness.MEDIUM,

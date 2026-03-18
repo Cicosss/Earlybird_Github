@@ -47,9 +47,15 @@ class PlayerPosition(Enum):
     UNKNOWN = "unknown"
 
 
-@dataclass
+@dataclass(frozen=True)
 class InjuryPlayerImpact:
-    """Impatto di un singolo giocatore assente."""
+    """
+    Impatto di un singolo giocatore assente.
+
+    ROOT CAUSE FIX: This dataclass is frozen and validates that position and role
+    are never None during initialization. This prevents AttributeError crashes in
+    to_dict() and _get_player_details_from_injury_impact().
+    """
 
     name: str
     position: PlayerPosition
@@ -58,8 +64,49 @@ class InjuryPlayerImpact:
     reason: str  # Motivo assenza (injury, suspension, etc.)
     is_key_player: bool  # Capitano, top scorer, etc.
 
+    def __post_init__(self):
+        """
+        Validate that position and role are not None after initialization.
+
+        This is a ROOT CAUSE fix that prevents None values from ever being set,
+        rather than just handling them defensively downstream.
+
+        Raises:
+            ValueError: If position or role is None
+        """
+        if self.position is None:
+            raise ValueError(
+                f"InjuryPlayerImpact.position cannot be None for player '{self.name}'. "
+                "Use PlayerPosition.UNKNOWN if position is unknown."
+            )
+        if self.role is None:
+            raise ValueError(
+                f"InjuryPlayerImpact.role cannot be None for player '{self.name}'. "
+                "Use PlayerRole.ROTATION if role is unknown."
+            )
+        if not isinstance(self.position, PlayerPosition):
+            raise ValueError(
+                f"InjuryPlayerImpact.position must be a PlayerPosition enum, "
+                f"got {type(self.position)} for player '{self.name}'"
+            )
+        if not isinstance(self.role, PlayerRole):
+            raise ValueError(
+                f"InjuryPlayerImpact.role must be a PlayerRole enum, "
+                f"got {type(self.role)} for player '{self.name}'"
+            )
+
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization."""
+        """
+        Convert to dictionary for serialization.
+
+        ROOT CAUSE FIX: With validation in __post_init__, position and role
+        are guaranteed to be valid PlayerPosition/PlayerRole enums, so we can
+        safely call .value without None checks. This is defensive programming
+        on top of the root cause fix.
+
+        Returns:
+            Dictionary with all fields serialized
+        """
         return {
             "name": self.name,
             "position": self.position.value,

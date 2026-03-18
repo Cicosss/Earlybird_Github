@@ -124,6 +124,60 @@ try:
 except ImportError:
     REFEREE_MONITORING_AVAILABLE = False
 
+    # Define fallback BoostType enum to prevent NameError when import fails
+    # This ensures the boost logic can still work even without logging
+    from enum import Enum
+
+    class BoostType(Enum):
+        """Fallback BoostType enum when referee_boost_logger is not available."""
+
+        BOOST_NO_BET_TO_BET = "boost_no_bet_to_bet"  # CASE 1
+        UPGRADE_CARDS_LINE = "upgrade_cards_line"  # CASE 2
+        INFLUENCE_GOALS = "influence_goals"
+        INFLUENCE_CORNERS = "influence_corners"
+        INFLUENCE_WINNER = "influence_winner"
+        VETO_CARDS = "veto_cards"
+
+    # Define dummy functions for logger and monitor to prevent AttributeError
+    def get_referee_boost_logger():
+        """Dummy function when logger is not available."""
+
+        class DummyLogger:
+            def log_boost_applied(self, *args, **kwargs):
+                pass
+
+            def log_upgrade_applied(self, *args, **kwargs):
+                pass
+
+            def log_cache_miss(self, *args, **kwargs):
+                pass
+
+        return DummyLogger()
+
+    def get_referee_cache_monitor():
+        """Dummy function when monitor is not available."""
+
+        class DummyMonitor:
+            def record_hit(self, *args, **kwargs):
+                pass
+
+            def record_miss(self, *args, **kwargs):
+                pass
+
+            def record_boost_usage(self, *args, **kwargs):
+                pass
+
+        return DummyMonitor()
+
+    def get_referee_influence_metrics():
+        """Dummy function when metrics are not available."""
+
+        class DummyMetrics:
+            def record_boost_applied(self, *args, **kwargs):
+                pass
+
+        return DummyMetrics()
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -1814,6 +1868,20 @@ def analyze_with_triangulation(
             if referee_info:
                 official_parts.append(f"Referee: {referee_info}")
 
+                # V9.0 FIX #1: Record referee analysis event in metrics
+                # This ensures total_analyses counter is incremented and intervention_rate can be calculated
+                if REFEREE_MONITORING_AVAILABLE and isinstance(referee_info, RefereeStats):
+                    try:
+                        metrics = get_referee_influence_metrics()
+                        metrics.record_analysis(
+                            referee_name=referee_info.name,
+                            cards_per_game=referee_info.cards_per_game,
+                            has_referee_data=True,
+                        )
+                        logging.debug(f"✅ Recorded referee analysis for {referee_info.name}")
+                    except Exception as e:
+                        logging.warning(f"⚠️ Failed to record referee analysis: {e}")
+
             official_data = (
                 " | ".join(official_parts) if official_parts else "No official data available"
             )
@@ -1906,11 +1974,34 @@ def analyze_with_triangulation(
         team = snippet_data.get("team")
         mock_resp = MOCK_LLM_RESPONSES.get(team)
         if mock_resp:
+            # V15.0 FIX: Apply optimizer weight to mock data score (Learning Loop Integration)
+            # This ensures consistency even in test mode
+            score = mock_resp["relevance_score"]
+            try:
+                from src.analysis.optimizer import get_optimizer
+
+                optimizer = get_optimizer()
+                league = snippet_data.get("league")
+                # Mock data doesn't have market/driver info, so use None
+                if league:
+                    adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
+                        base_score=score,
+                        league=league,
+                        market=None,  # No market info in mock data
+                        driver=None,  # No driver info in mock data
+                    )
+                    if weight_log_msg:
+                        logging.info(weight_log_msg)
+                    score = adjusted_score
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to apply optimizer weight to mock data: {e}")
+                # Continue with original score
+
             newslog = NewsLog(
                 match_id=snippet_data.get("match_id"),
                 url=snippet_data.get("link"),
                 summary=mock_resp["summary"],
-                score=mock_resp["relevance_score"],
+                score=score,
                 category=mock_resp["category"],
                 affected_team=mock_resp["affected_team"],
                 confidence=mock_resp.get(
@@ -2369,7 +2460,73 @@ def analyze_with_triangulation(
                         referee_boost_type = BoostType.UPGRADE_CARDS_LINE
                         logging.info(f"   {referee_boost_reason}")
 
-                    # CASE 3: Add boost to reasoning
+                    # CASE 3: Lenient referee veto - Veto Over Cards suggestions
+                    # V9.0 FIX #2: Check for lenient referees and veto Over Cards suggestions
+                    elif verdict == "BET" and referee_info.should_veto_cards():
+                        veto_reason = (
+                            f"⚖️ REFEREE VETO: Arbitro permissivo ({referee_info.name}: "
+                            f"{referee_info.cards_per_game:.1f} cards/game) → sconsigliato Over Cards"
+                        )
+                        original_verdict = verdict
+                        verdict = "NO BET"
+                        reasoning = f"{veto_reason}\n\n{reasoning}"
+                        logging.info(f"   {veto_reason} → overriding verdict to NO BET")
+
+                        # Record veto in metrics and logger
+                        if REFEREE_MONITORING_AVAILABLE:
+                            try:
+                                metrics = get_referee_influence_metrics()
+                                logger_module = get_referee_boost_logger()
+
+                                # Record veto in metrics
+                                metrics.record_veto_applied(
+                                    referee_name=referee_info.name,
+                                    cards_per_game=referee_info.cards_per_game,
+                                    market_type="cards",
+                                )
+
+                                # Log veto in referee boost logger
+                                logger_module.log_veto_applied(
+                                    referee_name=referee_info.name,
+                                    cards_per_game=referee_info.cards_per_game,
+                                    strictness=referee_info.strictness,
+                                    recommended_market=recommended_market
+                                    if recommended_market
+                                    else "Unknown",
+                                    reason=veto_reason,
+                                    match_id=snippet_data.get("match_id") if snippet_data else None,
+                                    home_team=snippet_data.get("home_team")
+                                    if snippet_data
+                                    else None,
+                                    away_team=snippet_data.get("away_team")
+                                    if snippet_data
+                                    else None,
+                                    league=snippet_data.get("league") if snippet_data else None,
+                                )
+
+                                logging.debug(
+                                    f"✅ Referee veto monitoring recorded for {referee_info.name}"
+                                )
+                            except Exception as monitor_error:
+                                logging.warning(
+                                    f"⚠️ Failed to record referee veto monitoring: {monitor_error}"
+                                )
+                                # Log error in referee boost logger
+                                if REFEREE_MONITORING_AVAILABLE:
+                                    try:
+                                        logger_module = get_referee_boost_logger()
+                                        logger_module.log_error(
+                                            error_type="referee_veto_monitoring",
+                                            error_message=str(monitor_error),
+                                            referee_name=referee_info.name,
+                                            match_id=snippet_data.get("match_id")
+                                            if snippet_data
+                                            else None,
+                                        )
+                                    except Exception:
+                                        pass  # Avoid recursive errors
+
+                    # CASE 4: Add boost to reasoning
                     if referee_boost_applied:
                         reasoning = f"{referee_boost_reason}\n\n{reasoning}"
                         # Increase confidence for referee boost
@@ -2384,32 +2541,58 @@ def analyze_with_triangulation(
                                 logger_module = get_referee_boost_logger()
                                 metrics = get_referee_influence_metrics()
 
-                                # Record cache hit (referee data was used)
-                                monitor.record_hit(referee_info.name)
+                                # Record boost usage (referee data was used for boost calculation)
+                                monitor.record_boost_usage(referee_info.name)
 
-                                # Log boost application
-                                logger_module.log_boost_applied(
-                                    referee_name=referee_info.name,
-                                    cards_per_game=referee_info.cards_per_game,
-                                    strictness=referee_info.strictness,
-                                    original_verdict="NO BET"
-                                    if "BOOST" in referee_boost_reason
-                                    else "BET",
-                                    new_verdict="BET",
-                                    recommended_market=recommended_market,
-                                    reason=referee_boost_reason,
-                                    match_id=snippet_data.get("match_id") if snippet_data else None,
-                                    home_team=snippet_data.get("home_team")
-                                    if snippet_data
-                                    else None,
-                                    away_team=snippet_data.get("away_team")
-                                    if snippet_data
-                                    else None,
-                                    league=snippet_data.get("league") if snippet_data else None,
-                                    confidence_before=confidence_before,
-                                    confidence_after=confidence_after,
-                                    tactical_context=tactical_context,
-                                )
+                                # Log boost/upgrade application based on type
+                                if referee_boost_type == BoostType.UPGRADE_CARDS_LINE:
+                                    # CASE 2: Upgrade (Over 3.5 → Over 4.5)
+                                    logger_module.log_upgrade_applied(
+                                        referee_name=referee_info.name,
+                                        cards_per_game=referee_info.cards_per_game,
+                                        strictness=referee_info.strictness,
+                                        original_market="Over 3.5 Cards",
+                                        new_market=recommended_market,
+                                        reason=referee_boost_reason,
+                                        match_id=snippet_data.get("match_id")
+                                        if snippet_data
+                                        else None,
+                                        home_team=snippet_data.get("home_team")
+                                        if snippet_data
+                                        else None,
+                                        away_team=snippet_data.get("away_team")
+                                        if snippet_data
+                                        else None,
+                                        league=snippet_data.get("league") if snippet_data else None,
+                                        confidence_before=confidence_before,
+                                        confidence_after=confidence_after,
+                                    )
+                                else:
+                                    # CASE 1: Boost (NO BET → Over 3.5 Cards)
+                                    logger_module.log_boost_applied(
+                                        referee_name=referee_info.name,
+                                        cards_per_game=referee_info.cards_per_game,
+                                        strictness=referee_info.strictness,
+                                        original_verdict="NO BET"
+                                        if "BOOST" in referee_boost_reason
+                                        else "BET",
+                                        new_verdict="BET",
+                                        recommended_market=recommended_market,
+                                        reason=referee_boost_reason,
+                                        match_id=snippet_data.get("match_id")
+                                        if snippet_data
+                                        else None,
+                                        home_team=snippet_data.get("home_team")
+                                        if snippet_data
+                                        else None,
+                                        away_team=snippet_data.get("away_team")
+                                        if snippet_data
+                                        else None,
+                                        league=snippet_data.get("league") if snippet_data else None,
+                                        confidence_before=confidence_before,
+                                        confidence_after=confidence_after,
+                                        tactical_context=tactical_context,
+                                    )
 
                                 # Record boost in metrics
                                 metrics.record_boost_applied(
@@ -2432,6 +2615,20 @@ def analyze_with_triangulation(
                                 logging.warning(
                                     f"⚠️ Failed to record referee boost monitoring: {monitor_error}"
                                 )
+                                # Log error in referee boost logger
+                                if REFEREE_MONITORING_AVAILABLE:
+                                    try:
+                                        logger_module = get_referee_boost_logger()
+                                        logger_module.log_error(
+                                            error_type="referee_boost_monitoring",
+                                            error_message=str(monitor_error),
+                                            referee_name=referee_info.name,
+                                            match_id=snippet_data.get("match_id")
+                                            if snippet_data
+                                            else None,
+                                        )
+                                    except Exception:
+                                        pass  # Avoid recursive errors
         except Exception as e:
             logging.warning(f"⚠️ Referee boost logic failed: {e}")
 
@@ -2457,6 +2654,9 @@ def analyze_with_triangulation(
                             if REFEREE_MONITORING_AVAILABLE:
                                 try:
                                     metrics = get_referee_influence_metrics()
+                                    logger_module = get_referee_boost_logger()
+
+                                    # Record in metrics
                                     metrics.record_influence_applied(
                                         referee_name=referee_info.name,
                                         cards_per_game=referee_info.cards_per_game,
@@ -2465,6 +2665,29 @@ def analyze_with_triangulation(
                                         confidence_before=confidence_before,
                                         confidence_after=confidence,
                                     )
+
+                                    # Log in referee boost logger
+                                    logger_module.log_influence_applied(
+                                        referee_name=referee_info.name,
+                                        cards_per_game=referee_info.cards_per_game,
+                                        strictness=referee_info.strictness,
+                                        market_type="goals",
+                                        influence_type=BoostType.INFLUENCE_GOALS,
+                                        original_confidence=confidence_before,
+                                        new_confidence=confidence,
+                                        reason=f"Strict referee ({referee_info.cards_per_game:.1f} cards/game) → reduced confidence for Over Goals (more stoppages)",
+                                        match_id=snippet_data.get("match_id")
+                                        if snippet_data
+                                        else None,
+                                        home_team=snippet_data.get("home_team")
+                                        if snippet_data
+                                        else None,
+                                        away_team=snippet_data.get("away_team")
+                                        if snippet_data
+                                        else None,
+                                        league=snippet_data.get("league") if snippet_data else None,
+                                    )
+
                                     logging.debug(
                                         f"✅ Referee influence on goals market recorded for {referee_info.name}"
                                     )
@@ -2472,6 +2695,20 @@ def analyze_with_triangulation(
                                     logging.warning(
                                         f"⚠️ Failed to record referee influence: {monitor_error}"
                                     )
+                                    # Log error in referee boost logger
+                                    if REFEREE_MONITORING_AVAILABLE:
+                                        try:
+                                            logger_module = get_referee_boost_logger()
+                                            logger_module.log_error(
+                                                error_type="referee_influence_goals",
+                                                error_message=str(monitor_error),
+                                                referee_name=referee_info.name,
+                                                match_id=snippet_data.get("match_id")
+                                                if snippet_data
+                                                else None,
+                                            )
+                                        except Exception:
+                                            pass  # Avoid recursive errors
 
                 # Corners Market: Strict referee → More fouls → More corners
                 elif recommended_market and "corner" in recommended_market.lower():
@@ -2489,6 +2726,9 @@ def analyze_with_triangulation(
                             if REFEREE_MONITORING_AVAILABLE:
                                 try:
                                     metrics = get_referee_influence_metrics()
+                                    logger_module = get_referee_boost_logger()
+
+                                    # Record in metrics
                                     metrics.record_influence_applied(
                                         referee_name=referee_info.name,
                                         cards_per_game=referee_info.cards_per_game,
@@ -2497,6 +2737,29 @@ def analyze_with_triangulation(
                                         confidence_before=confidence_before,
                                         confidence_after=confidence,
                                     )
+
+                                    # Log in referee boost logger
+                                    logger_module.log_influence_applied(
+                                        referee_name=referee_info.name,
+                                        cards_per_game=referee_info.cards_per_game,
+                                        strictness=referee_info.strictness,
+                                        market_type="corners",
+                                        influence_type=BoostType.INFLUENCE_CORNERS,
+                                        original_confidence=confidence_before,
+                                        new_confidence=confidence,
+                                        reason=f"Strict referee ({referee_info.cards_per_game:.1f} cards/game) → increased confidence for Over Corners (more fouls)",
+                                        match_id=snippet_data.get("match_id")
+                                        if snippet_data
+                                        else None,
+                                        home_team=snippet_data.get("home_team")
+                                        if snippet_data
+                                        else None,
+                                        away_team=snippet_data.get("away_team")
+                                        if snippet_data
+                                        else None,
+                                        league=snippet_data.get("league") if snippet_data else None,
+                                    )
+
                                     logging.debug(
                                         f"✅ Referee influence on corners market recorded for {referee_info.name}"
                                     )
@@ -2504,6 +2767,20 @@ def analyze_with_triangulation(
                                     logging.warning(
                                         f"⚠️ Failed to record referee influence: {monitor_error}"
                                     )
+                                    # Log error in referee boost logger
+                                    if REFEREE_MONITORING_AVAILABLE:
+                                        try:
+                                            logger_module = get_referee_boost_logger()
+                                            logger_module.log_error(
+                                                error_type="referee_influence_corners",
+                                                error_message=str(monitor_error),
+                                                referee_name=referee_info.name,
+                                                match_id=snippet_data.get("match_id")
+                                                if snippet_data
+                                                else None,
+                                            )
+                                        except Exception:
+                                            pass  # Avoid recursive errors
 
                 # Winner Market: Strict referee → More unpredictable
                 elif recommended_market and recommended_market in ["1", "X", "2", "1X", "X2", "12"]:
@@ -2519,14 +2796,40 @@ def analyze_with_triangulation(
                         if REFEREE_MONITORING_AVAILABLE:
                             try:
                                 metrics = get_referee_influence_metrics()
+                                logger_module = get_referee_boost_logger()
+
+                                confidence_before_winner = confidence + 5 * (boost_multiplier - 1.0)
+
+                                # Record in metrics
                                 metrics.record_influence_applied(
                                     referee_name=referee_info.name,
                                     cards_per_game=referee_info.cards_per_game,
                                     influence_type="influence_winner",
                                     market_type="winner",
-                                    confidence_before=confidence + 5 * (boost_multiplier - 1.0),
+                                    confidence_before=confidence_before_winner,
                                     confidence_after=confidence,
                                 )
+
+                                # Log in referee boost logger
+                                logger_module.log_influence_applied(
+                                    referee_name=referee_info.name,
+                                    cards_per_game=referee_info.cards_per_game,
+                                    strictness=referee_info.strictness,
+                                    market_type="winner",
+                                    influence_type=BoostType.INFLUENCE_WINNER,
+                                    original_confidence=confidence_before_winner,
+                                    new_confidence=confidence,
+                                    reason=f"Strict referee ({referee_info.cards_per_game:.1f} cards/game) → slightly reduced confidence (more unpredictable)",
+                                    match_id=snippet_data.get("match_id") if snippet_data else None,
+                                    home_team=snippet_data.get("home_team")
+                                    if snippet_data
+                                    else None,
+                                    away_team=snippet_data.get("away_team")
+                                    if snippet_data
+                                    else None,
+                                    league=snippet_data.get("league") if snippet_data else None,
+                                )
+
                                 logging.debug(
                                     f"✅ Referee influence on winner market recorded for {referee_info.name}"
                                 )
@@ -2534,6 +2837,20 @@ def analyze_with_triangulation(
                                 logging.warning(
                                     f"⚠️ Failed to record referee influence: {monitor_error}"
                                 )
+                                # Log error in referee boost logger
+                                if REFEREE_MONITORING_AVAILABLE:
+                                    try:
+                                        logger_module = get_referee_boost_logger()
+                                        logger_module.log_error(
+                                            error_type="referee_influence_winner",
+                                            error_message=str(monitor_error),
+                                            referee_name=referee_info.name,
+                                            match_id=snippet_data.get("match_id")
+                                            if snippet_data
+                                            else None,
+                                        )
+                                    except Exception:
+                                        pass  # Avoid recursive errors
         except Exception as e:
             logging.warning(f"⚠️ Referee influence on other markets failed: {e}")
 
@@ -3086,6 +3403,28 @@ def analyze_with_triangulation(
             logging.warning(f"⚠️ Convergence detection error: {e}")
             is_convergent = False
 
+        # V15.0 FIX: Apply optimizer weight to score (Learning Loop Integration)
+        # This ensures that weights learned from historical performance are applied
+        # to new analyses, enabling the bot to improve over time
+        try:
+            from src.analysis.optimizer import get_optimizer
+
+            optimizer = get_optimizer()
+            league = snippet_data.get("league")
+            market = primary_market or recommended_market
+            driver = primary_driver
+
+            if league and market:
+                adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
+                    base_score=score, league=league, market=market, driver=driver
+                )
+                if weight_log_msg:
+                    logging.info(weight_log_msg)
+                score = adjusted_score
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to apply optimizer weight: {e}")
+            # Continue with original score
+
         newslog = NewsLog(
             match_id=snippet_data.get("match_id"),
             url=snippet_data.get("link"),
@@ -3217,6 +3556,30 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: dict) -> NewsLog 
         summary = "No critical keywords found (Fallback mode)."
         score = 0
         category = "LOW_RELEVANCE"
+
+    # V15.0 FIX: Apply optimizer weight to score (Learning Loop Integration)
+    # This ensures that weights learned from historical performance are applied
+    # even in fallback mode
+    try:
+        from src.analysis.optimizer import get_optimizer
+
+        optimizer = get_optimizer()
+        league = snippet_data.get("league")
+        # In fallback mode, we don't have market/driver info, so use None
+        # The optimizer will return the base score if market is None
+        if league:
+            adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
+                base_score=score,
+                league=league,
+                market=None,  # No market info in fallback mode
+                driver=None,  # No driver info in fallback mode
+            )
+            if weight_log_msg:
+                logging.info(weight_log_msg)
+            score = adjusted_score
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to apply optimizer weight in fallback mode: {e}")
+        # Continue with original score
 
     newslog = NewsLog(
         match_id=snippet_data.get("match_id"),

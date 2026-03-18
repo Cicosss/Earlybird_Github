@@ -88,6 +88,27 @@ CPU_THRESHOLD = float(os.getenv("METRICS_CPU_THRESHOLD", "80.0"))
 MEMORY_THRESHOLD = float(os.getenv("METRICS_MEMORY_THRESHOLD", "85.0"))
 DISK_THRESHOLD = float(os.getenv("METRICS_DISK_THRESHOLD", "90.0"))
 
+# MEDIUM FIX #5: Disk path for monitoring (configurable via environment variable)
+# On some VPS, data might be on /data or /home instead of root filesystem
+DISK_MONITOR_PATH = os.getenv("METRICS_DISK_PATH", "/")
+
+
+# IMPORTANT FIX #3: Validate thresholds are between 0-100
+# Invalid thresholds can cause incorrect alerts or no alerts
+def _validate_threshold(name: str, value: float, default: float) -> float:
+    """Validate threshold is between 0-100, return default if invalid."""
+    if value < 0 or value > 100:
+        logger.warning(
+            f"⚠️ Invalid {name} threshold: {value} (must be 0-100), using default: {default}"
+        )
+        return default
+    return value
+
+
+CPU_THRESHOLD = _validate_threshold("CPU", CPU_THRESHOLD, 80.0)
+MEMORY_THRESHOLD = _validate_threshold("MEMORY", MEMORY_THRESHOLD, 85.0)
+DISK_THRESHOLD = _validate_threshold("DISK", DISK_THRESHOLD, 90.0)
+
 # Lock contention alert thresholds (configurable via environment variables) - Issue 1 fix
 LOCK_CONTENTION_TIMEOUT_THRESHOLD = int(os.getenv("LOCK_CONTENTION_TIMEOUT_THRESHOLD", "10"))
 LOCK_CONTENTION_WAIT_TIME_THRESHOLD = float(
@@ -199,6 +220,13 @@ class OrchestrationMetricsCollector:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
+
+                # IMPORTANT FIX #4: Enable WAL (Write-Ahead Logging) mode for better concurrency
+                # WAL mode allows simultaneous readers and writers, which is critical for
+                # multi-threaded VPS environments where the metrics collector runs in a
+                # separate thread while the main bot accesses the database
+                cursor.execute("PRAGMA journal_mode=WAL;")
+                logger.info("✅ SQLite WAL mode enabled for better concurrency")
 
                 # Create metrics table if it doesn't exist
                 cursor.execute(f"""
@@ -376,20 +404,32 @@ class OrchestrationMetricsCollector:
     def _collect_system_metrics(self) -> SystemMetrics:
         """Collect system-level metrics."""
         # CPU
-        cpu_percent = psutil.cpu_percent(interval=1)
+        # CRITICAL FIX #2: Use interval=None to avoid blocking for 1 second
+        # interval=None returns CPU usage since last call without blocking
+        cpu_percent = psutil.cpu_percent(interval=None)
 
         # Memory
         memory = psutil.virtual_memory()
         memory_percent = memory.percent
 
         # Disk
-        disk = psutil.disk_usage("/")
+        # MEDIUM FIX #5: Use configurable disk path instead of hardcoded "/"
+        disk = psutil.disk_usage(DISK_MONITOR_PATH)
         disk_percent = disk.percent
 
         # Network
         network = psutil.net_io_counters()
-        network_sent = network.bytes_sent
-        network_recv = network.bytes_recv
+        # CRITICAL FIX #1: psutil.net_io_counters() can return None on containers/restricted systems
+        # Use default values of 0 to prevent AttributeError
+        if network is None:
+            network_sent = 0
+            network_recv = 0
+            logger.warning(
+                "⚠️ psutil.net_io_counters() returned None, using default network values (0)"
+            )
+        else:
+            network_sent = network.bytes_sent
+            network_recv = network.bytes_recv
 
         return SystemMetrics(
             timestamp=datetime.now(timezone.utc),

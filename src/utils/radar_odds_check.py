@@ -654,8 +654,9 @@ class RadarOddsChecker:
             )
 
         # Calculate movement percentage
-        # Negative = odds dropped (team more likely to win = money coming in)
-        movement = (current - opening) / opening
+        # Positive = odds dropped (team more likely to win = money coming in)
+        # This matches the formula in models.py for consistency
+        movement = (opening - current) / opening
 
         # Calculate hours since match was added
         hours_since_open = None
@@ -703,15 +704,20 @@ class RadarOddsChecker:
         )
 
     def check_for_alert(
-        self, team_name: str, match_id: str | None = None
+        self, team_name: str, match_id: str | None = None, is_home_team: bool | None = None
     ) -> tuple[OddsCheckResult, str]:
         """
         Convenience method for radar alerts.
 
+        Args:
+            team_name: Name of the team to check
+            match_id: Optional match ID for direct lookup
+            is_home_team: True if checking home team odds, False for away team, None for auto-detection
+
         Returns:
             Tuple of (OddsCheckResult, alert_suffix_string)
         """
-        result = self.check_odds_movement(team_name, match_id=match_id)
+        result = self.check_odds_movement(team_name, is_home_team=is_home_team, match_id=match_id)
         suffix = result.to_alert_suffix()
         return result, suffix
 
@@ -853,7 +859,7 @@ def get_radar_odds_checker() -> RadarOddsChecker:
 
 
 async def check_odds_for_alert_async(
-    team_name: str, match_id: str | None = None
+    team_name: str, match_id: str | None = None, is_home_team: bool | None = None
 ) -> tuple[OddsCheckResult, str]:
     """
     Async wrapper for odds check (for compatibility with news_radar async).
@@ -861,9 +867,13 @@ async def check_odds_for_alert_async(
     Args:
         team_name: Team name from alert
         match_id: Optional match ID
+        is_home_team: True if checking home team odds, False for away team, None for auto-detection
 
     Returns:
         Tuple of (OddsCheckResult, alert_suffix_string)
+
+    Raises:
+        RuntimeError: If called outside of an async context (no running event loop)
     """
     import asyncio
 
@@ -871,7 +881,23 @@ async def check_odds_for_alert_async(
 
     # Run in thread pool to not block event loop
     # Use get_running_loop() instead of deprecated get_event_loop()
-    loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(None, lambda: checker.check_for_alert(team_name, match_id))
+    # If this fails, it means the function is being called outside an async context
+    # which is a bug in the calling code - we want to surface this error explicitly
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError as e:
+        logger.error(
+            f"❌ [RADAR-ODDS] check_odds_for_alert_async called outside async context: {e}"
+        )
+        logger.error(
+            "❌ [RADAR-ODDS] This is a BUG in the calling code - async functions must be called in async context"
+        )
+        logger.error(f"❌ [RADAR-ODDS] Team: {team_name}, Match ID: {match_id}")
+        # Re-raise to surface the bug in the calling code
+        raise
+
+    result = await loop.run_in_executor(
+        None, lambda: checker.check_for_alert(team_name, match_id, is_home_team)
+    )
 
     return result

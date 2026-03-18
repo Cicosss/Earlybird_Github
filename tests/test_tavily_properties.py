@@ -1765,3 +1765,311 @@ class TestComponentNativeParametersProperty:
             assert 'topic="news"' not in recover_section, (
                 "twitter_intel_cache._recover_via_tavily should NOT use topic='news' (it searches tweets)"
             )
+
+
+# ============================================
+# Property: TavilyResult Edge Cases
+# ============================================
+
+
+class TestTavilyResultEdgeCases:
+    """
+    **Feature: tavily-integration, Property: TavilyResult Edge Cases**
+    **Validates: Robustness against malformed API responses**
+
+    Tests that TavilyResult creation handles all edge cases gracefully:
+    - None values in any field
+    - Empty strings
+    - Invalid scores (negative, >1.0, strings, None)
+    - Malformed dates
+    - Missing fields in API response
+    """
+
+    def test_normalize_score_with_none(self):
+        """
+        Edge Case: _normalize_score handles None.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score(None)
+        assert result == 0.0, "None score should default to 0.0"
+
+    def test_normalize_score_with_negative(self):
+        """
+        Edge Case: _normalize_score clamps negative values to 0.0.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score(-1.5)
+        assert result == 0.0, "Negative score should be clamped to 0.0"
+
+    def test_normalize_score_with_greater_than_one(self):
+        """
+        Edge Case: _normalize_score clamps values >1.0 to 1.0.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score(1.5)
+        assert result == 1.0, "Score >1.0 should be clamped to 1.0"
+
+    def test_normalize_score_with_string(self):
+        """
+        Edge Case: _normalize_score handles string scores.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score("0.75")
+        assert result == 0.75, "String score '0.75' should be converted to 0.75"
+
+    def test_normalize_score_with_invalid_string(self):
+        """
+        Edge Case: _normalize_score handles invalid strings.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score("invalid")
+        assert result == 0.0, "Invalid string score should default to 0.0"
+
+    def test_normalize_score_with_zero(self):
+        """
+        Edge Case: _normalize_score handles 0.0.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score(0.0)
+        assert result == 0.0, "Score 0.0 should remain 0.0"
+
+    def test_normalize_score_with_one(self):
+        """
+        Edge Case: _normalize_score handles 1.0.
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        result = _normalize_score(1.0)
+        assert result == 1.0, "Score 1.0 should remain 1.0"
+
+    def test_normalize_score_with_valid_range(self):
+        """
+        Edge Case: _normalize_score handles valid range [0.0, 1.0].
+        """
+        from src.ingestion.tavily_provider import _normalize_score
+
+        for score in [0.0, 0.25, 0.5, 0.75, 1.0]:
+            result = _normalize_score(score)
+            assert result == score, f"Valid score {score} should remain unchanged"
+
+    def test_tavilyresult_with_none_content(self):
+        """
+        Edge Case: TavilyResult handles None content gracefully.
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        # This should not crash
+        result = TavilyResult(
+            title="Test Title",
+            url="https://example.com",
+            content=None,  # Explicitly None
+            score=0.5,
+        )
+
+        # Content should be None (type hint says str, but we're testing edge case)
+        assert result.content is None
+
+    def test_tavilyresult_with_empty_content(self):
+        """
+        Edge Case: TavilyResult handles empty content.
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        result = TavilyResult(
+            title="Test Title",
+            url="https://example.com",
+            content="",  # Empty string
+            score=0.5,
+        )
+
+        assert result.content == ""
+
+    def test_tavilyresult_with_none_published_date(self):
+        """
+        Edge Case: TavilyResult handles None published_date.
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        result = TavilyResult(
+            title="Test Title",
+            url="https://example.com",
+            content="Test content",
+            score=0.5,
+            published_date=None,  # Explicitly None
+        )
+
+        assert result.published_date is None
+
+    def test_tavilyresult_with_malformed_date(self):
+        """
+        Edge Case: TavilyResult accepts malformed dates (validation is downstream).
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        result = TavilyResult(
+            title="Test Title",
+            url="https://example.com",
+            content="Test content",
+            score=0.5,
+            published_date="2024-13-45",  # Invalid date
+        )
+
+        assert result.published_date == "2024-13-45"
+
+    def test_tavilyresult_with_empty_fields(self):
+        """
+        Edge Case: TavilyResult handles empty title, url, content.
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        result = TavilyResult(
+            title="",
+            url="",
+            content="",
+            score=0.0,
+        )
+
+        assert result.title == ""
+        assert result.url == ""
+        assert result.content == ""
+        assert result.score == 0.0
+
+    def test_tavilyresult_with_very_long_content(self):
+        """
+        Edge Case: TavilyResult handles very long content.
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        long_content = "x" * 10000  # 10k characters
+        result = TavilyResult(
+            title="Test Title",
+            url="https://example.com",
+            content=long_content,
+            score=0.5,
+        )
+
+        assert len(result.content) == 10000
+
+    def test_tavilyresult_with_special_characters(self):
+        """
+        Edge Case: TavilyResult handles special characters in fields.
+        """
+        from src.ingestion.tavily_provider import TavilyResponse, TavilyResult
+
+        result = TavilyResult(
+            title="Test <script>alert('xss')</script>",
+            url="https://example.com?param=value&other=123",
+            content="Content with émojis 🎉 and spëcial çhars",
+            score=0.5,
+        )
+
+        assert "<script>" in result.title
+        assert "🎉" in result.content
+        assert "émojis" in result.content
+
+    def test_tavilyresult_score_precision(self):
+        """
+        Edge Case: TavilyResult handles high-precision scores.
+        """
+        from src.ingestion.tavily_provider import TavilyResult
+
+        result = TavilyResult(
+            title="Test Title",
+            url="https://example.com",
+            content="Test content",
+            score=0.123456789012345,  # High precision
+        )
+
+        assert result.score == 0.123456789012345
+
+    def test_intelligence_router_handles_none_content(self):
+        """
+        Edge Case: intelligence_router handles None content in results.
+        """
+        from src.ingestion.tavily_provider import TavilyResponse, TavilyResult
+
+        # Create a response with None content
+        response = TavilyResponse(
+            query="test query",
+            answer="test answer",
+            results=[
+                TavilyResult(
+                    title="Test Title",
+                    url="https://example.com",
+                    content=None,  # None content
+                    score=0.5,
+                )
+            ],
+            response_time=0.5,
+        )
+
+        # Simulate the code from intelligence_router.py:484
+        # This should not crash
+        snippets = [f"• {r.title}: {(r.content or '')[:200]}" for r in response.results[:3]]
+
+        assert len(snippets) == 1
+        assert "Test Title:" in snippets[0]
+        # The snippet ends with ": " (colon + space) because content is empty
+        assert snippets[0] == "• Test Title: "
+
+    def test_intelligence_router_handles_empty_content(self):
+        """
+        Edge Case: intelligence_router handles empty content in results.
+        """
+        from src.ingestion.tavily_provider import TavilyResponse, TavilyResult
+
+        # Create a response with empty content
+        response = TavilyResponse(
+            query="test query",
+            answer="test answer",
+            results=[
+                TavilyResult(
+                    title="Test Title",
+                    url="https://example.com",
+                    content="",  # Empty content
+                    score=0.5,
+                )
+            ],
+            response_time=0.5,
+        )
+
+        # Simulate the code from intelligence_router.py:484
+        snippets = [f"• {r.title}: {(r.content or '')[:200]}" for r in response.results[:3]]
+
+        assert len(snippets) == 1
+        assert "Test Title:" in snippets[0]
+
+    def test_intelligence_router_handles_long_content(self):
+        """
+        Edge Case: intelligence_router truncates long content to 200 chars.
+        """
+        from src.ingestion.tavily_provider import TavilyResponse, TavilyResult
+
+        # Create a response with very long content
+        long_content = "x" * 300
+        response = TavilyResponse(
+            query="test query",
+            answer="test answer",
+            results=[
+                TavilyResult(
+                    title="Test Title",
+                    url="https://example.com",
+                    content=long_content,
+                    score=0.5,
+                )
+            ],
+            response_time=0.5,
+        )
+
+        # Simulate the code from intelligence_router.py:484
+        snippets = [f"• {r.title}: {(r.content or '')[:200]}" for r in response.results[:3]]
+
+        assert len(snippets) == 1
+        assert len(snippets[0]) <= 200 + len("• Test Title: ")
+        assert snippets[0].count("x") == 200

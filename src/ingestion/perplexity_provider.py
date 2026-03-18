@@ -320,33 +320,42 @@ class PerplexityProvider:
 
         parts = ["[PERPLEXITY INTELLIGENCE]"]
 
-        if deep_dive.get("internal_crisis") and deep_dive.get("internal_crisis") != "Unknown":
+        # Helper function for case-insensitive "Unknown" check
+        def is_unknown(value: str) -> bool:
+            """Check if value is 'Unknown' (case-insensitive)."""
+            if not value or not isinstance(value, str):
+                return True
+            return value.lower().startswith("unknown")
+
+        if deep_dive.get("internal_crisis") and not is_unknown(deep_dive.get("internal_crisis")):
             parts.append(f"⚠️ INTERNAL CRISIS: {deep_dive['internal_crisis']}")
 
-        if deep_dive.get("turnover_risk") and deep_dive.get("turnover_risk") != "Unknown":
+        if deep_dive.get("turnover_risk") and not is_unknown(deep_dive.get("turnover_risk")):
             parts.append(f"🔄 TURNOVER RISK: {deep_dive['turnover_risk']}")
 
-        if deep_dive.get("referee_intel") and deep_dive.get("referee_intel") != "Unknown":
+        if deep_dive.get("referee_intel") and not is_unknown(deep_dive.get("referee_intel")):
             parts.append(f"⚖️ REFEREE: {deep_dive['referee_intel']}")
 
-        if deep_dive.get("biscotto_potential") and deep_dive.get("biscotto_potential") != "Unknown":
+        if deep_dive.get("biscotto_potential") and not is_unknown(
+            deep_dive.get("biscotto_potential")
+        ):
             parts.append(f"🍪 BISCOTTO: {deep_dive['biscotto_potential']}")
 
         if deep_dive.get("injury_impact") and deep_dive.get("injury_impact") != "None reported":
             parts.append(f"🏥 INJURY IMPACT: {deep_dive['injury_impact']}")
 
         # BTTS Tactical Impact (V4.1) - Allineato con Gemini
-        if deep_dive.get("btts_impact") and deep_dive.get("btts_impact") != "Unknown":
+        if deep_dive.get("btts_impact") and not is_unknown(deep_dive.get("btts_impact")):
             parts.append(f"⚽ BTTS TACTICAL: {deep_dive['btts_impact']}")
 
         # Motivation Intelligence (V4.2)
-        if deep_dive.get("motivation_home") and deep_dive.get("motivation_home") != "Unknown":
+        if deep_dive.get("motivation_home") and not is_unknown(deep_dive.get("motivation_home")):
             parts.append(f"🔥 MOTIVATION HOME: {deep_dive['motivation_home']}")
 
-        if deep_dive.get("motivation_away") and deep_dive.get("motivation_away") != "Unknown":
+        if deep_dive.get("motivation_away") and not is_unknown(deep_dive.get("motivation_away")):
             parts.append(f"🔥 MOTIVATION AWAY: {deep_dive['motivation_away']}")
 
-        if deep_dive.get("table_context") and deep_dive.get("table_context") != "Unknown":
+        if deep_dive.get("table_context") and not is_unknown(deep_dive.get("table_context")):
             parts.append(f"📊 TABLE: {deep_dive['table_context']}")
 
         # Legacy fields removed (V6.0+):

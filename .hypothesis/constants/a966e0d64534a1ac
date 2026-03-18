@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/config/nitter_instances.py
+# hypothesis_version: 6.151.4
+
+[300, 600, 'ConnectionResetError', 'TimeoutError', 'asyncio.TimeoutError', 'error_types', 'failure_threshold', 'half_open_max_calls', 'https://lightbrd.com', 'https://nitter.at', 'https://nitter.net', 'https://nitter.space', 'https://xcancel.com', 'initial_index', 'recovery_timeout']

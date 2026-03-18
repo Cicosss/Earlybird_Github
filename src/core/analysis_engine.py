@@ -16,6 +16,7 @@ Date: 2026-02-09
 Updated: 2026-02-23 (Centralized Version Tracking)
 """
 
+import dataclasses
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -41,6 +42,7 @@ from src.analysis.fatigue_engine import get_enhanced_fatigue_context
 from src.analysis.injury_impact_engine import TeamInjuryImpact, analyze_match_injuries
 from src.analysis.market_intelligence import analyze_market_intelligence
 from src.analysis.verification_layer import (
+    RefereeStats,
     VerificationResult,
     VerificationStatus,
     create_verification_request_from_match,
@@ -74,6 +76,15 @@ from src.ingestion.weather_provider import get_match_weather
 
 # Processing
 from src.processing.news_hunter import run_hunter_for_match
+
+# V12.0: Import ValidationResult validators for defense-in-depth validation
+try:
+    from src.utils.validators import ValidationResult, validate_news_log
+
+    _VALIDATORS_AVAILABLE = True
+except ImportError:
+    _VALIDATORS_AVAILABLE = False
+    logging.debug("Validators module not available for analysis_engine")
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -594,6 +605,32 @@ class AnalysisEngine:
             away_team = getattr(match, "away_team", "Unknown")
             league = getattr(match, "league", "Unknown")
 
+            # V15.0: Get enriched team data from TeamAlias for enhanced context
+            home_alias_data = None
+            away_alias_data = None
+            try:
+                from src.database.team_alias_utils import get_match_alias_data
+
+                home_alias_data, away_alias_data = get_match_alias_data(home_team, away_team)
+
+                if home_alias_data:
+                    self.logger.debug(
+                        f"🏆 [TEAMALIAS] Home team enriched: {home_team} "
+                        f"(country={home_alias_data.get('country')}, "
+                        f"league={home_alias_data.get('league')})"
+                    )
+
+                if away_alias_data:
+                    self.logger.debug(
+                        f"🏆 [TEAMALIAS] Away team enriched: {away_team} "
+                        f"(country={away_alias_data.get('country')}, "
+                        f"league={away_alias_data.get('league')})"
+                    )
+            except ImportError:
+                self.logger.debug("⚠️ [TEAMALIAS] team_alias_utils not available")
+            except Exception as e:
+                self.logger.debug(f"⚠️ [TEAMALIAS] Failed to get TeamAlias data: {e}")
+
             # Search for relevant tweets about both teams
             relevant_tweets = []
             for team in [home_team, away_team]:
@@ -708,8 +745,8 @@ class AnalysisEngine:
                 f"   🐦 {label}Twitter Intel for AI: {len(result.tweets)} tweets selected"
             )
 
-            # If conflicts detected, resolve via Gemini
-            gemini_resolution = None
+            # V13.0: If conflicts detected, resolve via IntelligenceRouter (DeepSeek)
+            ai_resolution = None
             if result.has_conflicts and result.conflict_description:
                 self.logger.warning(
                     f"   ⚠️ Twitter/FotMob conflict detected: {result.conflict_description}"
@@ -718,8 +755,8 @@ class AnalysisEngine:
                 # Extract Twitter claim from first conflicting tweet
                 twitter_claim = result.tweets[0].content if result.tweets else "Unknown"
 
-                # Call Gemini to resolve conflict
-                gemini_resolution = resolve_conflict_via_gemini(
+                # Call IntelligenceRouter to resolve conflict (DeepSeek → Tavily → Claude fallback)
+                ai_resolution = resolve_conflict_via_gemini(
                     conflict_description=result.conflict_description,
                     home_team=home_team,
                     away_team=away_team,
@@ -727,12 +764,15 @@ class AnalysisEngine:
                     fotmob_claim=official_data[:500] if official_data else "No FotMob data",
                 )
 
-                if gemini_resolution:
-                    status = gemini_resolution.get("verification_status", "UNKNOWN")
-                    self.logger.info(f"   🔍 Gemini conflict resolution: {status}")
+                if ai_resolution:
+                    status = ai_resolution.get("verification_status", "UNKNOWN")
+                    confidence = ai_resolution.get("confidence_level", "LOW")
+                    self.logger.info(
+                        f"   🔍 AI conflict resolution: {status} (confidence: {confidence})"
+                    )
 
-                    # Append Gemini resolution to formatted output
-                    resolution_text = self._format_gemini_resolution(gemini_resolution)
+                    # Append resolution to formatted output
+                    resolution_text = self._format_conflict_resolution(ai_resolution)
                     if resolution_text:
                         return f"{result.formatted_for_ai}\n\n{resolution_text}"
 
@@ -743,8 +783,20 @@ class AnalysisEngine:
             return ""
 
     @staticmethod
-    def _format_gemini_resolution(resolution: dict[str, Any]) -> str:
-        """Format Gemini conflict resolution for AI prompt."""
+    def _format_conflict_resolution(resolution: dict[str, Any]) -> str:
+        """
+        Format AI conflict resolution for AI prompt.
+
+        V13.0 FIX: Renamed from _format_gemini_resolution() to reflect that
+        the system now uses IntelligenceRouter (DeepSeek → Tavily → Claude 3 Haiku)
+        instead of the deprecated Gemini direct API.
+
+        Args:
+            resolution: Dict with verification_status, confidence_level, additional_context
+
+        Returns:
+            Formatted string for AI prompt
+        """
         if not resolution:
             return ""
 
@@ -752,11 +804,11 @@ class AnalysisEngine:
         confidence = resolution.get("confidence_level", "LOW")
         additional = resolution.get("additional_context", "")
 
-        lines = ["[🔍 GEMINI CONFLICT RESOLUTION]"]
+        lines = ["[🔍 AI CONFLICT RESOLUTION]"]
         lines.append(f"Status: {status} (Confidence: {confidence})")
 
         if status == "CONFIRMED":
-            lines.append("✅ Twitter claim VERIFIED by Gemini Search")
+            lines.append("✅ Twitter claim VERIFIED by AI analysis")
         elif status == "DENIED":
             lines.append("❌ Twitter claim DENIED - FotMob data is correct")
         elif status == "OUTDATED":
@@ -768,6 +820,9 @@ class AnalysisEngine:
             lines.append(f"Additional context: {additional[:200]}")
 
         return "\n".join(lines)
+
+    # Legacy alias for backward compatibility
+    _format_gemini_resolution = _format_conflict_resolution
 
     # ============================================
     # TACTICAL INJURY PROFILE
@@ -934,6 +989,8 @@ class AnalysisEngine:
         home_context: dict[str, Any] | None = None,
         away_context: dict[str, Any] | None = None,
         context_label: str = "",
+        home_team_injury_impact: Any = None,
+        away_team_injury_impact: Any = None,
     ) -> tuple[bool, float, str | None, VerificationResult | None]:
         """
         Run verification layer check on an alert before sending.
@@ -954,6 +1011,8 @@ class AnalysisEngine:
             home_context: Optional FotMob full context for home team (injuries, motivation, fatigue)
             away_context: Optional FotMob full context for away team (injuries, motivation, fatigue)
             context_label: Label for logging (e.g., "TIER1", "TIER2", "RADAR")
+            home_team_injury_impact: Optional TeamInjuryImpact with detailed player data
+            away_team_injury_impact: Optional TeamInjuryImpact with detailed player data
 
         Returns:
             Tuple of (should_send, adjusted_score, adjusted_market, verification_result)
@@ -982,6 +1041,8 @@ class AnalysisEngine:
                 away_stats=away_stats,
                 home_context=home_context,
                 away_context=away_context,
+                home_team_injury_impact=home_team_injury_impact,
+                away_team_injury_impact=away_team_injury_impact,
             )
 
             # Run verification
@@ -992,14 +1053,14 @@ class AnalysisEngine:
                 return True, result.adjusted_score, result.original_market, result
             elif result.status == VerificationStatus.CHANGE_MARKET:
                 self.logger.info(
-                    f"🔄 {label}Verification Layer changed market from {analysis.recommended_market} to {result.suggested_market}"
+                    f"🔄 {label}Verification Layer changed market from {analysis.recommended_market} to {result.recommended_market}"
                 )
-                return True, result.adjusted_score, result.suggested_market, result
+                return True, result.adjusted_score, result.recommended_market, result
             elif result.status == VerificationStatus.REJECT:
                 self.logger.warning(
-                    f"❌ {label}Alert DENIED by Verification Layer: {result.reason}"
+                    f"❌ {label}Alert DENIED by Verification Layer: {result.rejection_reason}"
                 )
-                return False, result.adjusted_score, result.suggested_market, result
+                return False, result.adjusted_score, result.recommended_market, result
 
         except Exception as e:
             self.logger.error(f"❌ {label}Verification Layer error: {e}")
@@ -1138,7 +1199,22 @@ class AnalysisEngine:
             away_context = enrichment_data.get("away_context", {}) if enrichment_data else {}
             home_stats = enrichment_data.get("home_stats", {}) if enrichment_data else {}
             away_stats = enrichment_data.get("away_stats", {}) if enrichment_data else {}
-            referee_info = enrichment_data.get("referee_info") if enrichment_data else None
+
+            # Convert referee_info dict to RefereeStats object
+            referee_dict = enrichment_data.get("referee_info") if enrichment_data else None
+            referee_info = None
+            if referee_dict and isinstance(referee_dict, dict):
+                try:
+                    referee_info = RefereeStats(
+                        name=referee_dict.get("name", "Unknown"),
+                        cards_per_game=referee_dict.get("cards_per_game", 0.0) or 0.0,
+                        strictness=referee_dict.get("strictness", "unknown"),
+                        matches_officiated=referee_dict.get("matches_officiated", 0),
+                    )
+                    logger.debug(f"✅ Converted referee dict to RefereeStats: {referee_info.name}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to convert referee dict to RefereeStats: {e}")
+                    referee_info = None
 
             # --- STEP 2: TACTICAL ANALYSIS (V8.0) ---
             # Analyze injuries with tactical intelligence
@@ -1260,6 +1336,22 @@ class AnalysisEngine:
                     referee_info=referee_info,
                 )
 
+                # --- V12.0: Validate analysis_result with ValidationResult ---
+                # Defense-in-depth validation layer (complementary to Contract validation)
+                if _VALIDATORS_AVAILABLE and analysis_result:
+                    try:
+                        validation = validate_news_log(analysis_result)
+                        if not validation.is_valid:
+                            self.logger.warning(
+                                f"⚠️ V12.0: NewsLog validation failed: {validation.errors}"
+                            )
+                            # Log warnings but don't block - let verification layer decide
+                        if validation.warnings:
+                            for warning in validation.warnings:
+                                self.logger.debug(f"V12.0 Validation warning: {warning}")
+                    except Exception as e:
+                        self.logger.debug(f"V12.0: Validation check failed (non-critical): {e}")
+
                 # --- V11.1 FIX: Generate market warning using BettingQuant ---
                 market_warning = None
                 if analysis_result and match:
@@ -1281,6 +1373,7 @@ class AnalysisEngine:
                         away_odd = getattr(match, "current_away_odd", None)
                         over_25_odd = getattr(match, "current_over_2_5", None)
                         under_25_odd = getattr(match, "current_under_2_5", None)
+                        btts_yes_odd = getattr(match, "current_btts_yes", None)  # V12.7: BTTS odds
 
                         # Build market odds dict from copied attributes
                         market_odds = {
@@ -1289,7 +1382,7 @@ class AnalysisEngine:
                             "away": away_odd,
                             "over_25": over_25_odd,
                             "under_25": under_25_odd,
-                            # BTTS not available in database, set to None
+                            "btts": btts_yes_odd,  # V12.7: BTTS odds now available from DB
                         }
 
                         # Call BettingQuant to evaluate bet and generate market warning
@@ -1352,6 +1445,8 @@ class AnalysisEngine:
                         home_context=home_context,
                         away_context=away_context,
                         context_label=context_label,
+                        home_team_injury_impact=home_injury_impact,
+                        away_team_injury_impact=away_injury_impact,
                     )
                 )
 
@@ -1548,7 +1643,9 @@ class AnalysisEngine:
                             is_update=False,
                             financial_risk=getattr(analysis_result, "financial_risk", None),
                             intel_source="web",
-                            referee_intel=referee_info,  # Use referee_info from enrichment
+                            referee_intel=dataclasses.asdict(referee_info)
+                            if referee_info
+                            else None,  # Convert RefereeStats to dict
                             twitter_intel=twitter_intel,
                             validated_home_team=None,  # Not available in current scope
                             validated_away_team=None,  # Not available in current scope

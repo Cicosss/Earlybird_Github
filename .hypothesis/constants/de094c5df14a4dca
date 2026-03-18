@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/ingestion/budget_reporter.py
+# hypothesis_version: 6.151.4
+
+[-5.0, 0.0, 5.0, 10.0, 80.0, 100, 3600, '%Y%m%d_%H%M%S', '=', 'Current Status:\n', 'Daily Limit', 'Daily Used', 'Degraded', 'Disabled', 'Monthly Limit', 'Monthly Used', 'Provider', 'Recommendations:\n', 'Timestamp', 'Usage %', 'avg_usage_percentage', 'budget_reports', 'component_usage', 'csv', 'current_status', 'daily_limit', 'daily_used', 'data', 'decreasing', 'entries', 'increasing', 'is_degraded', 'is_disabled', 'json', 'max_usage_percentage', 'min_usage_percentage', 'monthly_limit', 'monthly_used', 'provider_name', 'recommendations', 'stable', 'timestamp', 'total_monthly_used', 'trends', 'txt', 'unknown', 'usage_percentage', 'usage_trend', 'w']

@@ -8,6 +8,10 @@ CRITICAL FILTERS:
 1. Message must be < 12 hours old
 2. Team mentioned must have an UPCOMING match (next 48h)
 3. If match was yesterday -> DROP (post-match commentary)
+
+V2.0: Intelligent feature detection via startup_validator.is_feature_disabled()
+     - Skips Tavily verification if 'tavily_enrichment' is disabled
+     - Logs clear status messages for disabled features
 """
 
 import logging
@@ -29,6 +33,20 @@ from src.utils.validators import safe_dict_get
 # Initialize logger for this module
 logger = logging.getLogger(__name__)
 
+# V2.0: Import startup validator for intelligent feature detection
+try:
+    from src.utils.startup_validator import is_feature_disabled
+
+    _STARTUP_VALIDATOR_AVAILABLE = True
+except ImportError:
+    _STARTUP_VALIDATOR_AVAILABLE = False
+    logger.debug("Startup validator not available - all features enabled by default")
+
+    def is_feature_disabled(feature: str) -> bool:
+        """Fallback if startup validator is not available."""
+        return False
+
+
 # ============================================
 # TRUST SCORE INTEGRATION (V4.3)
 # ============================================
@@ -36,6 +54,7 @@ try:
     from src.analysis.telegram_trust_score import (
         ChannelMetrics,
         _get_text_hash,
+        extract_prediction_from_text,  # V1.1: Prediction extraction
         get_first_odds_drop_time,
         track_odds_correlation,  # V4.3: Odds correlation tracking
         validate_telegram_message,
@@ -81,6 +100,13 @@ async def _tavily_verify_intel(intel_text: str, team_name: str) -> dict | None:
         from src.ingestion.tavily_budget import get_budget_manager
         from src.ingestion.tavily_provider import get_tavily_provider
         from src.ingestion.tavily_query_builder import TavilyQueryBuilder
+
+        # V2.0: Check if Tavily enrichment is disabled by startup validator
+        if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("tavily_enrichment"):
+            logging.debug(
+                "⏭️ [TELEGRAM] Tavily verification disabled by startup validator (TAVILY_API_KEY not configured)"
+            )
+            return None
 
         tavily = get_tavily_provider()
         budget = get_budget_manager()
@@ -324,10 +350,7 @@ def has_upcoming_match(
                         logger.debug(f"⏭️ Skipping non-Elite league: {league}")
                         continue
 
-                    logger.debug(
-                        f"🏆 [TELEGRAM] Found upcoming match: {home_team} vs "
-                        f"{away_team}"
-                    )
+                    logger.debug(f"🏆 [TELEGRAM] Found upcoming match: {home_team} vs {away_team}")
                     return True, match
 
             logger.debug(f"🏆 [TELEGRAM] No upcoming matches for {team_name}")
@@ -705,6 +728,9 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                     f"{trust_validation_reason}"
                                 )
 
+                            # V1.2: Check if message was edited (Telethon provides edit_date)
+                            was_edited = hasattr(msg, "edit_date") and msg.edit_date is not None
+
                             # Update channel metrics
                             update_channel_metrics(
                                 channel_id=channel,
@@ -714,6 +740,7 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                     and validation.timestamp_lag_minutes > 30
                                 ),
                                 is_echo=validation.is_echo,
+                                is_edit=was_edited,  # V1.2: Track edits in channel metrics
                                 red_flags=validation.red_flags,
                                 timestamp_lag=validation.timestamp_lag_minutes,
                             )
@@ -721,6 +748,30 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                             # Log message for audit
                             # VPS FIX: Extract match_id safely to prevent session detachment
                             match_id = getattr(match, "id", None) if match else None
+
+                            # V1.1: Extract prediction from message text
+                            prediction_data = {"prediction_type": None, "prediction_team": None}
+                            if match and full_text:
+                                home_team_name = getattr(match, "home_team", None)
+                                away_team_name = getattr(match, "away_team", None)
+                                try:
+                                    prediction_data = extract_prediction_from_text(
+                                        text=full_text,
+                                        home_team=home_team_name,
+                                        away_team=away_team_name,
+                                    )
+                                    if prediction_data.get("prediction_type"):
+                                        logging.info(
+                                            f"   🔮 Prediction detected: {prediction_data['prediction_type']}"
+                                            + (
+                                                f" ({prediction_data['prediction_team']})"
+                                                if prediction_data.get("prediction_team")
+                                                else ""
+                                            )
+                                        )
+                                except Exception as pred_err:
+                                    logging.debug(f"   Prediction extraction error: {pred_err}")
+
                             log_telegram_message(
                                 channel_id=channel,
                                 message_id=str(msg.id) if hasattr(msg, "id") else None,
@@ -731,9 +782,15 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                 timestamp_lag=validation.timestamp_lag_minutes,
                                 was_insider_hit=is_insider_hit,
                                 is_echo=validation.is_echo,
+                                echo_source=validation.echo_source_channel,  # FIX: Propagate echo source
                                 trust_multiplier=trust_multiplier,
                                 validation_reason=trust_validation_reason,
                                 red_flags=validation.red_flags,
+                                # V1.1: Pass prediction data
+                                prediction_type=prediction_data.get("prediction_type"),
+                                prediction_team=prediction_data.get("prediction_team"),
+                                # V1.2: Pass edit status
+                                was_edited=was_edited,
                             )
 
                             # V4.3: Track odds correlation for Trust Score V2
@@ -744,7 +801,9 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
                                     match_id = getattr(match, "id", None)
                                     if match_id:
                                         lag_minutes = track_odds_correlation(
-                                            channel_id=channel, message_time=msg.date, match_id=match_id
+                                            channel_id=channel,
+                                            message_time=msg.date,
+                                            match_id=match_id,
                                         )
                                     if lag_minutes is not None:
                                         if lag_minutes < 0:
@@ -775,10 +834,10 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
 
                             # Determine team info BEFORE using it in Tavily verification
                             # VPS FIX: Extract home_team safely to prevent session detachment
-                            home_team = getattr(match, "home_team", "Unknown") if match else "Unknown"
-                            team_name = channel_info.get(
-                                "team", home_team
+                            home_team = (
+                                getattr(match, "home_team", "Unknown") if match else "Unknown"
                             )
+                            team_name = channel_info.get("team", home_team)
                             search_name = channel_info.get("search_name", team_name)
 
                             # V7.0: Tavily verification for medium-trust channels (0.4-0.7)

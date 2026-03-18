@@ -14,7 +14,11 @@ V2.0: Complete rewrite based on real betting value analysis.
 """
 
 
-def build_analysis_prompt_v2(content: str) -> str:
+def build_analysis_prompt_v2(
+    content: str,
+    detected_signal: str | None = None,
+    extracted_number: int | None = None,
+) -> str:
     """
     Build the V2 analysis prompt for DeepSeek.
 
@@ -23,9 +27,12 @@ def build_analysis_prompt_v2(content: str) -> str:
     2. Extract STRUCTURED data (team, count, match, etc.)
     3. Apply strict quality gates
     4. Focus on HIGH-VALUE betting signals only
+    5. V3.0: Cross-validate with pattern-detected signal
 
     Args:
         content: Raw content text (any language)
+        detected_signal: Signal type detected by pattern matching (optional)
+        extracted_number: Number extracted from text (optional, e.g., absent players count)
 
     Returns:
         Formatted prompt string
@@ -35,7 +42,24 @@ def build_analysis_prompt_v2(content: str) -> str:
     if len(content) > max_content:
         content = content[:max_content]
 
-    return f"""You are a sports betting analyst. Analyze this football news article (in ANY language) and extract betting-relevant information.
+    # Build signal context if available
+    signal_context = ""
+    if detected_signal or extracted_number is not None:
+        signal_context = "\n📊 PATTERN-DETECTED SIGNALS (for cross-validation):\n"
+        if detected_signal:
+            signal_context += f"  - Detected Signal Type: {detected_signal}\n"
+        if extracted_number is not None:
+            signal_context += (
+                f"  - Extracted Number: {extracted_number} (e.g., absent players count)\n"
+            )
+        signal_context += "\n⚠️ INSTRUCTIONS:\n"
+        signal_context += "  - Cross-validate these pattern-detected signals with your analysis\n"
+        signal_context += "  - If pattern detection is CORRECT, use it to improve accuracy\n"
+        signal_context += "  - If pattern detection is INCORRECT, explain why in your analysis\n"
+        signal_context += "  - Use extracted_number to verify your absent_count calculation\n"
+        signal_context += "  - If there's a discrepancy, prioritize more reliable evidence\n"
+
+    return f"""You are a sports betting analyst. Analyze this football news article (in ANY language) and extract betting-relevant information.{signal_context}
 
 ⚠️ CRITICAL: Only mark as relevant if there is REAL BETTING VALUE:
 - 3+ first-team players unavailable = HIGH VALUE ✅
@@ -69,10 +93,17 @@ Respond in JSON format ONLY (no markdown, no explanation):
   "category": "MASS_ABSENCE|DECIMATED|YOUTH_TEAM|TURNOVER|FINANCIAL_CRISIS|LOGISTICAL_CRISIS|GOALKEEPER_OUT|MOTIVATION|CONFIRMED_LINEUP|LOW_VALUE|NOT_RELEVANT",
   "absent_count": number of players unavailable (0 if unknown),
   "absent_players": ["list", "of", "player", "names"] or [],
+  "absent_roles": ["list", "of", "player", "roles"] or [],  // GK, DEF, MID, FWD
   "absent_reason": "injury|suspension|rotation|national_team|strike|lineup_confirmed|other",
+  "match_importance": "CRITICAL|IMPORTANT|NORMAL|LOW",  // Match importance based on context
+  "motivation_home": "HIGH|NORMAL|LOW|NONE",  // Home team motivation level
+  "motivation_away": "HIGH|NORMAL|LOW|NONE",  // Away team motivation level
+  "has_travel_issues": true/false,  // Travel/logistical problems
+  "has_financial_crisis": true/false,  // Financial crisis/strike situation
   "betting_impact": "CRITICAL|HIGH|MEDIUM|LOW|NONE",
   "confidence": 0.0-1.0,
-  "summary_italian": "Riepilogo in ITALIANO (max 250 caratteri) - focus sul fatto chiave per lo scommettitore"
+  "summary_italian": "Riepilogo in ITALIANO (max 250 caratteri) - focus sul fatto chiave per lo scommettitore",
+  "summary_en": "Summary in ENGLISH (max 250 chars) - focus on key betting insight"
 }}
 
 RULES:
@@ -80,9 +111,15 @@ RULES:
 2. team MUST be extracted - if you cannot determine the team, set is_high_value=false
 3. absent_count >= 3 OR goalkeeper out OR youth team = HIGH/CRITICAL impact
 4. absent_count = 1-2 (non-key players) = LOW impact = is_high_value=false
-5. summary_italian must be in ITALIAN, concise, actionable for a bettor
-6. If content is garbage (menu, login, etc.) = is_high_value=false, category=NOT_RELEVANT
-7. confidence >= 0.8 for clear high-value signals"""
+5. absent_roles: Extract player positions (GK=goalkeeper, DEF=defender, MID=midfielder, FWD=forward) if mentioned
+6. match_importance: CRITICAL for title/relegation battles, IMPORTANT for cup finals, NORMAL for regular matches, LOW for dead rubbers
+7. motivation_home/away: HIGH for title/relegation fights, NORMAL for standard matches, LOW for safe/relegated teams, NONE for meaningless matches
+8. has_travel_issues: true if flight delays, bus problems, late arrivals mentioned
+9. has_financial_crisis: true if unpaid wages, strikes, financial problems mentioned
+10. summary_italian must be in ITALIAN, concise, actionable for a bettor
+11. summary_en must be in ENGLISH, concise, actionable for a bettor
+12. If content is garbage (menu, login, etc.) = is_high_value=false, category=NOT_RELEVANT
+13. confidence >= 0.8 for clear high-value signals"""
 
 
 def build_quick_check_prompt(content: str) -> str:

@@ -217,11 +217,20 @@ class MathPredictor:
 
         Args:
             lam: Lambda (expected value)
-            k: Number of occurrences
+            k: Number of occurrences (must be non-negative integer)
 
         Returns:
             Probability of exactly k occurrences
+
+        Note:
+            - k < 0: Mathematically impossible → returns 0.0
+            - lam <= 0: Only k=0 is possible → returns 1.0, else 0.0
         """
+        # V4.7: Validate k - negative occurrences are mathematically impossible
+        # This prevents ValueError from math.factorial() on negative integers
+        if k < 0:
+            return 0.0
+
         if lam <= 0:
             return 1.0 if k == 0 else 0.0
         return (math.pow(lam, k) * math.exp(-lam)) / math.factorial(k)

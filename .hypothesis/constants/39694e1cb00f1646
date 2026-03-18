@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/serve_docs.py
+# hypothesis_version: 6.151.4
+
+[8001, '\nServer stopped.', '%s - - [%s] %s\n', '--verbose', '127.0.0.1', '__main__', 'store_true']

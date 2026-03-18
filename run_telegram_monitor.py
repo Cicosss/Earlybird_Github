@@ -6,6 +6,10 @@ Monitora canali Telegram 24/7 per immagini formazioni.
 Estrà immagini, analizza con AI, salva in database.
 
 Separato dal Bot (comandi) per evitare conflitti.
+
+V2.0: Intelligent feature detection via startup_validator.is_feature_disabled()
+      - Exits gracefully if 'telegram_monitor' feature is disabled
+      - Logs clear status messages for disabled features
 """
 
 import argparse
@@ -32,6 +36,18 @@ sys.path.append(os.getcwd())
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# V2.0: Import startup validator for intelligent feature detection
+try:
+    from src.utils.startup_validator import is_feature_disabled
+
+    _STARTUP_VALIDATOR_AVAILABLE = True
+except ImportError:
+    _STARTUP_VALIDATOR_AVAILABLE = False
+
+    def is_feature_disabled(feature: str) -> bool:
+        """Fallback: no features are disabled if validator unavailable."""
+        return False
 
 
 def parse_args():
@@ -254,6 +270,16 @@ async def main():
     if _UVLOOP_ENABLED:
         logger.info("⚡ uvloop enabled (Rust-powered event loop)")
     logger.info("=" * 50)
+
+    # V2.0: Check if telegram_monitor feature is disabled by startup validator
+    if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("telegram_monitor"):
+        logger.warning(
+            "⏭️ [TELEGRAM_MONITOR] Telegram monitoring disabled by startup validator "
+            "(TELEGRAM_API_ID and/or TELEGRAM_API_HASH not configured)"
+        )
+        logger.info("💡 Telegram channel monitoring requires TELEGRAM_API_ID and TELEGRAM_API_HASH")
+        logger.info("💡 The bot will continue without Telegram channel monitoring")
+        return  # Exit gracefully
 
     # Ensure database tables exist
     init_db()

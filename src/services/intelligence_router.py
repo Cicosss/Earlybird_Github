@@ -1,9 +1,12 @@
 """
-EarlyBird Intelligence Router - V8.0 (DeepSeek + Tavily + Claude 3 Haiku)
+EarlyBird Intelligence Router - V8.1 (DeepSeek + Tavily + Claude 3 Haiku)
 
 Routes intelligence requests to DeepSeek provider with Tavily pre-enrichment.
 Three-level fallback: DeepSeek (primary) → Tavily (fallback 1) → Claude 3 Haiku (fallback 2).
 
+V8.1: Intelligent feature detection via startup_validator.is_feature_disabled()
+      - Skips Tavily enrichment if 'tavily_enrichment' is disabled
+      - Logs clear status messages for disabled features
 V8.0: Added Claude 3 Haiku as third-level fallback via OpenRouter
 V7.0: Added Tavily AI Search for match context enrichment before DeepSeek
 V6.0: DeepSeek as sole primary provider (no cooldown needed - high rate limits)
@@ -19,6 +22,19 @@ from collections.abc import Callable
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# V8.1: Import startup validator for intelligent feature detection
+try:
+    from src.utils.startup_validator import is_feature_disabled
+
+    _STARTUP_VALIDATOR_AVAILABLE = True
+except ImportError:
+    _STARTUP_VALIDATOR_AVAILABLE = False
+    logger.debug("Startup validator not available - all features enabled by default")
+
+    def is_feature_disabled(feature: str) -> bool:
+        """Fallback: no features are disabled if validator unavailable."""
+        return False
 
 
 class IntelligenceRouter:
@@ -443,6 +459,13 @@ class IntelligenceRouter:
 
         Requirements: 3.1
         """
+        # V8.1: Check if Tavily enrichment is disabled via startup validator
+        if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("tavily_enrichment"):
+            logger.debug(
+                "⏭️ [TAVILY] Enrichment disabled by startup validator (TAVILY_API_KEY not configured)"
+            )
+            return None
+
         if not self._tavily.is_available():
             return None
 
@@ -481,7 +504,9 @@ class IntelligenceRouter:
                     enrichment_parts.append(f"[TAVILY SUMMARY]\n{response.answer}")
 
                 if response.results:
-                    snippets = [f"• {r.title}: {r.content[:200]}" for r in response.results[:3]]
+                    snippets = [
+                        f"• {r.title}: {(r.content or '')[:200]}" for r in response.results[:3]
+                    ]
                     if snippets:
                         enrichment_parts.append("[TAVILY SOURCES]\n" + "\n".join(snippets))
 
@@ -536,6 +561,13 @@ class IntelligenceRouter:
 
         Requirements: 3.3
         """
+        # V8.1: Check if Tavily enrichment is disabled by startup validator
+        if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("tavily_enrichment"):
+            logger.debug(
+                "⏭️ [TAVILY] Biscotto evidence search disabled by startup validator (TAVILY_API_KEY not configured)"
+            )
+            return None
+
         if not self._tavily.is_available():
             return None
 
@@ -590,6 +622,13 @@ class IntelligenceRouter:
 
         Requirements: 3.4
         """
+        # V8.1: Check if Tavily enrichment is disabled by startup validator
+        if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("tavily_enrichment"):
+            logger.debug(
+                "⏭️ [TAVILY] News pre-filter disabled by startup validator (TAVILY_API_KEY not configured)"
+            )
+            return news_items
+
         if not self._tavily.is_available():
             return news_items
 

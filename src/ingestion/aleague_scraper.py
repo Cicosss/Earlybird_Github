@@ -535,11 +535,44 @@ class ALeagueScraper:
             return self._available
 
     def search_team_news(self, team_name: str, match_id: str, force: bool = False) -> list[dict]:
-        """Search for team news."""
+        """
+        Search for team news with automatic rate limiting.
+
+        This method wraps search_aleague_news() and provides thread-safe rate limiting
+        via _try_acquire_scrape_lock() which uses an atomic check-and-set pattern.
+
+        Args:
+            team_name: Team to search for (e.g., "Sydney FC")
+            match_id: Match ID for tracking
+            force: If True, bypass rate limiting and force a fresh scrape.
+                   If False (default), respect the 30-minute rate limit.
+
+        Returns:
+            List of relevant news items with TIER 0 tagging
+
+        Note:
+            Callers typically don't need to pass force=True. The rate limiting
+            is handled automatically and prevents excessive requests to aleagues.com.au.
+            Use force=True only when you need fresh data regardless of the rate limit.
+        """
         return search_aleague_news(team_name, match_id, force)
 
     def should_scrape(self) -> bool:
-        """Check if enough time has passed since last scrape."""
+        """
+        Check if enough time has passed since last scrape.
+
+        DEPRECATED: This method is kept for backward compatibility only.
+        Do NOT use in new code - it relies on the deprecated _should_scrape()
+        function which has a race condition vulnerability.
+
+        For thread-safe rate limiting, the search_team_news() method already
+        uses _try_acquire_scrape_lock() internally with an atomic check-and-set pattern.
+
+        Use search_team_news(force=False) instead, which handles rate limiting automatically.
+
+        Returns:
+            True if enough time has passed since last scrape, False otherwise
+        """
         return _should_scrape()
 
 

@@ -623,7 +623,10 @@ class SearchProvider:
                 )
 
             try:
-                # Apply rate limiting before each DDG call (prevents rapid-fire requests on query variations)
+                # V8.1: Apply rate limiting before each DDG call (prevents rapid-fire requests on query variations)
+                # Note: DuckDuckGo uses the DDGS library which doesn't go through the HTTP client,
+                # so we need to apply rate limiting manually. We use the HTTP client's RateLimiter
+                # to ensure consistency with the centralized rate limiting system.
                 rate_limiter = self._http_client._get_rate_limiter("duckduckgo")
                 rate_limiter.wait_sync()
 

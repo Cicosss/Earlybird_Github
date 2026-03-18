@@ -175,6 +175,19 @@ class TestMathEnginePoisson:
         assert MathPredictor.poisson_probability(-1, 0) == 1.0
         assert MathPredictor.poisson_probability(-1, 1) == 0.0
 
+    def test_poisson_probability_negative_k(self):
+        """V4.7: k negativo = probabilità impossibile, deve restituire 0.0 senza crash."""
+        from src.analysis.math_engine import MathPredictor
+
+        # Negative k should return 0.0 (mathematically impossible)
+        # This prevents ValueError from math.factorial() on negative integers
+        assert MathPredictor.poisson_probability(1.5, -1) == 0.0
+        assert MathPredictor.poisson_probability(2.0, -5) == 0.0
+        assert MathPredictor.poisson_probability(0.5, -100) == 0.0
+
+        # Edge case: k=0 with any lambda should still work
+        assert MathPredictor.poisson_probability(1.5, 0) > 0
+
     def test_simulate_match_invalid_inputs_returns_none(self):
         """Input non validi devono restituire None."""
         from src.analysis.math_engine import MathPredictor

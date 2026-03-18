@@ -78,13 +78,12 @@ except ImportError:
     }
     CIRCUIT_BREAKER_CONFIG = {"failure_threshold": 3, "recovery_timeout": 600}
 
-# V10.0: Import Multi-Level Intelligence Gate
+# V10.0: Import Multi-Level Intelligence Gate (Layer 1 only - Layer 2 removed as dead code)
 try:
     from src.utils.intelligence_gate import (
         apply_intelligence_gate,
         level_1_keyword_check,
         level_1_keyword_check_with_details,
-        level_2_translate_and_classify,
     )
 
     _INTELLIGENCE_GATE_AVAILABLE = True
@@ -348,17 +347,19 @@ for lang, keywords in NATIVE_KEYWORDS.items():
 
 @dataclass
 class ScrapedTweet:
-    """Tweet extracted from Nitter."""
+    """Tweet extracted from Nitter.
+
+    Simplified dataclass containing only essential fields used by downstream components.
+    Removed V9.5 Layer 2 fields (translation, is_betting_relevant, gate_triggered_keyword)
+    as they were never used by any downstream component (analysis_engine.py, news_hunter.py,
+    twitter_intel_cache.py, openrouter_fallback_provider.py, deepseek_intel_provider.py).
+    """
 
     handle: str
     date: str
     content: str
     topics: list[str] = field(default_factory=list)
     relevance_score: float = 0.0
-    # V9.5: Layer 2 analysis results
-    translation: str | None = None  # Italian translation from DeepSeek-V3
-    is_betting_relevant: bool | None = None  # Betting relevance from DeepSeek-V3
-    gate_triggered_keyword: str | None = None  # Keyword that triggered Layer 1 gate
 
 
 # Import unified InstanceHealth from nitter_pool.py for consistency
@@ -715,173 +716,12 @@ class NitterFallbackScraper:
                 logger.warning(f"[NITTER] Stealth failed: {e}")
 
     # ============================================
-    # V9.5: DEEPSEEK-V3 FLASH ANALYSIS (Layer 2)
+    # REMOVED: V9.5 DEEPSEEK-V3 FLASH ANALYSIS (Layer 2)
     # ============================================
-
-    async def _call_deepseek_flash_analysis(self, tweet_text: str) -> dict | None:
-        """
-        Call DeepSeek-V3 for flash analysis (Layer 2).
-
-        This method uses DeepSeek-V3 (NOT R1) for translation and classification
-        of tweets that passed the native keyword gate.
-
-        Args:
-            tweet_text: The tweet content to analyze
-
-        Returns:
-            Dict with 'translation' and 'is_betting_relevant' keys, or None on failure
-        """
-        if not OPENROUTER_API_KEY:
-            logger.warning(
-                "⚠️ [FLASH-ANALYSIS] OPENROUTER_API_KEY not set, skipping DeepSeek analysis"
-            )
-            return None
-
-        try:
-            # Build prompt
-            prompt = build_flash_analysis_prompt(tweet_text)
-
-            # Prepare request
-            headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://earlybird.betting",
-                "X-Title": "EarlyBird Betting Intelligence",
-            }
-
-            payload = {
-                "model": DEEPSEEK_V3_MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.3,
-                "max_tokens": 500,
-            }
-
-            # Import http_client for the request
-            from src.utils.http_client import get_http_client
-
-            http_client = get_http_client()
-
-            if not http_client:
-                logger.error("❌ [FLASH-ANALYSIS] HTTP client not available")
-                return None
-
-            # Make request
-            logger.info("🤖 [FLASH-ANALYSIS] Analyzing tweet with DeepSeek-V3...")
-            response = http_client.post_sync(
-                OPENROUTER_API_URL,
-                rate_limit_key="openrouter",
-                headers=headers,
-                json=payload,
-                timeout=30,
-                max_retries=1,
-            )
-
-            # Handle response
-            if response.status_code == 429:
-                logger.warning("⚠️ [FLASH-ANALYSIS] Rate limit hit (429)")
-                return None
-
-            if response.status_code != 200:
-                logger.error(f"❌ [FLASH-ANALYSIS] API error: HTTP {response.status_code}")
-                return None
-
-            data = response.json()
-            choices = data.get("choices", [])
-            if not choices:
-                logger.warning("⚠️ [FLASH-ANALYSIS] Empty response")
-                return None
-
-            content = choices[0].get("message", {}).get("content", "")
-            if not content:
-                logger.warning("⚠️ [FLASH-ANALYSIS] No content in response")
-                return None
-
-            # Parse response
-            result = parse_flash_analysis_response(content)
-            if result:
-                logger.info(
-                    f"✅ [FLASH-ANALYSIS] Complete - Translation: '{result['translation'][:50]}...', Relevant: {result['is_betting_relevant']}"
-                )
-            else:
-                logger.warning("⚠️ [FLASH-ANALYSIS] Failed to parse response")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"❌ [FLASH-ANALYSIS] Error: {e}")
-            return None
-
-    async def _process_tweets_layer2(self, tweets: list[ScrapedTweet]) -> list[ScrapedTweet]:
-        """
-        Process tweets with V10.0 Layer 2: AI Translation and Classification.
-
-        This method applies Layer 2 analysis (translation + classification) to tweets
-        that passed Layer 1 (zero-cost keyword gate).
-
-        Uses the centralized intelligence_gate module for consistency with NewsHunter.
-
-        Args:
-            tweets: List of tweets that passed Layer 1 gate
-
-        Returns:
-            List of tweets with Layer 2 analysis results populated
-        """
-        processed_tweets = []
-
-        for tweet in tweets:
-            try:
-                # V10.0 Layer 2: AI Translation and Classification (via intelligence_gate module)
-                logger.info(f"🤖 [INTEL-GATE-L2] Processing tweet from {tweet.handle}...")
-
-                if _INTELLIGENCE_GATE_AVAILABLE:
-                    # Use centralized intelligence gate module
-                    level_2_result = await level_2_translate_and_classify(tweet.content)
-
-                    if level_2_result.get("success"):
-                        # Populate Layer 2 results
-                        tweet.translation = level_2_result.get("translation", "")
-                        tweet.is_betting_relevant = level_2_result.get("is_relevant", False)
-
-                        logger.info(
-                            f"✅ [INTEL-GATE-L2] Complete - Translation: '{tweet.translation[:50]}...', "
-                            f"Relevant: {tweet.is_betting_relevant}"
-                        )
-                    else:
-                        # AI failed - mark as None (will be handled downstream)
-                        logger.warning(
-                            f"⚠️ [INTEL-GATE-L2] Failed for tweet from {tweet.handle}: {level_2_result.get('error')}"
-                        )
-                        tweet.translation = None
-                        tweet.is_betting_relevant = None
-                else:
-                    # Fallback to legacy implementation
-                    analysis_result = await self._call_deepseek_flash_analysis(tweet.content)
-
-                    if analysis_result:
-                        # Populate Layer 2 results
-                        tweet.translation = analysis_result.get("translation", "")
-                        tweet.is_betting_relevant = analysis_result.get(
-                            "is_betting_relevant", False
-                        )
-
-                        logger.info(
-                            f"✅ [LAYER-2-FLASH] Complete - Translation: '{tweet.translation[:50]}...', "
-                            f"Relevant: {tweet.is_betting_relevant}"
-                        )
-                    else:
-                        # DeepSeek failed - mark as None (will be handled downstream)
-                        logger.warning(f"⚠️ [LAYER-2-FLASH] Failed for tweet from {tweet.handle}")
-                        tweet.translation = None
-                        tweet.is_betting_relevant = None
-
-                processed_tweets.append(tweet)
-
-            except Exception as e:
-                logger.error(f"❌ [INTEL-GATE-L2] Error processing tweet: {e}")
-                # Include tweet even if Layer 2 failed
-                processed_tweets.append(tweet)
-
-        return processed_tweets
+    # Removed _call_deepseek_flash_analysis() and _process_tweets_layer2() methods
+    # as they were processing dead code (translation, is_betting_relevant fields)
+    # that were never used by any downstream component.
+    # This eliminates wasted API calls, reduces latency, and simplifies the codebase.
 
     def _get_next_instance(self) -> str:
         """Get next healthy instance (round-robin)."""
@@ -1200,16 +1040,14 @@ class NitterFallbackScraper:
                 if analysis.category != "OTHER":
                     topics.append(analysis.category.lower())
 
-                # V10.0: Initialize with None - Layer 2 analysis will be done asynchronously
+                # FIXED: Store full content (not truncated to 500 chars)
+                # Previous truncation lost critical information for downstream analysis
                 tweet = ScrapedTweet(
                     handle=handle,
                     date=date_str or datetime.now().strftime("%Y-%m-%d"),
-                    content=content[:500],  # Limit content length
+                    content=content,  # Store full content
                     topics=topics,
                     relevance_score=analysis.confidence,
-                    translation=None,  # Will be set by Layer 2
-                    is_betting_relevant=None,  # Will be set by Layer 2
-                    gate_triggered_keyword=triggered_keyword,  # Keyword that triggered Layer 1
                 )
 
                 tweets.append(tweet)
@@ -1251,10 +1089,6 @@ class NitterFallbackScraper:
                     content=t.get("content", ""),
                     topics=t.get("topics", []),
                     relevance_score=t.get("relevance_score", 0.5),
-                    # V9.5: Include Layer 2 results from cache
-                    translation=t.get("translation"),
-                    is_betting_relevant=t.get("is_betting_relevant"),
-                    gate_triggered_keyword=t.get("gate_triggered_keyword"),
                 )
                 for t in cached
             ]
@@ -1323,15 +1157,11 @@ class NitterFallbackScraper:
                     self._mark_instance_success(instance_url)
                     self._total_scraped += len(tweets)
 
-                    # V10.0 Layer 2: AI Translation and Classification (via intelligence_gate module)
-                    # Only process tweets that passed Layer 1 gate
-                    if tweets:
-                        logger.info(
-                            f"🤖 [INTEL-GATE-L2] Processing {len(tweets)} tweets from @{handle_clean}..."
-                        )
-                        tweets = await self._process_tweets_layer2(tweets)
+                    # REMOVED: V10.0 Layer 2 processing (dead code)
+                    # Layer 2 fields (translation, is_betting_relevant, gate_triggered_keyword)
+                    # were never used by any downstream component, so processing them was wasted API calls.
 
-                    # Cache results
+                    # Cache results (simplified - only essential fields)
                     self._cache.set(
                         handle_clean,
                         [
@@ -1340,10 +1170,6 @@ class NitterFallbackScraper:
                                 "content": t.content,
                                 "topics": t.topics,
                                 "relevance_score": t.relevance_score,
-                                # V9.5: Include Layer 2 results in cache
-                                "translation": t.translation,
-                                "is_betting_relevant": t.is_betting_relevant,
-                                "gate_triggered_keyword": t.gate_triggered_keyword,
                             }
                             for t in tweets
                         ],
@@ -1481,10 +1307,6 @@ class NitterFallbackScraper:
                     "date": t.date,
                     "content": t.content,
                     "topics": t.topics,
-                    # V10.0: Include Layer 2 analysis results in output
-                    "translation": t.translation,
-                    "is_betting_relevant": t.is_betting_relevant,
-                    "gate_triggered_keyword": t.gate_triggered_keyword,
                 }
                 for t in tweets[:max_posts_per_account]
             ]

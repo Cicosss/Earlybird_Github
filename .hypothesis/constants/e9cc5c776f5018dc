@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/models/schemas.py
+# hypothesis_version: 6.151.4
+
+['Combo bet suggestion', 'EnhancedMatchAlert', 'None reported', 'Unknown', 'analysis_result', 'away_team', 'combo_reasoning', 'combo_suggestion', 'confidence_breakdown', 'convergence_sources', 'db_session', 'financial_risk', 'home_team', 'injury_impact_away', 'injury_impact_home', 'injury_intel', 'intel_source', 'is_convergent', 'is_update', 'league', 'link', 'market', 'market_warning', 'match', 'match_obj', 'math_edge', 'news_articles', 'news_summary', 'news_url', 'recommended_market', 'referee_intel', 'score', 'snippet', 'twitter_intel', 'validated_away_team', 'validated_home_team', 'verification_info', 'verification_result', 'web']

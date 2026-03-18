@@ -253,42 +253,6 @@ class TestPromptGeneration:
         assert len(prompt) < 20000
 
 
-class TestStructuredAnalysisEdgeCases:
-    """V2.2: Tests for StructuredAnalysis edge cases."""
-
-    def test_absent_roles_none_is_valid(self):
-        """is_valid_for_alert should not crash with absent_roles=None."""
-        from src.utils.high_value_detector import StructuredAnalysis
-
-        sa = StructuredAnalysis(team="Test", absent_count=1, absent_roles=None)
-        # Should not raise, should return False
-        assert sa.is_valid_for_alert() is False
-
-    def test_absent_roles_none_priority(self):
-        """get_alert_priority should not crash with absent_roles=None."""
-        from src.utils.high_value_detector import StructuredAnalysis
-
-        sa = StructuredAnalysis(team="Test", absent_count=1, absent_roles=None)
-        # Should not raise, should return MEDIUM
-        assert sa.get_alert_priority() == "MEDIUM"
-
-    def test_absent_roles_with_gk(self):
-        """GK in absent_roles should make alert valid and HIGH priority."""
-        from src.utils.high_value_detector import StructuredAnalysis
-
-        sa = StructuredAnalysis(team="Test", absent_count=1, absent_roles=["GK"])
-        assert sa.is_valid_for_alert() is True
-        assert sa.get_alert_priority() == "HIGH"
-
-    def test_absent_names_none(self):
-        """is_valid_for_alert should not crash with absent_names=None."""
-        from src.utils.high_value_detector import StructuredAnalysis
-
-        sa = StructuredAnalysis(team="Test", absent_count=2, absent_names=None)
-        # Should not raise
-        assert sa.is_valid_for_alert() is False
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

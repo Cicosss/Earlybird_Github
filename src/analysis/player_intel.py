@@ -1,3 +1,12 @@
+"""
+EarlyBird Player Intelligence Module
+
+Provides player importance analysis using API-Football.
+V2.0: Intelligent feature detection via startup_validator.is_feature_disabled()
+
+Requirements: Player stats enrichment for missing players analysis
+"""
+
 import logging
 import os
 from difflib import SequenceMatcher
@@ -15,6 +24,20 @@ except ImportError:
     API_FOOTBALL_KEY = os.getenv("API_FOOTBALL_KEY", "")
 
 API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
+
+# V2.0: Import startup validator for intelligent feature detection
+try:
+    from src.utils.startup_validator import is_feature_disabled
+
+    _STARTUP_VALIDATOR_AVAILABLE = True
+except ImportError:
+    _STARTUP_VALIDATOR_AVAILABLE = False
+    logging.debug("Startup validator not available - player intelligence enabled by default")
+
+    def is_feature_disabled(feature: str) -> bool:
+        """Fallback: no features are disabled if validator unavailable."""
+        return False
+
 
 # Simple in-memory cache for team+season data
 _team_season_cache: Dict[tuple, List[Dict]] = {}
@@ -138,6 +161,13 @@ def get_team_players_with_stats(team_id: int, season: int) -> Optional[List[Dict
     Returns:
         List of player data with statistics, or None on error
     """
+    # V2.0: Check if player intelligence is disabled by startup validator
+    if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("player_intelligence"):
+        logging.debug(
+            "⏭️ [PLAYER_INTEL] Player intelligence disabled by startup validator (API_FOOTBALL_KEY not configured)"
+        )
+        return None
+
     # Check cache first
     cache_key = (team_id, season)
     if cache_key in _team_season_cache:

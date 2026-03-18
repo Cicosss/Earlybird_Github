@@ -12,6 +12,7 @@ from typing import Any
 from src.database.models import Match as MatchModel
 from src.database.models import NewsLog, SessionLocal, TeamAlias
 from src.database.models import init_db as init_models
+from src.database.team_alias_enrichment import enrich_team_alias_data
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -48,6 +49,9 @@ def _ensure_alias(session, team_name: str) -> None:
     """
     Ensure a TeamAlias exists for the given team name.
 
+    Now automatically enriches with Twitter handle, Telegram channel, FotMob ID,
+    country, and league information using the intelligent enrichment system.
+
     Args:
         session: Active database session
         team_name: Name of the team to create an alias for
@@ -57,8 +61,32 @@ def _ensure_alias(session, team_name: str) -> None:
         if not existing:
             # Clean common team name suffixes for search optimization
             clean_name = team_name.replace(" FC", "").replace(" SK", "").replace(" Club", "")
-            alias = TeamAlias(api_name=team_name, search_name=clean_name)
+
+            # Get enriched data for this team
+            enriched_data = enrich_team_alias_data(team_name)
+
+            # Create TeamAlias with enriched data
+            alias = TeamAlias(
+                api_name=team_name,
+                search_name=clean_name,
+                twitter_handle=enriched_data.get("twitter_handle"),
+                telegram_channel=enriched_data.get("telegram_channel"),
+                fotmob_id=str(enriched_data.get("fotmob_id"))
+                if enriched_data.get("fotmob_id")
+                else None,
+                country=enriched_data.get("country"),
+                league=enriched_data.get("league"),
+            )
             session.add(alias)
+
+            # Log enrichment results
+            enriched_fields = [k for k, v in enriched_data.items() if v is not None]
+            if enriched_fields:
+                logger.info(
+                    f"Created TeamAlias for '{team_name}' with enriched fields: {', '.join(enriched_fields)}"
+                )
+            else:
+                logger.info(f"Created TeamAlias for '{team_name}' (no enrichment data available)")
     except Exception as e:
         logger.error(f"Error ensuring team alias for '{team_name}': {e}")
 

@@ -2689,11 +2689,35 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
 
             # 3. Create NewsLog entry for radar narrative
             if forced_narrative:
+                # V15.0 FIX: Apply optimizer weight to radar score (Learning Loop Integration)
+                # This ensures that weights learned from historical performance are applied
+                # to radar-detected intelligence
+                radar_score = 10  # Maximum score for radar-detected intelligence
+                try:
+                    from src.analysis.optimizer import get_optimizer
+                    optimizer = get_optimizer()
+                    league = getattr(match, "league", None)
+                    # Radar intelligence doesn't have a specific market, use None
+                    # The optimizer will use league-level weights
+                    if league:
+                        adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
+                            base_score=radar_score,
+                            league=league,
+                            market=None,  # No specific market for radar intelligence
+                            driver="RADAR_INTEL"  # Use category as driver
+                        )
+                        if weight_log_msg:
+                            logging.info(weight_log_msg)
+                        radar_score = adjusted_score
+                except Exception as e:
+                    logging.warning(f"⚠️ Failed to apply optimizer weight to radar score: {e}")
+                    # Continue with original score
+                
                 radar_log = NewsLog(
                     match_id=match_id,
                     url="radar://opportunity-radar",
                     summary=forced_narrative,
-                    score=10,  # Maximum score for radar-detected intelligence
+                    score=radar_score,
                     category="RADAR_INTEL",
                     affected_team=home_team,  # Default to home team
                     source="radar",

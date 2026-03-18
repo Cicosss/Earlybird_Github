@@ -162,8 +162,9 @@ class TestReverseLineMovement:
 
         assert result is not None
         assert result.detected
-        assert result.sharp_side == "AWAY"
-        assert result.public_side == "HOME"
+        # Verify message contains expected information
+        assert "70%" in result.message
+        assert "AWAY" in result.message
 
     def test_rlm_requires_threshold_public(self):
         """RLM requires public threshold to be met."""

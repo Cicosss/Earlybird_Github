@@ -1419,12 +1419,11 @@ class SupabaseProvider:
         - Standard Supabase data (continents, countries, leagues, sources)
         - Full social_sources list from Supabase
         - Full news_sources list from Supabase
-        - Social sources metadata from Nitter scraper with V9.5 fields:
-          * translation: Italian translation from DeepSeek-V3
-          * is_betting_relevant: Boolean relevance flag
-          * gate_triggered_keyword: Which keyword triggered the gate
+        - Social sources metadata from Nitter scraper (simplified - removed dead Layer2 fields):
           * is_convergent: Convergence status from analyzer
           * convergence_sources: JSON with web and social signal details
+
+        REMOVED: translation, is_betting_relevant, gate_triggered_keyword (dead code - never used)
 
         UTF-8 encoding is ensured for Arabic and Spanish characters.
         Checksum is calculated for integrity verification.
@@ -1523,22 +1522,19 @@ class SupabaseProvider:
                 with open(cache_file, encoding="utf-8") as f:
                     cache_data = json.load(f)
 
-            # Extract tweets from cache with V9.5 fields
+            # Extract tweets from cache (simplified - removed dead Layer2 fields)
             tweets = []
             for handle_key, entry in cache_data.items():
                 if isinstance(entry, dict) and "tweets" in entry:
                     for tweet in entry["tweets"]:
-                        # Ensure V9.5 fields are present (with defaults if missing)
+                        # REMOVED: translation, is_betting_relevant, gate_triggered_keyword (dead code)
+                        # KEPT: is_convergent, convergence_sources (actively used by convergence detection)
                         tweet_data = {
                             "handle": handle_key,
                             "date": tweet.get("date"),
                             "content": tweet.get("content"),
                             "topics": tweet.get("topics", []),
                             "relevance_score": tweet.get("relevance_score", 0.0),
-                            # V9.5 fields
-                            "translation": tweet.get("translation"),
-                            "is_betting_relevant": tweet.get("is_betting_relevant"),
-                            "gate_triggered_keyword": tweet.get("gate_triggered_keyword"),
                             "is_convergent": tweet.get("is_convergent"),
                             "convergence_sources": tweet.get("convergence_sources"),
                         }

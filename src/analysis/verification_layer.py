@@ -17,6 +17,7 @@ Requirements: 1.1-1.4, 2.1-2.4, 3.1-3.5, 4.1-4.4, 5.1-5.4, 6.1-6.5, 7.1-7.4, 8.1
 """
 
 import logging
+import re
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
@@ -36,14 +37,20 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Import CardsSignal enum for type consistency
+# Import CardsSignal and SignalLevel enums for type consistency
 try:
-    from src.schemas.perplexity_schemas import CardsSignal
+    from src.schemas.perplexity_schemas import CardsSignal, RefereeStrictness, SignalLevel
 
     CARDS_SIGNAL_AVAILABLE = True
+    REFEREE_STRICTNESS_AVAILABLE = True
+    SIGNAL_LEVEL_AVAILABLE = True
 except ImportError:
     CARDS_SIGNAL_AVAILABLE = False
+    REFEREE_STRICTNESS_AVAILABLE = False
+    SIGNAL_LEVEL_AVAILABLE = False
     logger.warning("⚠️ CardsSignal enum not available")
+    logger.warning("⚠️ RefereeStrictness enum not available")
+    logger.warning("⚠️ SignalLevel enum not available")
 
 # Import DataConfidence enum for type consistency
 try:
@@ -72,6 +79,18 @@ except ImportError:
     REFEREE_CACHE_MONITOR_AVAILABLE = False
     logger.warning("⚠️ Referee cache monitor not available")
 
+# Import referee boost logger for V9.0
+try:
+    from src.analysis.referee_boost_logger import (
+        BoostType,
+        get_referee_boost_logger,
+    )
+
+    REFEREE_BOOST_LOGGER_AVAILABLE = True
+except ImportError:
+    REFEREE_BOOST_LOGGER_AVAILABLE = False
+    logger.warning("⚠️ Referee boost logger not available")
+
 
 # ============================================
 # CONFIGURATION CONSTANTS
@@ -91,6 +110,7 @@ try:
         H2H_MIN_MATCHES,
         LOW_SCORING_THRESHOLD,
         PLAYER_KEY_IMPACT_THRESHOLD,
+        REFEREE_CARDS_BOOST_THRESHOLD,
         REFEREE_LENIENT_THRESHOLD,
         REFEREE_STRICT_THRESHOLD,
         VERIFICATION_SCORE_THRESHOLD,
@@ -109,6 +129,7 @@ except ImportError:
     COMBINED_CORNERS_THRESHOLD = 10.5  # Combined avg >= 10.5 = Over 9.5 Corners
     REFEREE_STRICT_THRESHOLD = 5.0  # Cards/game >= 5 = strict
     REFEREE_LENIENT_THRESHOLD = 3.0  # Cards/game <= 3 = lenient
+    REFEREE_CARDS_BOOST_THRESHOLD = 4.0  # Cards/game >= 4 = boost Over Cards
     VERIFICATION_SCORE_THRESHOLD = 7.5  # Minimum score to trigger verification
     LOW_SCORING_THRESHOLD = 1.0  # Goals/game < 1.0 = low scoring
 
@@ -185,15 +206,6 @@ class InjurySeverity(Enum):
     NONE = "NONE"
 
 
-class RefereeStrictness(Enum):
-    """Referee strictness classification."""
-
-    STRICT = "strict"
-    AVERAGE = "average"
-    LENIENT = "lenient"
-    UNKNOWN = "unknown"
-
-
 # ============================================
 # INPUT DTO: VerificationRequest
 # Requirements: 1.1, 6.1
@@ -232,6 +244,11 @@ class VerificationRequest:
     away_injury_severity: str = "LOW"
     home_injury_impact: float = 0.0  # Total impact score
     away_injury_impact: float = 0.0
+
+    # V13.0: Detailed injury impact data from injury_impact_engine
+    # This provides position, role, and reason for each missing player
+    home_team_injury_impact: Any = None  # TeamInjuryImpact object
+    away_team_injury_impact: Any = None  # TeamInjuryImpact object
 
     # Optional FotMob data for comparison
     fotmob_home_goals_avg: float | None = None
@@ -310,6 +327,15 @@ class VerificationRequest:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
+
+        # Helper to serialize TeamInjuryImpact objects
+        def serialize_injury_impact(impact: Any) -> Any:
+            if impact is None:
+                return None
+            if hasattr(impact, "to_dict"):
+                return impact.to_dict()
+            return impact  # Fallback for primitive types
+
         return {
             "match_id": self.match_id,
             "home_team": self.home_team,
@@ -324,6 +350,8 @@ class VerificationRequest:
             "away_injury_severity": self.away_injury_severity,
             "home_injury_impact": self.home_injury_impact,
             "away_injury_impact": self.away_injury_impact,
+            "home_team_injury_impact": serialize_injury_impact(self.home_team_injury_impact),
+            "away_team_injury_impact": serialize_injury_impact(self.away_team_injury_impact),
             "fotmob_home_goals_avg": self.fotmob_home_goals_avg,
             "fotmob_away_goals_avg": self.fotmob_away_goals_avg,
             "fotmob_referee_name": self.fotmob_referee_name,
@@ -350,6 +378,8 @@ class PlayerImpact:
     impact_score: int  # 1-10 scale
     is_key_player: bool = False  # True if score >= 7
     role: str | None = None  # "starter", "backup", "unknown"
+    position: str | None = None  # "goalkeeper", "defender", "midfielder", "forward"
+    reason: str | None = None  # "injury", "suspension", etc.
 
     def __post_init__(self):
         """Auto-classify as key player based on threshold."""
@@ -578,28 +608,41 @@ class RefereeStats:
 
     name: str
     cards_per_game: float = 0.0
-    strictness: str = "unknown"  # "strict", "average", "lenient", "unknown"
+    strictness: RefereeStrictness = RefereeStrictness.UNKNOWN
     matches_officiated: int = 0
 
     def __post_init__(self):
         """Auto-classify strictness based on cards per game."""
+        # Handle backward compatibility: convert string strictness to RefereeStrictness enum
+        if isinstance(self.strictness, str):
+            strictness_lower = self.strictness.lower()
+            if strictness_lower == "strict":
+                self.strictness = RefereeStrictness.STRICT
+            elif strictness_lower == "lenient":
+                self.strictness = RefereeStrictness.LENIENT
+            elif strictness_lower in ("average", "medium"):
+                self.strictness = RefereeStrictness.MEDIUM
+            else:
+                self.strictness = RefereeStrictness.UNKNOWN
+
+        # Auto-classify strictness based on cards per game if not explicitly set
         # Keep "unknown" only for negative values (0.0 means very lenient)
         if self.cards_per_game < 0:
-            self.strictness = "unknown"
+            self.strictness = RefereeStrictness.UNKNOWN
         elif self.cards_per_game >= REFEREE_STRICT_THRESHOLD:
-            self.strictness = "strict"
+            self.strictness = RefereeStrictness.STRICT
         elif self.cards_per_game <= REFEREE_LENIENT_THRESHOLD:
-            self.strictness = "lenient"
+            self.strictness = RefereeStrictness.LENIENT
         else:
-            self.strictness = "average"
+            self.strictness = RefereeStrictness.MEDIUM
 
     def is_strict(self) -> bool:
         """Check if referee is classified as strict."""
-        return self.strictness == "strict"
+        return self.strictness == RefereeStrictness.STRICT
 
     def is_lenient(self) -> bool:
         """Check if referee is classified as lenient."""
-        return self.strictness == "lenient"
+        return self.strictness == RefereeStrictness.LENIENT
 
     def should_veto_cards(self) -> bool:
         """Check if referee should veto Over Cards suggestions."""
@@ -610,19 +653,19 @@ class RefereeStats:
         Check if referee should boost Over Cards suggestions.
 
         Returns:
-            True if referee is strict enough to justify Over Cards bet
-            (>=4.0 cards/game, regardless of strictness classification)
+            True if referee has enough cards per game to justify Over Cards bet
+            (>= REFEREE_CARDS_BOOST_THRESHOLD cards/game, regardless of strictness classification)
         """
-        return self.cards_per_game >= 4.0
+        return self.cards_per_game >= REFEREE_CARDS_BOOST_THRESHOLD
 
     def should_upgrade_cards_line(self) -> bool:
         """
         Check if referee is very strict and should upgrade cards line.
 
         Returns:
-            True if referee is very strict (>=5.0 cards/game)
+            True if referee is very strict (>= REFEREE_STRICT_THRESHOLD cards/game)
         """
-        return self.cards_per_game >= 5.0
+        return self.cards_per_game >= REFEREE_STRICT_THRESHOLD
 
     def get_boost_multiplier(self) -> float:
         """
@@ -670,6 +713,8 @@ class VerifiedData:
     home_corner_avg: float | None = None
     away_corner_avg: float | None = None
     h2h_corner_avg: float | None = None
+    corners_signal: SignalLevel = SignalLevel.UNKNOWN  # Signal level from Perplexity
+    corners_reasoning: str = ""  # Reasoning from Perplexity
     corner_confidence: str = "Low"
 
     # Cards stats (V13.1: Added for intelligent cards market decisions)
@@ -726,6 +771,92 @@ class VerifiedData:
         """Check if total key player impact exceeds critical threshold."""
         return self.get_total_key_player_impact() > CRITICAL_IMPACT_THRESHOLD
 
+    def get_players_by_position(self, team: str, position: str) -> list[PlayerImpact]:
+        """
+        Get missing players by position for a specific team.
+
+        Args:
+            team: "home" or "away"
+            position: "goalkeeper", "defender", "midfielder", "forward", or None for all
+
+        Returns:
+            List of PlayerImpact objects matching the criteria
+        """
+        players = self.home_player_impacts if team == "home" else self.away_player_impacts
+        if position is None:
+            return players
+        return [p for p in players if p.position == position]
+
+    def has_critical_goalkeeper_missing(self, team: str) -> bool:
+        """
+        Check if team has a missing goalkeeper with critical impact.
+
+        Goalkeepers are critical for defensive stability. A missing goalkeeper
+        with high impact score significantly increases defensive vulnerability.
+
+        Args:
+            team: "home" or "away"
+
+        Returns:
+            True if a goalkeeper with impact >= 7 is missing
+        """
+        goalkeepers = self.get_players_by_position(team, "goalkeeper")
+        return any(p.impact_score >= 7 for p in goalkeepers)
+
+    def has_critical_defense_missing(self, team: str) -> bool:
+        """
+        Check if team has multiple missing defenders with significant impact.
+
+        Missing multiple defenders creates defensive gaps that can be exploited.
+
+        Args:
+            team: "home" or "away"
+
+        Returns:
+            True if 2+ defenders with impact >= 6 are missing
+        """
+        defenders = self.get_players_by_position(team, "defender")
+        critical_defenders = [p for p in defenders if p.impact_score >= 6]
+        return len(critical_defenders) >= 2
+
+    def get_position_impact_summary(self, team: str) -> dict[str, float]:
+        """
+        Get summary of impact scores by position for a team.
+
+        Args:
+            team: "home" or "away"
+
+        Returns:
+            Dictionary with position as key and total impact as value
+        """
+        players = self.home_player_impacts if team == "home" else self.away_player_impacts
+        summary = {}
+        for player in players:
+            pos = player.position or "unknown"
+            if pos not in summary:
+                summary[pos] = 0.0
+            summary[pos] += player.impact_score
+        return summary
+
+    def get_reason_impact_summary(self, team: str) -> dict[str, float]:
+        """
+        Get summary of impact scores by reason for a team.
+
+        Args:
+            team: "home" or "away"
+
+        Returns:
+            Dictionary with reason as key and total impact as value
+        """
+        players = self.home_player_impacts if team == "home" else self.away_player_impacts
+        summary = {}
+        for player in players:
+            reason = player.reason or "unknown"
+            if reason not in summary:
+                summary[reason] = 0.0
+            summary[reason] += player.impact_score
+        return summary
+
     def get_combined_corner_avg(self) -> float | None:
         """Get combined corner average for both teams."""
         if self.home_corner_avg is not None and self.away_corner_avg is not None:
@@ -733,9 +864,25 @@ class VerifiedData:
         return None
 
     def suggests_over_corners(self) -> bool:
-        """Check if corner data suggests Over 9.5 Corners."""
+        """
+        Check if corner data suggests Over 9.5 Corners.
+
+        V2.6: Now considers corners_signal from Perplexity for intelligent decisions.
+        - If corners_signal is HIGH, suggests Over Corners regardless of combined avg
+        - If corners_signal is MEDIUM, uses combined avg threshold
+        - If corners_signal is LOW or UNKNOWN, relies on combined avg only
+        """
+        # First check if corners_signal is HIGH (strong signal from Perplexity)
+        if SIGNAL_LEVEL_AVAILABLE and self.corners_signal == SignalLevel.HIGH:
+            return True
+
+        # Fallback to combined average calculation
         combined = self.get_combined_corner_avg()
         if combined is not None:
+            # If corners_signal is MEDIUM, use a slightly lower threshold
+            if SIGNAL_LEVEL_AVAILABLE and self.corners_signal == SignalLevel.MEDIUM:
+                return combined >= (COMBINED_CORNERS_THRESHOLD - 0.5)  # 10.0 instead of 10.5
+            # Otherwise use standard threshold
             return combined >= COMBINED_CORNERS_THRESHOLD
         return False
 
@@ -766,6 +913,94 @@ class VerifiedData:
     def is_cards_disciplined(self) -> bool:
         """Check if cards signal indicates disciplined play."""
         return self.cards_signal == CardsSignal.DISCIPLINED
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert VerifiedData to dictionary for serialization.
+
+        Handles nested dataclasses and enums properly for logging/contracts.
+        V14.0 FIX: Complete serialization of all nested structures.
+        """
+
+        # Helper to serialize individual dataclass instances
+        def serialize_dataclass(obj: Any) -> Any:
+            if obj is None:
+                return None
+            if hasattr(obj, "to_dict"):
+                return obj.to_dict()
+            # Fallback: use __dict__ for dataclasses without to_dict
+            if hasattr(obj, "__dict__"):
+                result = {}
+                for key, value in obj.__dict__.items():
+                    result[key] = _serialize_value(value)
+                return result
+            return obj
+
+        # Helper to serialize any value (handles enums, lists, dataclasses)
+        def _serialize_value(value: Any) -> Any:
+            if value is None:
+                return None
+            # Handle enums (convert to their value)
+            if hasattr(value, "value"):
+                return value.value
+            # Handle lists (including lists of dataclasses)
+            if isinstance(value, list):
+                return [
+                    serialize_dataclass(item) if hasattr(item, "__dict__") else item
+                    for item in value
+                ]
+            # Handle dataclasses
+            if hasattr(value, "__dict__"):
+                return serialize_dataclass(value)
+            return value
+
+        return {
+            # Player impacts
+            "home_player_impacts": [serialize_dataclass(p) for p in self.home_player_impacts],
+            "away_player_impacts": [serialize_dataclass(p) for p in self.away_player_impacts],
+            "home_total_impact": self.home_total_impact,
+            "away_total_impact": self.away_total_impact,
+            # Form stats
+            "home_form": serialize_dataclass(self.home_form),
+            "away_form": serialize_dataclass(self.away_form),
+            "form_confidence": self.form_confidence,
+            # H2H stats
+            "h2h": serialize_dataclass(self.h2h),
+            "h2h_confidence": self.h2h_confidence,
+            # Referee stats
+            "referee": serialize_dataclass(self.referee),
+            "referee_confidence": self.referee_confidence,
+            # Corner stats
+            "home_corner_avg": self.home_corner_avg,
+            "away_corner_avg": self.away_corner_avg,
+            "h2h_corner_avg": self.h2h_corner_avg,
+            "corners_signal": self.corners_signal.value
+            if hasattr(self.corners_signal, "value")
+            else self.corners_signal,
+            "corners_reasoning": self.corners_reasoning,
+            "corner_confidence": self.corner_confidence,
+            # Cards stats
+            "home_cards_avg": self.home_cards_avg,
+            "away_cards_avg": self.away_cards_avg,
+            "cards_total_avg": self.cards_total_avg,
+            "cards_signal": self.cards_signal.value
+            if hasattr(self.cards_signal, "value")
+            else self.cards_signal,
+            "cards_reasoning": self.cards_reasoning,
+            "cards_confidence": self.cards_confidence,
+            # Goals per game
+            "home_goals_per_game": self.home_goals_per_game,
+            "away_goals_per_game": self.away_goals_per_game,
+            # Expected Goals
+            "home_xg": self.home_xg,
+            "away_xg": self.away_xg,
+            "home_xga": self.home_xga,
+            "away_xga": self.away_xga,
+            "xg_confidence": self.xg_confidence,
+            # Metadata
+            "data_confidence": self.data_confidence,
+            "source": self.source,
+        }
 
 
 # ============================================
@@ -836,7 +1071,12 @@ class VerificationResult:
         return self.adjusted_score
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for serialization/logging."""
+        """
+        Convert to dictionary for serialization/logging.
+
+        V14.0 FIX: Now includes verified_data with proper serialization
+        of nested dataclasses and enums for complete logging/contracts.
+        """
         return {
             "status": self.status.value,
             "original_score": self.original_score,
@@ -849,6 +1089,8 @@ class VerificationResult:
             "overall_confidence": self.overall_confidence,
             "reasoning": self.reasoning,
             "rejection_reason": self.rejection_reason,
+            # V14.0 FIX: Include verified_data with proper serialization
+            "verified_data": self.verified_data.to_dict() if self.verified_data else None,
         }
 
     def format_for_alert(self) -> str:
@@ -1005,6 +1247,20 @@ except ImportError:
     PerplexityProvider = None  # Type stub for annotations
     get_perplexity_provider = None
     logger.warning("⚠️ Perplexity provider not available")
+
+# V12.0: Import startup validator for intelligent feature detection
+try:
+    from src.utils.startup_validator import is_feature_disabled
+
+    _STARTUP_VALIDATOR_AVAILABLE = True
+except ImportError:
+    _STARTUP_VALIDATOR_AVAILABLE = False
+    logger.debug("Startup validator not available - all features enabled by default")
+
+    def is_feature_disabled(feature: str) -> bool:
+        """Fallback: no features are disabled if validator unavailable."""
+        return False
+
 
 # Import AI parser for response parsing
 try:
@@ -1317,7 +1573,13 @@ class OptimizedResponseParser:
     """
 
     def __init__(
-        self, home_team: str, away_team: str, referee_name: str | None, players: list[str]
+        self,
+        home_team: str,
+        away_team: str,
+        referee_name: str | None,
+        players: list[str],
+        home_team_injury_impact: Any = None,
+        away_team_injury_impact: Any = None,
     ):
         """
         Initialize parser.
@@ -1327,10 +1589,14 @@ class OptimizedResponseParser:
             away_team: Away team name
             referee_name: Referee name (optional)
             players: List of player names
+            home_team_injury_impact: Optional TeamInjuryImpact with detailed player data
+            away_team_injury_impact: Optional TeamInjuryImpact with detailed player data
         """
         self.home_original = home_team
         self.away_original = away_team
         self.referee_original = referee_name or ""
+        self.home_team_injury_impact = home_team_injury_impact
+        self.away_team_injury_impact = away_team_injury_impact
 
         # Intelligent type validation for players
         # Handle edge cases: None, string, or other types
@@ -1390,25 +1656,46 @@ class OptimizedResponseParser:
         player_values = self._parse_player_values(combined_text)
 
         # Convert market values to PlayerImpact objects
+        # V13.0: Use injury_impact data when available for position, role, reason
         for name in request.home_missing_players:
             value = self._find_player_value(name, player_values)
             impact_score = market_value_to_impact(value) if value else 5
+
+            # Try to get detailed data from injury_impact_engine
+            player_details = self._get_player_details_from_injury_impact(
+                name, self.home_team_injury_impact
+            )
+
             verified.home_player_impacts.append(
                 PlayerImpact(
                     name=name,
                     impact_score=impact_score,
-                    role="starter" if impact_score >= 7 else "unknown",
+                    role=player_details.get("role")
+                    if player_details
+                    else ("starter" if impact_score >= 7 else "unknown"),
+                    position=player_details.get("position") if player_details else None,
+                    reason=player_details.get("reason") if player_details else None,
                 )
             )
 
         for name in request.away_missing_players:
             value = self._find_player_value(name, player_values)
             impact_score = market_value_to_impact(value) if value else 5
+
+            # Try to get detailed data from injury_impact_engine
+            player_details = self._get_player_details_from_injury_impact(
+                name, self.away_team_injury_impact
+            )
+
             verified.away_player_impacts.append(
                 PlayerImpact(
                     name=name,
                     impact_score=impact_score,
-                    role="starter" if impact_score >= 7 else "unknown",
+                    role=player_details.get("role")
+                    if player_details
+                    else ("starter" if impact_score >= 7 else "unknown"),
+                    position=player_details.get("position") if player_details else None,
+                    reason=player_details.get("reason") if player_details else None,
                 )
             )
 
@@ -1665,6 +1952,102 @@ class OptimizedResponseParser:
                                     break
 
         return values
+
+    def _get_player_details_from_injury_impact(
+        self, player_name: str, team_injury_impact: Any
+    ) -> dict[str, Any] | None:
+        """
+        Extract player details (position, role, reason) from TeamInjuryImpact data.
+
+        V13.0: This method bridges the gap between injury_impact_engine and verification_layer
+        by providing detailed player information that was previously lost.
+
+        ROOT CAUSE FIX: InjuryPlayerImpact now validates that position and role are never None
+        during initialization (via __post_init__), so we can safely extract .value without
+        None checks for valid objects. However, we still add defensive programming to handle
+        edge cases (e.g., non-InjuryPlayerImpact objects passed by mistake).
+
+        Args:
+            player_name: Name of the player to look up
+            team_injury_impact: TeamInjuryImpact object with detailed player data
+
+        Returns:
+            Dictionary with position, role, and reason if found, None otherwise
+        """
+        if not team_injury_impact or not player_name:
+            return None
+
+        # Check if team_injury_impact has players attribute
+        if not hasattr(team_injury_impact, "players"):
+            return None
+
+        # Normalize player name for matching
+        # Remove punctuation for better matching (e.g., "Lee," vs "Lee")
+        player_name_normalized = re.sub(r"[,\.\']", "", player_name.lower().strip())
+
+        # Search for matching player in injury_impact data
+        for player in team_injury_impact.players:
+            if not hasattr(player, "name"):
+                continue
+
+            # Normalize stored player name
+            # Remove punctuation for better matching (e.g., "Lee," vs "Lee")
+            stored_name = re.sub(r"[,\.\']", "", player.name.lower().strip())
+
+            # Check for exact match
+            if player_name_normalized == stored_name:
+                # ROOT CAUSE FIX: Extract position and role once, validate they're not None
+                position_attr = getattr(player, "position", None)
+                role_attr = getattr(player, "role", None)
+
+                # Defensive programming: Handle edge cases where position/role might be None
+                # (e.g., if someone passes a non-InjuryPlayerImpact object)
+                position_value = (
+                    position_attr.value
+                    if position_attr and hasattr(position_attr, "value")
+                    else "unknown"
+                )
+                role_value = (
+                    role_attr.value if role_attr and hasattr(role_attr, "value") else "unknown"
+                )
+
+                return {
+                    "position": position_value,
+                    "role": role_value,
+                    "reason": getattr(player, "reason", None),
+                }
+
+            # Check for partial match (handle different name formats)
+            # e.g., "John Smith" vs "Smith, John"
+            name_parts = set(player_name_normalized.split())
+            stored_parts = set(stored_name.split())
+
+            # If names share significant parts, consider it a match
+            # This handles different name formats (e.g., "John Smith" vs "Smith, John")
+            # and short names (e.g., "Lee" vs "Lee, Min")
+            if name_parts & stored_parts:  # Intersection
+                # ROOT CAUSE FIX: Extract position and role once, validate they're not None
+                position_attr = getattr(player, "position", None)
+                role_attr = getattr(player, "role", None)
+
+                # Defensive programming: Handle edge cases where position/role might be None
+                # (e.g., if someone passes a non-InjuryPlayerImpact object)
+                position_value = (
+                    position_attr.value
+                    if position_attr and hasattr(position_attr, "value")
+                    else "unknown"
+                )
+                role_value = (
+                    role_attr.value if role_attr and hasattr(role_attr, "value") else "unknown"
+                )
+
+                return {
+                    "position": position_value,
+                    "role": role_value,
+                    "reason": getattr(player, "reason", None),
+                }
+
+        return None
 
     def _names_match(self, name1: str, name2: str, threshold: int = 70) -> bool:
         """Check if two names match using fuzzy logic."""
@@ -2310,6 +2693,13 @@ class TavilyVerifier:
 
         Requirements: 7.2
         """
+        # V12.0: Check if Tavily enrichment is disabled by startup validator
+        if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("tavily_enrichment"):
+            logger.debug(
+                "⏭️ [VERIFICATION] Tavily query disabled by startup validator (TAVILY_API_KEY not configured)"
+            )
+            return None
+
         if not self.is_available():
             logger.warning("⚠️ [VERIFICATION] Tavily not available")
             return None
@@ -2446,6 +2836,22 @@ class TavilyVerifier:
                         logger.debug(f"📊 Cache hit recorded for referee: {referee_name}")
                     except Exception as e:
                         logger.warning(f"⚠️ Failed to record cache hit: {e}")
+
+                # Log referee stats used in referee boost logger
+                if REFEREE_BOOST_LOGGER_AVAILABLE:
+                    try:
+                        logger_module = get_referee_boost_logger()
+                        logger_module.log_referee_stats_used(
+                            referee_name=referee_name,
+                            cards_per_game=cached_stats.get("cards_per_game", 0.0),
+                            strictness=cached_stats.get("strictness", "unknown"),
+                            matches_officiated=cached_stats.get("matches_officiated", 0),
+                            source="cache",
+                            match_id=request.match_id if request else None,
+                            league=request.league if request else None,
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to log referee stats used: {e}")
             else:
                 logger.debug(
                     f"❌ Cache miss for referee: {referee_name}, fetching from Tavily/Perplexity"
@@ -2461,6 +2867,16 @@ class TavilyVerifier:
                         logger.debug(f"📊 Cache miss recorded for referee: {referee_name}")
                     except Exception as e:
                         logger.warning(f"⚠️ Failed to record cache miss: {e}")
+
+                # Log cache miss in referee boost logger
+                if REFEREE_BOOST_LOGGER_AVAILABLE:
+                    try:
+                        logger_module = get_referee_boost_logger()
+                        logger_module.log_cache_miss(
+                            referee_name=referee_name, reason="not_in_cache"
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to log cache miss: {e}")
 
                 # Cache the fetched stats
                 if verified.referee:
@@ -3208,6 +3624,8 @@ class TavilyVerifier:
             away_team=request.away_team,
             referee_name=request.fotmob_referee_name,
             players=all_missing,
+            home_team_injury_impact=request.home_team_injury_impact,
+            away_team_injury_impact=request.away_team_injury_impact,
         )
 
         return parser.parse_to_verified_data(combined_text, request)
@@ -3567,6 +3985,13 @@ class TavilyVerifier:
         Returns:
             Dict with corner/form data from Perplexity, or None on failure
         """
+        # V12.0: Check if Perplexity fallback is disabled by startup validator
+        if _STARTUP_VALIDATOR_AVAILABLE and is_feature_disabled("perplexity_fallback"):
+            logger.debug(
+                "⏭️ [V2.6] Perplexity fallback disabled by startup validator (PERPLEXITY_API_KEY not configured)"
+            )
+            return None
+
         # Check if Perplexity is available
         if not PERPLEXITY_AVAILABLE:
             logger.debug("⚠️ [V2.6] Perplexity not available for corner fallback")
@@ -4089,6 +4514,37 @@ class VerificationOrchestrator:
                                 f"✅ [V2.6] Perplexity corners integrated: home={verified.home_corner_avg}, away={verified.away_corner_avg}"
                             )
 
+                        # Extract corners_signal from Perplexity
+                        corners_signal = safe_dict_get(
+                            perplexity_data, "corners_signal", default="Unknown"
+                        )
+                        if SIGNAL_LEVEL_AVAILABLE:
+                            try:
+                                # Convert string to SignalLevel enum if needed
+                                if isinstance(corners_signal, str):
+                                    verified.corners_signal = SignalLevel(corners_signal)
+                                else:
+                                    verified.corners_signal = corners_signal
+                            except (ValueError, TypeError):
+                                verified.corners_signal = SignalLevel.UNKNOWN
+                        else:
+                            # Fallback if SignalLevel enum not available
+                            verified.corners_signal = corners_signal
+
+                        # Extract corners_reasoning from Perplexity
+                        verified.corners_reasoning = safe_dict_get(
+                            perplexity_data, "corners_reasoning", default=""
+                        )
+
+                        if (
+                            verified.corners_signal != SignalLevel.UNKNOWN
+                            if SIGNAL_LEVEL_AVAILABLE
+                            else verified.corners_signal != "Unknown"
+                        ):
+                            logger.info(
+                                f"✅ [V2.6] Perplexity corners_signal integrated: {verified.corners_signal.value if hasattr(verified.corners_signal, 'value') else verified.corners_signal}"
+                            )
+
                         # V7.1: Integrate form data if missing from Tavily
                         if (
                             verified.home_form is None
@@ -4404,6 +4860,76 @@ class LogicValidator:
                 f"Impatto giocatori chiave ({total_impact:.0f}) supera soglia critica ({CRITICAL_IMPACT_THRESHOLD})"
             )
 
+        # V13.0: Check for critical goalkeeper missing - tactical intelligence
+        # Missing goalkeeper significantly increases defensive vulnerability
+        if request.is_over_market():
+            if verified.has_critical_goalkeeper_missing("home"):
+                issues.append(
+                    f"Portiere critico mancante per {request.home_team} - vulnerabilità difensiva elevata"
+                )
+            if verified.has_critical_goalkeeper_missing("away"):
+                issues.append(
+                    f"Portiere critico mancante per {request.away_team} - vulnerabilità difensiva elevata"
+                )
+
+        # V13.0: Check for critical defense missing - tactical intelligence
+        # Missing multiple defenders creates defensive gaps that can be exploited
+        if request.is_over_market():
+            if verified.has_critical_defense_missing("home"):
+                issues.append(
+                    f"Più difensori critici mancanti per {request.home_team} - gaps difensivi significativi"
+                )
+            if verified.has_critical_defense_missing("away"):
+                issues.append(
+                    f"Più difensori critici mancanti per {request.away_team} - gaps difensivi significativi"
+                )
+
+        # V13.0: Check position-based impact summary for tactical insights
+        # This provides detailed analysis of which positions are most affected
+        if request.is_over_market() and (
+            verified.home_player_impacts or verified.away_player_impacts
+        ):
+            home_pos_summary = verified.get_position_impact_summary("home")
+            away_pos_summary = verified.get_position_impact_summary("away")
+
+            # Check if defensive positions are heavily impacted
+            home_defense_impact = home_pos_summary.get("defender", 0) + home_pos_summary.get(
+                "goalkeeper", 0
+            )
+            away_defense_impact = away_pos_summary.get("defender", 0) + away_pos_summary.get(
+                "goalkeeper", 0
+            )
+
+            if home_defense_impact >= 15:
+                issues.append(
+                    f"Impatto difensivo elevato per {request.home_team} ({home_defense_impact:.0f}) - rischio gol subiti"
+                )
+            if away_defense_impact >= 15:
+                issues.append(
+                    f"Impatto difensivo elevato per {request.away_team} ({away_defense_impact:.0f}) - rischio gol subiti"
+                )
+
+        # V13.0: Check reason-based impact summary for tactical insights
+        # Different reasons (injury vs suspension) may have different tactical implications
+        if request.is_over_market() and (
+            verified.home_player_impacts or verified.away_player_impacts
+        ):
+            home_reason_summary = verified.get_reason_impact_summary("home")
+            away_reason_summary = verified.get_reason_impact_summary("away")
+
+            # Suspensions may be more predictable than injuries
+            home_suspension_impact = home_reason_summary.get("suspension", 0)
+            away_suspension_impact = away_reason_summary.get("suspension", 0)
+
+            if home_suspension_impact >= 10:
+                issues.append(
+                    f"Squalifiche multiple per {request.home_team} (impatto {home_suspension_impact:.0f}) - formazione nota ma ridotta"
+                )
+            if away_suspension_impact >= 10:
+                issues.append(
+                    f"Squalifiche multiple per {request.away_team} (impatto {away_suspension_impact:.0f}) - formazione nota ma ridotta"
+                )
+
         return issues
 
     def _check_form_consistency(
@@ -4468,6 +4994,14 @@ class LogicValidator:
             if not request.is_corners_market():
                 alternatives.append("Over 9.5 Corners")
 
+        # V2.6: Check corners_signal from Perplexity for Over Corners suggestion
+        if SIGNAL_LEVEL_AVAILABLE and verified.corners_signal == SignalLevel.HIGH:
+            if not request.is_corners_market():
+                alternatives.append("Over 9.5 Corners (Perplexity Signal: High)")
+        elif SIGNAL_LEVEL_AVAILABLE and verified.corners_signal == SignalLevel.MEDIUM:
+            if not request.is_corners_market():
+                alternatives.append("Over 9.5 Corners (Perplexity Signal: Medium)")
+
         # Check H2H goals vs suggested Over/Under
         if request.is_over_market():
             # If H2H shows low goals, flag inconsistency
@@ -4494,11 +5028,32 @@ class LogicValidator:
 
         # Check for lenient referee + Over Cards suggestion
         if verified.referee.should_veto_cards() and request.is_cards_market():
-            issues.append(
+            veto_reason = (
                 f"Arbitro {verified.referee.name} troppo permissivo "
                 f"({verified.referee.cards_per_game:.1f} cartellini/partita) - "
                 f"veto su mercato Over Cards"
             )
+            issues.append(veto_reason)
+
+            # Log veto applied in referee boost logger
+            if REFEREE_BOOST_LOGGER_AVAILABLE:
+                try:
+                    logger_module = get_referee_boost_logger()
+                    logger_module.log_veto_applied(
+                        referee_name=verified.referee.name,
+                        cards_per_game=verified.referee.cards_per_game,
+                        strictness=verified.referee.strictness,
+                        recommended_market=request.recommended_market
+                        if hasattr(request, "recommended_market")
+                        else "Over Cards",
+                        reason=veto_reason,
+                        match_id=request.match_id if hasattr(request, "match_id") else None,
+                        home_team=request.home_team if hasattr(request, "home_team") else None,
+                        away_team=request.away_team if hasattr(request, "away_team") else None,
+                        league=request.league if hasattr(request, "league") else None,
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to log veto applied: {e}")
 
         return issues
 
@@ -4757,6 +5312,19 @@ class LogicValidator:
             combined = verified.get_combined_corner_avg()
             parts.append(f"🚩 Media corner combinata alta: {combined:.1f}.")
 
+        # V2.6: Include corners_signal from Perplexity in summary
+        if SIGNAL_LEVEL_AVAILABLE and verified.corners_signal != SignalLevel.UNKNOWN:
+            signal_value = (
+                verified.corners_signal.value
+                if hasattr(verified.corners_signal, "value")
+                else verified.corners_signal
+            )
+            parts.append(f"🎯 Segnale corner Perplexity: {signal_value}.")
+            if verified.corners_reasoning:
+                parts.append(
+                    f"📝 Ragionamento corner: {verified.corners_reasoning[:100]}..."
+                )  # Limit to 100 chars
+
         # Inconsistencies
         if inconsistencies:
             parts.append(f"⚠️ Incongruenze rilevate ({len(inconsistencies)}):")
@@ -4913,6 +5481,8 @@ def create_verification_request_from_match(
     away_stats: dict = None,
     home_context: dict = None,
     away_context: dict = None,
+    home_team_injury_impact: Any = None,  # TeamInjuryImpact object
+    away_team_injury_impact: Any = None,  # TeamInjuryImpact object
 ) -> VerificationRequest:
     """
     Create a VerificationRequest from existing match and analysis objects.
@@ -4926,6 +5496,8 @@ def create_verification_request_from_match(
         away_stats: Optional FotMob stats for away team
         home_context: Optional FotMob full context for home team (injuries, motivation, fatigue)
         away_context: Optional FotMob full context for away team (injuries, motivation, fatigue)
+        home_team_injury_impact: Optional TeamInjuryImpact object with detailed player data
+        away_team_injury_impact: Optional TeamInjuryImpact object with detailed player data
 
     Returns:
         VerificationRequest ready for verification
@@ -5024,6 +5596,8 @@ def create_verification_request_from_match(
         fotmob_home_goals_avg=fotmob_home_goals,
         fotmob_away_goals_avg=fotmob_away_goals,
         fotmob_referee_name=fotmob_referee,
+        home_team_injury_impact=home_team_injury_impact,
+        away_team_injury_impact=away_team_injury_impact,
     )
 
 
@@ -5118,6 +5692,15 @@ def build_italian_reasoning(
         combined = verified.get_combined_corner_avg()
         findings.append(f"media corner alta ({combined:.1f})")
 
+    # V2.6: Include corners_signal from Perplexity in findings
+    if SIGNAL_LEVEL_AVAILABLE and verified.corners_signal != SignalLevel.UNKNOWN:
+        signal_value = (
+            verified.corners_signal.value
+            if hasattr(verified.corners_signal, "value")
+            else verified.corners_signal
+        )
+        findings.append(f"segnale corner Perplexity: {signal_value}")
+
     if findings:
         parts.append("Rilevato: " + ", ".join(findings) + ".")
 
@@ -5149,7 +5732,6 @@ __all__ = [
     "VerificationStatus",
     "ConfidenceLevel",
     "InjurySeverity",
-    "RefereeStrictness",
     # Verifiers
     "TavilyVerifier",
     "PerplexityVerifier",
@@ -5178,6 +5760,7 @@ __all__ = [
     "COMBINED_CORNERS_THRESHOLD",
     "REFEREE_STRICT_THRESHOLD",
     "REFEREE_LENIENT_THRESHOLD",
+    "REFEREE_CARDS_BOOST_THRESHOLD",
     "FORM_DEVIATION_THRESHOLD",
     "LOW_SCORING_THRESHOLD",
 ]
