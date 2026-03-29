@@ -1080,6 +1080,24 @@ class RelevanceAnalyzer:
         # This allows us to use team extraction as a relevance factor
         affected_team = self._extract_team_name(content)
 
+        # V12.4: Active Scope Filter - reject teams from non-active leagues
+        # ROOT CAUSE FIX: "Benfica Infection" - content_analysis.py had 500+ known clubs
+        # from ALL countries (England, Italy, Spain, Portugal, etc.) without any league scoping.
+        # Any article mentioning a European club would be extracted and analyzed.
+        if affected_team:
+            try:
+                from src.ingestion.league_manager import is_team_in_active_scope
+
+                if not is_team_in_active_scope(affected_team):
+                    logger.debug(
+                        f"[SCOPE-FILTER] '{affected_team}' rejected - not in active league scope"
+                    )
+                    affected_team = None
+            except ImportError:
+                pass  # Don't block if league_manager unavailable
+            except Exception as e:
+                logger.debug(f"[SCOPE-FILTER] Scope check failed: {e}")
+
         total_matches = (
             injury_matches + suspension_matches + national_matches + cup_matches + youth_matches
         )
@@ -1327,16 +1345,6 @@ class RelevanceAnalyzer:
             "Excelsior",
             "Heracles Almelo",
             "FC Volendam",
-            # ========== PORTUGAL ==========
-            "Porto",
-            "Benfica",
-            "Sporting Lisbon",
-            "Sporting CP",
-            "Braga",
-            "Vitoria Guimaraes",
-            "Rio Ave",
-            "Boavista",
-            "Maritimo",
             # ========== TURKEY - Süper Lig (V1.7 Elite 7) ==========
             "Galatasaray",
             "Fenerbahce",
@@ -1979,12 +1987,11 @@ class RelevanceAnalyzer:
             # Score based on keyword matches
             score = sum(1 for kw in keywords if kw.lower() in segment.lower())
 
-            # Bonus for segments with team names (European + South American)
-            # V1.6: Added Brazilian, Argentine, and other South American clubs
+            # Bonus for segments with team names (ACTIVE SCOPE only)
+            # V12.4: PURGED European non-active clubs (Porto, Benfica, Arsenal, etc.)
+            # These caused false positives triggering FotMob 404s
             if re.search(
-                r"\b(Arsenal|Chelsea|Liverpool|Manchester|Tottenham|Newcastle|West Ham|"
-                r"Milan|Inter|Juventus|Roma|Napoli|Real Madrid|Barcelona|Bayern|"
-                r"PSG|Dortmund|Ajax|Porto|Benfica|"
+                r"\b("
                 r"Flamengo|Palmeiras|Corinthians|São Paulo|Sao Paulo|Santos|Fluminense|Botafogo|"
                 r"Vasco|Grêmio|Gremio|Internacional|Cruzeiro|Atlético Mineiro|Atletico Mineiro|"
                 r"River Plate|Boca Juniors|Racing|Independiente|San Lorenzo|"

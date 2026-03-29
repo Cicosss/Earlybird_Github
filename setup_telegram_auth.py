@@ -20,7 +20,12 @@ import sys
 
 from dotenv import load_dotenv
 from telethon import TelegramClient
-from telethon.errors import SessionPasswordNeededError
+from telethon.errors import (
+    ApiIdInvalidError,
+    FloodWaitError,
+    PhoneNumberInvalidError,
+    SessionPasswordNeededError,
+)
 
 load_dotenv()
 
@@ -105,7 +110,28 @@ async def main():
             print(f"📱 Using phone number: {phone}")
             print("   (If incorrect, press Ctrl+C and run again with correct number)")
 
-        await client.send_code_request(phone)
+        # Send code request with comprehensive error handling
+        try:
+            await client.send_code_request(phone)
+        except PhoneNumberInvalidError:
+            print("\n❌ ERROR: Invalid phone number format.")
+            print("   Make sure to include country code (e.g., +393331234567)")
+            await client.disconnect()
+            return
+        except FloodWaitError as e:
+            print("\n❌ ERROR: Telegram rate limiting in effect.")
+            print(f"   Please wait {e.seconds} seconds before trying again.")
+            await client.disconnect()
+            return
+        except ApiIdInvalidError:
+            print("\n❌ ERROR: Invalid API ID or API HASH.")
+            print("   Check your TELEGRAM_API_ID and TELEGRAM_API_HASH in .env file")
+            await client.disconnect()
+            return
+        except Exception as e:
+            print(f"\n❌ ERROR sending code request: {type(e).__name__}: {e}")
+            await client.disconnect()
+            return
 
         print("\n📬 A code has been sent to your Telegram app.")
         code = input("Enter code: ").strip()

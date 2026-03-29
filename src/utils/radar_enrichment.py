@@ -192,6 +192,10 @@ class RadarLightEnricher:
         """
         Cerca una partita nelle prossime N ore per la squadra specificata.
 
+        V12.4: Added active league scope filter to prevent non-active league
+        matches (e.g., Portuguese Liga) from being enriched and triggering
+        FotMob calls that result in 404 errors.
+
         Args:
             team_name: Nome della squadra (può essere parziale)
             hours: Finestra temporale in ore
@@ -201,6 +205,17 @@ class RadarLightEnricher:
         """
         if not self._db_available or not team_name:
             return None
+
+        # V12.4: Load active league keys for scope filtering
+        active_league_keys: set[str] | None = None
+        try:
+            from src.ingestion.league_manager import get_all_active_league_keys
+
+            active_league_keys = set(get_all_active_league_keys())
+        except ImportError:
+            logger.debug("[RADAR-ENRICH] league_manager not available, scope filter disabled")
+        except Exception as e:
+            logger.debug(f"[RADAR-ENRICH] Failed to load active leagues: {e}")
 
         try:
             from src.database.models import Match, SessionLocal
@@ -245,6 +260,18 @@ class RadarLightEnricher:
                         or team_lower in away_lower
                         or away_lower in team_lower
                     ):
+                        # V12.4: Active scope guard - skip matches from non-active leagues
+                        if (
+                            active_league_keys is not None
+                            and league
+                            and league not in active_league_keys
+                        ):
+                            logger.debug(
+                                f"🚫 [SCOPE] Skipping match {home_team} vs {away_team} "
+                                f"- league '{league}' not in active scope"
+                            )
+                            continue
+
                         logger.info(f"🔍 [RADAR-ENRICH] Found match: {home_team} vs {away_team}")
 
                         return {

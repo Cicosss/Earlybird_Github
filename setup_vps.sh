@@ -89,7 +89,6 @@ if command -v docker &> /dev/null; then
 else
     curl -fsSL https://get.docker.com -o get-docker.sh
     sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
     rm get-docker.sh
     echo -e "${GREEN}   ✅ Docker installed${NC}"
 fi
@@ -99,6 +98,11 @@ echo -e "${YELLOW}   🔄 Starting Docker service...${NC}"
 sudo systemctl start docker
 sudo systemctl enable docker
 echo -e "${GREEN}   ✅ Docker service started and enabled${NC}"
+
+# Add user to docker group (ALWAYS - even if docker was already installed)
+echo -e "${YELLOW}   🔄 Adding user to docker group...${NC}"
+sudo usermod -aG docker $USER
+echo -e "${GREEN}   ✅ User added to docker group${NC}"
 
 # Step 2: Python Virtual Environment (always use python3 -m venv for reliability)
 echo ""
@@ -304,24 +308,11 @@ echo -e "${YELLOW}   ℹ️  DuckDuckGo is the primary search engine (no setup n
 echo -e "${YELLOW}   ℹ️  Serper API is the paid fallback (configure in .env)${NC}"
 echo -e "${YELLOW}   ℹ️  Browser Monitor provides TIER 0 real-time monitoring${NC}"
 
-# Step 5b: Deploy Redlib (Self-hosted Reddit Proxy)
+# Step 5b: Reddit Proxy DEPRECATED in V8.0 (Reddit functionality removed)
 echo ""
-echo -e "${GREEN}🔴 [5b/6] Deploying Redlib (Reddit Proxy)...${NC}"
-if command -v docker &> /dev/null; then
-    echo "🚀 Deploying Redlib..."
-    if [ "$(docker ps -a -q -f name=redlib)" ]; then
-        echo -e "${YELLOW}   ⚠️ Removing existing Redlib container...${NC}"
-        docker rm -f redlib
-    fi
-    docker run -d \
-        --name redlib \
-        --restart unless-stopped \
-        -p 127.0.0.1:8888:8080 \
-        quay.io/redlib/redlib:latest
-    echo -e "${GREEN}   ✅ Redlib deployed on localhost:8888${NC}"
-else
-    echo -e "${RED}   ❌ Docker not available, skipping Redlib${NC}"
-fi
+echo -e "${YELLOW}🔴 [5b/6] Reddit Proxy (DEPRECATED - Skipped)...${NC}"
+echo -e "${YELLOW}   ℹ️  Reddit monitoring removed in V8.0${NC}"
+echo -e "${YELLOW}   ℹ️  Redlib is no longer installed or required${NC}"
 
 # Step 6: Environment Check
 echo ""

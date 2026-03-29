@@ -301,7 +301,7 @@ Act as a Betting Analyst. Answer these questions:
 3. Are we AHEAD of the market (news broke before odds moved), or BEHIND (market already priced it in)?
 
 **MARKET TIMING CONSTRAINT:**
-- If News is found BUT Odds have already dropped > 15%, AI must assume "Value is Gone" and output "NO BET" or a very low score.
+- If News is found BUT Odds have already dropped > 25%, AI must assume "Value is Gone" and output "NO BET" or a very low score.
 - Goal: The bot must catch news **before** the market reacts, not after.
 
 **SPECIAL FACTORS TO DETECT:**
@@ -447,7 +447,7 @@ Each tweet has a FRESHNESS TAG indicating reliability:
 - BET: If TACTICAL CONTEXT confirms news signal (cross-reference match)
 - BET: If stats strongly support a specific market (Goals/Cards/Corners)
 - BET: If FRESH Twitter intel reveals injury NOT yet in FotMob (early edge)
-- NO BET: If market already crashed >15% (already priced in) OR no key players missing OR conflicting information
+- NO BET: If market already crashed >25% (already priced in) OR no key players missing OR conflicting information
 - NO BET: If news is about BASKETBALL (Wrong Sport)
 - NO BET: If Twitter and FotMob conflict AND no resolution available
 
@@ -582,10 +582,10 @@ Sometimes, the official data feed (FotMob) might return `None` or `Unknown` for 
     "form_weight": 0-20 (how much team form/stats contributed),
     "injuries_weight": 0-15 (how much injury data contributed)
   }},
-  "recommended_market": "WINNER" or "DOUBLE_CHANCE" or "Over 2.5 Goals" or "Under 2.5 Goals" or "BTTS" or "Over X.5 Cards" or "Over X.5 Corners" or "Under X.5 Corners" or "NONE",
-  "primary_market": "1" or "X" or "2" or "1X" or "X2" or "Over 2.5 Goals" or "BTTS" or "Over 9.5 Corners" or "Over 4.5 Cards" or "NONE",
+  "recommended_market": "Over 2.5 Goals" or "Under 2.5 Goals" or "Under 3.5 Goals" or "Over 1.5 Goals" or "BTTS" or "Over X.5 Cards" or "Over X.5 Corners" or "Under X.5 Corners" or "NONE",
+  "primary_market": "1" or "X" or "2" or "1X" or "X2" or "Over 2.5 Goals" or "Under 2.5 Goals" or "Under 3.5 Goals" or "Over 1.5 Goals" or "BTTS" or "Over 9.5 Corners" or "Over 10.5 Corners" or "Over 3.5 Cards" or "Over 4.5 Cards" or "NONE",
   "primary_driver": "INJURY_INTEL" or "SHARP_MONEY" or "MATH_VALUE" or "CONTEXT_PLAY" or "CONTRARIAN",
-  "combo_suggestion": "Home Win + Over 2.5 Goals" or "Away Win + BTTS" or "1X + Over 9.5 Corners" or null,
+  "combo_suggestion": "1 + Over 2.5 Goals" or "2 + BTTS" or "1X + Under 3.5 Goals" or "X2 + Over 9.5 Corners" or null,
   "combo_reasoning": "REQUIRED - Always explain combo decision. If combo suggested: why stats support it. If null: why combo was skipped (e.g., 'Stats insufficienti per combo', 'Partita a basso punteggio', 'Dati mancanti')",
   "reasoning": "2-3 sentence explanation in ITALIAN correlating all sources. Include 'KEY RETURN', 'NATIONAL DUTY ABSENCE', or market-specific tags if detected."
 }}
@@ -849,6 +849,31 @@ def validate_ai_response(data: dict) -> dict:
         if key not in validated:
             validated[key] = value
 
+    # ── Cross-Field Consistency: recommended_market ↔ primary_market ──
+    # The AI may output generic categories like "WINNER" or "DOUBLE_CHANCE" for
+    # recommended_market. These are NOT settleable — the SettlementService needs a
+    # specific market identifier. This step enforces consistency and resolves generics.
+    _rm = validated.get("recommended_market", "NONE")
+    _pm = validated.get("primary_market", "NONE")
+
+    _winner_valid_primary = {"1", "X", "2"}
+    _dc_valid_primary = {"1X", "X2"}
+
+    if _rm == "WINNER" and _pm not in _winner_valid_primary:
+        logging.warning(
+            f"⚠️ AI Market Inconsistency: recommended_market=WINNER but primary_market={_pm}. "
+            f"Expected one of {_winner_valid_primary}. Downgrading to NONE."
+        )
+        validated["recommended_market"] = "NONE"
+        invalid_fields_found.append("recommended_market(WINNER+bad_primary)")
+    elif _rm == "DOUBLE_CHANCE" and _pm not in _dc_valid_primary:
+        logging.warning(
+            f"⚠️ AI Market Inconsistency: recommended_market=DOUBLE_CHANCE but primary_market={_pm}. "
+            f"Expected one of {_dc_valid_primary}. Downgrading to NONE."
+        )
+        validated["recommended_market"] = "NONE"
+        invalid_fields_found.append("recommended_market(DC+bad_primary)")
+
     # Track and alert on frequent invalid responses (thread-safe)
     with _ai_stats_lock:
         _ai_total_response_count += 1
@@ -865,6 +890,57 @@ def validate_ai_response(data: dict) -> dict:
                     )
 
     return validated
+
+
+# ── Market Resolution for Storage ──────────────────────────────────────
+# Generic categories that are NOT directly settleable by the SettlementService.
+# When these appear as recommended_market, we must resolve to a specific value.
+_GENERIC_MARKET_CATEGORIES = frozenset(
+    {
+        "WINNER",
+        "DOUBLE_CHANCE",
+        "GOALS",
+        "CARDS",
+        "CORNERS",
+        # NOTE: "BTTS" is NOT here — it is a specific, settleable market.
+        # The SettlementService evaluates "BTTS" directly (lines 1216-1221).
+        # Including it here would cause _resolve_market_for_storage() to
+        # return "NONE" when both primary_market and recommended_market are "BTTS".
+        "NONE",
+    }
+)
+
+
+def _resolve_market_for_storage(primary_market: str, recommended_market: str) -> str:
+    """
+    Resolve the best specific market string to store in NewsLog.recommended_market.
+
+    The NewsLog.recommended_market field MUST always contain a specific, settleable
+    market identifier (e.g., "1", "X2", "Over 2.5 Goals") — never a generic category
+    like "WINNER" or "DOUBLE_CHANCE" that the SettlementService cannot evaluate.
+
+    Resolution priority:
+    1. primary_market if it's specific (not "NONE" and not a generic category)
+    2. recommended_market if it's specific (not a generic category)
+    3. "NONE" as fallback
+
+    Args:
+        primary_market: The specific market from AI (e.g., "1", "X2", "Over 2.5 Goals")
+        recommended_market: The market category from AI (e.g., "WINNER", "Over 2.5 Goals")
+
+    Returns:
+        A specific, settleable market string
+    """
+    # Priority 1: primary_market is specific
+    if primary_market and primary_market not in _GENERIC_MARKET_CATEGORIES:
+        return primary_market
+
+    # Priority 2: recommended_market is specific (e.g., "Over 2.5 Goals")
+    if recommended_market and recommended_market not in _GENERIC_MARKET_CATEGORIES:
+        return recommended_market
+
+    # Priority 3: No specific market available
+    return "NONE"
 
 
 # AI Response Quality Tracking (Thread-Safe)
@@ -1984,15 +2060,21 @@ def analyze_with_triangulation(
                 league = snippet_data.get("league")
                 # Mock data doesn't have market/driver info, so use None
                 if league:
-                    adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
-                        base_score=score,
-                        league=league,
-                        market=None,  # No market info in mock data
-                        driver=None,  # No driver info in mock data
+                    # COVE FIX: Use apply_weight_to_score_with_original to preserve
+                    # original AI score for threshold checks
+                    original_score, adjusted_score, weight_log_msg, weight = (
+                        optimizer.apply_weight_to_score_with_original(
+                            base_score=score,
+                            league=league,
+                            market=None,  # No market info in mock data
+                            driver=None,  # No driver info in mock data
+                        )
                     )
                     if weight_log_msg:
                         logging.info(weight_log_msg)
-                    score = adjusted_score
+                    # COVE FIX: Use ORIGINAL AI score for NewsLog, not adjusted
+                    # The optimizer weight is still logged but doesn't crush the score
+                    score = original_score
             except Exception as e:
                 logging.warning(f"⚠️ Failed to apply optimizer weight to mock data: {e}")
                 # Continue with original score
@@ -2382,7 +2464,7 @@ def analyze_with_triangulation(
         combo_reasoning = data.get("combo_reasoning")
 
         # V5.1: Programmatic Market Veto - Hard rule for market crashes
-        # If odds have dropped >= 15%, override verdict to NO BET
+        # If odds have dropped >= 25%, override verdict to NO BET
         # This ensures the bot doesn't bet on fully priced-in news
         odds_drop = 0.0
         try:
@@ -2395,12 +2477,17 @@ def analyze_with_triangulation(
         except (ValueError, AttributeError, TypeError):
             pass
 
-        # Apply market veto if drop >= 15%
-        if odds_drop >= 0.15 and verdict == "BET":
+        # Apply market veto if drop >= 25%
+        if odds_drop >= 0.25 and verdict == "BET":
             verdict = "NO BET"
-            reasoning = f"⚠️ VALUE GONE: Market already crashed (>15% drop). News is fully priced in.\n\n{reasoning}"
+            reasoning = f"⚠️ VALUE GONE: Market already crashed (>25% drop). News is fully priced in.\n\n{reasoning}"
+            # V10.6 TRACER: Market Veto rejection
+            match_name = f"{snippet_data.get('home_team', 'Unknown')} vs {snippet_data.get('away_team', 'Unknown')}"
             logging.info(
-                f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop * 100:.1f}% (>=15%), overriding verdict to NO BET"
+                f"🔴 [TRACER] Match {match_name} rejected. Reason: Market Veto (Odds dropped {odds_drop * 100:.1f}%). Score: {score}"
+            )
+            logging.info(
+                f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop * 100:.1f}% (>=25%), overriding verdict to NO BET"
             )
 
         # V9.0: REFEREE INTELLIGENCE BOOST
@@ -2470,6 +2557,11 @@ def analyze_with_triangulation(
                         original_verdict = verdict
                         verdict = "NO BET"
                         reasoning = f"{veto_reason}\n\n{reasoning}"
+                        # V10.6 TRACER: Referee Veto rejection
+                        match_name = f"{snippet_data.get('home_team', 'Unknown')} vs {snippet_data.get('away_team', 'Unknown')}"
+                        logging.info(
+                            f"🔴 [TRACER] Match {match_name} rejected. Reason: Referee Veto ({referee_info.name}). Score: {score}"
+                        )
                         logging.info(f"   {veto_reason} → overriding verdict to NO BET")
 
                         # Record veto in metrics and logger
@@ -3387,7 +3479,7 @@ def analyze_with_triangulation(
         try:
             # Only check convergence if market veto hasn't been triggered
             # Market veto takes precedence over convergence
-            if odds_drop < 0.15:
+            if odds_drop < 0.25:
                 is_convergent, convergence_sources = detect_cross_source_convergence(
                     snippet_data=snippet_data, twitter_intel=twitter_intel
                 )
@@ -3415,12 +3507,19 @@ def analyze_with_triangulation(
             driver = primary_driver
 
             if league and market:
-                adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
-                    base_score=score, league=league, market=market, driver=driver
+                # COVE FIX: Use apply_weight_to_score_with_original to preserve
+                # original AI score for threshold checks and NewsLog storage
+                original_score, adjusted_score, weight_log_msg, weight = (
+                    optimizer.apply_weight_to_score_with_original(
+                        base_score=score, league=league, market=market, driver=driver
+                    )
                 )
                 if weight_log_msg:
                     logging.info(weight_log_msg)
-                score = adjusted_score
+                # COVE FIX: Use ORIGINAL AI score for NewsLog, not adjusted
+                # This prevents "silent alert drops" where optimizer weight crushes
+                # legitimate high-scoring AI analyses below threshold
+                score = original_score
         except Exception as e:
             logging.warning(f"⚠️ Failed to apply optimizer weight: {e}")
             # Continue with original score
@@ -3434,7 +3533,7 @@ def analyze_with_triangulation(
             affected_team=snippet_data.get("team"),
             combo_suggestion=combo_suggestion,
             combo_reasoning=combo_reasoning,
-            recommended_market=primary_market or recommended_market,
+            recommended_market=_resolve_market_for_storage(primary_market, recommended_market),
             primary_driver=primary_driver,
             odds_taken=odds_taken,  # V4.2: CLV Tracking
             confidence=confidence,  # V11.1: AI confidence (0-100) for BettingQuant
@@ -3568,15 +3667,20 @@ def basic_keyword_analysis(text: str, team: str, snippet_data: dict) -> NewsLog 
         # In fallback mode, we don't have market/driver info, so use None
         # The optimizer will return the base score if market is None
         if league:
-            adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
-                base_score=score,
-                league=league,
-                market=None,  # No market info in fallback mode
-                driver=None,  # No driver info in fallback mode
+            # COVE FIX: Use apply_weight_to_score_with_original to preserve
+            # original AI score for threshold checks
+            original_score, adjusted_score, weight_log_msg, weight = (
+                optimizer.apply_weight_to_score_with_original(
+                    base_score=score,
+                    league=league,
+                    market=None,  # No market info in fallback mode
+                    driver=None,  # No driver info in fallback mode
+                )
             )
             if weight_log_msg:
                 logging.info(weight_log_msg)
-            score = adjusted_score
+            # COVE FIX: Use ORIGINAL AI score for NewsLog, not adjusted
+            score = original_score
     except Exception as e:
         logging.warning(f"⚠️ Failed to apply optimizer weight in fallback mode: {e}")
         # Continue with original score

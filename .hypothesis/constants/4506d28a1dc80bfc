@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/database/team_alias_utils.py
+# hypothesis_version: 6.151.4
+
+[' AC', ' AS', ' Calcio', ' Club', ' FC', ' FK', ' SC', ' SK', ' Spor', '0%', 'api_name', 'countries', 'country', 'country_coverage', 'fotmob_coverage', 'fotmob_id', 'fotmob_ids', 'league', 'league_coverage', 'leagues', 'search_name', 'team_name', 'telegram_channel', 'telegram_channels', 'telegram_coverage', 'total_teams', 'twitter_coverage', 'twitter_handle', 'twitter_handles']

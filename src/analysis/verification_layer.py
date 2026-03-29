@@ -1155,27 +1155,47 @@ def create_fallback_result(
     """
     Create a result when all providers fail.
 
-    V7.3 FIX: Conservative approach for high-score alerts.
-    If verification fails for alerts with score >= 9.0, REJECT them.
-    This prevents false positives on critical alerts when we can't verify data.
+    V12.4 FIX: "Surgical Dismantling of the 9.0+ Paradox"
+    Elite signals (score >= 9.0) are NEVER silently killed by verification failures.
+    Instead, they pass through with LOW confidence and a clear warning, trusting
+    the upstream AI analysis (DeepSeek R1 Level 3) that produced the high score.
+
+    Rationale: The 9.0+ score already passed the 3-Level Intelligence Gate
+    (147 native keywords → DeepSeek V3 classification → DeepSeek R1 deep reasoning).
+    Rejecting it purely because Tavily/Perplexity are rate-limited is a "system saboteur"
+    that causes total alert blackouts for the most valuable signals.
+
+    The Tactical Veto V8.0 (in analyzer.py) remains the final guard before the
+    alert is sent. This function is NOT the final gate—it merely enriches data.
 
     Requirements: 7.4
     """
-    # V7.3 FIX: Conservative rejection for high-score alerts without verification
+    # V12.4: Elite signals ALWAYS pass through, with warning
     if request.preliminary_score >= 9.0:
+        logger.warning(
+            f"⚠️ [V12.4] Elite signal (score {request.preliminary_score}) unverifiable - "
+            f"PASSING THROUGH with Low confidence. Reason: {reason}"
+        )
         return VerificationResult(
-            status=VerificationStatus.REJECT,
+            status=VerificationStatus.CONFIRM,
             original_score=request.preliminary_score,
-            adjusted_score=0.0,
-            score_adjustment_reason=f"Verifica fallita per alert critico (score {request.preliminary_score})",
+            adjusted_score=request.preliminary_score,
+            score_adjustment_reason=None,
             original_market=request.suggested_market,
             recommended_market=None,
             alternative_markets=[],
-            inconsistencies=["Verification timeout - troppo rischioso procedere senza conferma"],
+            inconsistencies=[
+                "⚠️ [UNVERIFIED] News found but secondary web verification failed. Proceed with extreme caution."
+            ],
             overall_confidence="Low",
-            reasoning=f"Alert respinto: {reason}. Score troppo alto ({request.preliminary_score}) per procedere senza verifica.",
-            verified_data=None,
-            rejection_reason=f"Verification failed for critical alert (score >= 9.0): {reason}",
+            reasoning=(
+                f"Alert ELITE ({request.preliminary_score}) non verificabile: {reason}. "
+                f"Il segnale è passato attraverso il 3-Level Intelligence Gate con successo. "
+                f"Verifica web fallita ma il segnale viene inoltrato con confidenza LOW. "
+                f"Il Tactical Veto V8.0 rimane il guardiano finale."
+            ),
+            verified_data=VerifiedData(source="unverified", data_confidence="Low"),
+            rejection_reason=None,
         )
 
     # For lower scores (< 9.0), proceed with caution but allow alert
@@ -1277,6 +1297,18 @@ except ImportError:
             return json.loads(text)
         except json.JSONDecodeError:
             return {}
+
+
+# V12.4: Import Tavily budget manager for budget-aware verification
+try:
+    from src.ingestion.tavily_budget import get_budget_manager as _get_tavily_budget_manager
+
+    _TAVILY_BUDGET_AVAILABLE = True
+except ImportError:
+    _TAVILY_BUDGET_AVAILABLE = False
+    _get_tavily_budget_manager = None  # type: ignore
+    _get_tavily_budget_manager = None
+    logger.debug("Tavily budget manager not available for verification budget checks")
 
 
 # ============================================
@@ -2685,6 +2717,10 @@ class TavilyVerifier:
         """
         Execute Tavily query and return raw response.
 
+        V12.4: Added budget-aware check before calling provider.search().
+        Checks Tavily's budget status (degraded/disabled) before making API calls.
+        Prevents empty/error results by respecting the budget limits.
+
         Args:
             request: VerificationRequest with match data
 
@@ -2703,6 +2739,24 @@ class TavilyVerifier:
         if not self.is_available():
             logger.warning("⚠️ [VERIFICATION] Tavily not available")
             return None
+
+        # V12.4: Budget-aware check - prevent calls when budget is exhausted
+        try:
+            budget_status = self.provider.get_budget_status()
+            if budget_status.is_disabled:
+                logger.warning(
+                    "⚠️ [VERIFICATION-V12.4] Tavily budget DISABLED "
+                    f"({budget_status.monthly_used}/{budget_status.monthly_limit}). "
+                    "Skipping verification to prevent errors."
+                )
+                return None
+            elif budget_status.is_degraded:
+                logger.debug(
+                    f"⚠️ [VERIFICATION-V12.4] Tavily budget degraded "
+                    f"({budget_status.usage_percentage:.1f}%). Proceeding with caution."
+                )
+        except Exception as e:
+            logger.debug(f"⚠️ [VERIFICATION-V12.4] Budget check failed (non-blocking): {e}")
 
         query = self.build_verification_query(request)
 
@@ -5416,6 +5470,11 @@ def verify_alert(request: VerificationRequest) -> VerificationResult:
     # Step 2: Get verified data from external sources
     try:
         verified_data = orchestrator.get_verified_data(request)
+        if verified_data is None:
+            logger.error(
+                f"❌ [VERIFICATION] get_verified_data returned None for {request.match_id}"
+            )
+            return create_fallback_result(request, "Provider returned None - internal failure")
         logger.info(f"📊 [VERIFICATION] Data confidence: {verified_data.data_confidence}")
         logger.info(f"   Source: {verified_data.source}")
     except Exception as e:

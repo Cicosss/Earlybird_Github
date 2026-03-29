@@ -232,14 +232,23 @@ def check_and_migrate():
             cursor.execute("ALTER TABLE news_logs ADD COLUMN confidence REAL")
             migrations_applied += 1
 
+        # V14.0: Line movement explanation via Tavily
+        # CRITICAL FIX: Added to prevent OperationalError when settlement_service
+        # tries to save line_movement_explanation to news_logs
+        if "line_movement_explanation" not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.line_movement_explanation (V14.0 - Line Movement)")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN line_movement_explanation TEXT")
+            migrations_applied += 1
+
         # ============================================
         # MIGRATION: matches table
         # ============================================
         matches_columns = get_table_columns(cursor, "matches")
 
-        # V2.6: Add highest_score_sent for score-delta deduplication
+        # V2.6: Add highest_score_sent for settlement tracking (NOT for alert deduplication)
+        # Used by settlement service to filter matches for CLV calculation
         if "highest_score_sent" not in matches_columns:
-            logger.info("   📝 Adding column: matches.highest_score_sent")
+            logger.info("   📝 Adding column: matches.highest_score_sent (settlement tracking)")
             cursor.execute("ALTER TABLE matches ADD COLUMN highest_score_sent REAL DEFAULT 0.0")
             migrations_applied += 1
 

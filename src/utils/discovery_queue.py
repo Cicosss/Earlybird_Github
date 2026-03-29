@@ -515,6 +515,41 @@ class DiscoveryQueue:
                 return len(self._queue)
             return len(self._by_league.get(league_key, []))
 
+    @property
+    def ttl_hours(self) -> int:
+        """
+        Get the TTL (time-to-live) configuration in hours.
+
+        This property provides read-only access to the TTL configuration,
+        allowing external code to check expiration settings without
+        accessing private members directly.
+
+        Returns:
+            Number of hours before items expire
+        """
+        return self._ttl_hours
+
+    def get_all_items(self) -> list[DiscoveryItem]:
+        """
+        Get all items from the queue for safe iteration.
+
+        This method provides thread-safe access to all queue items
+        without exposing the internal lock directly. Returns a copy
+        of the queue contents to prevent external modification.
+
+        Usage:
+            items = queue.get_all_items()
+            for item in items:
+                if item.is_expired(queue.ttl_hours):
+                    continue
+                # process item...
+
+        Returns:
+            List of all DiscoveryItem objects (copies, not references)
+        """
+        with self._lock:
+            return list(self._queue)
+
     def get_stats(self) -> dict[str, Any]:
         """
         Get queue statistics for monitoring.

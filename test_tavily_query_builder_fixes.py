@@ -1,338 +1,318 @@
 #!/usr/bin/env python3
 """
-Test script for TavilyQueryBuilder V7.1 fixes
+Test script for TavilyQueryBuilder V8.0
 
-Tests the following fixes:
+Tests the query builder functions that are actually used in production:
 1. Python 3.9 compatibility (Optional[list[str]] syntax)
-2. Error handling in parse_batched_response()
-3. Error handling in split_long_query()
+2. build_match_enrichment_query()
+3. build_news_verification_query()
+4. build_biscotto_query()
+5. build_twitter_recovery_query()
+
+Note: V8.0 removed unused functions (parse_batched_response, split_long_query,
+      estimate_query_count) that were never called in production.
 """
 
-import sys
 import logging
+import sys
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 # Add src to path
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 from src.ingestion.tavily_query_builder import TavilyQueryBuilder
 
 
-class MockTavilyResult:
-    """Mock TavilyResult for testing"""
-    def __init__(self, content):
-        self.content = content
-
-
-class MockTavilyResponse:
-    """Mock TavilyResponse for testing"""
-    def __init__(self, answer=None, results=None):
-        self.answer = answer
-        self.results = results or []
-
-
 def test_python_39_compatibility():
     """Test that the code uses Optional[list[str]] syntax compatible with Python 3.9"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 1: Python 3.9 Compatibility")
-    print("="*80)
-    
+    print("=" * 80)
+
     try:
         # Test build_match_enrichment_query with Optional[list[str]]
         query = TavilyQueryBuilder.build_match_enrichment_query(
             home_team="Team A",
             away_team="Team B",
             match_date="2024-01-01",
-            questions=None  # Test None value
+            questions=None,  # Test None value
         )
-        assert query == "Team A vs Team B 2024-01-01: Recent team news and injuries | Head-to-head history | Current form and standings | Key player availability"
+        assert (
+            query
+            == "Team A vs Team B 2024-01-01: Recent team news and injuries | Head-to-head history | Current form and standings | Key player availability"
+        )
         print("✅ build_match_enrichment_query with questions=None: PASSED")
-        
+
         # Test with empty list
         query = TavilyQueryBuilder.build_match_enrichment_query(
-            home_team="Team A",
-            away_team="Team B",
-            match_date="2024-01-01",
-            questions=[]
+            home_team="Team A", away_team="Team B", match_date="2024-01-01", questions=[]
         )
         assert query == "Team A vs Team B 2024-01-01"
         print("✅ build_match_enrichment_query with questions=[]: PASSED")
-        
+
         # Test with custom questions
         query = TavilyQueryBuilder.build_match_enrichment_query(
             home_team="Team A",
             away_team="Team B",
             match_date="2024-01-01",
-            questions=["Question 1", "Question 2"]
+            questions=["Question 1", "Question 2"],
         )
         assert query == "Team A vs Team B 2024-01-01: Question 1 | Question 2"
         print("✅ build_match_enrichment_query with custom questions: PASSED")
-        
+
         # Test build_twitter_recovery_query with Optional[list[str]]
-        query = TavilyQueryBuilder.build_twitter_recovery_query(
-            handle="@user",
-            keywords=None
-        )
+        query = TavilyQueryBuilder.build_twitter_recovery_query(handle="@user", keywords=None)
         assert query == "Twitter @user recent tweets"
         print("✅ build_twitter_recovery_query with keywords=None: PASSED")
-        
+
         query = TavilyQueryBuilder.build_twitter_recovery_query(
-            handle="@user",
-            keywords=["keyword1", "keyword2"]
+            handle="@user", keywords=["keyword1", "keyword2"]
         )
         assert query == "Twitter @user recent tweets keyword1 keyword2"
         print("✅ build_twitter_recovery_query with keywords: PASSED")
-        
+
         print("\n✅ TEST 1: Python 3.9 Compatibility - ALL PASSED")
         return True
-        
+
     except Exception as e:
         print(f"\n❌ TEST 1: Python 3.9 Compatibility - FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
-def test_parse_batched_response_error_handling():
-    """Test error handling in parse_batched_response()"""
-    print("\n" + "="*80)
-    print("TEST 2: Error Handling in parse_batched_response()")
-    print("="*80)
-    
+def test_build_match_enrichment_query():
+    """Test build_match_enrichment_query() edge cases"""
+    print("\n" + "=" * 80)
+    print("TEST 2: build_match_enrichment_query() Edge Cases")
+    print("=" * 80)
+
     try:
-        # Test 1: None response
-        answers = TavilyQueryBuilder.parse_batched_response(None, 3)
-        assert answers == ["", "", ""]
-        print("✅ parse_batched_response with None response: PASSED")
-        
-        # Test 2: Response with missing 'answer' attribute
-        class ResponseWithoutAnswer:
-            def __init__(self):
-                self.results = []
-        
-        response = ResponseWithoutAnswer()
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert answers == ["", "", ""]
-        print("✅ parse_batched_response with missing 'answer' attribute: PASSED")
-        
-        # Test 3: Response with missing 'results' attribute
-        class ResponseWithoutResults:
-            def __init__(self):
-                self.answer = "Test answer"
-        
-        response = ResponseWithoutResults()
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        # Should use the answer for all questions
-        assert len(answers) == 3
-        assert all(a == "Test answer" for a in answers)
-        print("✅ parse_batched_response with missing 'results' attribute: PASSED")
-        
-        # Test 4: Response with results missing 'content' attribute
-        class ResultWithoutContent:
-            pass
-        
-        response = MockTavilyResponse(
-            answer=None,
-            results=[ResultWithoutContent(), ResultWithoutContent()]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 2)
-        assert answers == ["", ""]
-        print("✅ parse_batched_response with results missing 'content' attribute: PASSED")
-        
-        # Test 5: Response with valid numbered list format
-        response = MockTavilyResponse(
-            answer="1. Answer one 2. Answer two 3. Answer three",
-            results=[]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert answers == ["Answer one", "Answer two", "Answer three"]
-        print("✅ parse_batched_response with numbered list format: PASSED")
-        
-        # Test 6: Response with pipe separator format
-        response = MockTavilyResponse(
-            answer="Answer one | Answer two | Answer three",
-            results=[]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert answers == ["Answer one", "Answer two", "Answer three"]
-        print("✅ parse_batched_response with pipe separator format: PASSED")
-        
-        # Test 7: Response with valid results
-        response = MockTavilyResponse(
-            answer=None,
-            results=[
-                MockTavilyResult("Content 1"),
-                MockTavilyResult("Content 2"),
-                MockTavilyResult("Content 3")
-            ]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert answers == ["Content 1", "Content 2", "Content 3"]
-        print("✅ parse_batched_response with valid results: PASSED")
-        
-        # Test 8: Response with more results than questions
-        response = MockTavilyResponse(
-            answer=None,
-            results=[
-                MockTavilyResult("Content 1"),
-                MockTavilyResult("Content 2"),
-                MockTavilyResult("Content 3"),
-                MockTavilyResult("Content 4")
-            ]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert answers == ["Content 1", "Content 2", "Content 3"]
-        print("✅ parse_batched_response with more results than questions: PASSED")
-        
-        # Test 9: Response with fewer results than questions
-        response = MockTavilyResponse(
-            answer=None,
-            results=[
-                MockTavilyResult("Content 1"),
-                MockTavilyResult("Content 2")
-            ]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert answers == ["Content 1", "Content 2", ""]
-        print("✅ parse_batched_response with fewer results than questions: PASSED")
-        
-        print("\n✅ TEST 2: Error Handling in parse_batched_response() - ALL PASSED")
-        return True
-        
-    except Exception as e:
-        print(f"\n❌ TEST 2: Error Handling in parse_batched_response() - FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def test_split_long_query_error_handling():
-    """Test error handling in split_long_query()"""
-    print("\n" + "="*80)
-    print("TEST 3: Error Handling in split_long_query()")
-    print("="*80)
-    
-    try:
-        # Test 1: None input
-        queries = TavilyQueryBuilder.split_long_query(None)
-        assert queries == []
-        print("✅ split_long_query with None input: PASSED")
-        
-        # Test 2: Empty string
-        queries = TavilyQueryBuilder.split_long_query("")
-        assert queries == []
-        print("✅ split_long_query with empty string: PASSED")
-        
-        # Test 3: Whitespace only
-        queries = TavilyQueryBuilder.split_long_query("   ")
-        assert queries == []
-        print("✅ split_long_query with whitespace only: PASSED")
-        
-        # Test 4: Short query (no split needed)
-        queries = TavilyQueryBuilder.split_long_query("Short query")
-        assert queries == ["Short query"]
-        print("✅ split_long_query with short query: PASSED")
-        
-        # Test 5: Long query with pipe separator
-        long_query = "Team A vs Team B: Question 1 | Question 2 | Question 3 | Question 4 | Question 5 | Question 6"
-        queries = TavilyQueryBuilder.split_long_query(long_query, max_length=50)
-        assert len(queries) > 1
-        assert all(len(q) <= 50 for q in queries)
-        print(f"✅ split_long_query with long query (split into {len(queries)} parts): PASSED")
-        
-        # Test 6: Very long query without separator
-        very_long_query = " ".join(["word"] * 100)
-        queries = TavilyQueryBuilder.split_long_query(very_long_query, max_length=50)
-        assert len(queries) > 1
-        assert all(len(q) <= 50 for q in queries)
-        print(f"✅ split_long_query with very long query (split into {len(queries)} parts): PASSED")
-        
-        # Test 7: Query with colon but no pipe separator
-        query = "Team A vs Team B: This is a very long query that needs to be split into multiple parts"
-        queries = TavilyQueryBuilder.split_long_query(query, max_length=50)
-        assert len(queries) > 1
-        assert all(len(q) <= 50 for q in queries)
-        print(f"✅ split_long_query with colon but no separator (split into {len(queries)} parts): PASSED")
-        
-        print("\n✅ TEST 3: Error Handling in split_long_query() - ALL PASSED")
-        return True
-        
-    except Exception as e:
-        print(f"\n❌ TEST 3: Error Handling in split_long_query() - FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-def test_integration():
-    """Test integration scenarios"""
-    print("\n" + "="*80)
-    print("TEST 4: Integration Scenarios")
-    print("="*80)
-    
-    try:
-        # Test 1: Build query and split it
+        # Test 1: Empty home team
         query = TavilyQueryBuilder.build_match_enrichment_query(
+            home_team="", away_team="Team B", match_date="2024-01-01"
+        )
+        assert query == ""
+        print("✅ build_match_enrichment_query with empty home_team: PASSED")
+
+        # Test 2: Empty away team
+        query = TavilyQueryBuilder.build_match_enrichment_query(
+            home_team="Team A", away_team="", match_date="2024-01-01"
+        )
+        assert query == ""
+        print("✅ build_match_enrichment_query with empty away_team: PASSED")
+
+        # Test 3: None home team
+        query = TavilyQueryBuilder.build_match_enrichment_query(
+            home_team=None, away_team="Team B", match_date="2024-01-01"
+        )
+        assert query == ""
+        print("✅ build_match_enrichment_query with None home_team: PASSED")
+
+        # Test 4: Empty match date (should still work)
+        query = TavilyQueryBuilder.build_match_enrichment_query(
+            home_team="Team A", away_team="Team B", match_date=""
+        )
+        assert "Team A vs Team B" in query
+        print("✅ build_match_enrichment_query with empty match_date: PASSED")
+
+        print("\n✅ TEST 2: build_match_enrichment_query() Edge Cases - ALL PASSED")
+        return True
+
+    except Exception as e:
+        print(f"\n❌ TEST 2: build_match_enrichment_query() Edge Cases - FAILED: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+
+def test_build_news_verification_query():
+    """Test build_news_verification_query() edge cases"""
+    print("\n" + "=" * 80)
+    print("TEST 3: build_news_verification_query() Edge Cases")
+    print("=" * 80)
+
+    try:
+        # Test 1: Empty news title
+        query = TavilyQueryBuilder.build_news_verification_query(news_title="", team_name="Team A")
+        assert query == ""
+        print("✅ build_news_verification_query with empty news_title: PASSED")
+
+        # Test 2: None news title
+        query = TavilyQueryBuilder.build_news_verification_query(
+            news_title=None, team_name="Team A"
+        )
+        assert query == ""
+        print("✅ build_news_verification_query with None news_title: PASSED")
+
+        # Test 3: Very long title (should truncate)
+        long_title = "A" * 300
+        query = TavilyQueryBuilder.build_news_verification_query(
+            news_title=long_title, team_name="Team A"
+        )
+        assert len(query) < 350  # Should be truncated
+        print("✅ build_news_verification_query with long title: PASSED")
+
+        # Test 4: With all parameters
+        query = TavilyQueryBuilder.build_news_verification_query(
+            news_title="Breaking News", team_name="Team A", additional_context="urgent"
+        )
+        assert "Verify:" in query
+        assert "Team A" in query
+        assert "urgent" in query
+        print("✅ build_news_verification_query with all parameters: PASSED")
+
+        print("\n✅ TEST 3: build_news_verification_query() Edge Cases - ALL PASSED")
+        return True
+
+    except Exception as e:
+        print(f"\n❌ TEST 3: build_news_verification_query() Edge Cases - FAILED: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+
+def test_build_biscotto_query():
+    """Test build_biscotto_query() edge cases"""
+    print("\n" + "=" * 80)
+    print("TEST 4: build_biscotto_query() Edge Cases")
+    print("=" * 80)
+
+    try:
+        # Test 1: Empty home team
+        query = TavilyQueryBuilder.build_biscotto_query(
+            home_team="", away_team="Team B", league="Serie A", season_context="end of season"
+        )
+        assert query == ""
+        print("✅ build_biscotto_query with empty home_team: PASSED")
+
+        # Test 2: Empty away team
+        query = TavilyQueryBuilder.build_biscotto_query(
+            home_team="Team A", away_team="", league="Serie A", season_context="end of season"
+        )
+        assert query == ""
+        print("✅ build_biscotto_query with empty away_team: PASSED")
+
+        # Test 3: Missing league (should still work)
+        query = TavilyQueryBuilder.build_biscotto_query(
+            home_team="Team A", away_team="Team B", league="", season_context="end of season"
+        )
+        assert "Team A vs Team B" in query
+        assert "mutual benefit" in query
+        print("✅ build_biscotto_query with empty league: PASSED")
+
+        # Test 4: Full parameters
+        query = TavilyQueryBuilder.build_biscotto_query(
             home_team="Team A",
             away_team="Team B",
-            match_date="2024-01-01",
-            questions=["Question 1", "Question 2", "Question 3", "Question 4", "Question 5"]
+            league="Serie A",
+            season_context="last 3 matches of season",
         )
-        queries = TavilyQueryBuilder.split_long_query(query, max_length=50)
-        assert len(queries) > 1
-        print(f"✅ Integration test: Built query and split into {len(queries)} parts: PASSED")
-        
-        # Test 2: Parse response from batched query
-        response = MockTavilyResponse(
-            answer="1. Answer one 2. Answer two 3. Answer three",
-            results=[]
-        )
-        answers = TavilyQueryBuilder.parse_batched_response(response, 3)
-        assert len(answers) == 3
-        print("✅ Integration test: Parsed batched response: PASSED")
-        
-        print("\n✅ TEST 4: Integration Scenarios - ALL PASSED")
+        assert "Team A vs Team B" in query
+        assert "Serie A" in query
+        assert "mutual benefit" in query
+        print("✅ build_biscotto_query with full parameters: PASSED")
+
+        print("\n✅ TEST 4: build_biscotto_query() Edge Cases - ALL PASSED")
         return True
-        
+
     except Exception as e:
-        print(f"\n❌ TEST 4: Integration Scenarios - FAILED: {e}")
+        print(f"\n❌ TEST 4: build_biscotto_query() Edge Cases - FAILED: {e}")
         import traceback
+
+        traceback.print_exc()
+        return False
+
+
+def test_build_twitter_recovery_query():
+    """Test build_twitter_recovery_query() edge cases"""
+    print("\n" + "=" * 80)
+    print("TEST 5: build_twitter_recovery_query() Edge Cases")
+    print("=" * 80)
+
+    try:
+        # Test 1: Empty handle
+        query = TavilyQueryBuilder.build_twitter_recovery_query(handle="")
+        assert query == ""
+        print("✅ build_twitter_recovery_query with empty handle: PASSED")
+
+        # Test 2: None handle
+        query = TavilyQueryBuilder.build_twitter_recovery_query(handle=None)
+        assert query == ""
+        print("✅ build_twitter_recovery_query with None handle: PASSED")
+
+        # Test 3: Handle without @ (should add it)
+        query = TavilyQueryBuilder.build_twitter_recovery_query(handle="user")
+        assert "@user" in query
+        print("✅ build_twitter_recovery_query with handle without @: PASSED")
+
+        # Test 4: Handle with @ (should not duplicate)
+        query = TavilyQueryBuilder.build_twitter_recovery_query(handle="@user")
+        assert query.count("@") == 1
+        print("✅ build_twitter_recovery_query with handle with @: PASSED")
+
+        # Test 5: With keywords (should limit to 5)
+        many_keywords = ["kw1", "kw2", "kw3", "kw4", "kw5", "kw6", "kw7"]
+        query = TavilyQueryBuilder.build_twitter_recovery_query(
+            handle="@user", keywords=many_keywords
+        )
+        assert "kw1" in query
+        assert "kw5" in query
+        assert "kw6" not in query  # Should be limited to 5
+        print("✅ build_twitter_recovery_query with many keywords: PASSED")
+
+        print("\n✅ TEST 5: build_twitter_recovery_query() Edge Cases - ALL PASSED")
+        return True
+
+    except Exception as e:
+        print(f"\n❌ TEST 5: build_twitter_recovery_query() Edge Cases - FAILED: {e}")
+        import traceback
+
         traceback.print_exc()
         return False
 
 
 def main():
     """Run all tests"""
-    print("\n" + "="*80)
-    print("TAVILY QUERY BUILDER V7.1 FIXES - TEST SUITE")
-    print("="*80)
-    
+    print("\n" + "=" * 80)
+    print("TAVILY QUERY BUILDER V8.0 - TEST SUITE")
+    print("=" * 80)
+
     results = []
-    
+
     results.append(("Python 3.9 Compatibility", test_python_39_compatibility()))
-    results.append(("Error Handling in parse_batched_response()", test_parse_batched_response_error_handling()))
-    results.append(("Error Handling in split_long_query()", test_split_long_query_error_handling()))
-    results.append(("Integration Scenarios", test_integration()))
-    
+    results.append(
+        ("build_match_enrichment_query() Edge Cases", test_build_match_enrichment_query())
+    )
+    results.append(
+        ("build_news_verification_query() Edge Cases", test_build_news_verification_query())
+    )
+    results.append(("build_biscotto_query() Edge Cases", test_build_biscotto_query()))
+    results.append(
+        ("build_twitter_recovery_query() Edge Cases", test_build_twitter_recovery_query())
+    )
+
     # Print summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST SUMMARY")
-    print("="*80)
-    
+    print("=" * 80)
+
     all_passed = True
     for test_name, passed in results:
         status = "✅ PASSED" if passed else "❌ FAILED"
         print(f"{test_name}: {status}")
         if not passed:
             all_passed = False
-    
-    print("="*80)
-    
+
+    print("=" * 80)
+
     if all_passed:
         print("\n🎉 ALL TESTS PASSED!")
         return 0

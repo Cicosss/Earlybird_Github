@@ -701,9 +701,28 @@ def check_quota_status() -> dict[str, Any]:
         return {"remaining": 500, "used": "error", "emergency_mode": False}
 
 
-def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
+def ingest_fixtures(
+    target_leagues: list[str] | None = None,
+    use_auto_discovery: bool = True,
+    force_all: bool = False,
+):
+    """
+    V12.0 NEWS-DRIVEN MODE:
+    =====================
+    When target_leagues is None AND use_auto_discovery is False,
+    the function operates in "passive" mode - no bulk fetching.
+    Use fetch_odds_for_team() for on-demand odds fetching instead.
+    """
     """
     Fetches upcoming fixtures with odds and saves them to the DB.
+
+    V12.0 CONTINENTAL WIRING: Priority-based league selection
+    ============================================
+    1. If target_leagues is provided (from GlobalOrchestrator/Supabase): USE DIRECTLY
+       - This is the PRIMARY path for Continental Strategy
+       - SKIP legacy discovery completely - saves API credits
+    2. If target_leagues is None and use_auto_discovery=True: Legacy Elite 6
+    3. If target_leagues is None and use_auto_discovery=False: Config fallback
 
     SMART FREQUENCY STRATEGY:
     - Match < 24h: HIGH ALERT - update every 1 hour
@@ -716,7 +735,9 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
     - EXISTING Match: Update ONLY current_*, preserve opening_*
 
     Args:
-        use_auto_discovery: If True, use Elite 6 strategy. If False, use config.
+        target_leagues: List of league api_keys from GlobalOrchestrator (Supabase).
+                       If provided, this takes PRIORITY over all other discovery methods.
+        use_auto_discovery: If True (and no target_leagues), use Elite 6 strategy.
         force_all: If True, bypass Smart Frequency and fetch all leagues.
     """
     logging.info("🚀 Starting Fixture Ingestion - Smart Frequency Strategy...")
@@ -741,11 +762,26 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
     if quota["emergency_mode"]:
         logging.warning(f"🚨 LOW QUOTA WARNING: Only {quota['remaining']} calls remaining!")
 
-    # Get Elite 6 leagues
-    if use_auto_discovery:
+    # ============================================
+    # V12.0 CONTINENTAL WIRING: Priority-based league selection
+    # ============================================
+    if target_leagues is not None:
+        # PRIMARY PATH: Use leagues from GlobalOrchestrator (Supabase Continental Strategy)
+        leagues_to_process = target_leagues
+        logging.info(
+            f"🌐 CONTINENTAL WIRING: Using {len(leagues_to_process)} leagues from Supabase "
+            f"(bypassing legacy discovery)"
+        )
+        for league in leagues_to_process[:5]:
+            logging.info(f"   📌 {league}")
+        if len(leagues_to_process) > 5:
+            logging.info(f"   ... and {len(leagues_to_process) - 5} more")
+    elif use_auto_discovery:
+        # FALLBACK PATH 1: Legacy Elite 6 discovery
         leagues_to_process = get_active_niche_leagues()
-        logging.info(f"🎯 Elite 6 Strategy: {len(leagues_to_process)} leagues available")
+        logging.info(f"🎯 Elite 6 Strategy (fallback): {len(leagues_to_process)} leagues available")
     else:
+        # FALLBACK PATH 2: Config-based
         from src.ingestion.league_manager import ELITE_LEAGUES
 
         leagues_to_process = ELITE_LEAGUES[:MAX_LEAGUES_PER_RUN]
@@ -1129,7 +1165,208 @@ def ingest_fixtures(use_auto_discovery: bool = True, force_all: bool = False):
         db.close()
 
 
+def fetch_odds_for_team(team_name: str, league_key: str | None = None) -> MatchModel | None:
+    """
+    ON-DEMAND ODDS FETCHING (V12.0 Alpha Hunter)
+    =============================================
+
+    Query Odds-API specifically for a team to see if they have a match in the next 72 hours.
+    This is the core of the "News-Driven" architecture - we only fetch odds when we have a confirmed signal.
+
+    Args:
+        team_name: Team name to search for
+        league_key: Optional league key to narrow search (e.g., 'soccer_turkey_super_league')
+
+    Returns:
+        Match object if found, None otherwise
+    """
+    # Build query - search for team in upcoming matches
+    db = SessionLocal()
+    try:
+        # First check if we already have this team in DB
+        now = datetime.now(timezone.utc)
+        max_time = now + timedelta(hours=72)
+
+        # Check existing matches for this team
+        existing = (
+            db.query(MatchModel)
+            .filter(
+                MatchModel.start_time > now,
+                MatchModel.start_time < max_time,
+                (
+                    MatchModel.home_team.ilike(f"%{team_name}%")
+                    | MatchModel.away_team.ilike(f"%{team_name}%")
+                ),
+            )
+            .first()
+        )
+
+        if existing:
+            logger.info(
+                f"✅ [ON-DEMAND] Found existing match for {team_name}: {existing.home_team} vs {existing.away_team}"
+            )
+            return existing
+
+        # If league_key provided, fetch from that league only
+        leagues_to_search = [league_key] if league_key else _get_all_active_leagues()
+
+        for sport_key in leagues_to_search:
+            try:
+                url = f"{BASE_URL}/{sport_key}/odds"
+                regions = get_optimized_regions(sport_key)
+
+                params = {
+                    "apiKey": _get_current_odds_key(),
+                    "regions": regions,
+                    "markets": "h2h,totals,btts",
+                    "dateFormat": "iso",
+                    "oddsFormat": "decimal",
+                }
+
+                response = _get_session().get(url, params=params, timeout=30)
+
+                if response.status_code != 200:
+                    continue
+
+                data = response.json()
+
+                for event in data:
+                    home_team = event.get("home_team", "")
+                    away_team = event.get("away_team", "")
+
+                    # Check if our team is in this match
+                    if (
+                        team_name.lower() in home_team.lower()
+                        or team_name.lower() in away_team.lower()
+                    ):
+                        # Parse commence time
+                        commence_time_str = event.get("commence_time", "")
+                        if commence_time_str.endswith("Z"):
+                            commence_time_str = commence_time_str.replace("Z", "+00:00")
+                        commence_time = _ensure_utc_aware(datetime.fromisoformat(commence_time_str))
+
+                        # Check if match is within 72 hours
+                        if not (now < commence_time < max_time):
+                            continue
+
+                        # Found a match! Save to DB
+                        match_id = event["id"]
+                        bookmakers = event.get("bookmakers", [])
+
+                        home_odd, draw_odd, away_odd = extract_h2h_odds(
+                            bookmakers, home_team, away_team
+                        )
+                        over_2_5, under_2_5 = extract_totals_odds(bookmakers)
+                        btts_yes, btts_no = extract_btts_odds(bookmakers)
+                        sharp_analysis = extract_sharp_odds_analysis(
+                            bookmakers, home_team, away_team
+                        )
+
+                        commence_time_naive = commence_time.replace(tzinfo=None)
+
+                        # Check if match already exists
+                        existing_match = (
+                            db.query(MatchModel).filter(MatchModel.id == match_id).first()
+                        )
+
+                        if existing_match:
+                            # Update current odds
+                            if home_odd is not None:
+                                existing_match.current_home_odd = home_odd
+                            if draw_odd is not None:
+                                existing_match.current_draw_odd = draw_odd
+                            if away_odd is not None:
+                                existing_match.current_away_odd = away_odd
+                            existing_match.last_updated = datetime.now(timezone.utc)
+                            db.commit()
+                            logger.info(f"✅ [ON-DEMAND] Updated match: {home_team} vs {away_team}")
+                            return existing_match
+                        else:
+                            # Create new match
+                            new_match = MatchModel(
+                                id=match_id,
+                                league=sport_key,
+                                home_team=home_team,
+                                away_team=away_team,
+                                start_time=commence_time_naive,
+                                opening_home_odd=home_odd,
+                                opening_away_odd=away_odd,
+                                opening_draw_odd=draw_odd,
+                                current_home_odd=home_odd,
+                                current_away_odd=away_odd,
+                                current_draw_odd=draw_odd,
+                                opening_over_2_5=over_2_5,
+                                opening_under_2_5=under_2_5,
+                                current_over_2_5=over_2_5,
+                                current_under_2_5=under_2_5,
+                                opening_btts_yes=btts_yes,
+                                opening_btts_no=btts_no,
+                                current_btts_yes=btts_yes,
+                                current_btts_no=btts_no,
+                                sharp_bookie=sharp_analysis.get("sharp_bookie"),
+                                sharp_home_odd=sharp_analysis.get("sharp_home"),
+                                sharp_draw_odd=sharp_analysis.get("sharp_draw"),
+                                sharp_away_odd=sharp_analysis.get("sharp_away"),
+                                avg_home_odd=sharp_analysis.get("avg_home"),
+                                avg_draw_odd=sharp_analysis.get("avg_draw"),
+                                avg_away_odd=sharp_analysis.get("avg_away"),
+                                is_sharp_drop=sharp_analysis.get("is_sharp_drop", False),
+                                sharp_signal=sharp_analysis.get("analysis"),
+                                last_updated=datetime.now(timezone.utc),
+                            )
+                            db.add(new_match)
+                            db.commit()
+
+                            logger.info(
+                                f"✅ [ON-DEMAND] Created new match: {home_team} vs {away_team} "
+                                f"| H{home_odd}/X{draw_odd}/A{away_odd}"
+                            )
+                            return new_match
+
+            except Exception as e:
+                logger.warning(f"⚠️ [ON-DEMAND] Error fetching {sport_key}: {e}")
+                continue
+
+        logger.info(f"⚠️ [ON-DEMAND] No match found for {team_name} in next 72h")
+        return None
+
+    except Exception as e:
+        logger.error(f"❌ [ON-DEMAND] Error in fetch_odds_for_team: {e}")
+        return None
+    finally:
+        db.close()
+
+
+def _get_all_active_leagues() -> list[str]:
+    """Get list of all active leagues to search."""
+    try:
+        from src.database.supabase_provider import get_supabase
+
+        supabase = get_supabase()
+        if supabase and supabase.is_connected():
+            leagues = supabase.get_active_leagues()
+            return [l.get("api_key") for l in leagues if l.get("api_key")]
+    except Exception:
+        pass
+
+    # Fallback to hardcoded list
+    return list(LEAGUE_REGIONS.keys())
+
+
 if __name__ == "__main__":
     # Setup simple logging if run directly
     logging.basicConfig(level=logging.INFO)
-    ingest_fixtures()
+
+    # Test on-demand fetching
+    import sys
+
+    if len(sys.argv) > 1:
+        team = sys.argv[1]
+        league = sys.argv[2] if len(sys.argv) > 2 else None
+        result = fetch_odds_for_team(team, league)
+        if result:
+            print(f"Found match: {result.home_team} vs {result.away_team}")
+        else:
+            print(f"No match found for {team}")
+    else:
+        ingest_fixtures()

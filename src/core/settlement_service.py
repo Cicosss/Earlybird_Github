@@ -945,6 +945,87 @@ class SettlementService:
             logger.error(f"Error fetching match result: {e}")
             return None
 
+    # ── Market Normalization ─────────────────────────────────────────────
+    # Maps Italian and non-standard market names to canonical English format
+    # used by the evaluation chain. This ensures the Settler can evaluate
+    # regardless of AI output language or format variations.
+
+    _ITALIAN_MARKET_MAP: dict[str, str] = {
+        # Winner variants (Italian → English)
+        "vittoria casa": "home win",
+        "vittoria trasferta": "away win",
+        "vittoria fuori": "away win",
+        "pareggio": "draw",
+        # Double Chance (Italian → English)
+        "doppia chance (1x)": "1x",
+        "doppia chance (x2)": "x2",
+        "doppia chance 1x": "1x",
+        "doppia chance x2": "x2",
+        # Goals (Italian → English)
+        "over gol": "over goals",
+        "under gol": "under goals",
+        "sotto": "under",
+        "sopra": "over",
+        # BTTS
+        "entrambe segnano": "btts",
+        "goalgoal": "btts",
+        "gol gol": "btts",
+        "no gol": "btts no",
+        # Generic categories (kept for guard detection)
+        "vincitore": "winner",
+        "doppia chance": "double_chance",
+    }
+
+    @classmethod
+    def _normalize_market_string(cls, market_lower: str) -> str:
+        """
+        Normalize a market string (already lowered) to canonical evaluation format.
+
+        Handles:
+        - Italian market names → English equivalents
+        - Parenthetical codes like "doppia chance (1x)" → "1x"
+        - Word-level Italian→English substitutions within larger strings
+          (e.g., "sotto 3.5 gol" → "under 3.5 goals")
+        - Common AI output variations
+
+        Args:
+            market_lower: Lowercased market string
+
+        Returns:
+            Normalized market string ready for evaluation chain
+        """
+        if not market_lower:
+            return ""
+
+        stripped = market_lower.strip()
+
+        # Direct lookup in Italian map (full-string match)
+        if stripped in cls._ITALIAN_MARKET_MAP:
+            return cls._ITALIAN_MARKET_MAP[stripped]
+
+        # Extract code from parenthetical: "doppia chance (1x)" → "1x"
+        paren_match = re.search(r"\((1[x2]?|x2|[x2])\)", stripped)
+        if paren_match:
+            code = paren_match.group(1).lower()
+            if code in ("1", "x", "2", "1x", "x2"):
+                return code
+
+        # Word-level Italian → English substitutions within larger strings
+        # This handles cases like "sotto 3.5 gol" → "under 3.5 goals"
+        result = stripped
+        word_replacements = [
+            (r"\bsopra\s*", "over "),
+            (r"\bsotto\s*", "under "),
+            (r"\bgol\b", "goals"),
+            (r"\bvittoria\s+casa\b", "home win"),
+            (r"\bvittoria\s+trasferta\b", "away win"),
+            (r"\bpareggio\b", "draw"),
+        ]
+        for pattern, replacement in word_replacements:
+            result = re.sub(pattern, replacement, result)
+
+        return result.strip()
+
     def _evaluate_bet(
         self,
         recommended_market: str,
@@ -956,6 +1037,11 @@ class SettlementService:
     ) -> tuple[str, str]:
         """
         Evaluate if a bet won or lost based on the result.
+
+        This method normalizes the market string before evaluation to handle:
+        - Italian market names (e.g., "Vittoria Casa" → "Home Win")
+        - Generic categories (e.g., "WINNER", "DOUBLE_CHANCE", "NONE")
+        - Non-standard AI output formats
 
         Args:
             recommended_market: The market we recommended (e.g., "Home Win", "Over 2.5 Goals")
@@ -988,6 +1074,28 @@ class SettlementService:
         market_lower = recommended_market.lower() if recommended_market else ""
         match_stats = match_stats or {}
 
+        # ── Market Normalization ──────────────────────────────────────────
+        # Normalize Italian/non-standard market names to canonical English format
+        # before the evaluation chain. This ensures the Settler can always evaluate
+        # regardless of whether the AI output English, Italian, or mixed format.
+        market_lower = self._normalize_market_string(market_lower)
+
+        # Guard: unresolvable markets → PENDING (not LOSS, not silent)
+        # Block generic categories that can never be settled
+        if market_lower in (
+            "none",
+            "winner",
+            "double_chance",
+            "",
+            "doppia chance",
+        ):
+            if market_lower in ("winner", "double_chance"):
+                logger.warning(
+                    f"⚠️ Generic market '{recommended_market}' cannot be settled — "
+                    f"primary_market was not specific enough. Marking as PENDING."
+                )
+            return RESULT_PENDING, f"⏳ Mercato non risolvibile: {recommended_market}"
+
         # CORNERS MARKET
         if "corner" in market_lower:
             home_corners = match_stats.get("home_corners")
@@ -1010,7 +1118,8 @@ class SettlementService:
                 return RESULT_PENDING, "⏳ Corner stats non validi (negativi)"
 
             total_corners = home_corners + away_corners
-            return self._evaluate_over_under(recommended_market, total_corners, stat_available=True)
+            # Pass normalized string (English) — original may be Italian (e.g., "Sopra 9.5 corner")
+            return self._evaluate_over_under(market_lower, total_corners, stat_available=True)
 
         # CARDS MARKET
         if "card" in market_lower:
@@ -1036,11 +1145,13 @@ class SettlementService:
                 return RESULT_PENDING, "⏳ Card stats non disponibili"
 
             total_cards = home_yellow + away_yellow + home_red + away_red
-            return self._evaluate_over_under(recommended_market, total_cards, stat_available=True)
+            # Pass normalized string (English) — original may be Italian (e.g., "Sopra 4.5 cartellini")
+            return self._evaluate_over_under(market_lower, total_cards, stat_available=True)
 
         # GOALS MARKET (Over/Under X.5 Goals format)
         if "goal" in market_lower and ("over" in market_lower or "under" in market_lower):
-            return self._evaluate_over_under(recommended_market, total_goals, stat_available=True)
+            # Pass normalized string (English) — original may be Italian (e.g., "Sotto 3.5 gol")
+            return self._evaluate_over_under(market_lower, total_goals, stat_available=True)
 
         # Home Win
         if "home" in market_lower and "win" in market_lower:
@@ -1211,21 +1322,23 @@ class SettlementService:
             explanations.append(f"{component}: {explanation}")
 
             if i == 1:
-                component_lower = component.lower()
-                if "over" in component_lower or "under" in component_lower:
+                # Normalize for expansion_type detection (handles Italian text)
+                component_normalized = self._normalize_market_string(component.lower())
+                if "over" in component_normalized or "under" in component_normalized:
                     if (
-                        "goal" in component_lower
-                        or "2.5" in component_lower
-                        or "1.5" in component_lower
+                        "goal" in component_normalized
+                        or "2.5" in component_normalized
+                        or "1.5" in component_normalized
+                        or "3.5" in component_normalized
                     ):
                         expansion_type = "over_under_goals"
-                    elif "corner" in component_lower:
+                    elif "corner" in component_normalized:
                         expansion_type = "over_under_corners"
-                    elif "card" in component_lower:
+                    elif "card" in component_normalized:
                         expansion_type = "over_under_cards"
                     else:
                         expansion_type = "over_under_other"
-                elif "btts" in component_lower or "both teams" in component_lower:
+                elif "btts" in component_normalized or "both teams" in component_normalized:
                     expansion_type = "btts"
 
         if all(o == RESULT_WIN for o in outcomes):

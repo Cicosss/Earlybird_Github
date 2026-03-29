@@ -113,10 +113,10 @@ class TestPhase8AlertDispatch:
     """Phase 8: Alert Dispatch tests."""
 
     def test_alert_threshold_value(self):
-        """Alert threshold should be 9.0 (Elite Quality - V8.3)."""
+        """Alert threshold should be 8.0 (Elite Quality - V11.1 Relaxed)."""
         from config.settings import ALERT_THRESHOLD_HIGH
 
-        assert ALERT_THRESHOLD_HIGH == 9.0
+        assert ALERT_THRESHOLD_HIGH == 8.0
 
     def test_deduplication_first_alert(self):
         """First alert (highest_sent=0) should always send if above threshold."""
@@ -162,6 +162,67 @@ class TestPhase8AlertDispatch:
             highest_sent == 0 or (score - highest_sent) >= 1.5
         )
         assert should_alert is False
+
+    def test_alert_threshold_radar_value(self):
+        """Radar threshold should be 6.5 (lower than HIGH for forced_narrative path)."""
+        from config.settings import ALERT_THRESHOLD_RADAR
+
+        assert ALERT_THRESHOLD_RADAR == 6.5
+
+    def test_radar_threshold_lower_than_high(self):
+        """Radar threshold must be strictly lower than HIGH threshold."""
+        from config.settings import ALERT_THRESHOLD_HIGH, ALERT_THRESHOLD_RADAR
+
+        assert ALERT_THRESHOLD_RADAR < ALERT_THRESHOLD_HIGH
+
+    def test_radar_threshold_allows_mid_score_with_forced_narrative(self):
+        """Score between RADAR and HIGH should only alert with forced_narrative."""
+        from config.settings import ALERT_THRESHOLD_HIGH, ALERT_THRESHOLD_RADAR
+
+        score = 7.0  # Between 6.5 and 8.0
+
+        # Without forced_narrative → standard threshold → no alert
+        threshold_no_narrative = ALERT_THRESHOLD_HIGH
+        assert score < threshold_no_narrative  # Should NOT alert
+
+        # With forced_narrative → radar threshold → alert
+        threshold_with_narrative = ALERT_THRESHOLD_RADAR
+        assert score >= threshold_with_narrative  # Should alert
+
+    def test_analysis_engine_imports_radar_threshold(self):
+        """AnalysisEngine must import ALERT_THRESHOLD_RADAR to avoid NameError."""
+        import ast
+        import importlib
+
+        # Parse the source to verify the import exists without actually importing
+        spec = importlib.util.find_spec("src.core.analysis_engine")
+        assert spec is not None and spec.origin is not None
+
+        with open(spec.origin) as f:
+            tree = ast.parse(f.read())
+
+        imported_names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.module and "config.settings" in node.module:
+                    for alias in node.names:
+                        imported_names.add(alias.asname or alias.name)
+
+        assert "ALERT_THRESHOLD_RADAR" in imported_names, (
+            f"ALERT_THRESHOLD_RADAR not found in analysis_engine imports. Found: {imported_names}"
+        )
+
+    def test_analyze_match_accepts_forced_narrative(self):
+        """AnalysisEngine.analyze_match must accept forced_narrative parameter."""
+        import inspect
+
+        from src.core.analysis_engine import AnalysisEngine
+
+        sig = inspect.signature(AnalysisEngine.analyze_match)
+        params = list(sig.parameters.keys())
+        assert "forced_narrative" in params, (
+            f"forced_narrative not in analyze_match parameters. Found: {params}"
+        )
 
 
 class TestPhase9Settlement:

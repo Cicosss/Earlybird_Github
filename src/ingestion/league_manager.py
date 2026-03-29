@@ -600,6 +600,162 @@ def is_niche_league(sport_key: str) -> bool:
     return sport_key in ALL_LEAGUES_SET
 
 
+# ============================================
+# V12.4: ACTIVE SCOPE VALIDATOR (Root Cause Fix - Benfica Infection)
+# ============================================
+# Central mechanism to validate whether a league/team is in the active scope.
+# Used by NewsRadar, OpportunityRadar, TelegramListener, RadarEnrichment
+# to prevent non-active league data from leaking into the pipeline.
+
+_active_scope_cache: list[str] | None = None
+_active_scope_cache_time: float = 0
+_active_scope_cache_lock = threading.Lock()
+_ACTIVE_SCOPE_CACHE_TTL = 300  # 5 minutes
+
+
+def get_all_active_league_keys() -> list[str]:
+    """
+    V12.4: Get ALL currently active league keys from every source.
+
+    Combines:
+    1. Supabase active leagues (is_active=True)
+    2. Hardcoded TIER_1_LEAGUES
+    3. Hardcoded TIER_2_LEAGUES
+
+    Returns deduplicated list. Results are cached for 5 minutes.
+
+    Returns:
+        List of active league API keys (e.g., 'soccer_turkey_super_league')
+    """
+    global _active_scope_cache, _active_scope_cache_time
+
+    import time
+
+    now = time.time()
+
+    # Return cached if fresh
+    if (
+        _active_scope_cache is not None
+        and (now - _active_scope_cache_time) < _ACTIVE_SCOPE_CACHE_TTL
+    ):
+        return _active_scope_cache
+
+    with _active_scope_cache_lock:
+        # Double-checked locking
+        if (
+            _active_scope_cache is not None
+            and (now - _active_scope_cache_time) < _ACTIVE_SCOPE_CACHE_TTL
+        ):
+            return _active_scope_cache
+
+        active_keys: set[str] = set()
+
+        # Source 1: Supabase active leagues
+        try:
+            supabase = get_supabase()
+            if supabase and supabase.is_connected():
+                leagues = supabase.get_active_leagues(bypass_cache=False)
+                for league in leagues:
+                    api_key = league.get("api_key", "")
+                    if api_key and api_key.startswith("soccer_"):
+                        active_keys.add(api_key)
+        except Exception as e:
+            logger.debug(f"[SCOPE] Supabase lookup failed: {e}")
+
+        # Source 2: Hardcoded tiers (always included as fallback)
+        active_keys.update(TIER_1_LEAGUES)
+        active_keys.update(TIER_2_LEAGUES)
+
+        result = list(active_keys)
+        _active_scope_cache = result
+        _active_scope_cache_time = now
+
+        logger.debug(f"[SCOPE] Active league keys: {len(result)} leagues")
+        return result
+
+
+def is_in_active_scope(sport_key: str) -> bool:
+    """
+    V12.4: Check if a league key is in the active scope.
+
+    This is the CENTRAL validator that all components should use
+    to determine if a league/team should be processed.
+
+    Args:
+        sport_key: League API key (e.g., 'soccer_portugal_primeira_liga')
+
+    Returns:
+        True if the league is actively monitored, False otherwise.
+    """
+    if not sport_key:
+        return False
+
+    # Normalize: strip whitespace
+    sport_key = sport_key.strip()
+
+    # Quick check against hardcoded sets first (no cache needed)
+    if sport_key in ALL_LEAGUES_SET:
+        return True
+
+    # Check against dynamic active leagues (Supabase + hardcoded)
+    active_keys = get_all_active_league_keys()
+    return sport_key in active_keys
+
+
+def is_team_in_active_scope(team_name: str) -> bool:
+    """
+    V12.4: Check if a team plays in an active league by querying the DB.
+
+    Args:
+        team_name: Team name to check
+
+    Returns:
+        True if the team has an upcoming match in an active league.
+    """
+    if not team_name:
+        return False
+
+    try:
+        from src.database.models import Match, SessionLocal
+
+        active_keys = set(get_all_active_league_keys())
+        team_lower = team_name.lower().strip()
+
+        db = SessionLocal()
+        try:
+            now = datetime.now(timezone.utc)
+            max_time = now + timedelta(hours=96)
+
+            matches = (
+                db.query(Match).filter(Match.start_time >= now, Match.start_time <= max_time).all()
+            )
+
+            for match in matches:
+                home = getattr(match, "home_team", "") or ""
+                away = getattr(match, "away_team", "") or ""
+                league = getattr(match, "league", "") or ""
+
+                if team_lower in home.lower() or team_lower in away.lower():
+                    if league in active_keys:
+                        return True
+
+            return False
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.debug(f"[SCOPE] Team scope check failed for {team_name}: {e}")
+        return False
+
+
+def clear_active_scope_cache() -> None:
+    """V12.4: Clear the active scope cache (for testing or after config changes)."""
+    global _active_scope_cache, _active_scope_cache_time
+    with _active_scope_cache_lock:
+        _active_scope_cache = None
+        _active_scope_cache_time = 0
+
+
 def get_league_priority(sport_key: str) -> int:
     """Get priority score (higher = more important)."""
     return LEAGUE_PRIORITY.get(sport_key, 10)

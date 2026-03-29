@@ -41,132 +41,91 @@ except ImportError:
     logger.warning("Could not import analyze_single_match from src.main at module level")
 
 # ============================================
-# RADAR SOURCES - SUPER-LIST (Global + Local Insider)
+# RADAR SOURCES - SUPABASE-DRIVEN (V12.4)
 # ============================================
-RADAR_SOURCES = {
+# V12.4: HARDCODED RADAR_SOURCES PURGED.
+# Sources are now built dynamically from Supabase active leagues.
+# This eliminates the root cause: non-active regions (e.g., Portugal) leaking into the pipeline.
+
+# Fallback: minimal hardcoded sources for offline/bootstrap mode only.
+
+# Regional narrative keywords ( language-agnostic, used across ALL regions)
+REGIONAL_KEYWORDS: dict[str, list[str]] = {
+    "es": [
+        "suplentes",
+        "reservas",
+        "equipo alternativo",
+        "rotación",
+        "juveniles",
+        "equipo B",
+        "canteranos",
+        "nómina alterna",
+        "muletto",
+        "rotación masiva",
+        "guardará a los titulares",
+        "descanso titulares",
+        "crisis",
+        "deuda",
+    ],
+    "pt": [
+        "time misto",
+        "poupados",
+        "reservas",
+        "força máxima",
+        "desgaste físico",
+        "sub-20",
+        "time B",
+        "garotos",
+        "crise",
+        "salários atrasados",
+    ],
+    "tr": [
+        "rotasyon",
+        "yedek ağırlıklı",
+        "kadro dışı",
+        "injury crisis",
+        "yedek kadro",
+        "gençler",
+        "B takımı",
+        "kriz",
+        "maaş",
+    ],
+    "en": [
+        "second string",
+        "reserves",
+        "youthful side",
+        "heavily rotated",
+        "key players missing",
+        "rotation expected",
+        "rested",
+        "B-team",
+        "youth players",
+        "fringe players",
+        "squad rotation",
+        "without key players",
+        "youth team",
+        "unpaid wages",
+        "financial crisis",
+        "strike",
+        "debt",
+        "internal conflict",
+        "player exodus",
+    ],
+    "pl": [
+        "rezerwy",
+        "skład mieszany",
+        "oszczędza",
+        "crisis",
+        "zadłużenie",
+    ],
+}
+
+# V12.4: RADAR_SOURCES built dynamically from Supabase.
+# Fallback: minimal global source for bootstrap/offline mode.
+RADAR_SOURCES: dict[str, dict] = {
     "global": {
         "domains": ["flashscore.com", "onefootball.com", "sports.yahoo.com", "goal.com"],
-        "keywords": [
-            "second string",
-            "reserves",
-            "youthful side",
-            "heavily rotated",
-            "key players missing",
-            "rested",
-            "rotation expected",
-            "B-team",
-        ],
-        "language": "en",
-    },
-    "argentina": {
-        "domains": ["ole.com.ar", "tycsports.com", "mundoalbiceleste.com", "espn.com.ar"],
-        "keywords": [
-            "equipo alternativo",
-            "muletto",
-            "rotación masiva",
-            "guardará a los titulares",
-            "suplentes",
-            "reservas",
-            "juveniles",
-            "crisis",
-            "deuda",
-        ],
-        "language": "es",
-    },
-    "brazil": {
-        "domains": ["globoesporte.globo.com", "uol.com.br", "sambafoot.com", "lance.com.br"],
-        "keywords": [
-            "time misto",
-            "poupados",
-            "reservas",
-            "força máxima",
-            "desgaste físico",
-            "sub-20",
-            "crise",
-            "salários atrasados",
-        ],
-        "language": "pt",
-    },
-    "turkey": {
-        "domains": ["fanatik.com.tr", "turkish-football.com", "dailysabah.com", "fotomac.com.tr"],
-        "keywords": [
-            "rotasyon",
-            "yedek ağırlıklı",
-            "kadro dışı",
-            "injury crisis",
-            "yedek kadro",
-            "gençler",
-            "B takımı",
-            "kriz",
-            "maaş",
-        ],
-        "language": "tr",
-    },
-    "mexico": {
-        "domains": ["mediotiempo.com", "espn.com.mx", "record.com.mx", "fmfstateofmind.com"],
-        "keywords": [
-            "rotation squad",
-            "equipo alternativo",
-            "descanso titulares",
-            "suplentes",
-            "rotación",
-            "juveniles",
-        ],
-        "language": "es",
-    },
-    "greece": {
-        "domains": ["agonasport.com", "greekcitytimes.com", "gazzetta.gr", "sport24.gr"],
-        "keywords": [
-            "rotation expected",
-            "rested for europe",
-            "reserves",
-            "εφεδρικοί",
-            "ρεζέρβες",
-            "κρίση",
-        ],
-        "language": "en",
-    },
-    "portugal": {
-        "domains": ["ojogo.pt", "abola.pt", "record.pt", "maisfutebol.iol.pt"],
-        "keywords": [
-            "suplentes",
-            "reservas",
-            "equipa B",
-            "rotação",
-            "crise",
-            "dívidas",
-            "regresso",
-        ],
-        "language": "pt",
-    },
-    "colombia": {
-        "domains": ["eltiempo.com", "futbolred.com", "espn.com.co", "as.com"],
-        "keywords": ["suplentes", "rotación", "juveniles", "nómina alterna", "crisis", "deuda"],
-        "language": "es",
-    },
-    "africa": {
-        "domains": ["kingfut.com", "ghanasoccernet.com", "kickoff.com", "foot-africa.com"],
-        "keywords": [
-            "unpaid wages",
-            "strike",
-            "financial crisis",
-            "second string",
-            "without key players",
-            "player exodus",
-            "debt",
-        ],
-        "language": "en",
-    },
-    "asia": {
-        "domains": ["scmp.com", "kleagueunited.com", "football-tribe.com", "the-afc.com"],
-        "keywords": [
-            "unpaid wages",
-            "financial crisis",
-            "second string",
-            "rotation",
-            "key players missing",
-            "youth team",
-        ],
+        "keywords": REGIONAL_KEYWORDS["en"][:8],
         "language": "en",
     },
 }
@@ -298,6 +257,68 @@ class OpportunityRadar:
         self._fotmob = None
         self._fotmob_lock = threading.Lock()  # Thread-safe lock for fotmob lazy loading
         logger.info("🎯 Opportunity Radar initialized")
+
+    def _get_radar_sources(self) -> dict[str, dict]:
+        """
+        V12.4: Build radar sources dynamically from Supabase active leagues.
+
+        Instead of hardcoded regional dicts (which leaked Portugal/Benfica),
+        this builds sources from the Supabase leagues table + LEAGUE_DOMAINS
+        in search_provider.py, filtered to ONLY active scope.
+
+        Returns:
+            Dict of region_name -> {domains, keywords, language}
+        """
+        sources: dict[str, dict] = {}
+
+        # Always include global source
+        sources["global"] = RADAR_SOURCES.get(
+            "global",
+            {
+                "domains": ["flashscore.com", "onefootball.com", "sports.yahoo.com", "goal.com"],
+                "keywords": REGIONAL_KEYWORDS.get("en", [])[:8],
+                "language": "en",
+            },
+        )
+
+        try:
+            from src.ingestion.league_manager import get_all_active_league_keys
+            from src.ingestion.search_provider import LEAGUE_DOMAINS, LEAGUE_SPORT_KEYWORDS
+
+            active_keys = set(get_all_active_league_keys())
+
+            for league_key in active_keys:
+                domains = LEAGUE_DOMAINS.get(league_key, [])
+                if not domains:
+                    continue
+
+                # Derive region name from league key
+                region = league_key.replace("soccer_", "").replace("_", " ")
+
+                # Pick keywords based on language
+                sport_kw = LEAGUE_SPORT_KEYWORDS.get(league_key, "football")
+                keywords = REGIONAL_KEYWORDS.get("en", [])[:6]
+
+                # Add sport-specific keyword
+                if sport_kw and sport_kw not in keywords:
+                    keywords = [sport_kw] + keywords
+
+                sources[region] = {
+                    "domains": domains[:4],
+                    "keywords": keywords[:8],
+                    "language": "en",
+                }
+
+            logger.info(
+                f"🎯 [RADAR] Built {len(sources)} dynamic sources from {len(active_keys)} active leagues"
+            )
+
+        except Exception as e:
+            logger.warning(f"⚠️ [RADAR] Supabase source build failed: {e}. Using fallback.")
+            if "global" not in sources:
+                sources["global"] = RADAR_SOURCES.get("global", {})
+
+        return sources
 
     @property
     def fotmob(self):
@@ -621,9 +642,7 @@ RULES:
 
             # Use granular timestamp (YYYYMMDD_HHMMSS) to ensure uniqueness
             # This prevents duplicate IDs when same teams play twice in one day (e.g., cup matches)
-            match_id = (
-                f"radar_{home_team}_{away_team}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-            )
+            match_id = f"radar_{home_team}_{away_team}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             match_id = match_id.replace(" ", "_").lower()
 
             new_match = Match(
@@ -655,6 +674,19 @@ RULES:
         """Trigger the betting analysis pipeline for a team with detected narrative."""
         logger.info(f"🚀 RADAR TRIGGER: {team_name} | {narrative_type}")
         logger.info(f"   📰 {summary}")
+
+        # V12.4: Active Scope Guard - reject teams from non-active leagues
+        try:
+            from src.ingestion.league_manager import is_team_in_active_scope
+
+            if not is_team_in_active_scope(team_name):
+                logger.info(
+                    f"🚫 [SCOPE-GUARD] {team_name} rejected - not in active league scope. "
+                    f"Skipping pipeline trigger."
+                )
+                return
+        except ImportError:
+            logger.debug("[SCOPE-GUARD] league_manager not available, skipping scope check")
 
         team_id, canonical_name = self._resolve_team_name(team_name)
         if not team_id:

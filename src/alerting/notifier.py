@@ -310,6 +310,13 @@ def _send_telegram_request(
 
     response = requests.post(url, data=payload, timeout=timeout)
 
+    # V10.6 TRACER: Telegram API Response Status
+    logging.info(f"🔵 [TRACER] Telegram API Response Status: {response.status_code}")
+
+    # V10.6 CRITICAL: If status_code != 200, log the ENTIRE response text to see error details
+    if response.status_code != 200:
+        logging.error(f"🔴 [TRACER] Telegram API Error Response: {response.text}")
+
     # COVE FIX: Track authentication failures (THREAD-SAFE)
     with _AUTH_LOCK:
         if response.status_code == 401:
@@ -637,9 +644,7 @@ def _build_twitter_section(twitter_intel: dict[str, Any] | None) -> str:
         content = tweet.get("content", "")[:100]  # Truncate
         topics = tweet.get("topics", [])
         topic_str = f" [{', '.join(topics)}]" if topics else ""
-        twitter_section += (
-            f"   • {html.escape(handle)}: <i>{html.escape(content)}...</i>{topic_str}\n"
-        )
+        twitter_section += f"   • {html.escape(handle)}: <i>{html.escape(content)}...</i>{html.escape(topic_str)}\n"
 
     return twitter_section
 
@@ -694,10 +699,11 @@ def _build_injury_section(
         injury_section += "\n"
 
     # Summary of who it favors
+    # COVE FIX: Escape team names inside <i> tags for HTML safety
     if favors == "home":
-        injury_section += f"   📊 <i>Vantaggio {home_team}</i>\n"
+        injury_section += f"   📊 <i>Vantaggio {html.escape(home_team)}</i>\n"
     elif favors == "away":
-        injury_section += f"   📊 <i>Vantaggio {away_team}</i>\n"
+        injury_section += f"   📊 <i>Vantaggio {html.escape(away_team)}</i>\n"
 
     return injury_section
 
@@ -998,7 +1004,7 @@ def _truncate_message_if_needed(
     header: str,
     date_line: str,
     match_str: str,
-    score: int,
+    score: float,
     odds_line: str,
     movement: dict[str, Any],
     source_indicator: str,
@@ -1052,12 +1058,16 @@ def _truncate_message_if_needed(
 # ============================================
 
 
-def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> None:
+def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> bool:
     """
     V14.0: Wrapper function to convert alert data to notifier.send_alert parameters.
 
     V14.0 UPDATE: Now accepts EnhancedMatchAlert objects for type safety,
     while maintaining backward compatibility with legacy kwargs.
+
+    Returns:
+        bool: True if alert was successfully delivered to Telegram,
+              False if delivery failed.
 
     Args:
         alert: EnhancedMatchAlert object (preferred, V14.0)
@@ -1090,7 +1100,8 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
     if alert is not None:
         # Use EnhancedMatchAlert object (preferred path)
         # Extract fields from the structured alert object
-        match_obj = alert.analysis_result
+        # COVE FIX: Use alert.match_obj (Match ORM) for duplicate checks, NOT alert.analysis_result (NewsLog)
+        match_obj = alert.match_obj if alert.match_obj is not None else alert.analysis_result
         score = alert.score
         league = alert.league
         news_summary = alert.news_summary
@@ -1116,10 +1127,16 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
         analysis_result = alert.analysis_result
         db_session = alert.db_session
 
+        # V10.6: Extract match name for tracer logging
+        match_name = f"{getattr(match_obj, 'home_team', 'Unknown')} vs {getattr(match_obj, 'away_team', 'Unknown')}"
+
         logging.info(
             "📊 V14.0: Using EnhancedMatchAlert object for alert - "
             f"score={score}, market={recommended_market}"
         )
+
+        # V10.6 TRACER: Handing off to Telegram API
+        logging.info(f"🟡 [TRACER] Handing off {match_name} to Telegram API...")
     else:
         # Legacy path: Extract and convert keyword arguments
         logging.info("📊 V14.0: Using legacy kwargs for alert (backward compatibility)")
@@ -1188,7 +1205,7 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                         f"({home_team} vs {away_team}) - odds_alert_sent flag is already True "
                         f"(thread-safe check with row-level lock)"
                     )
-                    return
+                    return False
             except Exception as e:
                 # If locking fails, fall back to non-thread-safe check
                 logging.warning(
@@ -1203,7 +1220,7 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                             f"🚫 COVE: Skipping duplicate odds alert for Match ID {match_id} "
                             f"({home_team} vs {away_team}) - odds_alert_sent flag is already True"
                         )
-                        return
+                        return False
 
     # COVE FIX: Check if match is upcoming before sending alert
     if match_obj and hasattr(match_obj, "is_upcoming"):
@@ -1217,7 +1234,7 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                 f"({home_team} vs {away_team}) - match is not upcoming "
                 f"(start_time: {start_time})"
             )
-            return
+            return False
 
     # V8.3 FIX: Save odds_at_alert and alert_sent_at to NewsLog
     if analysis_result and db_session and match_obj:
@@ -1320,8 +1337,11 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                 "ROI/CLV calculations will use fallback odds."
             )
 
-    # Call the actual send_alert function with positional arguments
-    send_alert(
+    # V10.6 TRACER: Sending POST request to Telegram
+    logging.info(f"🔵 [TRACER] Sending POST request to Telegram for {match_name}...")
+
+    # Call the actual send_alert function and capture the result
+    alert_sent_successfully = send_alert(
         match_obj=match_obj,
         news_summary=news_summary,
         news_url=news_url,
@@ -1346,6 +1366,19 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
         convergence_sources=convergence_sources,
         market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
     )
+
+    # COVE FIX: Only update odds_alert_sent flag if alert was actually delivered
+    if not alert_sent_successfully:
+        home_team_display = getattr(match_obj, "home_team", "Unknown")
+        away_team_display = getattr(match_obj, "away_team", "Unknown")
+        match_id_display = getattr(match_obj, "id", "unknown")
+        logging.warning(
+            f"⚠️ COVE: Alert delivery FAILED for Match ID {match_id_display} "
+            f"({home_team_display} vs {away_team_display}). "
+            f"NOT updating odds_alert_sent flag - match will be retried."
+        )
+        # Return False to indicate failure
+        return False
 
     # COVE FIX: Update odds_alert_sent flag and last_alert_time after sending alert
     if db_session and match_obj:
@@ -1405,6 +1438,9 @@ def send_alert_wrapper(alert: "EnhancedMatchAlert | None" = None, **kwargs) -> N
                 "Duplicate alerts may occur for this match."
             )
 
+    # COVE FIX: Return True to indicate alert was successfully delivered
+    return True
+
 
 # ============================================
 # MAIN ALERT FUNCTION
@@ -1415,7 +1451,7 @@ def send_alert(
     match_obj: Any,
     news_summary: str,
     news_url: str,
-    score: int,
+    score: float,
     league: str,
     combo_suggestion: str | None = None,
     combo_reasoning: str | None = None,
@@ -1435,9 +1471,13 @@ def send_alert(
     is_convergent: bool = False,
     convergence_sources: dict[str, Any] | None = None,
     market_warning: str | None = None,  # V11.1 FIX: Market warning for late-to-market alerts
-) -> None:
+) -> bool:
     """
     Sends a formatted alert to Telegram with odds movement analysis.
+
+    Returns:
+        bool: True if alert was successfully delivered to Telegram (via HTML or plain text),
+              False if delivery failed after all retry attempts.
 
     Args:
         match_obj: Match database object with opening/current odds
@@ -1517,7 +1557,7 @@ def send_alert(
 
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         logging.warning("Telegram configuration missing. Skipping alert.")
-        return
+        return False
 
     # Use validated team names if provided, otherwise fall back to match_obj
     home_team = (
@@ -1527,7 +1567,11 @@ def send_alert(
         validated_away_team if validated_away_team else getattr(match_obj, "away_team", "Unknown")
     )
 
-    match_str = f"{home_team} vs {away_team}"
+    # COVE FIX: HTML escape team names to prevent parsing errors in HTML mode
+    # If a team name contains characters like <, >, &, they would break parse_mode="HTML"
+    home_team_escaped = html.escape(home_team)
+    away_team_escaped = html.escape(away_team)
+    match_str = f"{home_team_escaped} vs {away_team_escaped}"
 
     # Calculate odds movement for home team (affected side)
     movement = calculate_odds_movement(
@@ -1599,9 +1643,10 @@ def send_alert(
         enhanced_source_section = "📡 <b>Source:</b> Web\n"
 
     # V11.1 FIX: Prepend market warning if present
+    # COVE FIX: Escape market_warning to prevent HTML injection
     warning_section = ""
     if market_warning:
-        warning_section = f"{market_warning}\n\n"
+        warning_section = f"{html.escape(market_warning)}\n\n"
 
     # Header changes based on whether this is an update
     if is_update:
@@ -1685,30 +1730,45 @@ def send_alert(
             except Exception as e:
                 logging.warning(f"Failed to record alert in health monitor: {e}")
                 # Continue anyway - alert was sent successfully
+            return True
         else:
             # HTML parsing failed - fallback to plain text
-            _send_plain_text_fallback(url, message, news_url, match_str)
+            return _send_plain_text_fallback(url, message, news_url, match_str)
     except requests.exceptions.Timeout:
         logging.error("Telegram timeout dopo 3 tentativi")
+        # Try fallback before declaring failure
+        return _send_plain_text_fallback(url, message, news_url, match_str, exception=None)
     except requests.exceptions.ConnectionError as e:
         logging.error(f"Telegram errore connessione: {e}")
+        # Try fallback before declaring failure
+        return _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
     except Exception as e:
         # Fallback to plain text on any exception
-        _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
+        return _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
 
 
 def _send_plain_text_fallback(
     url: str, message: str, news_url: str, match_str: str, exception: Exception | None = None
-) -> None:
-    """Send a plain text fallback message when HTML fails."""
+) -> bool:
+    """Send a plain text fallback message when HTML fails.
+
+    Returns:
+        bool: True if alert was successfully delivered via plain text, False otherwise.
+    """
     if exception:
         logging.warning(f"HTML send exception ({exception}), falling back to plain text")
     else:
         logging.warning("HTML send failed, falling back to plain text")
 
     try:
+        # COVE FIX: Strip all HTML tags including <code> used in VERIFICA FINALE
         plain_msg = (
-            message.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
+            message.replace("<b>", "")
+            .replace("</b>", "")
+            .replace("<i>", "")
+            .replace("</i>", "")
+            .replace("<code>", "")
+            .replace("</code>", "")
         )
         plain_msg = strip_html_links(plain_msg)
         # Append raw URL so it's clickable in plain text
@@ -1733,10 +1793,13 @@ def _send_plain_text_fallback(
             except Exception as e:
                 logging.warning(f"Failed to record alert in health monitor: {e}")
                 # Continue anyway - alert was sent successfully
+            return True
         else:
             logging.error(f"Invio alert fallito: {response_plain.text}")
+            return False
     except Exception as e2:
         logging.error(f"Errore imprevisto invio alert Telegram: {e2}")
+        return False
 
 
 # ============================================
@@ -1994,7 +2057,11 @@ def send_biscotto_alert(
 
     home_team = getattr(match_obj, "home_team", "Unknown")
     away_team = getattr(match_obj, "away_team", "Unknown")
-    match_str = f"{home_team} vs {away_team}"
+    # COVE FIX: HTML escape team names to prevent parsing errors in HTML mode
+    # Mirrors the same fix applied in send_alert() (L1571-1575)
+    home_team_escaped = html.escape(home_team)
+    away_team_escaped = html.escape(away_team)
+    match_str = f"{home_team_escaped} vs {away_team_escaped}"
 
     # Use league from match_obj if not provided
     if not league:
@@ -2059,14 +2126,14 @@ def send_biscotto_alert(
         enhanced_section += "   🤝 <b>Mutual Benefit:</b> Confirmed\n"
 
     if betting_recommendation and betting_recommendation != "AVOID":
-        enhanced_section += f"   💰 <b>Recommendation:</b> {betting_recommendation}\n"
+        enhanced_section += f"   💰 <b>Recommendation:</b> {html.escape(betting_recommendation)}\n"
 
     # Build factors section (if available)
     factors_section = ""
     if factors and len(factors) > 0:
         factors_section = "   🔍 <b>Factors:</b>\n"
         for factor in factors[:5]:  # Show top 5 factors
-            factors_section += f"      • {factor}\n"
+            factors_section += f"      • {html.escape(factor)}\n"
 
     # Build the message
     message = (
@@ -2093,6 +2160,11 @@ def send_biscotto_alert(
         "disable_web_page_preview": True,
     }
 
+    # COVE FIX: Track alert delivery status across all paths (HTML + fallback)
+    # Previously the DB flag was only updated on 200 response, leaving fallback-delivered
+    # alerts without the biscotto_alert_sent flag, causing duplicate alerts on next cycle.
+    alert_delivered = False
+
     try:
         response = _send_telegram_request(url, payload, timeout=TELEGRAM_TIMEOUT_SECONDS)
         if response.status_code == 200:
@@ -2110,75 +2182,83 @@ def send_biscotto_alert(
                 logging.warning(f"Failed to record biscotto alert in health monitor: {e}")
                 # Continue anyway - alert was sent successfully
 
-            # COVE FIX: Update biscotto_alert_sent flag and last_alert_time after sending alert
-            if db_session and match_obj:
-                try:
-                    from datetime import datetime, timezone
-
-                    from sqlalchemy import text
-
-                    match_id = getattr(match_obj, "id", None)
-                    if match_id:
-                        try:
-                            db_session.execute(
-                                text("""
-                                    UPDATE matches
-                                    SET biscotto_alert_sent = 1,
-                                        last_alert_time = :alert_time
-                                    WHERE id = :id
-                                """),
-                                {
-                                    "alert_time": datetime.now(timezone.utc),
-                                    "id": match_id,
-                                },
-                            )
-                            db_session.commit()  # Explicit commit
-
-                            logging.info(
-                                f"📊 COVE: Updated biscotto_alert_sent flag for Match ID {match_id}"
-                            )
-                        except Exception as commit_error:
-                            db_session.rollback()  # Explicit rollback on error
-                            raise commit_error
-                except Exception as e:
-                    # Log error but don't fail the alert (alert was already sent)
-                    import traceback
-
-                    error_details = {
-                        "error_type": type(e).__name__,
-                        "error_message": str(e),
-                        "match_id": getattr(match_obj, "id", "unknown"),
-                        "match": f"{getattr(match_obj, 'home_team', 'Unknown')} vs {getattr(match_obj, 'away_team', 'Unknown')}",
-                        "traceback": traceback.format_exc()
-                        if logging.getLogger().level <= logging.DEBUG
-                        else "disabled (set DEBUG level to see)",
-                    }
-
-                    # Explicit rollback on error
-                    try:
-                        db_session.rollback()
-                    except Exception:
-                        pass  # Ignore rollback errors
-
-                    logging.error(
-                        f"❌ COVE: Failed to update biscotto_alert_sent flag for Match ID {error_details['match_id']}. "
-                        f"Match: {error_details['match']}. "
-                        f"Error: {error_details['error_type']}: {error_details['error_message']}"
-                    )
-                    logging.info(
-                        "ℹ️ COVE: Alert was sent to Telegram but biscotto_alert_sent flag update failed. "
-                        "Duplicate alerts may occur for this match."
-                    )
+            alert_delivered = True
         else:
             # HTML parsing failed - fallback to plain text
-            _send_plain_text_fallback(url, message, news_url, match_str)
+            alert_delivered = _send_plain_text_fallback(url, message, news_url, match_str)
     except requests.exceptions.Timeout:
         logging.error("Telegram timeout per biscotto alert dopo 3 tentativi")
+        # COVE FIX: Add fallback on Timeout — mirrors send_alert() pattern
+        alert_delivered = _send_plain_text_fallback(url, message, news_url, match_str)
     except requests.exceptions.ConnectionError as e:
         logging.error(f"Telegram errore connessione (biscotto): {e}")
+        # COVE FIX: Add fallback on ConnectionError — mirrors send_alert() pattern
+        alert_delivered = _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
     except Exception as e:
         # Fallback to plain text on any exception
-        _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
+        alert_delivered = _send_plain_text_fallback(url, message, news_url, match_str, exception=e)
+
+    # COVE FIX: Update biscotto_alert_sent flag if alert was delivered via ANY path
+    # (HTML or plain text). Previously this was inside the 200-response block only,
+    # meaning plain text fallback deliveries were never flagged, causing duplicates.
+    if alert_delivered and db_session and match_obj:
+        try:
+            from datetime import datetime, timezone
+
+            from sqlalchemy import text
+
+            match_id = getattr(match_obj, "id", None)
+            if match_id:
+                try:
+                    db_session.execute(
+                        text("""
+                            UPDATE matches
+                            SET biscotto_alert_sent = 1,
+                                last_alert_time = :alert_time
+                            WHERE id = :id
+                        """),
+                        {
+                            "alert_time": datetime.now(timezone.utc),
+                            "id": match_id,
+                        },
+                    )
+                    db_session.commit()  # Explicit commit
+
+                    logging.info(
+                        f"📊 COVE: Updated biscotto_alert_sent flag for Match ID {match_id}"
+                    )
+                except Exception as commit_error:
+                    db_session.rollback()  # Explicit rollback on error
+                    raise commit_error
+        except Exception as e:
+            # Log error but don't fail the alert (alert was already sent)
+            import traceback
+
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "match_id": getattr(match_obj, "id", "unknown"),
+                "match": f"{getattr(match_obj, 'home_team', 'Unknown')} vs {getattr(match_obj, 'away_team', 'Unknown')}",
+                "traceback": traceback.format_exc()
+                if logging.getLogger().level <= logging.DEBUG
+                else "disabled (set DEBUG level to see)",
+            }
+
+            # Explicit rollback on error
+            try:
+                db_session.rollback()
+            except Exception:
+                pass  # Ignore rollback errors
+
+            logging.error(
+                f"❌ COVE: Failed to update biscotto_alert_sent flag for Match ID {error_details['match_id']}. "
+                f"Match: {error_details['match']}. "
+                f"Error: {error_details['error_type']}: {error_details['error_message']}"
+            )
+            logging.info(
+                "ℹ️ COVE: Alert was sent to Telegram but biscotto_alert_sent flag update failed. "
+                "Duplicate alerts may occur for this match."
+            )
 
 
 # ============================================

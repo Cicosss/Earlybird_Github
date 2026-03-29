@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 # Import safe access utilities
 from src.utils.validators import safe_get
 
+# SILENT DROP FIX: Import ALERT_THRESHOLD_HIGH to detect score crushing below threshold
+try:
+    from config.settings import ALERT_THRESHOLD_HIGH
+except ImportError:
+    ALERT_THRESHOLD_HIGH = 8.0  # Fallback to default if import fails (V11.1: Relaxed from 8.5)
+
 # Default weights file path
 WEIGHTS_FILE = "data/optimizer_weights.json"
 
@@ -1081,6 +1087,16 @@ class StrategyOptimizer:
         adjusted = base_score * weight
         adjusted = max(0, min(10, adjusted))
 
+        # SILENT DROP FIX: Detect when optimizer weight crushes score below ALERT_THRESHOLD_HIGH
+        # This prevents silent alert drops when historical data suggests reduced confidence
+        if weight < 1.0 and adjusted < ALERT_THRESHOLD_HIGH:
+            market_type = categorize_market(market) if market else "UNKNOWN"
+            logger.warning(
+                f"⚠️ [OPTIMIZER] SCORE CRUSHED: {base_score:.1f} → {adjusted:.1f} below "
+                f"ALERT_THRESHOLD_HIGH={ALERT_THRESHOLD_HIGH} (weight={weight:.2f}x for {market_type}/{league}). "
+                f"Alert will be blocked by threshold."
+            )
+
         n_bets = stats.get("bets", 0)
         roi = stats.get("roi", 0)
         sharpe = stats.get("sharpe", 0)
@@ -1092,6 +1108,61 @@ class StrategyOptimizer:
         )
 
         return round(adjusted, 1), log_msg
+
+    def apply_weight_to_score_with_original(
+        self, base_score: float, league: str, market: str = None, driver: str = None
+    ) -> tuple[float, float, str, float]:
+        """Apply learned weight to a confidence score while preserving the original AI score.
+
+        COVE FIX: This method prevents "silent alert drops" by returning both the original
+        AI score and the adjusted score. The original score should be used for threshold
+        checks and NewsLog storage, while the adjusted score is available for logging
+        and secondary decision-making purposes.
+
+        Returns:
+            tuple[float, float, str, float]: (original_score, adjusted_score, log_msg, weight)
+                - original_score: The unmodified AI-generated score (use for threshold checks)
+                - adjusted_score: The weight-adjusted score (for logging only)
+                - log_msg: Human-readable weight application message
+                - weight: The actual weight factor applied
+        """
+        if not market:
+            return base_score, base_score, "", 1.0
+
+        # V5.3 FIX: Validate league parameter
+        if not league:
+            logger.debug("⚠️ apply_weight_to_score_with_original called with empty league")
+            return base_score, base_score, "", 1.0
+
+        original_score = base_score  # ALWAYS preserve the original AI score
+        weight, stats = self.get_weight(league, market, driver)
+
+        if weight == NEUTRAL_WEIGHT:
+            return original_score, original_score, "", weight
+
+        adjusted = base_score * weight
+        adjusted = max(0, min(10, adjusted))
+
+        n_bets = stats.get("bets", 0)
+        roi = stats.get("roi", 0)
+        sharpe = stats.get("sharpe", 0)
+        market_type = categorize_market(market)
+
+        # COVE FIX: Enhanced logging to show both scores when weight would cause silent drop
+        if weight < 1.0:
+            logger.warning(
+                f"⚠️ [OPTIMIZER] WEIGHT PENALTY: {weight:.2f}x for {market_type}/{league} "
+                f"(ROI={roi * 100:.1f}%, Sharpe={sharpe:.2f}, n={n_bets}). "
+                f"Original AI score {original_score:.1f} preserved for threshold check, "
+                f"adjusted score would be {adjusted:.1f}."
+            )
+
+        log_msg = (
+            f"⚖️ OPTIMIZER: {weight:.2f}x on {market_type}/{league} "
+            f"(ROI={roi * 100:.1f}%, Sharpe={sharpe:.2f}, n={n_bets})"
+        )
+
+        return original_score, round(adjusted, 1), log_msg, weight
 
     def get_summary(self) -> str:
         """

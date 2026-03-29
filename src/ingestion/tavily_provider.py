@@ -249,6 +249,10 @@ class TavilyProvider:
         self._http_client = get_http_client()
         self._fallback_active = False
 
+        # V12.4: Auto-recovery timestamp for _fallback_active flag
+        self._fallback_activated_at: float | None = None
+        self._FALLBACK_RECOVERY_SECONDS: int = 12 * 3600  # 12 hours cooldown
+
         # V7.0: Circuit breaker for resilience
         self._circuit_breaker = CircuitBreaker()
         self._fallback_calls: int = 0
@@ -274,6 +278,11 @@ class TavilyProvider:
         """
         Check if Tavily is available and within budget.
 
+        V12.4: Added Half-Open auto-recovery for _fallback_active flag.
+        If fallback has been active for more than 12 hours, automatically
+        reset it and attempt to use primary API again. This prevents permanent
+        API lockout that requires manual restart.
+
         Returns:
             True if Tavily can be used
 
@@ -283,6 +292,27 @@ class TavilyProvider:
             return False
 
         if self._fallback_active:
+            # V12.4: Auto-recovery check - if cooldown period has elapsed, reset fallback
+            if self._fallback_activated_at is not None:
+                elapsed = time.time() - self._fallback_activated_at
+                if elapsed > self._FALLBACK_RECOVERY_SECONDS:
+                    logger.info(
+                        f"🔌 [TAVILY-AUTO-RECOVERY] Fallback active for {elapsed / 3600:.1f}h "
+                        f"(> {self._FALLBACK_RECOVERY_SECONDS / 3600:.0f}h cooldown). "
+                        f"Attempting recovery..."
+                    )
+                    self.reset_fallback()
+                    # After reset, check if keys are actually available
+                    if self._key_rotator.is_available():
+                        logger.info(
+                            "✅ [TAVILY-AUTO-RECOVERY] Recovery successful - primary API restored"
+                        )
+                        return True
+                    else:
+                        logger.warning(
+                            "⚠️ [TAVILY-AUTO-RECOVERY] Keys still unavailable after reset"
+                        )
+                        return False
             return False
 
         return self._key_rotator.is_available()
@@ -444,6 +474,7 @@ class TavilyProvider:
         if not api_key:
             logger.warning("⚠️ No Tavily API key available")
             self._fallback_active = True
+            self._fallback_activated_at = time.time()  # V12.4: Track activation timestamp
             return self._fallback_search(query, max_results)
 
         # Apply rate limiting
@@ -475,7 +506,12 @@ class TavilyProvider:
                 payload["days"] = days
 
             response = self._http_client.post_sync(
-                TAVILY_API_URL, rate_limit_key="tavily", json=payload, timeout=30, max_retries=1
+                TAVILY_API_URL,
+                rate_limit_key="tavily",
+                json=payload,
+                timeout=30,
+                max_retries=1,
+                use_fingerprint=False,
             )
 
             response_time = time.time() - start_time
@@ -503,6 +539,7 @@ class TavilyProvider:
                 else:
                     # All keys exhausted
                     self._fallback_active = True
+                    self._fallback_activated_at = time.time()  # V12.4: Track activation timestamp
                     logger.warning("⚠️ [TAVILY] All keys exhausted, switching to fallback")
                     return self._fallback_search(query, max_results)
 
@@ -620,6 +657,7 @@ class TavilyProvider:
                 },
                 timeout=15,
                 max_retries=1,
+                use_fingerprint=False,
             )
 
             response_time = time.time() - start_time
@@ -846,8 +884,9 @@ class TavilyProvider:
         )
 
     def reset_fallback(self) -> None:
-        """Reset fallback mode (for recovery attempts)."""
+        """Reset fallback mode (for recovery attempts). V12.4: Also clears activation timestamp."""
         self._fallback_active = False
+        self._fallback_activated_at = None
 
     def get_status(self) -> dict:
         """Get provider status for monitoring."""

@@ -174,7 +174,7 @@ class TestContractInfrastructure:
         # Tipo errato
         is_valid, error = field.validate(123)
         assert not is_valid
-        assert "tipo" in error
+        assert "type mismatch" in error
 
     def test_field_spec_allowed_values(self):
         """FieldSpec valida correttamente i valori ammessi."""
@@ -187,7 +187,7 @@ class TestContractInfrastructure:
         # Valore non ammesso
         is_valid, error = field.validate("invalid")
         assert not is_valid
-        assert "non in" in error
+        assert "not in allowed values" in error
 
     def test_field_spec_custom_validator(self):
         """FieldSpec usa correttamente il validatore custom."""

@@ -26,6 +26,7 @@ lxml>=6.0.2  # Fast C-based HTML parser (10x faster than html.parser) - Updated 
 
 # HTTP Client (HTTPX - async/sync with connection pooling)
 httpx[http2]==0.28.1  # HTTP/2 support, connection pooling, async
+httpx-retries>=0.4.0  # Automatic retry transport for httpx (eliminates manual retry code)
 # aiohttp==3.10.11  # Async HTTP client for Nitter scraper (V10.5) - REPLACED with Scrapling for stealth
 
 # Anti-Bot Stealth Scraping (V11.0 - Scrapling Integration)

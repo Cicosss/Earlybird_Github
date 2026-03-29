@@ -126,6 +126,15 @@ class StepByStepFeedbackLoop:
         league = getattr(match, "league", None)
         start_time = getattr(match, "start_time", None)
 
+        # VPS FIX #3: Extract odds attributes for verification quality
+        # FinalAlertVerifier uses these to assess market movement and value
+        opening_home_odd = getattr(match, "opening_home_odd", None)
+        current_home_odd = getattr(match, "current_home_odd", None)
+        opening_draw_odd = getattr(match, "opening_draw_odd", None)
+        current_draw_odd = getattr(match, "current_draw_odd", None)
+        opening_away_odd = getattr(match, "opening_away_odd", None)
+        current_away_odd = getattr(match, "current_away_odd", None)
+
         logger.info(
             f"🔄 [STEP-BY-STEP] Processing modification plan: {modification_plan.feedback_decision.value}"
         )
@@ -150,13 +159,19 @@ class StepByStepFeedbackLoop:
             return False, {"status": "manual_review_required"}, None
 
         # Automatic feedback loop execution
-        # VPS FIX: Pass extracted Match attributes instead of Match object
+        # VPS FIX: Pass extracted Match attributes including odds for verification quality
         return self._execute_automatic_feedback_loop(
             match_id,
             home_team,
             away_team,
             league,
             start_time,
+            opening_home_odd,
+            current_home_odd,
+            opening_draw_odd,
+            current_draw_odd,
+            opening_away_odd,
+            current_away_odd,
             original_analysis,
             modification_plan,
             alert_data,
@@ -170,6 +185,12 @@ class StepByStepFeedbackLoop:
         away_team: str,
         league: str,
         start_time,
+        opening_home_odd: float | None,
+        current_home_odd: float | None,
+        opening_draw_odd: float | None,
+        current_draw_odd: float | None,
+        opening_away_odd: float | None,
+        current_away_odd: float | None,
         original_analysis: NewsLog,
         modification_plan: ModificationPlan,
         alert_data: dict,
@@ -242,6 +263,7 @@ class StepByStepFeedbackLoop:
                 # Step 3: Intermediate verification (optional for critical steps)
                 if modification.priority.value in ["critical", "high"]:
                     # VPS FIX: Reconstruct Match object from extracted attributes
+                    # VPS FIX #3: Include odds attributes for verification quality
                     from types import SimpleNamespace
 
                     match_obj = SimpleNamespace(
@@ -250,6 +272,13 @@ class StepByStepFeedbackLoop:
                         away_team=away_team,
                         league=league,
                         start_time=start_time,
+                        # Odds attributes for FinalAlertVerifier market movement analysis
+                        opening_home_odd=opening_home_odd,
+                        current_home_odd=current_home_odd,
+                        opening_draw_odd=opening_draw_odd,
+                        current_draw_odd=current_draw_odd,
+                        opening_away_odd=opening_away_odd,
+                        current_away_odd=current_away_odd,
                     )
                     intermediate_result = self._intermediate_verification(
                         match_obj, current_analysis, current_alert_data, current_context_data
@@ -292,9 +321,10 @@ class StepByStepFeedbackLoop:
                 logger.info("🔄 [STEP-BY-STEP] All steps completed, running final verification")
 
                 # VPS FIX: Reconstruct Match object from extracted attributes for final verification
+                # VPS FIX #3: Include odds attributes for verification quality
                 # Note: We create a simple object with the extracted attributes because
                 # verify_final_alert() expects a Match object. The verifier already uses
-                # getattr() safely, so this won't cause DetachedInstanceError.
+                # getattr() safely, so this won't cause DetachedInstanceError
                 from types import SimpleNamespace
 
                 match_obj = SimpleNamespace(
@@ -303,6 +333,13 @@ class StepByStepFeedbackLoop:
                     away_team=away_team,
                     league=league,
                     start_time=start_time,
+                    # VPS FIX #3: Odds attributes for FinalAlertVerifier market movement analysis
+                    opening_home_odd=opening_home_odd,
+                    current_home_odd=current_home_odd,
+                    opening_draw_odd=opening_draw_odd,
+                    current_draw_odd=current_draw_odd,
+                    opening_away_odd=opening_away_odd,
+                    current_away_odd=current_away_odd,
                 )
 
                 should_send, final_result = self.verifier.verify_final_alert(
@@ -449,9 +486,10 @@ class StepByStepFeedbackLoop:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Update reasoning
-        original_reasoning = getattr(analysis, "reasoning", "") or getattr(analysis, "summary", "")
-        analysis.reasoning = f"[MARKET MODIFIED] {original_reasoning} | Market changed from {modification.original_value} to {modification.suggested_value}: {modification.reason}"
+        # Update reasoning - VPS FIX: Use 'summary' column (NewsLog has no 'reasoning' column)
+        # The NewsLog model has 'summary' and 'combo_reasoning', not 'reasoning'
+        original_reasoning = getattr(analysis, "summary", "") or ""
+        analysis.summary = f"[MARKET MODIFIED] {original_reasoning} | Market changed from {modification.original_value} to {modification.suggested_value}: {modification.reason}"
 
         return {
             "success": True,
@@ -522,8 +560,9 @@ class StepByStepFeedbackLoop:
         context_data: dict,
     ) -> dict:
         """Apply reasoning update modification."""
-        # Update analysis reasoning
-        analysis.reasoning = modification.suggested_value
+        # VPS FIX: Use 'summary' column (NewsLog has no 'reasoning' column)
+        # The NewsLog model has 'summary' and 'combo_reasoning', not 'reasoning'
+        analysis.summary = modification.suggested_value
 
         # Update alert data
         alert_data["reasoning"] = modification.suggested_value
@@ -941,6 +980,10 @@ class StepByStepFeedbackLoop:
             )
 
             # Persist learning patterns to database (outside lock to avoid blocking)
+            # VPS FIX: Capture pattern data inside session to prevent DetachedInstanceError
+            # when accessing ORM attributes after session close
+            pattern_data = None  # Will hold extracted values for in-memory update
+
             with get_db_session() as db:
                 # Update or create learning pattern
                 existing_pattern = (
@@ -967,6 +1010,22 @@ class StepByStepFeedbackLoop:
                         existing_pattern.success_rate = new_rate
 
                     existing_pattern.last_updated = datetime.now(timezone.utc)
+
+                    # VPS FIX: Extract all needed values into plain dict BEFORE session closes
+                    # This prevents DetachedInstanceError when connection pool recycles
+                    pattern_data = {
+                        "modification_count": existing_pattern.modification_count,
+                        "confidence_level": existing_pattern.confidence_level,
+                        "discrepancy_count": existing_pattern.discrepancy_count,
+                        "total_occurrences": existing_pattern.total_occurrences,
+                        "auto_apply_count": existing_pattern.auto_apply_count,
+                        "manual_review_count": existing_pattern.manual_review_count,
+                        "ignore_count": existing_pattern.ignore_count,
+                        "success_rate": existing_pattern.success_rate,
+                        "last_updated": existing_pattern.last_updated.isoformat()
+                        if existing_pattern.last_updated
+                        else None,
+                    }
                 else:
                     # Create new pattern
                     new_pattern = LearningPattern(
@@ -988,28 +1047,37 @@ class StepByStepFeedbackLoop:
                     )
                     db.add(new_pattern)
 
+                    # VPS FIX: Capture new pattern data for in-memory update
+                    pattern_data = {
+                        "modification_count": len(modification_plan.modifications),
+                        "confidence_level": situation.get("confidence_level", "MEDIUM"),
+                        "discrepancy_count": situation.get("discrepancy_count", 0),
+                        "total_occurrences": 1,
+                        "auto_apply_count": 1
+                        if modification_plan.feedback_decision == FeedbackDecision.AUTO_APPLY
+                        else 0,
+                        "manual_review_count": 1
+                        if modification_plan.feedback_decision == FeedbackDecision.MANUAL_REVIEW
+                        else 0,
+                        "ignore_count": 1
+                        if modification_plan.feedback_decision == FeedbackDecision.IGNORE
+                        else 0,
+                        "success_rate": 1.0 if success else 0.0,
+                        "last_updated": datetime.now(timezone.utc).isoformat(),
+                    }
+
                 db.commit()
                 logger.info(f"🧠 [LEARNING] Pattern '{pattern_key}' updated successfully")
 
             # RACE CONDITION FIX: Use correct lock (_learning_patterns_lock) for in-memory updates
             # This ensures thread-safe access to learning_patterns dict
+            # VPS FIX: Use pattern_data captured inside session, not existing_pattern ORM object
             with self.intelligent_logger._learning_patterns_lock:
                 # Update the in-memory learning_patterns dict with the latest data
-                if existing_pattern:
-                    # Pattern was updated in database, update in-memory representation
-                    self.intelligent_logger.learning_patterns[pattern_key] = {
-                        "modification_count": existing_pattern.modification_count,
-                        "confidence_level": existing_pattern.confidence_level,
-                        "discrepancy_count": existing_pattern.discrepancy_count,
-                        "total_occurrences": existing_pattern.total_occurrences,
-                        "auto_apply_count": existing_pattern.auto_apply_count,
-                        "manual_review_count": existing_pattern.manual_review_count,
-                        "ignore_count": existing_pattern.ignore_count,
-                        "success_rate": existing_pattern.success_rate,
-                        "last_updated": existing_pattern.last_updated.isoformat()
-                        if existing_pattern.last_updated
-                        else None,
-                    }
+                if pattern_data:
+                    # Pattern was updated/created in database, update in-memory representation
+                    # using pre-extracted values (safe from DetachedInstanceError)
+                    self.intelligent_logger.learning_patterns[pattern_key] = pattern_data
                 else:
                     # New pattern was created in database, add to in-memory representation
                     self.intelligent_logger.learning_patterns[pattern_key] = {

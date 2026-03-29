@@ -1,6 +1,6 @@
 # Architecture Snapshot - Ground Truth for V10.5
 
-**Generated:** 2026-02-20T22:37:17.186044+00:00
+**Generated:** 2026-03-28T22:39:19.475857+00:00
 **Purpose:** Single Source of Truth for Claude-Mem Integration
 **Method:** AST-based code analysis
 
@@ -61,13 +61,16 @@
 - `def get_social_sources_with_fallback()`
 - `def is_biscotto_suspect()`
 - `def is_case_closed()`
+- `def is_intelligence_available()`
 - `def is_intelligence_only_league()`
 - `def load_local_mirror()`
 - `def on_high_priority_discovery()`
 - `def parse_args()`
 - `def process_intelligence_queue()`
+- `def process_radar_triggers()`
 - `def refresh_twitter_intel_sync()`
 - `def run_browser_monitor_loop()`
+- `def run_budget_intelligence_loop()`
 - `def run_continuous()`
 - `def run_nightly_settlement()`
 - `def run_opportunity_radar()`
@@ -77,6 +80,19 @@
 - `def show_system_status()`
 - `def signal_handler()`
 - `def test_main_configuration()`
+
+
+#### `version.py`
+
+**Functions:**
+- `def get_historical_version()`
+- `def get_version()`
+- `def get_version_dict()`
+- `def get_version_info()`
+- `def get_version_tuple()`
+- `def get_version_with_module()`
+- `def is_at_least()`
+- `def version_matches()`
 
 
 ### src/alerting
@@ -98,6 +114,7 @@
 - `def _build_confidence_breakdown_section()`
 - `def _build_convergence_section()`
 - `def _build_date_line()`
+- `def _build_final_verification_section()`
 - `def _build_injury_section()`
 - `def _build_referee_section()`
 - `def _build_twitter_section()`
@@ -109,26 +126,51 @@
 - `def _truncate_message_if_needed()`
 - `def calculate_odds_movement()`
 - `def extract_combo_from_summary()`
-- `def normalize_unicode()`
 - `def send_alert()`
 - `def send_alert_wrapper()`
 - `def send_biscotto_alert()`
+- `def send_clv_strategy_report()`
 - `def send_document()`
 - `def send_status_message()`
 - `def strip_html_links()`
-- `def truncate_utf8()`
+- `def validate_telegram_at_startup()`
+- `def validate_telegram_chat_id()`
+- `def validate_telegram_credentials()`
+
+
+#### `orchestration_metrics.py`
+
+**Classes:**
+- `class BusinessMetrics`
+- `class LockContentionMetrics`
+- `class OrchestrationMetrics`
+- `class OrchestrationMetricsCollector`
+- `class SystemMetrics`
+
+**Functions:**
+- `def _validate_threshold()`
+- `def get_metrics_collector()`
+- `def record_error_intelligent()`
+- `def start_metrics_collection()`
+- `def stop_metrics_collection()`
 
 
 ### src/analysis
 
-
 #### `analyzer.py`
+
+**Classes:**
+- `class BoostType`
+- `class DummyLogger`
+- `class DummyMetrics`
+- `class DummyMonitor`
 
 **Functions:**
 - `def _format_team_stats()`
 - `def _json_loads()`
 - `def _normalize_signal_type()`
 - `def _parse_twitter_intel()`
+- `def _validate_newslog_contract()`
 - `def analyze_biscotto()`
 - `def analyze_relevance()`
 - `def analyze_with_triangulation()`
@@ -143,10 +185,11 @@
 - `def extract_reasoning_from_response()`
 - `def get_ai_response_stats()`
 - `def get_match_attr()`
-- `def normalize_unicode()`
+- `def get_referee_boost_logger()`
+- `def get_referee_cache_monitor()`
+- `def get_referee_influence_metrics()`
 - `def reset_ai_response_stats()`
 - `def safe_injuries_list()`
-- `def truncate_utf8()`
 - `def validate_ai_response()`
 
 
@@ -206,10 +249,12 @@
 - `def analyze_team_fatigue()`
 - `def calculate_fatigue_index()`
 - `def calculate_late_game_risk()`
+- `def clear_match_history_cache()`
 - `def format_fatigue_context()`
 - `def get_enhanced_fatigue_context()`
 - `def get_fatigue_level()`
 - `def get_squad_depth_score()`
+- `def get_team_match_history()`
 
 
 #### `final_alert_verifier.py`
@@ -225,8 +270,11 @@
 #### `image_ocr.py`
 
 **Functions:**
+- `def _fuzzy_match_keywords()`
+- `def _has_intent_keywords()`
 - `def _is_valid_ocr_text()`
 - `def extract_player_names()`
+- `def normalize_ocr_text()`
 - `def process_squad_image()`
 
 
@@ -234,7 +282,7 @@
 
 **Classes:**
 - `class InjuryDifferential`
-- `class PlayerImpact`
+- `class InjuryPlayerImpact`
 - `class PlayerPosition`
 - `class PlayerRole`
 - `class TeamInjuryImpact`
@@ -281,11 +329,13 @@
 - `def analyze_market_intelligence()`
 - `def apply_news_decay()`
 - `def apply_news_decay_v2()`
+- `def calculate_decay_multiplier()`
 - `def calculate_news_freshness_multiplier()`
 - `def cleanup_old_snapshots()`
 - `def detect_reverse_line_movement()`
 - `def detect_rlm_v2()`
 - `def detect_steam_move()`
+- `def get_league_decay_rate()`
 - `def get_odds_history()`
 - `def get_steam_window_for_league()`
 - `def init_market_intelligence_db()`
@@ -349,11 +399,52 @@
 - `def extract_lastname()`
 - `def get_player_role()`
 - `def get_team_players_with_stats()`
+- `def is_feature_disabled()`
 - `def is_key_player()`
 - `def match_player()`
 - `def normalize_name()`
 - `def resolve_player_in_team()`
 - `def similarity()`
+
+
+#### `referee_boost_logger.py`
+
+**Classes:**
+- `class BoostType`
+- `class RefereeBoostLogger`
+
+**Functions:**
+- `def get_referee_boost_logger()`
+
+
+#### `referee_cache.py`
+
+**Classes:**
+- `class RefereeCache`
+
+**Functions:**
+- `def get_referee_cache()`
+
+
+#### `referee_cache_monitor.py`
+
+**Classes:**
+- `class RefereeCacheMonitor`
+
+**Functions:**
+- `def decorator()`
+- `def get_referee_cache_monitor()`
+- `def monitor_cache_access()`
+- `def wrapper()`
+
+
+#### `referee_influence_metrics.py`
+
+**Classes:**
+- `class RefereeInfluenceMetrics`
+
+**Functions:**
+- `def get_referee_influence_metrics()`
 
 
 #### `reporter.py`
@@ -424,10 +515,12 @@
 - `def calculate_trust_score()`
 - `def check_echo_chamber()`
 - `def detect_red_flags()`
+- `def extract_prediction_from_text()`
 - `def get_channel_trust_metrics()`
 - `def get_first_odds_drop_time()`
 - `def track_odds_correlation()`
 - `def validate_telegram_message()`
+- `def verify_prediction_against_result()`
 
 
 #### `verification_layer.py`
@@ -443,7 +536,6 @@
 - `class PerplexityVerifier`
 - `class PlayerImpact`
 - `class RefereeStats`
-- `class RefereeStrictness`
 - `class TavilyVerifier`
 - `class VerificationOrchestrator`
 - `class VerificationRequest`
@@ -453,6 +545,7 @@
 
 **Functions:**
 - `def _calculate_injury_severity()`
+- `def _serialize_value()`
 - `def build_italian_reasoning()`
 - `def create_fallback_result()`
 - `def create_rejection_result()`
@@ -460,9 +553,12 @@
 - `def create_verification_request_from_match()`
 - `def get_logic_validator()`
 - `def get_verification_orchestrator()`
+- `def is_feature_disabled()`
 - `def market_value_to_impact()`
 - `def parse_ai_json()`
 - `def parse_number()`
+- `def serialize_dataclass()`
+- `def serialize_injury_impact()`
 - `def should_verify_alert()`
 - `def verify_alert()`
 
@@ -471,10 +567,20 @@
 
 **Functions:**
 - `def build_alert_data_for_verifier()`
+- `def build_biscotto_alert_data_for_verifier()`
 - `def build_context_data_for_verifier()`
 - `def build_news_source_verification()`
 - `def extract_domain_from_url()`
 - `def verify_alert_before_telegram()`
+- `def verify_biscotto_alert_before_telegram()`
+
+
+### src/config
+
+#### `exclusion_lists.py`
+
+**Functions:**
+- `def get_all_excluded_keywords()`
 
 
 ### src/core
@@ -485,6 +591,9 @@
 - `class AnalysisEngine`
 
 **Functions:**
+- `def fetch_fotmob()`
+- `def fetch_news()`
+- `def fetch_twitter()`
 - `def get_analysis_engine()`
 
 
@@ -518,7 +627,6 @@
 - `def get_db_context()`
 - `def get_upcoming_matches()`
 - `def init_db()`
-- `def normalize_unicode()`
 - `def save_analysis()`
 - `def save_matches()`
 
@@ -526,6 +634,7 @@
 #### `maintenance.py`
 
 **Functions:**
+- `def cleanup_stale_radar_triggers()`
 - `def emergency_cleanup()`
 - `def get_db_stats()`
 - `def prune_old_data()`
@@ -534,9 +643,17 @@
 #### `migration.py`
 
 **Functions:**
+- `def apply_validation_triggers()`
 - `def check_and_migrate()`
 - `def get_schema_version()`
 - `def get_table_columns()`
+
+
+#### `migration_v13_complete_schema.py`
+
+**Functions:**
+- `def migrate()`
+- `def rollback()`
 
 
 #### `migration_v73.py`
@@ -555,7 +672,10 @@
 #### `models.py`
 
 **Classes:**
+- `class LearningPattern`
+- `class ManualReview`
 - `class Match`
+- `class ModificationHistory`
 - `class NewsLog`
 - `class TeamAlias`
 
@@ -587,6 +707,39 @@
 - `def refresh_mirror()`
 
 
+#### `team_alias_enrichment.py`
+
+**Functions:**
+- `def add_team_mapping()`
+- `def enrich_team_alias_data()`
+- `def get_all_mapped_teams()`
+- `def get_fotmob_id()`
+- `def get_team_country()`
+- `def get_team_league()`
+- `def get_team_mapping_stats()`
+- `def get_telegram_channel()`
+- `def get_twitter_handle()`
+- `def normalize_team_name()`
+
+
+#### `team_alias_utils.py`
+
+**Functions:**
+- `def _find_team_alias()`
+- `def _normalize_team_name()`
+- `def get_all_teams_with_twitter_handles()`
+- `def get_match_alias_data()`
+- `def get_match_fotmob_ids()`
+- `def get_team_alias_data()`
+- `def get_team_country()`
+- `def get_team_fotmob_id()`
+- `def get_team_league()`
+- `def get_team_twitter_handle()`
+- `def get_teams_by_country()`
+- `def get_teams_by_league()`
+- `def log_team_alias_coverage()`
+
+
 #### `telegram_channel_model.py`
 
 **Classes:**
@@ -598,10 +751,13 @@
 - `def get_blacklisted_channels()`
 - `def get_channel_metrics()`
 - `def get_or_create_channel()`
+- `def get_pending_predictions_for_match()`
 - `def get_trusted_channels()`
 - `def init_telegram_tracking_db()`
 - `def log_telegram_message()`
 - `def update_channel_metrics()`
+- `def update_channel_predictions()`
+- `def verify_prediction()`
 
 
 ### src/entrypoints
@@ -655,6 +811,7 @@
 - `def _is_ins_outs_article()`
 - `def _mark_scraped()`
 - `def _should_scrape()`
+- `def _try_acquire_scrape_lock()`
 - `def get_aleague_scraper()`
 - `def is_aleague_scraper_available()`
 - `def scrape_aleague_news_list()`
@@ -662,11 +819,23 @@
 - `def search_aleague_news()`
 
 
+#### `alpha_hunter.py`
+
+**Classes:**
+- `class AlphaHunter`
+- `class MatchCandidate`
+- `class NewsSignal`
+
+**Functions:**
+- `def get_alpha_hunter()`
+- `def run_alpha_hunter()`
+- `def timeout_handler()`
+
+
 #### `base_budget_manager.py`
 
 **Classes:**
 - `class BaseBudgetManager`
-- `class BudgetStatus`
 
 
 #### `brave_budget.py`
@@ -699,10 +868,53 @@
 - `def reset_brave_provider()`
 
 
+#### `budget_intelligence_integration.py`
+
+**Classes:**
+- `class BudgetIntelligenceIntegration`
+
+**Functions:**
+- `def get_budget_intelligence_integration()`
+- `def start_budget_intelligence()`
+- `def stop_budget_intelligence()`
+
+
+#### `budget_monitor.py`
+
+**Classes:**
+- `class BudgetMonitor`
+
+**Functions:**
+- `def get_budget_monitor()`
+
+
+#### `budget_persistence.py`
+
+**Classes:**
+- `class BudgetPersistence`
+
+
+#### `budget_reporter.py`
+
+**Classes:**
+- `class BudgetReporter`
+
+**Functions:**
+- `def get_budget_reporter()`
+
+
+#### `budget_status.py`
+
+**Classes:**
+- `class BudgetStatus`
+
+
 #### `data_provider.py`
 
 **Classes:**
 - `class FotMobProvider`
+- `class ResponseLike`
+- `class _MockResponse`
 
 **Functions:**
 - `def fetch_match_lineup()`
@@ -717,12 +929,13 @@
 #### `deepseek_intel_provider.py`
 
 **Classes:**
+- `class DeepSeekCacheEntry`
 - `class DeepSeekIntelProvider`
 
 **Functions:**
 - `def get_deepseek_provider()`
+- `def is_unknown()`
 - `def safe_bool()`
-- `def safe_float()`
 - `def safe_int()`
 - `def safe_list()`
 - `def safe_str()`
@@ -741,15 +954,18 @@
 **Functions:**
 - `def _close_session()`
 - `def _ensure_utc_aware()`
+- `def _get_all_active_leagues()`
 - `def _get_current_odds_key()`
 - `def _get_session()`
 - `def _reset_odds_key_rotation()`
 - `def _rotate_odds_key()`
 - `def check_quota_status()`
 - `def clean_team_name()`
+- `def extract_btts_odds()`
 - `def extract_h2h_odds()`
 - `def extract_sharp_odds_analysis()`
 - `def extract_totals_odds()`
+- `def fetch_odds_for_team()`
 - `def get_optimized_regions()`
 - `def ingest_fixtures()`
 - `def should_update_league()`
@@ -824,7 +1040,6 @@
 - `class MediastackProvider`
 
 **Functions:**
-- `def _clean_query_for_mediastack()`
 - `def _matches_exclusion()`
 - `def get_mediastack_provider()`
 
@@ -833,6 +1048,21 @@
 
 **Classes:**
 - `class MediaStackQueryBuilder`
+
+
+#### `openrouter_fallback_provider.py`
+
+**Classes:**
+- `class OpenRouterFallbackProvider`
+
+**Functions:**
+- `def get_openrouter_fallback_provider()`
+- `def is_openrouter_fallback_available()`
+- `def is_unknown()`
+- `def safe_bool()`
+- `def safe_int()`
+- `def safe_list()`
+- `def safe_str()`
 
 
 #### `opportunity_radar.py`
@@ -853,6 +1083,7 @@
 **Functions:**
 - `def get_perplexity_provider()`
 - `def is_perplexity_available()`
+- `def is_unknown()`
 - `def safe_bool()`
 - `def safe_int()`
 - `def safe_list()`
@@ -867,8 +1098,6 @@
 - `def build_deep_dive_prompt()`
 - `def build_match_context_enrichment_prompt()`
 - `def build_news_verification_prompt()`
-- `def normalize_unicode()`
-- `def truncate_utf8()`
 
 
 #### `search_provider.py`
@@ -879,12 +1108,12 @@
 **Functions:**
 - `def _fetch_news_sources_from_supabase()`
 - `def _get_league_id_from_key()`
+- `def fetch_supabase_with_timeout()`
 - `def get_news_domains_for_league()`
 - `def get_search_provider()`
 - `def search_insider()`
 - `def search_local()`
 - `def search_news()`
-- `def search_twitter()`
 
 
 #### `tavily_budget.py`
@@ -908,7 +1137,6 @@
 #### `tavily_provider.py`
 
 **Classes:**
-- `class BudgetStatus`
 - `class CacheEntry`
 - `class CircuitBreaker`
 - `class CircuitBreakerState`
@@ -917,6 +1145,7 @@
 - `class TavilyResult`
 
 **Functions:**
+- `def _normalize_score()`
 - `def get_tavily_provider()`
 
 
@@ -941,9 +1170,9 @@
 #### `schemas.py`
 
 **Classes:**
+- `class EnhancedMatchAlert`
 - `class GeminiResponse`
 - `class MatchAlert`
-- `class OddsMovement`
 
 
 ### src/processing
@@ -1024,6 +1253,7 @@
 - `def fetch_squad_images()`
 - `def get_channel_entity_safe()`
 - `def has_upcoming_match()`
+- `def is_feature_disabled()`
 - `def is_message_fresh()`
 - `def monitor_channels_for_squads()`
 - `def normalize_datetime()`
@@ -1079,6 +1309,7 @@
 
 **Functions:**
 - `def get_intelligence_router()`
+- `def is_feature_disabled()`
 - `def is_intelligence_available()`
 
 
@@ -1098,15 +1329,18 @@
 - `class TelegramAlerter`
 
 **Functions:**
+- `def cross_validate_signals()`
+- `def db_operations()`
 - `def extract_single()`
 - `def get_global_radar_monitor()`
 - `def load_config()`
+- `def load_config_from_supabase()`
+- `def scan_chunk()`
 
 
 #### `nitter_fallback_scraper.py`
 
 **Classes:**
-- `class InstanceHealth`
 - `class NitterCache`
 - `class NitterFallbackScraper`
 - `class ScrapedTweet`
@@ -1129,6 +1363,7 @@
 - `class CircuitState`
 - `class InstanceHealth`
 - `class NitterPool`
+- `class NitterPoolExhaustedError`
 
 **Functions:**
 - `def get_nitter_pool()`
@@ -1145,22 +1380,33 @@
 #### `tweet_relevance_filter.py`
 
 **Classes:**
+- `class ScoredTweet`
+- `class TweetFilterResult`
 - `class TweetRelevanceFilter`
 
 **Functions:**
+- `def calculate_relevance_score()`
+- `def calculate_tweet_freshness()`
+- `def detect_conflicts()`
+- `def filter_tweets_for_match()`
+- `def format_tweets_for_ai()`
+- `def get_team_aliases_wrapper()`
 - `def get_tweet_relevance_filter()`
+- `def match_team_in_text()`
+- `def normalize_team_name()`
+- `def resolve_conflict_via_gemini()`
 
 
 #### `twitter_intel_cache.py`
 
 **Classes:**
 - `class CachedTweet`
-- `class IntelRelevance`
 - `class TwitterIntelCache`
 - `class TwitterIntelCacheEntry`
 
 **Functions:**
 - `def _get_cache_lock()`
+- `def _get_data_provider()`
 - `def _get_tweet_relevance_filter()`
 - `def get_social_sources_from_supabase()`
 - `def get_twitter_intel_cache()`
@@ -1192,6 +1438,7 @@
 
 **Functions:**
 - `def _json_loads()`
+- `def _normalize_risk_value()`
 - `def extract_json()`
 - `def normalize_deep_dive_response()`
 - `def parse_ai_json()`
@@ -1200,12 +1447,11 @@
 #### `article_reader.py`
 
 **Classes:**
-- `class ArticleResult`
+- `class ArticleReader`
 
 **Functions:**
+- `def _fetch_single_candidate()`
 - `def apply_deep_dive_to_results()`
-- `def fetch_full_article()`
-- `def should_deep_dive()`
 
 
 #### `browser_fingerprint.py`
@@ -1265,11 +1511,19 @@
 - `class FieldSpec`
 
 **Functions:**
+- `def _is_valid_confidence()`
 - `def _is_valid_score()`
 - `def _is_valid_url()`
 - `def assert_contract()`
 - `def get_contract()`
 - `def validate_contract()`
+
+
+#### `debug_force_analysis.py`
+
+**Functions:**
+- `def run_force_analysis()`
+- `def select_upcoming_match()`
 
 
 #### `debug_funnel.py`
@@ -1280,6 +1534,20 @@
 - `def check_market_veto()`
 - `def main()`
 - `def trace_match_pipeline()`
+
+
+#### `debug_intelligence_funnel.py`
+
+**Functions:**
+- `def analyze_relevance_filters()`
+- `def check_analyzer_trigger()`
+- `def check_verification_layer()`
+- `def print_funnel_stage()`
+- `def print_funnel_summary()`
+- `def print_funnel_table()`
+- `def run_intelligence_funnel_diagnostic()`
+- `def select_upcoming_match()`
+- `def simulate_search_hunt()`
 
 
 #### `discovery_queue.py`
@@ -1307,6 +1575,13 @@
 - `def get_league_aware_freshness()`
 - `def get_league_decay_rate()`
 - `def parse_relative_time()`
+
+
+#### `gen_architecture_map.py`
+
+**Functions:**
+- `def check_pyreverse_installed()`
+- `def generate_architecture_map()`
 
 
 #### `high_value_detector.py`
@@ -1364,6 +1639,19 @@
 - `def should_use_level_3()`
 
 
+#### `match_helper.py`
+
+**Classes:**
+- `class MatchAttributes`
+
+**Functions:**
+- `def extract_match_attributes()`
+- `def extract_match_info()`
+- `def extract_match_odds()`
+- `def format_datetime_to_date()`
+- `def format_datetime_to_iso()`
+
+
 #### `odds_utils.py`
 
 **Functions:**
@@ -1404,11 +1692,14 @@
 #### `radar_odds_check.py`
 
 **Classes:**
+- `class MatchOddsMovement`
 - `class OddsCheckResult`
 - `class OddsMovementStatus`
 - `class RadarOddsChecker`
 
 **Functions:**
+- `def _calculate_match_confidence()`
+- `def _normalize_team_name()`
 - `def check_odds_for_alert_async()`
 - `def get_radar_odds_checker()`
 
@@ -1418,6 +1709,15 @@
 **Functions:**
 - `def build_analysis_prompt_v2()`
 - `def build_quick_check_prompt()`
+
+
+#### `serve_docs.py`
+
+**Classes:**
+- `class MyHTTPRequestHandler`
+
+**Functions:**
+- `def serve_docs()`
 
 
 #### `shared_cache.py`
@@ -1430,7 +1730,6 @@
 - `def compute_simhash()`
 - `def get_shared_cache()`
 - `def hamming_distance()`
-- `def normalize_unicode()`
 - `def normalize_url()`
 - `def reset_shared_cache()`
 
@@ -1446,6 +1745,7 @@
 - `def cached_with_match_time()`
 - `def clear_all_caches()`
 - `def decorator()`
+- `def fetch_with_retry()`
 - `def get_all_cache_stats()`
 - `def get_match_cache()`
 - `def get_search_cache()`
@@ -1466,9 +1766,20 @@
 - `class ValidationStatus`
 
 **Functions:**
+- `def get_validation_report()`
+- `def is_feature_disabled()`
 - `def validate_startup()`
 - `def validate_startup_detailed()`
 - `def validate_startup_or_exit()`
+
+
+#### `telegram_echo.py`
+
+**Functions:**
+- `def get_updates()`
+- `def listening_mode()`
+- `def main()`
+- `def send_message()`
 
 
 #### `text_normalizer.py`
@@ -1538,12 +1849,14 @@
 - `def safe_list_get()`
 - `def validate_alert_payload()`
 - `def validate_analysis_result()`
+- `def validate_analysis_result_dataclass()`
 - `def validate_batch()`
 - `def validate_dict_has_keys()`
 - `def validate_in_list()`
 - `def validate_in_range()`
 - `def validate_list_not_empty()`
 - `def validate_news_item()`
+- `def validate_news_log()`
 - `def validate_non_empty_string()`
 - `def validate_positive_number()`
 - `def validate_verification_request()`
@@ -1554,10 +1867,10 @@
 
 ## 📊 Statistics
 
-- **Directories scanned:** 14
-- **Python files analyzed:** 107
-- **Total classes:** 197
-- **Total functions:** 654
+- **Directories scanned:** 15
+- **Python files analyzed:** 129
+- **Total classes:** 223
+- **Total functions:** 794
 
 ---
 

@@ -1351,94 +1351,89 @@ class TwitterIntelCache:
                     # when called from within an already-running asyncio.run() in main.py
                     # V11.1 FIX: nest_asyncio.apply() already called at module level
                     # MODERATE BUG #7 FIX: asyncio import moved to module level to avoid overhead
-                    if _NEST_ASYNCIO_AVAILABLE:
-                        tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
-                    else:
-                        # Fallback: Try asyncio.run() (may fail in async context)
-                        try:
-                            tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
-                        except RuntimeError as e:
-                            logging.error(f"❌ [NITTER-RECOVERY] Failed to fetch tweets: {e}")
-                            tweets_data = None
-
-                    # V12.5 COVE FIX: Explicitly handle NoneType responses
-                    # fetch_tweets_async should return a list, but defensive check prevents crashes
-                    if tweets_data is None:
-                        logging.warning(
-                            f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned None for @{handle}"
-                        )
-                        tweets_data = []
-                    elif not isinstance(tweets_data, list):
-                        logging.warning(
-                            f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned unexpected type "
-                            f"{type(tweets_data).__name__} for @{handle}, expected list"
-                        )
-                        tweets_data = []
-
-                    if tweets_data:
-                        # V10.5: Apply TweetRelevanceFilter for precision gating
-                        filter_instance = _get_tweet_relevance_filter()
-
-                        # Convert to CachedTweet format and filter
-                        cached_tweets = []
-                        for tweet in tweets_data[:max_results]:
-                            content = tweet.get("content", "")
-
-                            # Apply relevance filter if available
-                            if filter_instance:
-                                relevance_result = filter_instance.analyze(content)
-
-                                # Only process/cache tweets where is_relevant is True
-                                if not relevance_result["is_relevant"]:
-                                    logging.debug(
-                                        f"🐦 [FILTER] Skipped irrelevant tweet: {content[:50]}... "
-                                        f"(score: {relevance_result['score']})"
-                                    )
-                                    continue
-
-                                # Update topics from filter analysis
-                                topics = relevance_result["topics"] or tweet.get("topics", [])
-                            else:
-                                # Fallback: use original topics if filter unavailable
-                                topics = tweet.get("topics", [])
-
-                            cached_tweets.append(
-                                CachedTweet(
-                                    handle=f"@{handle.lstrip('@')}",
-                                    date=tweet.get("published_at", ""),
-                                    content=content,
-                                    topics=topics,
-                                    raw_data={"source": "nitter", "url": tweet.get("url", "")},
-                                )
-                            )
-
-                        # Find account info
-                        account_info = self._find_account_info(handle)
-
-                        # Create/update cache entry
-                        entry = TwitterIntelCacheEntry(
-                            handle=handle,
-                            account_name=account_info.name if account_info else handle,
-                            league_focus=account_info.focus if account_info else "unknown",
-                            tweets=cached_tweets,
-                        )
-
-                        with self._cache_lock:
-                            handle_key = self._normalize_handle(handle)
-                            self._cache[handle_key] = entry
-
-                        stats["recovered"] += 1
-                        stats["tweets_recovered"] += len(cached_tweets)
-                        logging.debug(
-                            f"✅ [NITTER] Recovered {len(cached_tweets)} tweets for @{handle}"
-                        )
-                    else:
-                        stats["failed"] += 1
-                        logging.debug(f"⚠️ [NITTER] No tweets found for @{handle}")
-
+                    tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
+                except RuntimeError as e:
+                    logging.error(f"❌ [NITTER-RECOVERY] Failed to fetch tweets: {e}")
+                    tweets_data = None
                 except Exception as e:
+                    # COVE FIX: Fallback to Brave Search when NitterPool is exhausted
+                    logging.warning(f"⚠️ [NITTER-RECOVERY] NitterPool exhausted for @{handle}: {e}")
+                    tweets_data = self._fallback_to_brave_sync(handle)
+
+                # V12.5 COVE FIX: Explicitly handle NoneType responses
+                # fetch_tweets_async should return a list, but defensive check prevents crashes
+                if tweets_data is None:
+                    logging.warning(
+                        f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned None for @{handle}"
+                    )
+                    tweets_data = []
+                elif not isinstance(tweets_data, list):
+                    logging.warning(
+                        f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned unexpected type "
+                        f"{type(tweets_data).__name__} for @{handle}, expected list"
+                    )
+                    tweets_data = []
+
+                if tweets_data:
+                    # V10.5: Apply TweetRelevanceFilter for precision gating
+                    filter_instance = _get_tweet_relevance_filter()
+
+                    # Convert to CachedTweet format and filter
+                    cached_tweets = []
+                    for tweet in tweets_data[:max_results]:
+                        content = tweet.get("content", "")
+
+                        # Apply relevance filter if available
+                        if filter_instance:
+                            relevance_result = filter_instance.analyze(content)
+
+                            # Only process/cache tweets where is_relevant is True
+                            if not relevance_result["is_relevant"]:
+                                logging.debug(
+                                    f"🐦 [FILTER] Skipped irrelevant tweet: {content[:50]}... "
+                                    f"(score: {relevance_result['score']})"
+                                )
+                                continue
+
+                            # Update topics from filter analysis
+                            topics = relevance_result["topics"] or tweet.get("topics", [])
+                        else:
+                            # Fallback: use original topics if filter unavailable
+                            topics = tweet.get("topics", [])
+
+                        cached_tweets.append(
+                            CachedTweet(
+                                handle=f"@{handle.lstrip('@')}",
+                                date=tweet.get("published_at", ""),
+                                content=content,
+                                topics=topics,
+                                raw_data={"source": "nitter", "url": tweet.get("url", "")},
+                            )
+                        )
+
+                    # Find account info
+                    account_info = self._find_account_info(handle)
+
+                    # Create/update cache entry
+                    entry = TwitterIntelCacheEntry(
+                        handle=handle,
+                        account_name=account_info.name if account_info else handle,
+                        league_focus=account_info.focus if account_info else "unknown",
+                        tweets=cached_tweets,
+                    )
+
+                    with self._cache_lock:
+                        handle_key = self._normalize_handle(handle)
+                        self._cache[handle_key] = entry
+
+                    stats["recovered"] += 1
+                    stats["tweets_recovered"] += len(cached_tweets)
+                    logging.debug(
+                        f"✅ [NITTER] Recovered {len(cached_tweets)} tweets for @{handle}"
+                    )
+                else:
                     stats["failed"] += 1
-                    logging.error(f"❌ [NITTER] Recovery failed for @{handle}: {e}")
+                    logging.debug(f"⚠️ [NITTER] No tweets found for @{handle}")
 
             if stats["recovered"] > 0:
                 logging.info(
@@ -1498,6 +1493,63 @@ class TwitterIntelCache:
         self._last_full_refresh = None
         self._cycle_id = None
         logging.info("🐦 Twitter Intel cache cleared")
+
+    def _fallback_to_brave_sync(self, handle: str) -> list[dict[str, Any]]:
+        """
+        COVE FIX: Fallback to Brave Search when NitterPool is exhausted.
+
+        This method provides a last-resort fallback when all Nitter instances fail.
+        It uses Brave Search to find recent tweets/news about the handle.
+
+        Note: Brave Search is designed for news search, not Twitter-specific content.
+        This fallback provides degraded but still useful intelligence.
+
+        Args:
+            handle: Twitter handle to search for
+
+        Returns:
+            List of tweet-like dictionaries with basic info from Brave results
+        """
+        try:
+            from src.ingestion.brave_provider import get_brave_provider
+
+            brave = get_brave_provider()
+            if not brave.is_available():
+                logging.warning(f"⚠️ [NITTER-BRAVE-FALLBACK] Brave not available for @{handle}")
+                return []
+
+            # Search for recent content about the handle
+            query = f"site:twitter.com OR site:x.com {handle.lstrip('@')} football"
+            results = brave.search_news(query=query, limit=5, component="nitter_fallback")
+
+            if not results:
+                logging.debug(f"⚠️ [NITTER-BRAVE-FALLBACK] No Brave results for @{handle}")
+                return []
+
+            # Convert Brave results to tweet-like format
+            tweets = []
+            for item in results:
+                tweets.append(
+                    {
+                        "content": item.get("snippet", item.get("title", "")),
+                        "published_at": item.get("date", ""),
+                        "url": item.get("url", ""),
+                        "id": hash(item.get("url", "")) % 1000000,
+                        "source": "brave_fallback",
+                    }
+                )
+
+            logging.info(
+                f"✅ [NITTER-BRAVE-FALLBACK] Got {len(tweets)} Brave results for @{handle}"
+            )
+            return tweets
+
+        except ImportError:
+            logging.warning("⚠️ [NITTER-BRAVE-FALLBACK] Brave provider not available")
+            return []
+        except Exception as e:
+            logging.error(f"❌ [NITTER-BRAVE-FALLBACK] Error searching Brave for @{handle}: {e}")
+            return []
 
 
 # ============================================

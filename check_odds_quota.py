@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check Odds API quota for both keys"""
+"""Check Odds API quota for all keys"""
 
 import os
 
@@ -8,10 +8,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Test both keys with detailed quota info
-keys = [("Key 1", os.getenv("ODDS_API_KEY_1")), ("Key 2", os.getenv("ODDS_API_KEY_2"))]
+keys = [
+    ("Key 1", os.getenv("ODDS_API_KEY_1")),
+    ("Key 2", os.getenv("ODDS_API_KEY_2")),
+    ("Key 3", os.getenv("ODDS_API_KEY_3")),
+    ("Key 4", os.getenv("ODDS_API_KEY_4")),
+]
 
 for name, key in keys:
+    if not key:
+        print(f"\n{name}: NOT CONFIGURED")
+        continue
     print(f"\n{name}: {key[:8]}...{key[-4:]}")
     url = "https://api.the-odds-api.com/v4/sports"
     params = {"apiKey": key}

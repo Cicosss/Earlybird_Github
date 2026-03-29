@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.errors import ChannelInvalidError, ChannelPrivateError, UsernameNotOccupiedError
 
+from config.settings import DATA_DIR
 from src.analysis.image_ocr import process_squad_image
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.database.models import Match, TeamAlias
@@ -187,7 +188,8 @@ def _safe_int_env(key: str, default: int = 0) -> int:
 
 API_ID = _safe_int_env("TELEGRAM_API_ID", 0)
 API_HASH = os.getenv("TELEGRAM_API_HASH", "")
-SESSION_NAME = "earlybird_monitor"
+# Use data/ directory for session file (consistent with setup_telegram_auth.py and run_telegram_monitor.py)
+SESSION_NAME = os.path.join(DATA_DIR, "earlybird_monitor")
 
 # ============================================
 # TIME-GATING CONFIGURATION
@@ -293,10 +295,13 @@ def has_upcoming_match(
     team_name: str, lookahead_hours: int = MATCH_LOOKAHEAD_HOURS
 ) -> tuple[bool, Match | None]:
     """
-    TIME-GATE #2: Check if team has an upcoming match in ELITE LEAGUES ONLY.
+    TIME-GATE #2: Check if team has an upcoming match in ACTIVE LEAGUES.
 
-    This prevents processing old news about past matches AND
-    filters out non-Elite leagues (Serie A, Premier League, etc.)
+    V12.4: Now uses dynamic active scope (Supabase + Tier1 + Tier2)
+    instead of hardcoded ELITE_LEAGUES (7 leagues only).
+
+    This prevents processing news about teams from non-active leagues
+    (e.g., Benfica from Portuguese Liga).
 
     Args:
         team_name: Team name to check
@@ -306,13 +311,21 @@ def has_upcoming_match(
         Tuple of (has_match, match_object)
     """
     try:
-        # Import Elite leagues for filtering
+        # V12.4: Use dynamic active scope instead of hardcoded ELITE_LEAGUES
         from src.database.models import get_db_session
-        from src.ingestion.league_manager import ELITE_LEAGUES
+
+        try:
+            from src.ingestion.league_manager import is_in_active_scope
+
+            _has_dynamic_scope = True
+        except ImportError:
+            from src.ingestion.league_manager import ELITE_LEAGUES
+
+            _has_dynamic_scope = False
 
         with get_db_session() as db:
             now = datetime.now(timezone.utc)
-            min_time = now + timedelta(hours=MIN_MATCH_TIME_HOURS)  # Match not started yet
+            min_time = now + timedelta(hours=MIN_MATCH_TIME_HOURS)
             max_time = now + timedelta(hours=lookahead_hours)
 
             # Search for team in home or away
@@ -325,9 +338,6 @@ def has_upcoming_match(
             )
 
             for match in matches:
-                # VPS FIX: Extract Match attributes safely to prevent session detachment
-                # This prevents "Trust validation error" when Match object becomes detached
-                # from session due to connection pool recycling under high load
                 home_team = getattr(match, "home_team", None)
                 away_team = getattr(match, "away_team", None)
                 league = getattr(match, "league", None)
@@ -345,16 +355,28 @@ def has_upcoming_match(
                     or home_lower in team_lower
                     or away_lower in team_lower
                 ):
-                    # ELITE FILTER: Only process matches from Elite leagues
-                    if league and league not in ELITE_LEAGUES:
-                        logger.debug(f"⏭️ Skipping non-Elite league: {league}")
-                        continue
+                    # V12.4: Dynamic scope filter - replaces hardcoded ELITE_LEAGUES check
+                    # Now validates against ALL active leagues (Supabase + Tier1 + Tier2)
+                    if league:
+                        if _has_dynamic_scope:
+                            if not is_in_active_scope(league):
+                                logger.debug(f"⏭️ [SCOPE] Skipping non-active league: {league}")
+                                continue
+                        else:
+                            # Fallback to hardcoded ELITE_LEAGUES if dynamic scope unavailable
+                            if league not in ELITE_LEAGUES:
+                                logger.debug(f"⏭️ Skipping non-Elite league: {league}")
+                                continue
 
                     logger.debug(f"🏆 [TELEGRAM] Found upcoming match: {home_team} vs {away_team}")
                     return True, match
 
             logger.debug(f"🏆 [TELEGRAM] No upcoming matches for {team_name}")
             return False, None
+
+    except Exception as e:
+        logger.error(f"Error checking upcoming match for {team_name}: {e}")
+        return False, None
 
     except Exception as e:
         logger.error(f"Error checking upcoming match for {team_name}: {e}")

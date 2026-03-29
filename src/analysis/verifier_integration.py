@@ -12,6 +12,7 @@ from src.analysis.enhanced_verifier import get_enhanced_final_verifier
 from src.analysis.final_alert_verifier import is_final_verifier_available
 from src.database.models import Match, NewsLog
 from src.processing.sources_config import get_source_weight, get_trust_score
+from src.utils.match_helper import format_datetime_to_iso
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ def build_alert_data_for_verifier(
     analysis: NewsLog,
     news_summary: str,
     news_url: str,
-    score: int,
+    score: float,
     recommended_market: str = None,
     combo_suggestion: str = None,
     reasoning: str = None,
@@ -127,9 +128,8 @@ def build_alert_data_for_verifier(
             "home_team": match_info["home_team"],
             "away_team": match_info["away_team"],
             "league": match_info["league"],
-            "start_time": match_info["start_time"].isoformat()
-            if match_info["start_time"]
-            else None,
+            # COVE FIX: Use format_datetime_to_iso() to handle both datetime and string serialization
+            "start_time": format_datetime_to_iso(match_info["start_time"]),
             "opening_home_odd": match_odds["opening_home_odd"],
             "current_home_odd": match_odds["current_home_odd"],
             "opening_draw_odd": match_odds["opening_draw_odd"],
@@ -389,7 +389,8 @@ def build_biscotto_alert_data_for_verifier(
             "home_team": home_team,
             "away_team": away_team,
             "league": league,
-            "start_time": start_time.isoformat() if start_time else None,
+            # COVE FIX: Use format_datetime_to_iso() to handle both datetime and string serialization
+            "start_time": format_datetime_to_iso(start_time),
             "opening_draw_odd": opening_draw_odd,
             "current_draw_odd": current_draw_odd,
         },

@@ -358,3 +358,81 @@ def extract_match_info(match: Any) -> MatchAttributes:
     # Add last_deep_dive_time as extra field (not in core dataclass)
     attrs["last_deep_dive_time"] = getattr(match, "last_deep_dive_time", None)
     return attrs
+
+
+# =============================================================================
+# DATETIME FORMATTING UTILITIES
+# =============================================================================
+
+
+def format_datetime_to_iso(dt: Any) -> Optional[str]:
+    """
+    Safely format a datetime value to ISO 8601 string.
+
+    This function handles all possible scenarios for datetime values:
+    1. None -> None
+    2. datetime object -> .isoformat()
+    3. String (already serialized) -> return as-is
+    4. Other types -> str() conversion
+
+    This is the intelligent solution for the VPS crash bug where start_time
+    could arrive as either datetime or string depending on serialization state.
+
+    Args:
+        dt: datetime object, string, or None
+
+    Returns:
+        ISO 8601 string representation, or None if input is None
+
+    Example:
+        >>> format_datetime_to_iso(datetime(2024, 1, 15, 20, 0))
+        '2024-01-15T20:00:00'
+        >>> format_datetime_to_iso('2024-01-15T20:00:00')
+        '2024-01-15T20:00:00'
+        >>> format_datetime_to_iso(None)
+        None
+    """
+    if dt is None:
+        return None
+    if hasattr(dt, "isoformat"):
+        return dt.isoformat()
+    if isinstance(dt, str):
+        return dt  # Already serialized
+    return str(dt)
+
+
+def format_datetime_to_date(dt: Any) -> str:
+    """
+    Safely format a datetime value to date string (YYYY-MM-DD).
+
+    This function handles all possible scenarios for datetime values:
+    1. None -> "Unknown"
+    2. datetime object -> .strftime("%Y-%m-%d")
+    3. String (ISO format) -> extract first 10 chars
+    4. Other types -> str()[:10]
+
+    This is the intelligent solution for the VPS crash bug where start_time
+    could arrive as either datetime or string depending on serialization state.
+
+    Args:
+        dt: datetime object, string, or None
+
+    Returns:
+        Date string in YYYY-MM-DD format, or "Unknown" if input is None
+
+    Example:
+        >>> format_datetime_to_date(datetime(2024, 1, 15, 20, 0))
+        '2024-01-15'
+        >>> format_datetime_to_date('2024-01-15T20:00:00')
+        '2024-01-15'
+        >>> format_datetime_to_date(None)
+        'Unknown'
+    """
+    if dt is None:
+        return "Unknown"
+    if hasattr(dt, "strftime"):
+        return dt.strftime("%Y-%m-%d")
+    if isinstance(dt, str):
+        # Extract YYYY-MM-DD from ISO string or any string format
+        return dt[:10] if len(dt) >= 10 else dt
+    return str(dt)[:10] if len(str(dt)) >= 10 else str(dt)

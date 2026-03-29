@@ -351,17 +351,25 @@ class OpenRouterFallbackProvider:
         Returns:
             Parsed and validated response dict or None
         """
-        # Select system prompt and schema based on task type
+        # Select system prompt, schema, and max_tokens based on task type
         if task_type == "deep_dive":
             from src.prompts.system_prompts import DEEP_DIVE_SYSTEM_PROMPT
 
             system_prompt = DEEP_DIVE_SYSTEM_PROMPT
             json_schema = DEEP_DIVE_JSON_SCHEMA
+            max_tokens = 1000
         elif task_type == "betting_stats":
             from src.prompts.system_prompts import BETTING_STATS_SYSTEM_PROMPT
 
             system_prompt = BETTING_STATS_SYSTEM_PROMPT
             json_schema = BETTING_STATS_JSON_SCHEMA
+            max_tokens = 1000
+        elif task_type == "final_alert_verification":
+            from src.prompts.system_prompts import FINAL_ALERT_VERIFICATION_SYSTEM_PROMPT
+
+            system_prompt = FINAL_ALERT_VERIFICATION_SYSTEM_PROMPT
+            json_schema = None  # No Pydantic validation for this task
+            max_tokens = 2000  # More tokens for detailed reasoning
         else:
             logger.warning(f"⚠️ [CLAUDE] Unknown task type: {task_type}")
             return None
@@ -371,7 +379,7 @@ class OpenRouterFallbackProvider:
             "Content-Type": "application/json",
         }
 
-        # Base payload
+        # Base payload with task-specific max_tokens
         payload = {
             "model": OPENROUTER_MODEL,
             "messages": [
@@ -379,7 +387,7 @@ class OpenRouterFallbackProvider:
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.1,  # Low temperature for consistent output
-            "max_tokens": 1000,
+            "max_tokens": max_tokens,
         }
 
         try:
@@ -631,28 +639,14 @@ class OpenRouterFallbackProvider:
         try:
             logger.info("🔍 [CLAUDE] Verifying final alert...")
 
-            # Build messages for Claude 3 Haiku
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a professional betting analyst and fact-checker with 10+ years of experience in sports betting and football analysis. Respond ONLY with valid JSON in the format specified in the user prompt. No markdown, no explanations.",
-                },
-                {"role": "user", "content": verification_prompt},
-            ]
-
-            # Call Claude 3 Haiku with the verification prompt
-            response_text = self._query_api_raw(messages)
-            if not response_text:
-                return None
-
-            # Parse the JSON response
-            parsed = response_text  # _query_api_raw already returns parsed JSON
-            if not parsed:
-                logger.warning("[CLAUDE] Failed to parse final alert verification response")
+            # Call Claude 3 Haiku with the verification prompt using dedicated task type
+            # This uses the FINAL_ALERT_VERIFICATION_SYSTEM_PROMPT with max_tokens=2000
+            result = self._query_api(verification_prompt, task_type="final_alert_verification")
+            if not result:
                 return None
 
             # Normalize the response to ensure all required fields are present
-            result = self._normalize_final_alert_verification(parsed)
+            result = self._normalize_final_alert_verification(result)
             status = result.get("verification_status", "UNKNOWN")
             should_send = result.get("should_send", False)
 

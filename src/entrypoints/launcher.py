@@ -289,7 +289,16 @@ def check_and_restart():
     - Backoff esponenziale: 2s, 4s, 8s, 16s, 32s, 64s (max 60s)
     - Reset del contatore dopo 5 minuti di uptime stabile (processo sano)
     - CPU PROTECTION: Se il processo crasha entro 10 secondi dall'avvio, attendi almeno 15 secondi
+
+    V14.0: Se STOP_FILE esiste, NON riavviare nessun processo - il sistema è in FULL STOP.
     """
+    # V14.0: Check for FULL STOP - don't restart any processes
+    if os.path.exists(settings.STOP_FILE):
+        # Log occasional reminder (but not every check to avoid log spam)
+        if int(time.time()) % 60 == 0:  # Log once per minute
+            logger.info("🛑 FULL STOP ACTIVE - All processes halted until /start")
+        return
+
     STABILITY_THRESHOLD_SECONDS = 300  # 5 minuti di uptime = processo stabile
     CRASH_DETECTION_WINDOW = 10  # secondi - se crasha prima, è un crash immediato
     MINIMUM_BACKOFF_FOR_FAST_CRASH = 15  # secondi - attesa minima per crash veloci

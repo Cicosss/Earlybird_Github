@@ -89,6 +89,15 @@ from src.utils.content_analysis import (
     get_relevance_analyzer,
 )
 
+# V14.0: Import shared cache for cross-component deduplication
+try:
+    from src.utils.shared_cache import get_shared_cache
+
+    SHARED_CACHE_AVAILABLE = True
+except ImportError:
+    SHARED_CACHE_AVAILABLE = False
+    get_shared_cache = None
+
 # V7.3: Import psutil with fallback for memory monitoring
 try:
     import psutil
@@ -97,6 +106,15 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
     psutil = None
+
+# V13.1: ArticleReader for Scrapling-based stealth extraction (WAF bypass)
+try:
+    from src.utils.article_reader import ArticleReader as _ArticleReader
+
+    _ARTICLE_READER_AVAILABLE = True
+except ImportError:
+    _ARTICLE_READER_AVAILABLE = False
+    _ArticleReader = None  # type: ignore
 
 # V7.3: Import browser fingerprint (lazy import fallback if not available)
 try:
@@ -846,10 +864,23 @@ class BrowserMonitor:
         # V7.1: Circuit breakers per source (keyed by URL)
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
+        # V13.1: Scrapling-based stealth extractor (WAF bypass)
+        self._article_reader = None
+        if _ARTICLE_READER_AVAILABLE and _ArticleReader is not None:
+            try:
+                self._article_reader = _ArticleReader()
+                logger.debug(
+                    "✅ [BROWSER-MONITOR] ArticleReader initialized for stealth extraction"
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ [BROWSER-MONITOR] ArticleReader init failed: {e}")
+                self._article_reader = None
+
         # V7.1: Hybrid mode stats
         self._http_extractions = 0
         self._browser_extractions = 0
         self._circuit_breaker_skips = 0
+        self._waf_bypasses = 0  # V13.1: Track WAF bypass successes via Scrapling
 
         # V7.2: Behavior simulation stats
         self._behavior_simulations = 0
@@ -875,7 +906,14 @@ class BrowserMonitor:
         # tramite get_stats(). Questo lock garantisce letture consistenti.
         self._stats_lock = threading.Lock()
 
-        logger.info("🌐 [BROWSER-MONITOR] V7.8 Created (Thread-safe state management)")
+        # V12.2: Lock per proteggere l'accesso thread-safe alla configurazione
+        # Questo previene race condition quando reload_sources() sostituisce _config
+        # mentre scan_cycle() sta iterando su _config.sources
+        self._config_lock = threading.RLock()
+
+        logger.info(
+            "🌐 [BROWSER-MONITOR] V13.1 Created (Scrapling WAF bypass + Thread-safe config)"
+        )
 
     # ============================================
     # LIFECYCLE METHODS
@@ -1015,6 +1053,15 @@ class BrowserMonitor:
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
             self._scan_task = None
+
+        # V13.1: Close ArticleReader (Scrapling connection pool)
+        if self._article_reader:
+            try:
+                await self._article_reader.close()
+                logger.debug("✅ [BROWSER-MONITOR] ArticleReader closed")
+            except Exception as e:
+                logger.debug(f"⚠️ [BROWSER-MONITOR] Error closing ArticleReader: {e}")
+            self._article_reader = None
 
         # Shutdown Playwright
         await self._shutdown_playwright()
@@ -1704,9 +1751,13 @@ class BrowserMonitor:
         V7.1: Try to extract content using pure HTTP (no browser).
         V7.2: Now uses domain-sticky fingerprinting for consistency.
         V7.3: Uses module-level imports for reliability.
+        V13.1: Uses ArticleReader (Scrapling) for TLS fingerprint impersonation
+               and automatic WAF bypass. Falls back to plain requests if unavailable.
 
-        This is 5x faster than browser extraction and works for ~80% of news sites.
-        Falls back to browser if HTTP fails or content is too short.
+        Strategy:
+        1. Scrapling AsyncFetcher (HTTP with TLS impersonation) - fastest, bypasses most WAFs
+        2. Scrapling Fetcher (browser impersonation) - for stubborn WAF blocks
+        3. Plain requests (legacy fallback) - if Scrapling unavailable
 
         Args:
             url: URL to extract content from
@@ -1714,7 +1765,40 @@ class BrowserMonitor:
         Returns:
             Extracted text or None if HTTP extraction fails
         """
-        # V7.3: Check fingerprint availability at module level
+        # ============================================================
+        # V13.1: PRIMARY PATH - Scrapling-based stealth extraction
+        # ============================================================
+        if self._article_reader is not None:
+            try:
+                result = await self._article_reader.fetch_and_extract(url, timeout=HTTP_TIMEOUT)
+                if result["success"] and result["text"]:
+                    text = result["text"]
+                    if len(text) > HTTP_MIN_CONTENT_LENGTH:
+                        method = result["method"]
+                        if method == "browser":
+                            self._waf_bypasses += 1
+                            self._browser_extractions += 1
+                            logger.info(
+                                f"🛡️ [BROWSER-MONITOR] WAF bypass via Scrapling browser: {url[:40]}..."
+                            )
+                        else:
+                            self._http_extractions += 1
+                            logger.debug(
+                                f"⚡ [BROWSER-MONITOR] Scrapling HTTP success: {url[:40]}..."
+                            )
+                        return text
+                    logger.debug(
+                        f"⚠️ [BROWSER-MONITOR] Scrapling extracted too short "
+                        f"({len(result['text'])} chars): {url[:40]}..."
+                    )
+                else:
+                    logger.debug(f"⚠️ [BROWSER-MONITOR] Scrapling extraction failed: {url[:40]}...")
+            except Exception as e:
+                logger.debug(f"⚠️ [BROWSER-MONITOR] Scrapling error: {e}")
+
+        # ============================================================
+        # V13.1: LEGACY FALLBACK - Plain requests (no WAF bypass)
+        # ============================================================
         if not FINGERPRINT_AVAILABLE or get_fingerprint is None:
             logger.debug(
                 "⚠️ [BROWSER-MONITOR] Fingerprint module not available, skipping HTTP extraction"
@@ -2175,23 +2259,53 @@ class BrowserMonitor:
         except Exception:
             return False
 
+    # V12.2: Thread-safe config reload with preservation of last_scanned timestamps
     def reload_sources(self) -> None:
         """
         Reload sources from config file (hot reload).
 
+        V12.2: Thread-safe config reload with preservation of last_scanned timestamps.
+        V12.2: Uses RLock for atomic config replacement.
+
         Requirements: 2.3
         """
-        old_count = len(self._config.sources)
-        self._config = load_config(self._config_file)
-        self._update_config_mtime()
+        # V12.2: Acquire lock for atomic config replacement
+        with self._config_lock:
+            old_count = len(self._config.sources)
 
-        # Update cache settings if changed
-        if self._content_cache:
-            self._content_cache._max_entries = self._config.global_settings.cache_max_entries
-            self._content_cache._ttl_hours = self._config.global_settings.cache_ttl_hours
+            # Preserve last_scanned timestamps before reload
+            # This prevents duplicate scans immediately after hot reload
+            preserved_last_scanned = {}
+            for source in self._config.sources:
+                if source.last_scanned is not None:
+                    # Use URL as key since it's unique per source
+                    preserved_last_scanned[source.url] = source.last_scanned
 
-        new_count = len(self._config.sources)
-        logger.info(f"🔄 [BROWSER-MONITOR] Reloaded config: {old_count} → {new_count} sources")
+            # Load new config
+            new_config = load_config(self._config_file)
+            self._update_config_mtime()
+
+            # Restore last_scanned timestamps after reload
+            # This maintains scan timing continuity across hot reloads
+            restored_count = 0
+            for source in new_config.sources:
+                if source.url in preserved_last_scanned:
+                    source.last_scanned = preserved_last_scanned[source.url]
+                    restored_count += 1
+
+            # Update cache settings if changed
+            if self._content_cache:
+                self._content_cache._max_entries = new_config.global_settings.cache_max_entries
+                self._content_cache._ttl_hours = new_config.global_settings.cache_ttl_hours
+
+            new_count = len(new_config.sources)
+            logger.info(
+                f"🔄 [BROWSER-MONITOR] Reloaded config: {old_count} → {new_count} sources "
+                f"(preserved {restored_count} last_scanned timestamps)"
+            )
+
+            # V12.2: Atomic config replacement
+            self._config = new_config
 
     # ============================================
     # SCAN LOOP
@@ -2253,9 +2367,12 @@ class BrowserMonitor:
         # V7.6: Periodic cleanup of old circuit breakers (every cycle)
         self._cleanup_old_circuit_breakers(max_age_hours=24)
 
-        # Get sources due for scanning, sorted by priority
-        due_sources = [s for s in self._config.sources if s.is_due_for_scan()]
-        due_sources.sort(key=lambda s: s.priority)
+        # V12.2: Create SNAPSHOT of sources list to prevent race condition
+        # when reload_sources() modifies self._config during iteration
+        with self._config_lock:
+            # Get sources due for scanning, sorted by priority
+            due_sources = [s for s in self._config.sources if s.is_due_for_scan()]
+            due_sources.sort(key=lambda s: s.priority)
 
         for source in due_sources:
             if not self._running or self._stop_event.is_set():
@@ -2418,13 +2535,31 @@ class BrowserMonitor:
         Returns:
             DiscoveredNews if relevant, None otherwise
         """
-        # Check cache (deduplication)
+        # V14.0: Check shared cache first (cross-component deduplication)
+        # This prevents duplicate alerts when News Radar and Browser Monitor find the same news
+        # Uses atomic check_and_mark_async() for thread safety
+        try:
+            if SHARED_CACHE_AVAILABLE:
+                shared_cache = get_shared_cache()
+                # Atomic check-and-mark operation to prevent race conditions
+                if await shared_cache.check_and_mark_async(
+                    content=content, url=article_url, source="browser_monitor"
+                ):
+                    logger.debug(
+                        f"🔄 [BROWSER-MONITOR] Skipping cross-component duplicate: {article_url[:50]}..."
+                    )
+                    return None
+        except Exception as e:
+            # Cache error handling - continue processing despite cache failure
+            logger.warning(f"⚠️ [BROWSER-MONITOR] Shared cache check failed, continuing: {e}")
+
+        # Fallback: Check local cache (deduplication) if shared cache not available
         if self._content_cache and self._content_cache.is_cached(content):
-            logger.debug(f"🔄 [BROWSER-MONITOR] Skipping duplicate: {article_url[:50]}...")
+            logger.debug(f"🔄 [BROWSER-MONITOR] Skipping duplicate (local): {article_url[:50]}...")
             return None
 
-        # Cache content
-        if self._content_cache:
+        # Cache content locally (only if shared cache not available)
+        if self._content_cache and not SHARED_CACHE_AVAILABLE:
             self._content_cache.cache(content)
 
         # V7.6: Expand short content with Tavily
@@ -3156,6 +3291,9 @@ RULES:
                 "circuit_breaker_skips": self._circuit_breaker_skips,
                 "open_circuits": open_circuits,
                 "total_circuits": len(self._circuit_breakers),
+                # V13.1: Scrapling WAF bypass stats
+                "waf_bypasses": self._waf_bypasses,
+                "scrapling_enabled": self._article_reader is not None,
                 # V7.2: Behavior simulation stats
                 "behavior_simulations": self._behavior_simulations,
                 "behavior_simulation_failures": self._behavior_simulation_failures,  # V7.6
@@ -3167,7 +3305,7 @@ RULES:
                 "deepseek_fallbacks": self._deepseek_fallbacks,
                 "api_calls_saved": api_calls_saved,
                 "api_savings_percent": round(api_savings_percent, 1),
-                "version": "7.8",  # V7.8: Updated version (Thread-safe state management)
+                "version": "13.1",  # V13.1: Scrapling WAF bypass integration
             }
 
 

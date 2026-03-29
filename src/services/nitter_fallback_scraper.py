@@ -122,9 +122,15 @@ SCRAPE_DELAY_MIN = 1.5  # Minimum delay between requests (seconds)
 SCRAPE_DELAY_MAX = 3.0  # Maximum delay between requests (seconds)
 PAGE_TIMEOUT_SECONDS = 30
 MAX_TWEETS_PER_ACCOUNT = 5
-# V12.5 COVE FIX: Make MAX_RETRIES_PER_ACCOUNT configurable via NITTER_MAX_RETRIES env var
-# Default increased from 2 to 3 for better VPS network conditions
-MAX_RETRIES_PER_ACCOUNT = int(os.getenv("NITTER_MAX_RETRIES", "3"))
+# COVE FIX: Make MAX_RETRIES_PER_ACCOUNT configurable via NITTER_MAX_RETRIES env var
+# Default changed from 3 to number of instances to ensure ALL instances are tried
+# This ensures all Nitter instances are attempted before giving up, instead of
+# artificially limiting retries to just 3 instances when 13+ are available.
+# The env var can still override, but now defaults to a value that covers all instances.
+from src.config.nitter_instances import NITTER_INSTANCES
+# Account for both primary instances and fallback instances
+NUM_NITTER_INSTANCES = len(NITTER_INSTANCES) + 3  # +3 for fallback instances
+MAX_RETRIES_PER_ACCOUNT = int(os.getenv("NITTER_MAX_RETRIES", str(NUM_NITTER_INSTANCES)))
 # V12.5.1 COVE FIX: MAX_NITTER_RECOVERY_ACCOUNTS limits accounts to recover via Nitter
 # This prevents excessive latency when many accounts lack data after Tavily
 MAX_NITTER_RECOVERY_ACCOUNTS = int(os.getenv("MAX_NITTER_RECOVERY_ACCOUNTS", "10"))
@@ -741,8 +747,11 @@ class NitterFallbackScraper:
                 self._instance_switches += 1
                 return url
 
-        # All unhealthy, try first primary anyway
-        return self._instances[0]
+        # V12.5 COVE FIX: When all instances are unhealthy, return None instead of
+        # retrying with an unhealthy instance. This prevents endless HTTP 403 loops
+        # for permanently blocked instances like twiiit.com
+        logger.debug("⚠️ [NITTER-FALLBACK] All instances unhealthy, no more retries")
+        return None
 
     def _is_transient_error(self, error_type: str) -> bool:
         """
@@ -1103,6 +1112,15 @@ class NitterFallbackScraper:
         # Try with retry
         for attempt in range(MAX_RETRIES_PER_ACCOUNT):
             instance_url = self._get_next_instance()
+            # V12.5 COVE FIX: If no healthy instance available, stop retrying
+            if instance_url is None:
+                logger.warning(
+                    f"⚠️ [NITTER-FALLBACK] No healthy instances available for @{handle_clean}, "
+                    f"stopping after {attempt} attempts"
+                )
+                # Set last_error to avoid "NoneType: None" in final error logging
+                last_error = Exception("No healthy Nitter instances available")
+                break
             profile_url = f"{instance_url}/{handle_clean}"
 
             try:
@@ -1132,6 +1150,8 @@ class NitterFallbackScraper:
                 if not response or response.status != 200:
                     status_code = response.status if response else "unknown"
                     await page.close()
+                    # V12.5 COVE FIX: Set last_error for non-200 responses to avoid "NoneType: None" in logs
+                    last_error = Exception(f"HTTP{status_code}")
                     self._mark_instance_failure(instance_url, f"HTTP{status_code}")
                     continue
 

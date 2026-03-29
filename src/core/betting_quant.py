@@ -22,6 +22,7 @@ Date: 2026-02-09
 """
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -42,11 +43,11 @@ logger = logging.getLogger(__name__)
 # ============================================
 
 # Money Management Safety Caps
-MIN_STAKE_PCT = 0.5  # Minimum 0.5% of bankroll per bet
+MIN_STAKE_PCT = 0.1  # Minimum 0.1% of bankroll per bet (V11.1: Relaxed from 0.5%)
 MAX_STAKE_PCT = 5.0  # Maximum 5.0% of bankroll per bet (hard cap)
 
 # Risk Management Thresholds
-MARKET_VETO_THRESHOLD = 0.15  # 15% Market Veto (Value Guard)
+MARKET_VETO_THRESHOLD = 0.25  # 25% Market Veto (Value Guard) (V11.1: Relaxed from 15%)
 VOLATILITY_GUARD_ODDS = 4.50  # Odds threshold for volatility guard
 SAFETY_MIN_ODDS = 1.05  # Minimum acceptable odds (too risky/low reward)
 SAFETY_MAX_PROB = 0.99  # Maximum probability (no certainty in sports)
@@ -85,7 +86,7 @@ LEAGUE_AVG_GOALS = {
 class VetoReason(Enum):
     """Enumeration of possible veto reasons."""
 
-    MARKET_CRASHED = "MARKET_CRASHED"  # Odds dropped >= 15%
+    MARKET_CRASHED = "MARKET_CRASHED"  # Odds dropped >= 25%
     ODDS_TOO_LOW = "ODDS_TOO_LOW"  # Odds <= 1.05
     PROBABILITY_TOO_HIGH = "PROBABILITY_TOO_HIGH"  # Probability >= 99%
     NO_VALUE = "NO_VALUE"  # Edge <= 0
@@ -196,7 +197,7 @@ class BettingQuant:
         1. Run Poisson simulation
         2. Calculate edges for all markets
         3. Apply safety guards
-        4. Apply market veto (15% threshold)
+        4. Apply market veto (25% threshold)
         5. Calculate Kelly stake
         6. Apply stake capping
         7. Apply volatility guard
@@ -294,7 +295,7 @@ class BettingQuant:
                 ai_prob=ai_prob,
             )
 
-        # Step 5: Apply market veto (15% threshold) - SECOND
+        # Step 5: Apply market veto (25% threshold) - SECOND
         # V11.1: DO NOT veto - instead add warning for user awareness
         market_warning = self._apply_market_veto_warning(
             match=match, analysis=analysis, edge_result=edge_result
@@ -371,7 +372,7 @@ class BettingQuant:
 
         This method performs the complete stake calculation pipeline:
         1. Calculate Kelly stake (Quarter Kelly)
-        2. Apply stake capping (0.5% - 5.0%)
+        2. Apply stake capping (0.1% - 5.0%)
         3. Apply volatility guard (reduce for odds > 4.50)
 
         Args:
@@ -476,24 +477,41 @@ class BettingQuant:
         """
         Select the best market based on analysis recommendation and value.
 
-        Priority:
-        1. Use the market recommended by the analysis (if available)
-        2. Fall back to the market with the highest positive edge
-        3. Return None if no market has value
+        Resolution strategy:
+        1. Normalize the recommended market string (handle generic categories, Italian, edge cases)
+        2. Map the normalized market to our edge keys
+        3. If the mapped market has value, use it
+        4. Fall back to the market with the highest positive edge
+        5. Return None if no market has value
         """
         # Try to use the recommended market from analysis
         recommended = getattr(analysis, "recommended_market", None)
 
+        # Normalize: resolve generic categories and non-standard formats
+        recommended = self._normalize_market_for_selection(recommended)
+
         # Map analysis market to our edge keys
+        # Covers: 1X2 codes, Double Chance, Goals, BTTS, Corners, Cards
         market_map = {
+            # 1X2
             "1": "home",
             "X": "draw",
             "2": "away",
-            "1X": "home",  # Use home as proxy for 1X
-            "X2": "away",  # Use away as proxy for X2
+            # Double Chance
+            "1X": "home",  # Proxy: home edge for 1X
+            "X2": "away",  # Proxy: away edge for X2
+            "12": "home",  # Rare but possible
+            # Goals
             "Over 2.5 Goals": "over_25",
             "Under 2.5 Goals": "under_25",
+            "Over 1.5 Goals": "over_25",  # No separate over_15 edge, use over_25 proxy
+            "Under 3.5 Goals": "under_25",  # No separate under_35 edge, use under_25 proxy
+            # BTTS
             "BTTS": "btts",
+            "GG": "btts",  # Italian "Goal/Goal" alias
+            # Generic categories → resolve via Poisson
+            "WINNER": "home",  # Will be overridden by best-value fallback if home has no edge
+            "DOUBLE_CHANCE": "home",
         }
 
         # Try recommended market first
@@ -511,6 +529,80 @@ class BettingQuant:
                 best_market = key
 
         return best_market
+
+    def _normalize_market_for_selection(self, market: str | None) -> str | None:
+        """
+        Normalize a market string from the AI/NewsLog for edge-key lookup.
+
+        Handles:
+        - None / "NONE" → None (no market)
+        - Generic categories ("WINNER", "DOUBLE_CHANCE") → kept as-is for market_map
+        - Case-insensitive matching for 1X2 codes
+        - Fuzzy matching for common AI output variations
+
+        Args:
+            market: Raw market string from NewsLog.recommended_market
+
+        Returns:
+            Normalized market string or None
+        """
+        if not market or market == "NONE":
+            return None
+
+        market_stripped = market.strip()
+
+        # Fast path: already in standard format
+        standard_markets = {
+            "1",
+            "X",
+            "2",
+            "1X",
+            "X2",
+            "12",
+            "Over 2.5 Goals",
+            "Under 2.5 Goals",
+            "Over 1.5 Goals",
+            "Under 3.5 Goals",
+            "BTTS",
+            "WINNER",
+            "DOUBLE_CHANCE",
+        }
+        if market_stripped in standard_markets:
+            return market_stripped
+
+        # Case-insensitive 1X2 resolution
+        upper = market_stripped.upper()
+        if upper in {"1", "X", "2", "1X", "X2", "12"}:
+            return upper
+
+        # Fuzzy: contains "over" and a number → normalize to "Over X Goals"
+        over_match = re.search(r"over\s+(\d+\.?\d*)\s*goal", market_stripped.lower())
+        if over_match:
+            line = over_match.group(1)
+            return f"Over {line} Goals"
+
+        under_match = re.search(r"under\s+(\d+\.?\d*)\s*goal", market_stripped.lower())
+        if under_match:
+            line = under_match.group(1)
+            return f"Under {line} Goals"
+
+        # BTTS variants
+        if upper in {"BTTS", "GG", "GOAL/GOAL", "BOTH TEAMS TO SCORE"}:
+            return "BTTS"
+
+        # Corners/Cards → pass through (no edge keys, handled by best-value fallback)
+        if "corner" in market_stripped.lower() or "card" in market_stripped.lower():
+            return None  # Let best-value fallback handle it
+
+        # WINNER / DOUBLE_CHANCE case variants
+        if upper == "WINNER":
+            return "WINNER"
+        if upper in {"DOUBLE_CHANCE", "DOPPIA CHANCE"}:
+            return "DOUBLE_CHANCE"
+
+        # Unknown → let best-value fallback decide
+        self.logger.debug(f"Unknown market format '{market_stripped}', using best-value fallback")
+        return None
 
     def _check_safety_guards(self, bookmaker_odd: float, math_prob: float) -> str | None:
         """
@@ -537,9 +629,9 @@ class BettingQuant:
         self, match: Match, analysis: NewsLog, edge_result: EdgeResult
     ) -> VetoReason | None:
         """
-        Apply the 15% Market Veto (Value Guard).
+        Apply the 25% Market Veto (Value Guard).
 
-        If odds have dropped >= 15%, the market has already priced in
+        If odds have dropped >= 25%, the market has already priced in
         the news, so there's no value left.
 
         Args:
@@ -570,7 +662,7 @@ class BettingQuant:
             if opening_odd and current_odd and opening_odd > 0:
                 odds_drop = (opening_odd - current_odd) / opening_odd
 
-        # Apply veto if drop >= 15%
+        # Apply veto if drop >= 25%
         if odds_drop >= MARKET_VETO_THRESHOLD:
             self.logger.info(
                 f"🛑 MARKET VETO: Odds dropped {odds_drop * 100:.1f}% "
@@ -586,7 +678,7 @@ class BettingQuant:
         """
         V11.1: Apply Market Veto as WARNING (not veto).
 
-        If odds have dropped >= 15%, do NOT veto the bet.
+        If odds have dropped >= 25%, do NOT veto the bet.
         Instead, return a warning message to prepend to the reasoning.
         This allows the user to make the final decision.
 
@@ -596,7 +688,7 @@ class BettingQuant:
             edge_result: Edge calculation result
 
         Returns:
-            Warning message string if odds dropped >= 15%, None otherwise
+            Warning message string if odds dropped >= 25%, None otherwise
         """
         # Extract odds drop from analysis summary or match data
         odds_drop = 0.0
@@ -640,19 +732,19 @@ class BettingQuant:
                         f"{opening_odd:.2f} → {current_odd:.2f} ({odds_drop * 100:.1f}%)"
                     )
 
-        # Return warning if drop >= 15% (but DO NOT veto)
+        # Return warning if drop >= 25% (but DO NOT veto)
         if odds_drop >= MARKET_VETO_THRESHOLD:
             self.logger.warning(
                 f"⚠️ LATE TO MARKET: Odds dropped {odds_drop * 100:.1f}% "
                 f"(>={MARKET_VETO_THRESHOLD * 100:.0f}%) - Adding warning instead of veto"
             )
-            return "⚠️ LATE TO MARKET: Odds already dropped >15%. Value might be compromised."
+            return "⚠️ LATE TO MARKET: Odds already dropped >25%. Value might be compromised."
 
         return None
 
     def _apply_stake_capping(self, kelly_stake: float) -> float:
         """
-        Apply stake capping rules (0.5% - 5.0%).
+        Apply stake capping rules (0.1% - 5.0%).
 
         Args:
             kelly_stake: Kelly stake percentage
@@ -660,7 +752,7 @@ class BettingQuant:
         Returns:
             Capped stake percentage
         """
-        # Safety caps: Min 0.5%, Max 5.0% (hard caps)
+        # Safety caps: Min 0.1%, Max 5.0% (hard caps)
         capped = max(MIN_STAKE_PCT, min(MAX_STAKE_PCT, kelly_stake))
 
         if capped != kelly_stake:

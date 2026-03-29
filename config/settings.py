@@ -126,24 +126,31 @@ NATIVE_KEYWORDS: dict[str, list[str]] = {
 # ========================================
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
+
+# ========================================
+# FEATURE FLAGS (V12.0 Alpha Hunter)
+# ========================================
+ENABLE_ALPHA_HUNTER_MODE = os.getenv("ENABLE_ALPHA_HUNTER_MODE", "false").lower() == "true"
 # SERPER_API_KEY removed - migrating to Brave
 # SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
 
 # ========================================
 # ODDS API CONFIGURATION (V1.0 - Rotation Support)
 # ========================================
-# Odds API - 2 API keys with 500 calls each = 1000 calls/month
-# Keys rotate automatically: when Key 1 exhausts (429), switches to Key 2, then loops back to Key 1
+# Odds API - 4 API keys with 500 calls each = 2000 calls/month
+# Keys rotate automatically: when Key 1 exhausts (429), switches to Key 2, Key 3, Key 4, then loops
 # https://the-odds-api.com/ - Live odds for betting analysis
 
 # Existing (keep unchanged for backward compatibility)
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 
-# NEW: API Keys for rotation (loaded in order)
+# API Keys for rotation (loaded in order)
 # SECURITY FIX: Removed hardcoded API keys - use only environment variables
 _ODDS_API_KEYS_RAW = [
     os.getenv("ODDS_API_KEY_1", ""),
     os.getenv("ODDS_API_KEY_2", ""),
+    os.getenv("ODDS_API_KEY_3", ""),
+    os.getenv("ODDS_API_KEY_4", ""),
 ]
 
 # BUG FIX: Deduplicate API keys to prevent [Key1, Key1] scenario
@@ -158,8 +165,8 @@ if len(_ODDS_API_KEYS_DEDUPED) != len(_ODDS_API_KEYS_RAW):
     )
 ODDS_API_KEYS = _ODDS_API_KEYS_DEDUPED
 
-# NEW: Total monthly budget (2 keys × 500 calls)
-ODDS_MONTHLY_BUDGET = 1000
+# Total monthly budget (4 keys × 500 calls)
+ODDS_MONTHLY_BUDGET = 2000
 
 # NEW: Threshold percentages for degraded/disabled modes
 ODDS_DEGRADED_THRESHOLD = 0.90  # 90% - Non-critical calls throttled
@@ -230,13 +237,20 @@ if len(_BRAVE_API_KEYS_DEDUPED) != len(_BRAVE_API_KEYS_RAW):
 BRAVE_API_KEYS = _BRAVE_API_KEYS_DEDUPED
 
 # NEW: Budget allocation per component (calls/month)
+# Total: 6000 calls (3 keys × 2000 calls each)
 BRAVE_BUDGET_ALLOCATION = {
-    "main_pipeline": 1800,  # 30% - Match enrichment
+    "main_pipeline": 1200,  # 20% - Match enrichment
     "news_radar": 1200,  # 20% - Pre-enrichment for ambiguous content
     "browser_monitor": 600,  # 10% - Short content expansion
     "telegram_monitor": 300,  # 5% - Intel verification
     "settlement_clv": 150,  # 2.5% - Post-match analysis
-    "twitter_recovery": 1950,  # 32.5% - Buffer/recovery
+    "twitter_recovery": 450,  # 7.5% - Buffer/recovery (reduced for new components)
+    "news_hunter": 600,  # 10% - News hunting (consolidated from news_hunter_dynamic/exotic)
+    "opportunity_radar": 300,  # 5% - Opportunity scanning for betting insights
+    "nitter_fallback": 300,  # 5% - Twitter/X fallback via Brave
+    "deepseek_intel": 300,  # 5% - DeepSeek intelligence gathering
+    "deepseek_fallback": 300,  # 5% - DeepSeek Brave fallback when DDG fails
+    "search_provider": 300,  # 5% - Generic search provider (used by data_provider, etc.)
 }
 
 # NEW: Total monthly budget (3 keys × 2000 calls)
@@ -328,9 +342,13 @@ MATCH_LOOKAHEAD_HOURS = 96  # Extended to 4 days for early odds tracking
 ANALYSIS_WINDOW_HOURS = 72  # 72h = 3 days (captures weekend fixtures early)
 
 # Alert thresholds
-ALERT_THRESHOLD_HIGH = 8.5  # Minimum score for standard alerts ("Cream of the Crop") - ELITE QUALITY (V11.1: Relaxed from 9.0)
-ALERT_THRESHOLD_RADAR = 7.0  # Lower threshold when forced_narrative present (Radar boost) - ELITE QUALITY (V11.1: Relaxed from 7.5)
+ALERT_THRESHOLD_HIGH = 8.0  # Min score for alerts (V11.1: Relaxed from 9.0 to 8.0)
+ALERT_THRESHOLD_RADAR = 6.5  # Lower when forced_narrative present (V11.1: Relaxed from 7.5 to 6.5)
 SETTLEMENT_MIN_SCORE = 7.0  # Minimum highest_score_sent to include in settlement
+
+# Alpha Hunter V12.1 Configuration (News-Driven Architecture)
+ALPHA_HUNTER_MIN_CONFIDENCE = 0.6  # Minimum confidence threshold for Alpha Hunter signals
+ALPHA_HUNTER_AI_FALLBACK_ENABLED = True  # Enable AI fallback when local extraction fails
 
 # ========================================
 # HOME ADVANTAGE BY LEAGUE (V4.3 - Deep Research)
@@ -570,6 +588,11 @@ REDDIT_ENABLED = False  # Permanently disabled
 # ========================================
 # Semaphore file for /stop and /resume commands
 PAUSE_FILE = os.path.join(DATA_DIR, "pause.lock")
+
+# V14.0: FULL STOP control - completely halts all processes until manually unlocked
+# Unlike PAUSE_FILE which only pauses main.py loop, STOP_FILE halts ALL processes
+# including run_telegram_monitor.py, run_news_radar.py, and prevents launcher restarts
+STOP_FILE = os.path.join(DATA_DIR, "stop.lock")
 
 # ========================================
 # ANALYZER LIMITS (V6.1)

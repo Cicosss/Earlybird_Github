@@ -529,11 +529,11 @@ def test_market_warning_late_to_market(betting_quant, mock_match, mock_analysis,
     """
     Test that BettingQuant generates market warning for late-to-market alerts.
 
-    When odds drop >= 15%, should generate warning but NOT veto.
+    When odds drop >= 25%, should generate warning but NOT veto.
     """
-    # Create match with significant odds drop
+    # Create match with significant odds drop (30% drop >= 25% threshold)
     mock_match.opening_home_odd = 2.50
-    mock_match.current_home_odd = 2.00  # 20% drop (> 15%)
+    mock_match.current_home_odd = 1.75  # 30% drop (>= 25%, should trigger warning)
 
     decision = betting_quant.evaluate_bet(
         match=mock_match,
@@ -569,9 +569,9 @@ def test_market_warning_late_to_market(betting_quant, mock_match, mock_analysis,
 @pytest.mark.unit
 def test_stake_capping_minimum(betting_quant):
     """
-    Test that stake capping enforces minimum stake (0.5%).
+    Test that stake capping enforces minimum stake (0.1%).
 
-    Even if Kelly suggests lower stake, should cap at 0.5%.
+    Even if Kelly suggests lower stake, should cap at 0.1%.
     """
     stake = betting_quant.calculate_stake(
         math_prob=0.51,  # Very small edge
@@ -581,7 +581,7 @@ def test_stake_capping_minimum(betting_quant):
     )
 
     # Verify minimum stake is enforced
-    assert stake >= 0.5
+    assert stake >= 0.1
 
 
 @pytest.mark.unit

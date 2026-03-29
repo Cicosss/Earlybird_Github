@@ -31,6 +31,7 @@ logger.info(f"📦 {get_version_with_module('Analysis Engine')}")
 # Configuration
 from config.settings import (
     ALERT_THRESHOLD_HIGH,
+    ALERT_THRESHOLD_RADAR,
     BISCOTTO_EXTREME_LOW,
     BISCOTTO_SIGNIFICANT_DROP,
     BISCOTTO_SUSPICIOUS_LOW,
@@ -526,7 +527,7 @@ class AnalysisEngine:
                 # Calculate home odd drop
                 if opening_home_odd and current_home_odd:
                     home_drop_pct = ((opening_home_odd - current_home_odd) / opening_home_odd) * 100
-                    if home_drop_pct > 15:  # 15%+ drop is significant
+                    if home_drop_pct > 25:  # 25%+ drop is significant
                         significant_drops.append(
                             {
                                 "match": match,
@@ -540,7 +541,7 @@ class AnalysisEngine:
                 # Calculate away odd drop
                 if opening_away_odd and current_away_odd:
                     away_drop_pct = ((opening_away_odd - current_away_odd) / opening_away_odd) * 100
-                    if away_drop_pct > 15:  # 15%+ drop is significant
+                    if away_drop_pct > 25:  # 25%+ drop is significant
                         significant_drops.append(
                             {
                                 "match": match,
@@ -1130,6 +1131,18 @@ class AnalysisEngine:
             league = getattr(match, "league", "Unknown")
             start_time = getattr(match, "start_time", None)
 
+            # --- STEP 0z: ODDS AVAILABILITY CHECK (V14.1) ---
+            # V14.1 FIX: Defensive check to prevent "No Odds Black Hole" silent drops
+            # This is a defense-in-depth measure. The primary fix is in the database queries
+            # in main.py that filter out matches without odds BEFORE calling analyze_match.
+            # This check handles the case where analyze_match is called directly.
+            current_home_odd = getattr(match, "current_home_odd", None)
+            if current_home_odd is None:
+                self.logger.info(
+                    f"⏭️  Skipping {home_team} vs {away_team}: No odds available (current_home_odd is None)"
+                )
+                return result
+
             # --- STEP 0a: HOME/AWAY VALIDATION \(V5.1\) ---
             # Validate home/away order using FotMob as source of truth
             # This prevents alerts with inverted team order (e.g., "FC Porto vs Santa Clara"
@@ -1184,15 +1197,50 @@ class AnalysisEngine:
                 f"\n🔍 Investigating {home_team_valid} vs {away_team_valid} ({match.league})..."
             )
 
+            # V11.0 TURBO: Parallel fetch for FotMob, News, and Twitter intel
+            # Use ThreadPoolExecutor to run I/O-bound operations concurrently
+            from concurrent.futures import ThreadPoolExecutor
+
             enrichment_data = None
-            if _PARALLEL_ENRICHMENT_AVAILABLE and fotmob:
-                enrichment_data = self.run_parallel_enrichment(
-                    fotmob=fotmob,
-                    home_team=home_team_valid,
-                    away_team=away_team_valid,
-                    match_start_time=start_time,
-                    weather_provider=get_match_weather,
-                )
+            news_articles = []
+            twitter_intel = ""
+
+            def fetch_fotmob():
+                if _PARALLEL_ENRICHMENT_AVAILABLE and fotmob:
+                    return self.run_parallel_enrichment(
+                        fotmob=fotmob,
+                        home_team=home_team_valid,
+                        away_team=away_team_valid,
+                        match_start_time=start_time,
+                        weather_provider=get_match_weather,
+                    )
+                return None
+
+            def fetch_news():
+                # BYPASS RULE: Skip if forced_narrative is present (Radar Trigger)
+                if forced_narrative:
+                    return [{"title": "RADAR INTEL", "snippet": forced_narrative, "url": None}]
+                try:
+                    return run_hunter_for_match(match=match, include_insiders=True)
+                except Exception as e:
+                    self.logger.warning(f"⚠️ News hunting failed: {e}")
+                    return []
+
+            def fetch_twitter():
+                return self.get_twitter_intel_for_match(match, context_label=context_label)
+
+            # Execute all three fetches in parallel using ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                fotmob_future = executor.submit(fetch_fotmob)
+                news_future = executor.submit(fetch_news)
+                twitter_future = executor.submit(fetch_twitter)
+
+                # Wait for all futures to complete
+                enrichment_data = fotmob_future.result()
+                news_articles = news_future.result()
+                twitter_intel = twitter_future.result()
+
+            self.logger.info(f"   📰 Found {len(news_articles)} relevant news articles")
 
             # Extract enrichment results
             home_context = enrichment_data.get("home_context", {}) if enrichment_data else {}
@@ -1268,31 +1316,11 @@ class AnalysisEngine:
             except Exception as e:
                 self.logger.warning(f"⚠️ Market intelligence analysis failed: {e}")
 
-            # --- STEP 6: NEWS HUNTING (V4.0) ---
-            # Search for relevant news articles
-            # BYPASS RULE: Skip if forced_narrative is present (Radar Trigger)
-            news_articles = []
-            if forced_narrative:
-                # Use forced narrative from Radar instead of hunting
-                news_articles = [{"title": "RADAR INTEL", "snippet": forced_narrative, "url": None}]
-                self.logger.info(
-                    "   📰 Using forced narrative from News Radar (bypassing news hunting)"
-                )
-            else:
-                # Normal news hunting
-                try:
-                    news_articles = run_hunter_for_match(match=match, include_insiders=True)
-                    self.logger.info(f"   📰 Found {len(news_articles)} relevant news articles")
-                except Exception as e:
-                    self.logger.warning(f"⚠️ News hunting failed: {e}")
-
             # Track news count for health monitoring
             result["news_count"] = len(news_articles)
 
-            # --- STEP 7: TWITTER INTEL (V4.5) ---
-            # Get Twitter intelligence
-
-            twitter_intel = self.get_twitter_intel_for_match(match, context_label=context_label)
+            # V11.0 TURBO: NOTE - STEP 6 (News) and STEP 7 (Twitter) are now executed
+            # in parallel with FotMob enrichment via ThreadPoolExecutor above
 
             # --- STEP 8: AI ANALYSIS (V6.0) ---
             # Run triangulation analysis with all available data
@@ -1335,6 +1363,16 @@ class AnalysisEngine:
                     market_intel=market_intel,
                     referee_info=referee_info,
                 )
+
+                # COVE DEBUG: AI Response trace
+                if forced_narrative and analysis_result:
+                    self.logger.info(
+                        f"🧠 [DEBUG] AI Response: Summary={getattr(analysis_result, 'summary', 'N/A')[:100]}..."
+                    )
+                    self.logger.info(
+                        f"🧠 [DEBUG] AI Response: Confidence={getattr(analysis_result, 'confidence', 'N/A')}, "
+                        f"Recommended Market={getattr(analysis_result, 'recommended_market', 'N/A')}"
+                    )
 
                 # --- V12.0: Validate analysis_result with ValidationResult ---
                 # Defense-in-depth validation layer (complementary to Contract validation)
@@ -1398,6 +1436,17 @@ class AnalysisEngine:
                             if analysis_result.confidence
                             else None,
                         )
+
+                        # COVE DEBUG: Mathematical Decision trace
+                        if forced_narrative:
+                            self.logger.info(
+                                f"💰 [DEBUG] Mathematical Decision: Verdict={betting_decision.verdict}, "
+                                f"Stake={getattr(betting_decision, 'stake', 'N/A')}, "
+                                f"Market={getattr(betting_decision, 'market', 'N/A')}"
+                            )
+                            self.logger.info(
+                                f"💰 [DEBUG] Betting Decision details: {betting_decision}"
+                            )
 
                         # Extract market warning from BettingDecision
                         market_warning = betting_decision.market_warning
@@ -1589,9 +1638,13 @@ class AnalysisEngine:
                                 )
                             else:
                                 self.logger.warning(
-                                    "⚠️  [INTELLIGENT LOOP] Feedback loop failed or database error, using original analysis"
+                                    "⚠️  [INTELLIGENT LOOP] Feedback loop failed or database error, "
+                                    "proceeding with original analysis (alert WILL be sent)"
                                 )
-                                should_send = False
+                                # COVE FIX: Do NOT set should_send = False here
+                                # The alert should still be sent with the original analysis
+                                # We just log a warning that the intelligent modification was skipped
+                                should_send = True  # Explicitly set to True to ensure alert is sent
 
                         except Exception as e:
                             error_type = type(e).__name__
@@ -1600,10 +1653,13 @@ class AnalysisEngine:
                                 exc_info=True,
                             )
                             self.logger.warning(
-                                "⚠️  [INTELLIGENT LOOP] Alert rejected due to technical error (not verification failure)"
+                                "⚠️  [INTELLIGENT LOOP] Feedback loop crashed, "
+                                "proceeding with original analysis (alert WILL be sent)"
                             )
-                            # Fail-safe: reject alert if feedback loop fails due to technical error
-                            should_send = False
+                            # COVE FIX: Consistent with line 1647 — feedback loop failure
+                            # (whether graceful or exception) should NOT veto the alert.
+                            # The alert has already passed Analyzer + Verification Layer + Final Verifier.
+                            should_send = True
                             # VPS FIX: Add error context to final_verification_info
                             final_verification_info["feedback_loop_error"] = {
                                 "error_type": error_type,
@@ -1612,7 +1668,15 @@ class AnalysisEngine:
                             }
 
                 # --- STEP 10: SEND ALERT (if threshold met AND verification passed) ---
-                if should_send and final_score >= ALERT_THRESHOLD_HIGH:
+                # V11.1 FIX: Use lower threshold for radar-triggered analyses (forced_narrative present)
+                alert_threshold = (
+                    ALERT_THRESHOLD_RADAR if forced_narrative else ALERT_THRESHOLD_HIGH
+                )
+                if should_send and final_score >= alert_threshold:
+                    # V10.6 TRACER: Match APPROVED - Sending to Notifier
+                    self.logger.info(
+                        f"🟢 [TRACER] Match {home_team_valid} vs {away_team_valid} APPROVED. Score: {final_score:.1f}. Sending to Notifier."
+                    )
                     self.logger.info(f"🚨 ALERT: {final_score:.1f}/10 - {final_market}")
 
                     try:
@@ -1658,6 +1722,7 @@ class AnalysisEngine:
                             is_convergent=is_convergent,
                             convergence_sources=convergence_sources,
                             market_warning=market_warning,  # V11.1 FIX: Pass market warning to alert
+                            match_obj=match,  # COVE FIX: Pass Match ORM object separately from NewsLog
                             analysis_result=analysis_result,  # V8.3: Pass NewsLog object for updating
                             db_session=db_session,  # V8.3: Pass db_session for updating
                         )
@@ -1668,16 +1733,35 @@ class AnalysisEngine:
                             f"home_team={match.home_team}, away_team={match.away_team}"
                         )
 
+                        # COVE DEBUG: Sending to Notifier trace
+                        if forced_narrative:
+                            self.logger.info(
+                                f"📡 [DEBUG] Sending to Notifier... "
+                                f"Match: {home_team_valid} vs {away_team_valid}, "
+                                f"Score: {final_score:.1f}, Market: {final_market}"
+                            )
+
                         # V14.0: Send alert using EnhancedMatchAlert object
-                        send_alert_wrapper(alert=alert)
+                        alert_delivered = send_alert_wrapper(alert=alert)
 
-                        result["alert_sent"] = True
-                        result["score"] = final_score
-                        result["market"] = final_market
+                        # COVE FIX: Only update database if alert was actually delivered
+                        if alert_delivered:
+                            result["alert_sent"] = True
+                            result["score"] = final_score
+                            result["market"] = final_market
 
-                        # Update match's last_deep_dive_time
-                        match.last_deep_dive_time = now_utc
-                        db_session.commit()
+                            # Update match's last_deep_dive_time
+                            match.last_deep_dive_time = now_utc
+                            db_session.commit()
+                        else:
+                            result["alert_sent"] = False
+                            result["score"] = final_score
+                            result["market"] = final_market
+                            self.logger.warning(
+                                f"⚠️ COVE: Alert delivery failed for match {match.home_team} vs {match.away_team}. "
+                                f"Match will NOT enter cooldown and will be retried on next scan."
+                            )
+                            # Do NOT update last_deep_dive_time or commit - match stays eligible for retry
 
                     except Exception as e:
                         self.logger.error(f"❌ Failed to send alert: {e}")
@@ -1692,8 +1776,12 @@ class AnalysisEngine:
                     if verification_result and verification_result.score_adjustment_reason:
                         veto_reason = verification_result.score_adjustment_reason
 
+                    # V10.6 TRACER: Match rejected due to score threshold
                     self.logger.info(
-                        f"🛑 MATCH VETOED: Final Score {final_score:.1f} < {ALERT_THRESHOLD_HIGH} [Reason: {veto_reason}]"
+                        f"🔴 [TRACER] Match {home_team_valid} vs {away_team_valid} rejected. Reason: Score Threshold. Score: {final_score:.1f}"
+                    )
+                    self.logger.info(
+                        f"🛑 MATCH VETOED: Final Score {final_score:.1f} < {alert_threshold} [Reason: {veto_reason}]"
                     )
 
                     result["score"] = final_score

@@ -57,3 +57,33 @@
 2026-03-14 08:54:02,058 - src.ingestion.deepseek_intel_provider - INFO - ✅ TwitterIntelCache available for DeepSeek Twitter extraction
 2026-03-14 08:54:02,059 - src.main - INFO - ✅ Twitter Intel Cache loaded
 2026-03-14 08:54:02,063 - src.main - INFO - ✅ Nitter Intel Cache module loaded
+2026-03-27 00:26:44,304 - src.main - INFO - 📦 Main Pipeline V11.1
+2026-03-27 00:26:44,310 - config.settings - INFO - ✅ Loaded environment from .env file
+2026-03-27 00:26:44,539 - src.alerting.health_monitor - INFO - 📦 Health Monitor V11.1
+2026-03-27 00:26:44,767 - src.alerting.notifier - INFO - 📦 Notifier V11.1
+2026-03-27 00:26:44,773 - src.processing.global_orchestrator - INFO - 📦 Global Orchestrator V11.1
+2026-03-27 00:26:45,317 - root - INFO - ✅ News Scorer module loaded
+2026-03-27 00:26:45,318 - src.analysis.analyzer - INFO - ✅ ORJSON parser enabled for faster JSON processing
+2026-03-27 00:26:45,513 - src.analysis.analyzer - INFO - ✅ Intelligence Router module loaded
+2026-03-27 00:26:45,517 - src.analysis.analyzer - INFO - ✅ Injury Impact Engine loaded
+2026-03-27 00:26:45,593 - src.analysis.analyzer - INFO - ✅ OpenRouter client initialized with model: deepseek/deepseek-chat-v3-0324
+2026-03-27 00:26:45,593 - src.processing.global_orchestrator - INFO - ✅ Analyzer module loaded (Tactical Veto V5.0 preserved)
+2026-03-27 00:26:45,596 - src.processing.global_orchestrator - INFO - ✅ Math Engine module loaded (Balanced Probability preserved)
+2026-03-27 00:26:45,596 - src.alerting.orchestration_metrics - INFO - 📦 Orchestration Metrics V11.1
+2026-03-27 00:26:45,603 - src.core.analysis_engine - INFO - 📦 Analysis Engine V11.1
+2026-03-27 00:26:46,171 - src.ingestion.search_provider - INFO - ✅ Supabase Provider available for hierarchical source fetching
+2026-03-27 00:26:46,176 - src.ingestion.search_provider - INFO - ✅ DuckDuckGo Search library available
+2026-03-27 00:26:46,287 - src.database.supabase_provider - INFO - ✅ Supabase connection established successfully in 0.02s (timeout: 10.0s, attempt: 1/3)
+2026-03-27 00:26:46,287 - root - INFO - ✅ Supabase provider available for social sources
+2026-03-27 00:26:46,288 - root - INFO - ✅ Supabase provider available for social sources
+2026-03-27 00:26:46,311 - src.ingestion.league_manager - INFO - ✅ Supabase Provider available for league management
+2026-03-27 00:26:46,312 - src.main - INFO - ✅ Supabase Provider module loaded
+2026-03-27 00:26:46,312 - src.main - INFO - ✅ Intelligence Router module loaded
+2026-03-27 00:26:46,312 - src.main - INFO - ✅ Intelligent Deduplication module loaded
+2026-03-27 00:26:46,312 - src.main - INFO - ✅ Market Intelligence module loaded
+2026-03-27 00:26:46,312 - src.main - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-03-27 00:26:46,312 - src.main - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-03-27 00:26:46,316 - src.main - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-03-27 00:26:46,317 - src.ingestion.deepseek_intel_provider - INFO - ✅ TwitterIntelCache available for DeepSeek Twitter extraction
+2026-03-27 00:26:46,318 - src.main - INFO - ✅ Twitter Intel Cache loaded
+2026-03-27 00:26:46,323 - src.main - INFO - ✅ Nitter Intel Cache module loaded

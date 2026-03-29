@@ -28,20 +28,11 @@ LEAGUE_FOTMOB_IDS = {
     "soccer_japan_j_league": 183,
     "soccer_korea_kleague1": 186,
     "soccer_saudi_professional_league": 278,
-    # European Leagues (for future expansion)
-    "soccer_epl": 47,  # England Premier League
-    "soccer_spain_la_liga": 87,
-    "soccer_germany_bundesliga": 54,
-    "soccer_italy_serie_a": 55,
-    "soccer_france_ligue_one": 53,
-    "soccer_netherlands_eredivisie": 57,
-    "soccer_portugal_primeira_liga": 61,
-    "soccer_belgium_first_div": 114,
-    "soccer_austria_bundesliga": 45,
-    "soccer_switzerland_superleague": 215,
-    "soccer_norway_eliteserien": 59,
-    "soccer_sweden_allsvenskan": 67,
-    "soccer_denmark_superliga": 48,
+    # V12.4: European leagues PURGED from hardcoded mapping.
+    # These were a leak vector — FotMob lookups for non-active leagues caused 404s.
+    # Only active-scope leagues (Tier1 + Tier2 + Supabase) should be mapped.
+    # If a European league becomes active in Supabase, it will be resolved at runtime
+    # via FotMob search_team_id(), not via this static mapping.
 }
 
 

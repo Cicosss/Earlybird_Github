@@ -4198,6 +4198,10 @@ class TestV75AnalyzeAndCreateNews:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.services.browser_monitor import BrowserMonitor, MonitoredSource
+        from src.utils.shared_cache import get_shared_cache
+
+        # V14.0: Clear shared cache to ensure test isolation
+        get_shared_cache().clear()
 
         monitor = BrowserMonitor()
         source = MonitoredSource(url="https://test.com", league_key="soccer_test", name="Test")
@@ -4228,6 +4232,10 @@ class TestV75AnalyzeAndCreateNews:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.services.browser_monitor import BrowserMonitor, MonitoredSource
+        from src.utils.shared_cache import get_shared_cache
+
+        # V14.0: Clear shared cache to ensure test isolation
+        get_shared_cache().clear()
 
         monitor = BrowserMonitor()
         source = MonitoredSource(url="https://test.com", league_key="soccer_test", name="Test")
@@ -4243,7 +4251,7 @@ class TestV75AnalyzeAndCreateNews:
         with patch.object(monitor, "analyze_relevance", mock_analyze):
             result = await monitor._analyze_and_create_news(
                 source,
-                "https://test.com/article",
+                "https://test.com/article2",  # Unique URL for this test
                 "The weather is nice today. Stock prices are up.",  # No football keywords
             )
 
@@ -4258,6 +4266,10 @@ class TestV75AnalyzeAndCreateNews:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.services.browser_monitor import BrowserMonitor, MonitoredSource
+        from src.utils.shared_cache import get_shared_cache
+
+        # V14.0: Clear shared cache to ensure test isolation
+        get_shared_cache().clear()
 
         monitor = BrowserMonitor()
         source = MonitoredSource(url="https://test.com", league_key="soccer_test", name="Test")
@@ -4279,7 +4291,7 @@ class TestV75AnalyzeAndCreateNews:
 
         with patch.object(monitor, "analyze_relevance", mock_analyze):
             result = await monitor._analyze_and_create_news(
-                source, "https://test.com/article", content
+                source, "https://test.com/article3", content  # Unique URL for this test
             )
 
         # Should create alert directly, no API call
@@ -4294,6 +4306,10 @@ class TestV75AnalyzeAndCreateNews:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.services.browser_monitor import BrowserMonitor, MonitoredSource
+        from src.utils.shared_cache import get_shared_cache
+
+        # V14.0: Clear shared cache to ensure test isolation
+        get_shared_cache().clear()
 
         monitor = BrowserMonitor()
         source = MonitoredSource(url="https://test.com", league_key="soccer_test", name="Test")
@@ -4320,7 +4336,7 @@ class TestV75AnalyzeAndCreateNews:
 
         with patch.object(monitor, "analyze_relevance", mock_analyze):
             result = await monitor._analyze_and_create_news(
-                source, "https://test.com/article", content
+                source, "https://test.com/article4", content  # Unique URL for this test
             )
 
         # Should call DeepSeek for medium confidence

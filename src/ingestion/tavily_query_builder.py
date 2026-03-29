@@ -1,18 +1,17 @@
 """
-Tavily Query Builder - V7.0
+Tavily Query Builder - V8.0
 
-Builds optimized queries for Tavily AI Search with batching support.
-Combines multiple questions into single queries to maximize API efficiency.
+Builds optimized queries for Tavily AI Search.
+Provides query building utilities for various search scenarios.
 
-Requirements: 2.1, 2.2, 2.3, 2.4
+Requirements: 2.1, 2.2
+
+Note: V8.0 removed unused functions (parse_batched_response, split_long_query,
+      estimate_query_count) that were never called in production.
 """
 
 import logging
-import re
-from typing import TYPE_CHECKING, Optional
-
-if TYPE_CHECKING:
-    from src.ingestion.tavily_provider import TavilyResponse
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +32,13 @@ DEFAULT_MATCH_QUESTIONS = [
 
 class TavilyQueryBuilder:
     """
-    Query builder with batching support.
+    Query builder for Tavily AI Search.
 
-    Combines multiple questions into single queries
-    to maximize API efficiency.
+    Provides static methods to build optimized queries for various
+    search scenarios including match enrichment, news verification,
+    biscotto analysis, and Twitter recovery.
 
-    Requirements: 2.1, 2.2, 2.3, 2.4
+    Requirements: 2.1, 2.2
     """
 
     @staticmethod
@@ -187,227 +187,3 @@ class TavilyQueryBuilder:
             query += f" {keywords_str}"
 
         return query
-
-    @staticmethod
-    def parse_batched_response(response: "TavilyResponse", question_count: int) -> list[str]:
-        """
-        Parse batched response into individual answers with comprehensive error handling.
-
-        Extracts individual answers from a Tavily response that
-        was generated from a batched query.
-
-        Args:
-            response: TavilyResponse from Tavily API
-            question_count: Number of questions in the original batch
-
-        Returns:
-            List of answer strings mapped to original questions
-
-        Requirements: 2.3
-
-        Note:
-            - V7.1: Added comprehensive error handling for malformed responses
-            - Uses getattr() for safe attribute access
-            - Handles None, missing attributes, and unexpected data structures
-        """
-        if not response:
-            logger.debug("📊 [TAVILY-QUERY-BUILDER] Response is None, returning empty answers")
-            return [""] * question_count
-
-        answers = []
-
-        try:
-            # If we have an AI-generated answer, try to parse it
-            if hasattr(response, "answer") and response.answer:
-                # Try to split by common separators
-                raw_answer = str(response.answer)
-
-                # Try numbered list format (1. answer 2. answer)
-                numbered_pattern = r"\d+\.\s*"
-                parts = re.split(numbered_pattern, raw_answer)
-                parts = [p.strip() for p in parts if p.strip()]
-
-                if len(parts) >= question_count:
-                    answers = parts[:question_count]
-                else:
-                    # Try pipe separator
-                    pipe_parts = raw_answer.split("|")
-                    pipe_parts = [p.strip() for p in pipe_parts if p.strip()]
-
-                    if len(pipe_parts) >= question_count:
-                        answers = pipe_parts[:question_count]
-                    else:
-                        # Fall back to using the whole answer for each question
-                        answers = [raw_answer] * question_count
-
-            # If no answer, try to extract from results
-            if not answers and hasattr(response, "results") and response.results:
-                # Use result snippets as answers with safe attribute access
-                for i in range(question_count):
-                    if i < len(response.results):
-                        # Use getattr for safe access to 'content' attribute
-                        result = response.results[i]
-                        content = getattr(result, "content", "")
-                        answers.append(content)
-                    else:
-                        answers.append("")
-
-        except Exception as e:
-            logger.error(f"❌ [TAVILY-QUERY-BUILDER] Error parsing batched response: {e}")
-            # Return empty answers as fallback
-            return [""] * question_count
-
-        # Ensure we have the right number of answers
-        while len(answers) < question_count:
-            answers.append("")
-
-        return answers[:question_count]
-
-    @staticmethod
-    def split_long_query(query: str, max_length: int = MAX_QUERY_LENGTH) -> list[str]:
-        """
-        Split a long query into multiple shorter queries with comprehensive error handling.
-
-        When a query exceeds the maximum length, splits it into
-        multiple queries that can be executed separately.
-
-        Args:
-            query: Original query string
-            max_length: Maximum length per query (default 500)
-
-        Returns:
-            List of query strings, each under max_length
-
-        Requirements: 2.4
-
-        Note:
-            - V7.1: Added explicit None check and error handling
-            - Returns empty list for None input
-            - Handles unexpected errors gracefully
-        """
-        # Explicit None check
-        if query is None:
-            logger.debug("📏 [TAVILY-QUERY-BUILDER] Query is None, returning empty list")
-            return []
-
-        # Check for empty string
-        if not query or not query.strip():
-            logger.debug("📏 [TAVILY-QUERY-BUILDER] Query is empty, returning empty list")
-            return []
-
-        if len(query) <= max_length:
-            return [query]
-
-        queries = []
-
-        # Try to split by pipe separator first (batched questions)
-        if QUESTION_SEPARATOR in query:
-            # Extract base context (before the colon)
-            colon_idx = query.find(":")
-            if colon_idx > 0:
-                base_context = query[:colon_idx].strip()
-                questions_part = query[colon_idx + 1 :].strip()
-                questions = questions_part.split(QUESTION_SEPARATOR)
-
-                current_query = base_context + ":"
-                current_questions = []
-
-                for q in questions:
-                    q = q.strip()
-                    if not q:
-                        continue
-
-                    # Check if adding this question would exceed limit
-                    test_query = (
-                        current_query + " " + QUESTION_SEPARATOR.join(current_questions + [q])
-                    )
-
-                    if len(test_query) <= max_length:
-                        current_questions.append(q)
-                    else:
-                        # Save current query and start new one
-                        if current_questions:
-                            queries.append(
-                                current_query + " " + QUESTION_SEPARATOR.join(current_questions)
-                            )
-                        current_questions = [q]
-
-                # Add remaining questions
-                if current_questions:
-                    queries.append(current_query + " " + QUESTION_SEPARATOR.join(current_questions))
-            else:
-                # No colon, split by separator directly
-                parts = query.split(QUESTION_SEPARATOR)
-                current_query = ""
-
-                for part in parts:
-                    part = part.strip()
-                    if not part:
-                        continue
-
-                    test_query = (
-                        current_query + (QUESTION_SEPARATOR if current_query else "") + part
-                    )
-
-                    if len(test_query) <= max_length:
-                        current_query = test_query
-                    else:
-                        if current_query:
-                            queries.append(current_query)
-                        current_query = part
-
-                if current_query:
-                    queries.append(current_query)
-        else:
-            # No separator, split by words
-            words = query.split()
-            current_query = ""
-
-            for word in words:
-                test_query = current_query + (" " if current_query else "") + word
-
-                if len(test_query) <= max_length:
-                    current_query = test_query
-                else:
-                    if current_query:
-                        queries.append(current_query)
-                    current_query = word
-
-            if current_query:
-                queries.append(current_query)
-
-        # Ensure all queries are under max_length
-        result = []
-        for q in queries:
-            if len(q) <= max_length:
-                result.append(q)
-            else:
-                # Force truncate if still too long
-                logger.warning(
-                    f"⚠️ [TAVILY-QUERY-BUILDER] Query still too long after split, truncating: {len(q)} -> {max_length}"
-                )
-                result.append(q[:max_length])
-
-        logger.debug(f"📏 [TAVILY-QUERY-BUILDER] Split query into {len(result)} parts")
-        return result if result else [str(query)[:max_length]]
-
-    @staticmethod
-    def estimate_query_count(questions: list[str], base_context: str = "") -> int:
-        """
-        Estimate how many API calls will be needed for a set of questions.
-
-        Args:
-            questions: List of questions to batch
-            base_context: Base context string
-
-        Returns:
-            Estimated number of API calls needed
-        """
-        if not questions:
-            return 0
-
-        # Build full query
-        full_query = base_context + ": " + QUESTION_SEPARATOR.join(questions)
-
-        # Count how many splits needed
-        return len(TavilyQueryBuilder.split_long_query(full_query))

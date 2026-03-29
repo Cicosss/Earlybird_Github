@@ -64,7 +64,7 @@ class MatchAlert(BaseModel):
     home_team: str
     away_team: str
     league: str
-    score: int = Field(ge=0, le=10, description="Relevance score (0-10)")
+    score: float = Field(ge=0, le=10, description="Relevance score (0-10)")
     news_summary: str
     news_url: str | None = Field(default=None, description="Source URL for the news")
     recommended_market: str | None = Field(
@@ -135,6 +135,11 @@ class EnhancedMatchAlert(MatchAlert):
     )
 
     # Database update fields (not sent to Telegram)
+    match_obj: Any | None = Field(
+        default=None,
+        description="Match ORM object for duplicate checks, odds_alert_sent flag, and team info. "
+        "Separate from analysis_result which is the NewsLog for odds_at_alert updates.",
+    )
     analysis_result: Any | None = Field(
         default=None, description="NewsLog object to update with odds_at_alert (V8.3)"
     )
@@ -193,6 +198,7 @@ class EnhancedMatchAlert(MatchAlert):
             "is_convergent": kwargs.get("is_convergent", False),
             "convergence_sources": kwargs.get("convergence_sources"),
             "market_warning": kwargs.get("market_warning"),
+            "match_obj": kwargs.get("match_obj") or kwargs.get("match"),
             "analysis_result": kwargs.get("analysis_result"),
             "db_session": kwargs.get("db_session"),
         }
@@ -226,7 +232,7 @@ class EnhancedMatchAlert(MatchAlert):
             Dictionary of kwargs compatible with send_alert()
         """
         return {
-            "match_obj": self.analysis_result,  # Use analysis_result as match_obj
+            "match_obj": self.match_obj,  # Match ORM object for duplicate checks
             "news_summary": self.news_summary,
             "news_url": self.news_url,
             "score": self.score,

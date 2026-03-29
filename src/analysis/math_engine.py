@@ -32,7 +32,7 @@ DEFAULT_LEAGUE_AVG = 1.35
 MIN_MATCHES_REQUIRED = 5
 
 # V3.7: Money Management Safety Cap
-MIN_STAKE_PCT = 0.5  # Minimum 0.5% of bankroll per bet (anything less is 0)
+MIN_STAKE_PCT = 0.1  # Minimum 0.1% of bankroll per bet (V11.1: Relaxed from 0.5%)
 MAX_STAKE_PCT = 5.0  # Maximum 5% of bankroll per bet (hard cap)
 
 # V4.3: Dixon-Coles rho parameter TUNED (was -0.10)
@@ -537,8 +537,10 @@ class MathPredictor:
 
         kelly_quarter = kelly_full / 4
 
-        # Safety caps: Min 0.5%, Max 5.0% (hard caps)
-        stake_pct = max(0.5, min(5.0, kelly_quarter)) * 100  # Convert to percentage
+        # Safety caps: Min 0.1%, Max 5.0% (hard caps) (V11.1: Relaxed from 0.5%)
+        stake_pct = (
+            max(MIN_STAKE_PCT, min(MAX_STAKE_PCT, kelly_quarter)) * 100
+        )  # Convert to percentage
 
         # V3.7: Safety cap - limit max exposure per bet
         if stake_pct > MAX_STAKE_PCT:

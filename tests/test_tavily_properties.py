@@ -526,136 +526,6 @@ class TestQueryBatchingProperty:
         for q in questions:
             assert q in query, f"Question '{q}' not in query"
 
-    @given(num_questions=st.integers(min_value=1, max_value=10))
-    @settings(max_examples=100)
-    def test_parse_returns_correct_count(self, num_questions: int):
-        """
-        Property: Parsing returns correct number of answers.
-
-        For any number of questions, parse_batched_response should
-        return exactly that many answers.
-        """
-        from src.ingestion.tavily_provider import TavilyResponse
-        from src.ingestion.tavily_query_builder import TavilyQueryBuilder
-
-        # Create a mock response with numbered answers
-        answers = [f"Answer {i + 1}" for i in range(num_questions)]
-        mock_response = TavilyResponse(
-            query="test query",
-            answer=" | ".join(answers),
-            results=[],
-            response_time=0.5,
-        )
-
-        parsed = TavilyQueryBuilder.parse_batched_response(mock_response, num_questions)
-
-        assert len(parsed) == num_questions, f"Expected {num_questions} answers, got {len(parsed)}"
-
-
-# ============================================
-# Property 6: Query Splitting
-# ============================================
-
-
-class TestQuerySplittingProperty:
-    """
-    **Feature: tavily-integration, Property 6: Query Splitting**
-    **Validates: Requirements 2.4**
-
-    For any list of questions that produces a query exceeding 500 characters,
-    the Query_Builder SHALL split into multiple queries each under 500 characters.
-    """
-
-    @given(
-        query=st.text(min_size=1, max_size=2000).filter(lambda x: x.strip()),
-        max_length=st.integers(min_value=50, max_value=500),
-    )
-    @settings(max_examples=100)
-    def test_split_queries_under_max_length(self, query: str, max_length: int):
-        """
-        Property: All split queries are under max length.
-
-        For any query and max length, all resulting queries should
-        be at or under the specified maximum length.
-        """
-        from src.ingestion.tavily_query_builder import TavilyQueryBuilder
-
-        splits = TavilyQueryBuilder.split_long_query(query, max_length)
-
-        for i, split in enumerate(splits):
-            assert len(split) <= max_length, f"Split {i} has length {len(split)} > {max_length}"
-
-    @given(query=st.text(min_size=1, max_size=400).filter(lambda x: x.strip()))
-    @settings(max_examples=100)
-    def test_short_query_not_split(self, query: str):
-        """
-        Property: Short queries are not split.
-
-        For any query under 500 characters, split_long_query should
-        return a single-element list with the original query.
-        """
-        from src.ingestion.tavily_query_builder import TavilyQueryBuilder
-
-        splits = TavilyQueryBuilder.split_long_query(query, max_length=500)
-
-        if len(query) <= 500:
-            assert len(splits) == 1, f"Short query was split into {len(splits)} parts"
-            assert splits[0] == query, "Short query was modified"
-
-    @given(
-        questions=st.lists(
-            st.text(
-                alphabet=st.characters(
-                    whitelist_categories=("L", "N", "P", "S"),
-                    whitelist_characters=" ",
-                ),
-                min_size=50,
-                max_size=100,
-            ).filter(lambda x: x.strip()),
-            min_size=5,
-            max_size=10,
-        )
-    )
-    @settings(max_examples=50)
-    def test_split_preserves_content(self, questions: list[str]):
-        """
-        Property: Splitting preserves question content.
-
-        For any list of questions that gets split, each question
-        should appear in at least one of the resulting queries.
-        """
-        from src.ingestion.tavily_query_builder import (
-            QUESTION_SEPARATOR,
-            TavilyQueryBuilder,
-        )
-
-        # Build a long query
-        base = "TeamA vs TeamB 2026-01-15:"
-        full_query = base + " " + QUESTION_SEPARATOR.join(questions)
-
-        splits = TavilyQueryBuilder.split_long_query(full_query, max_length=200)
-
-        # Combine all splits
-        combined = " ".join(splits)
-
-        # Each question should appear somewhere
-        for q in questions:
-            # Question might be truncated, check first 40 chars
-            q_prefix = q[:40]
-            assert q_prefix in combined, f"Question prefix '{q_prefix}' not found in splits"
-
-    def test_empty_query_returns_empty_list(self):
-        """
-        Property: Empty query returns empty list.
-        """
-        from src.ingestion.tavily_query_builder import TavilyQueryBuilder
-
-        splits = TavilyQueryBuilder.split_long_query("")
-        assert splits == [], "Empty query should return empty list"
-
-        splits = TavilyQueryBuilder.split_long_query(None)
-        assert splits == [], "None query should return empty list"
-
 
 # ============================================
 # Property 10: Budget Tracking Consistency
@@ -1960,7 +1830,7 @@ class TestTavilyResultEdgeCases:
         """
         Edge Case: TavilyResult handles special characters in fields.
         """
-        from src.ingestion.tavily_provider import TavilyResponse, TavilyResult
+        from src.ingestion.tavily_provider import TavilyResult
 
         result = TavilyResult(
             title="Test <script>alert('xss')</script>",

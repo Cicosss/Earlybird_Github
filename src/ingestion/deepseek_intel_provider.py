@@ -76,7 +76,7 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL_A_STANDARD = "deepseek/deepseek-chat"  # DeepSeek V3 Stable via OpenRouter
 
 # Model B: Reasoner model for triangulation, verification, final verdict
-MODEL_B_REASONER = "deepseek/deepseek-r1-0528:free"  # DeepSeek R1 Reasoner via OpenRouter
+MODEL_B_REASONER = "deepseek/deepseek-r1-0528"  # DeepSeek R1 Reasoner via OpenRouter (paid tier, ~14s avg vs 132s free)
 
 # Legacy model for backward compatibility (defaults to Model A)
 DEEPSEEK_MODEL = os.getenv("OPENROUTER_MODEL", MODEL_A_STANDARD)
@@ -361,7 +361,9 @@ class DeepSeekIntelProvider:
 
         try:
             logger.debug(f"🔍 [DEEPSEEK] Brave fallback: {query[:60]}...")
-            results = self._brave_provider.search_news(query, limit=limit)
+            results = self._brave_provider.search_news(
+                query, limit=limit, component="deepseek_fallback"
+            )
             logger.debug(f"🔍 [DEEPSEEK] Brave returned {len(results)} results")
             return results
         except Exception as e:
@@ -616,6 +618,7 @@ Be conservative in your assessments when lacking current data.
                 json=payload,
                 timeout=kwargs.get("timeout", 60),
                 max_retries=kwargs.get("max_retries", 2),
+                use_fingerprint=False,
             )
 
             # Handle 429 rate limit

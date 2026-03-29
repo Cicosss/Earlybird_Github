@@ -14,7 +14,9 @@ V3.0: COMPLETE REWRITE - Uses real data from IntelligenceRouter instead of place
 
 import logging
 import os
+import threading
 from dataclasses import asdict, dataclass
+from typing import Any
 
 from src.analysis.final_alert_verifier import FinalAlertVerifier
 from src.database.models import Match, NewsLog
@@ -30,8 +32,8 @@ class DataDiscrepancy:
     """
 
     field: str
-    fotmob_value: any  # Actual value from FotMob extraction
-    intelligence_value: any  # Actual value from IntelligenceRouter web search
+    fotmob_value: Any  # Actual value from FotMob extraction
+    intelligence_value: Any  # Actual value from IntelligenceRouter web search
     impact: str  # "LOW", "MEDIUM", "HIGH"
     description: str
 
@@ -244,17 +246,21 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
         return verification_result
 
 
+# Thread-safe singleton for EnhancedFinalVerifier
+_enhanced_verifier_instance: EnhancedFinalVerifier | None = None
+_enhanced_verifier_init_lock = threading.Lock()
+
+
 def get_enhanced_final_verifier() -> EnhancedFinalVerifier:
-    """Get or create the singleton EnhancedFinalVerifier instance."""
-    from src.analysis.final_alert_verifier import get_final_verifier
+    """Get or create the singleton EnhancedFinalVerifier instance.
 
-    base_verifier = get_final_verifier()
-
-    # Convert to enhanced verifier (composition pattern)
-    if isinstance(base_verifier, EnhancedFinalVerifier):
-        return base_verifier
-
-    # Create enhanced verifier wrapping the base one
-    enhanced = EnhancedFinalVerifier()
-
-    return enhanced
+    Uses thread-safe double-checked locking pattern, matching the
+    singleton pattern used by get_final_verifier() in the base module.
+    """
+    global _enhanced_verifier_instance
+    if _enhanced_verifier_instance is None:
+        with _enhanced_verifier_init_lock:
+            # Double-checked locking for thread safety
+            if _enhanced_verifier_instance is None:
+                _enhanced_verifier_instance = EnhancedFinalVerifier()
+    return _enhanced_verifier_instance

@@ -16,11 +16,13 @@ V4.0: Added API key rotation and budget management (duplicated from Tavily).
 
 V4.5: Fixed double URL encoding bug that caused HTTP 422 errors with non-ASCII characters.
        HTTPX automatically encodes query parameters; manual encoding was causing double encoding.
+V12.4: Added Half-Open auto-recovery for _rate_limited flag (12h cooldown).
 """
 
 import html
 import logging
 import threading
+import time
 
 from config.settings import BRAVE_API_KEY
 from src.ingestion.brave_budget import get_brave_budget_manager
@@ -32,6 +34,9 @@ logger = logging.getLogger(__name__)
 
 # API endpoint
 BRAVE_API_URL = "https://api.search.brave.com/res/v1/web/search"
+
+# V12.4: Auto-recovery cooldown for _rate_limited flag
+RATE_LIMIT_RECOVERY_SECONDS = 12 * 3600  # 12 hours
 
 
 class BraveSearchProvider:
@@ -53,6 +58,9 @@ class BraveSearchProvider:
         self._rate_limited = False
         self._http_client = get_http_client()
 
+        # V12.4: Auto-recovery timestamp for _rate_limited flag
+        self._rate_limited_activated_at: float | None = None
+
         # V4.0: Feature flag for key rotation (default: True)
         self._key_rotation_enabled = True
 
@@ -66,11 +74,33 @@ class BraveSearchProvider:
             logger.debug("Brave Search API key not configured")
 
     def is_available(self) -> bool:
-        """Check if Brave Search is available and not rate limited."""
+        """
+        Check if Brave Search is available and not rate limited.
+
+        V12.4: Added Half-Open auto-recovery for _rate_limited flag.
+        If rate_limited has been active for more than 12 hours, automatically
+        reset it and attempt to use the API again.
+        """
         if not self._api_key:
             return False
 
         if self._rate_limited:
+            # V12.4: Auto-recovery check - if cooldown period has elapsed, reset rate limit
+            if self._rate_limited_activated_at is not None:
+                elapsed = time.time() - self._rate_limited_activated_at
+                if elapsed > RATE_LIMIT_RECOVERY_SECONDS:
+                    logger.info(
+                        f"🔌 [BRAVE-AUTO-RECOVERY] Rate limit active for {elapsed / 3600:.1f}h "
+                        f"(> {RATE_LIMIT_RECOVERY_SECONDS / 3600:.0f}h cooldown). "
+                        f"Attempting recovery..."
+                    )
+                    self.reset_rate_limit()
+                    # After reset, verify keys are actually available
+                    if self._key_rotation_enabled and not self._key_rotator.is_available():
+                        logger.warning("⚠️ [BRAVE-AUTO-RECOVERY] Keys still exhausted after reset")
+                        return False
+                    logger.info("✅ [BRAVE-AUTO-RECOVERY] Recovery successful - API restored")
+                    return True
             return False
 
         # V4.0: Check if key rotator has available keys
@@ -156,6 +186,9 @@ class BraveSearchProvider:
                 else:
                     logger.warning("⚠️ Brave Search rate limit (429) - failing over to DDG")
                     self._rate_limited = True
+                    self._rate_limited_activated_at = (
+                        time.time()
+                    )  # V12.4: Track activation timestamp
                     return []
 
             # Handle other errors
@@ -200,8 +233,9 @@ class BraveSearchProvider:
             return []
 
     def reset_rate_limit(self):
-        """Reset rate limit flag (call after some time has passed)."""
+        """Reset rate limit flag. V12.4: Also clears activation timestamp."""
         self._rate_limited = False
+        self._rate_limited_activated_at = None
 
     def get_status(self) -> dict:
         """

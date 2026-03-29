@@ -134,6 +134,7 @@ from telethon import TelegramClient
 from config.settings import (
     DATA_DIR,
     LOGS_DIR,
+    STOP_FILE,
     TELEGRAM_API_HASH,
     TELEGRAM_API_ID,
 )
@@ -170,6 +171,11 @@ async def monitor_loop():
     base_backoff_seconds = 120
 
     while True:
+        # V14.0: Check for FULL STOP - exit completely if stopped
+        if os.path.exists(STOP_FILE):
+            logger.info("🛑 FULL STOP DETECTED - Telegram Monitor shutting down until /start")
+            break
+
         try:
             logger.info("\n⏰ Ciclo Monitor Telegram...")
 
@@ -237,9 +243,13 @@ async def monitor_loop():
             else:
                 logger.info("Nessuna immagine formazione trovata nei messaggi recenti")
 
-            # Sleep 10 minuti tra i cicli
-            logger.info("💤 Pausa 10 minuti...")
-            await asyncio.sleep(600)
+            # Sleep 10 minuti tra i cicli - con controlli STOP intermedi (V14.0 COVE FIX)
+            logger.info("💤 Pausa 10 minuti con controlli STOP...")
+            for _ in range(20):  # Check ogni 30 secondi
+                if os.path.exists(STOP_FILE):
+                    logger.info("🛑 STOP rilevato durante pausa - uscita immediata")
+                    break
+                await asyncio.sleep(30)
 
         except KeyboardInterrupt:
             logger.info("\n🛑 MONITOR SHUTDOWN")

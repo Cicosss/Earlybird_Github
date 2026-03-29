@@ -5,9 +5,10 @@ GlobalOrchestrator - Global Real-Time Intelligence
 This module implements GLOBAL PARALLEL ARCHITECTURE for real-time intelligence monitoring.
 The bot now monitors ALL active leagues simultaneously to catch news instantly.
 
-GLOBAL EYES ARCHITECTURE:
-- NO TIME RESTRICTIONS: The bot sees the whole world at once
-- PARALLEL SCANNING: 3-Tab Radar (LATAM, ASIA, AFRICA) runs concurrently
+GLOBAL EYES ARCHITECTURE (V11.0+):
+- NO TIME RESTRICTIONS: The bot sees the whole world at once, 24/7
+- WEB INTELLIGENCE (NewsRadar): Parallel scanning with concurrent browser contexts
+- SOCIAL INTELLIGENCE (Nitter): Sequential processing per continent (rate limit protection)
 - INTELLIGENCE QUEUE: Thread-safe queue serializes heavy lifting while discovery remains parallel
 - SAFETY VALVE: Prevents DB locks and API rate limits
 
@@ -23,7 +24,8 @@ Resilience Features:
 - Preserves Tactical Veto V5.0 and Balanced Probability logic (imported from analyzer/math_engine)
 
 V11.0: Global Parallel Architecture
-- Parallel scanning across 3 async contexts (LATAM, ASIA, AFRICA)
+- Web Intelligence (NewsRadar): High concurrency with parallel browser contexts
+- Social Intelligence (Nitter): Sequential execution per continent to protect rate limits
 - Intelligence Queue for safe, serialized processing
 - Budget checks for Tavily and Brave APIs before processing
 
@@ -31,6 +33,8 @@ Author: Lead Architect
 Date: 2026-02-08
 Updated: 2026-02-23 (Centralized Version Tracking)
 """
+
+from __future__ import annotations
 
 import asyncio
 
@@ -50,7 +54,10 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from src.database.supabase_provider import SupabaseProvider
 
 # V10.5 FIX: Import nest_asyncio to handle event loop conflicts
 # V11.1 FIX: Call nest_asyncio.apply() once at module level for better performance
@@ -86,13 +93,14 @@ CONTINENTAL_WINDOWS = {
 
 class GlobalOrchestrator:
     """
-    Orchestrates GLOBAL PARALLEL ARCHITECTURE for league scanning.
+    Orchestrates GLOBAL EYES ARCHITECTURE for league scanning.
 
     This class is responsible for:
     1. Fetching ALL active leagues from Supabase (no time restrictions)
-    2. Running Nitter intelligence cycle for all continents
-    3. Falling back to local mirror if Supabase is slow/unreachable
-    4. Supporting 3-tab parallel radar in Global mode
+    2. Running Web Intelligence (NewsRadar) with parallel browser contexts
+    3. Running Social Intelligence (Nitter) sequentially per continent to protect rate limits
+    4. Falling back to local mirror if Supabase is slow/unreachable
+    5. Supporting 3-tab radar in Global mode
 
     The Tactical Veto V5.0 and Balanced Probability logic are preserved by
     importing from the analyzer and math_engine modules respectively.
@@ -395,10 +403,14 @@ class GlobalOrchestrator:
 
     async def _run_nitter_intelligence_cycle(self, continent_blocks: list[str]) -> None:
         """
-        Run Nitter intelligence cycle for ALL continental blocks.
+        Run Nitter intelligence cycle for ALL continental blocks (SEQUENTIALLY).
 
         This method calls nitter_scraper.run_cycle() for each continent
         to gather fresh Twitter intel before the main match loop starts.
+
+        NOTE: This method processes continents SEQUENTIALLY (one at a time) to protect
+        the shared Nitter instance pool from aggressive rate limiting (429 errors).
+        Parallel execution is intentionally NOT used here.
 
         Args:
             continent_blocks: List of all continent names (e.g., ["LATAM", "ASIA", "AFRICA"])

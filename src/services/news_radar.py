@@ -102,6 +102,15 @@ except ImportError:
     STEALTH_AVAILABLE = False
     Stealth = None
 
+# V13.1: ArticleReader for Scrapling-based stealth extraction (WAF bypass)
+try:
+    from src.utils.article_reader import ArticleReader as _ArticleReader
+
+    _ARTICLE_READER_AVAILABLE = True
+except ImportError:
+    _ARTICLE_READER_AVAILABLE = False
+    _ArticleReader = None  # type: ignore
+
 # V11.0: Import DiscoveryQueue for GlobalRadarMonitor intelligence queue
 from src.utils.discovery_queue import DiscoveryQueue, get_discovery_queue
 
@@ -110,6 +119,14 @@ logger = logging.getLogger(__name__)
 # V12.1: Log stealth availability (COVE FIX)
 if not STEALTH_AVAILABLE:
     logger.warning("⚠️ [NEWS-RADAR] playwright-stealth not installed, running without stealth")
+
+# V13.1: Log ArticleReader availability
+if _ARTICLE_READER_AVAILABLE:
+    logger.info("✅ [NEWS-RADAR] ArticleReader (Scrapling) available - WAF bypass enabled")
+else:
+    logger.warning(
+        "⚠️ [NEWS-RADAR] ArticleReader not available - HTTP extraction without WAF bypass"
+    )
 
 # Configuration constants
 DEFAULT_CONFIG_FILE = "config/news_radar_sources.json"
@@ -136,6 +153,9 @@ CIRCUIT_BREAKER_MAX_RETRIES = 20  # Give up after 20 total attempts (approx 100 
 # HTTP configuration
 HTTP_TIMEOUT = 15
 HTTP_MIN_CONTENT_LENGTH = 200
+
+# V13.1: WAF detection status codes
+WAF_BLOCK_CODES = {403, 429}
 
 # OpenRouter API
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -796,11 +816,20 @@ class CircuitBreaker:
     - CLOSED: Normal operation, requests pass through
     - OPEN: Source is failing, skip requests for recovery_timeout
     - HALF_OPEN: Testing if source recovered, allow one request
-    - PERMANENT_FAILURE: Source has failed too many times, give up permanently
+    - COOLDOWN: Source hit max_retries, long cooldown before retrying (V12.4)
+
+    V12.4 FIX: "Ending News Source Atrophy"
+    NO news domain is ever permanently blacklisted. After max_retries (20),
+    the source enters a COOLDOWN state (4 hours) and then auto-recovers to HALF_OPEN.
+    After the cooldown, the counter resets and the source goes to HALF_OPEN
+    for another attempt. The bot is "Relentless."
 
     Requirements: 1.4
     VPS FIX: Added max_retries to prevent infinite retry loops
     """
+
+    # V12.4: Cooldown duration after hitting max_retries (4 hours)
+    COOLDOWN_SECONDS = 4 * 3600
 
     def __init__(
         self,
@@ -818,10 +847,24 @@ class CircuitBreaker:
 
     def can_execute(self) -> bool:
         """Check if request should be allowed."""
-        # VPS FIX: Block execution if in PERMANENT_FAILURE state
-        if self.state == "PERMANENT_FAILURE":
+        # V12.4: Sources are NEVER permanently blacklisted - COOLDOWN auto-recovers after 4h
+        if self.state == "COOLDOWN":
+            # Check if cooldown period has elapsed
+            if (
+                self.last_failure_time
+                and (time.time() - self.last_failure_time) > self.COOLDOWN_SECONDS
+            ):
+                logger.info(
+                    f"🔄 [CIRCUIT-BREAKER] Source COOLDOWN elapsed ({self.COOLDOWN_SECONDS / 3600:.0f}h). "
+                    f"Resetting counters and transitioning to HALF_OPEN for retry."
+                )
+                self.total_attempts = 0
+                self.failure_count = 0
+                self.state = "HALF_OPEN"
+                return True
             logger.debug(
-                f"🔴 [CIRCUIT-BREAKER] Source permanently failed after {self.total_attempts} attempts"
+                f"🧊 [CIRCUIT-BREAKER] Source in COOLDOWN (will retry after {self.COOLDOWN_SECONDS / 3600:.0f}h). "
+                f"Elapsed: {(time.time() - self.last_failure_time) / 3600:.1f}h"
             )
             return False
 
@@ -858,12 +901,13 @@ class CircuitBreaker:
         self.total_attempts += 1  # VPS FIX: Track total attempts
         self.last_failure_time = time.time()
 
-        # VPS FIX: Check if we've exceeded max_retries and give up permanently
+        # V12.4: Use COOLDOWN with auto-reset instead of permanent blacklisting
         if self.total_attempts >= self.max_retries:
-            self.state = "PERMANENT_FAILURE"
-            logger.error(
-                f"💀 [CIRCUIT-BREAKER] Source PERMANENTLY FAILED after {self.total_attempts} total attempts "
-                f"(max_retries={self.max_retries}). Giving up."
+            self.state = "COOLDOWN"
+            logger.warning(
+                f"🧊 [CIRCUIT-BREAKER] Source entering COOLDOWN after {self.total_attempts} total attempts "
+                f"(max_retries={self.max_retries}). Will retry in {self.COOLDOWN_SECONDS / 3600:.0f}h. "
+                f"NO source is permanently blacklisted."
             )
             return
 
@@ -1152,10 +1196,21 @@ class ContentExtractor:
         self._browser = None
         self._browser_lock: asyncio.Lock | None = None  # V1.3: Lock for browser recreation
 
+        # V13.1: Scrapling-based stealth extractor (WAF bypass)
+        self._article_reader = None
+        if _ARTICLE_READER_AVAILABLE and _ArticleReader is not None:
+            try:
+                self._article_reader = _ArticleReader()
+                logger.debug("✅ [NEWS-RADAR] ArticleReader initialized for stealth extraction")
+            except Exception as e:
+                logger.warning(f"⚠️ [NEWS-RADAR] ArticleReader init failed: {e}")
+                self._article_reader = None
+
         # Stats
         self._http_extractions = 0
         self._browser_extractions = 0
         self._failed_extractions = 0
+        self._waf_bypasses = 0  # V13.1: Track WAF bypass successes
 
     def _diagnose_playwright_installation(self) -> dict:
         """
@@ -1306,6 +1361,14 @@ class ContentExtractor:
 
     async def shutdown(self) -> None:
         """Shutdown Playwright and release resources."""
+        # V13.1: Close ArticleReader
+        if self._article_reader:
+            try:
+                await self._article_reader.close()
+            except Exception as e:
+                logger.debug(f"⚠️ [NEWS-RADAR] Error closing ArticleReader: {e}")
+            self._article_reader = None
+
         # V9.0: Explicit cleanup of browser contexts if they exist
         if hasattr(self, "_contexts") and self._contexts:
             for context in self._contexts:
@@ -1467,12 +1530,50 @@ class ContentExtractor:
 
     async def _extract_with_http(self, url: str) -> str | None:
         """
-        Try to extract content using pure HTTP (no browser).
+        Try to extract content using HTTP with WAF bypass.
 
         V8.1: Uses centralized HTTP client with rate limiting to prevent bans.
+        V13.1: Uses ArticleReader (Scrapling) for TLS fingerprint impersonation
+               and automatic WAF bypass. Falls back to standard httpx if unavailable.
+
+        Strategy:
+        1. Scrapling AsyncFetcher (HTTP with TLS impersonation) - fastest, bypasses most WAFs
+        2. Scrapling Fetcher (browser impersonation) - for stubborn WAF blocks
+        3. Standard httpx (legacy fallback) - if Scrapling unavailable
 
         Requirements: 2.1
         """
+        # V13.1: Primary path - Scrapling-based stealth extraction
+        if self._article_reader is not None:
+            try:
+                result = await self._article_reader.fetch_and_extract(url, timeout=HTTP_TIMEOUT)
+                if result["success"] and result["text"]:
+                    text = result["text"]
+                    if len(text) > HTTP_MIN_CONTENT_LENGTH:
+                        method = result["method"]
+                        if method == "browser":
+                            self._waf_bypasses += 1
+                            self._browser_extractions += 1
+                            logger.info(
+                                f"🛡️ [NEWS-RADAR] WAF bypass via Scrapling browser: {url[:40]}..."
+                            )
+                        else:
+                            self._http_extractions += 1
+                            logger.debug(f"⚡ [NEWS-RADAR] Scrapling HTTP success: {url[:40]}...")
+                        return text
+                    logger.debug(
+                        f"⚠️ [NEWS-RADAR] Scrapling extracted too short "
+                        f"({len(result['text'])} chars): {url[:40]}..."
+                    )
+                else:
+                    status_info = ""
+                    logger.debug(
+                        f"⚠️ [NEWS-RADAR] Scrapling extraction failed{status_info}: {url[:40]}..."
+                    )
+            except Exception as e:
+                logger.debug(f"⚠️ [NEWS-RADAR] Scrapling error: {e}")
+
+        # V13.1: Legacy fallback - standard httpx (no WAF bypass)
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -1480,16 +1581,22 @@ class ContentExtractor:
                 "Accept-Language": "en-US,en;q=0.5",
             }
 
-            # V8.1: Use centralized HTTP client with rate limiting
             http_client = get_http_client()
             response = await asyncio.to_thread(
                 http_client.get_sync,
                 url,
                 rate_limit_key="news_radar",
-                use_fingerprint=False,  # Use custom headers instead
+                use_fingerprint=False,
                 timeout=HTTP_TIMEOUT,
                 headers=headers,
             )
+
+            if response.status_code in WAF_BLOCK_CODES:
+                logger.warning(
+                    f"🛡️ [NEWS-RADAR] WAF block ({response.status_code}) from "
+                    f"{url.split('//')[1].split('/')[0] if '//' in url else url[:30]}"
+                )
+                return None
 
             if response.status_code != 200:
                 return None
@@ -1801,6 +1908,7 @@ class ContentExtractor:
             "http_extractions": self._http_extractions,
             "browser_extractions": self._browser_extractions,
             "failed_extractions": self._failed_extractions,
+            "waf_bypasses": self._waf_bypasses,
         }
 
 
@@ -2929,8 +3037,8 @@ class NewsRadarMonitor:
         if not paginated_sources:
             return alerts_sent, urls_scanned
 
-        # V9.0: Adaptive chunk size - use min(3, len(sources)) for efficiency
-        num_chunks = min(3, len(paginated_sources))
+        # V11.0 TURBO: Increased chunk size for 12GB RAM - use min(6, len(sources)) for efficiency
+        num_chunks = min(6, len(paginated_sources))
         chunk_size = max(1, len(paginated_sources) // num_chunks) if num_chunks > 0 else 0
         chunks = [paginated_sources[i::num_chunks] for i in range(num_chunks)]
 
@@ -3617,15 +3725,20 @@ class NewsRadarMonitor:
                         # Radar handoff doesn't have a specific market, use None
                         # The optimizer will use league-level weights
                         if league:
-                            adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
-                                base_score=score,
-                                league=league,
-                                market=None,  # No specific market for radar handoff
-                                driver=alert.category,  # Use alert category as driver
+                            # COVE FIX: Use apply_weight_to_score_with_original to preserve
+                            # original AI score for threshold checks
+                            original_score, adjusted_score, weight_log_msg, weight = (
+                                optimizer.apply_weight_to_score_with_original(
+                                    base_score=score,
+                                    league=league,
+                                    market=None,  # No specific market for radar handoff
+                                    driver=alert.category,  # Use alert category as driver
+                                )
                             )
                             if weight_log_msg:
                                 logger.info(weight_log_msg)
-                            score = adjusted_score
+                            # COVE FIX: Use ORIGINAL AI score for NewsLog, not adjusted
+                            score = original_score
                     except Exception as e:
                         logger.warning(f"⚠️ Failed to apply optimizer weight to radar handoff: {e}")
                         # Continue with original score
@@ -3872,6 +3985,16 @@ class GlobalRadarMonitor:
         # Circuit breakers per source
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
 
+        # V13.1: Scrapling-based stealth extractor for WAF bypass
+        self._article_reader = None
+        if _ARTICLE_READER_AVAILABLE and _ArticleReader is not None:
+            try:
+                self._article_reader = _ArticleReader()
+                logger.debug("✅ [GLOBAL-RADAR] ArticleReader initialized for stealth extraction")
+            except Exception as e:
+                logger.warning(f"⚠️ [GLOBAL-RADAR] ArticleReader init failed: {e}")
+                self._article_reader = None
+
         # State
         self._running = False
         self._stop_event = asyncio.Event()
@@ -3982,6 +4105,14 @@ class GlobalRadarMonitor:
 
         self._running = False
         self._stop_event.set()
+
+        # V13.1: Close ArticleReader
+        if self._article_reader:
+            try:
+                await self._article_reader.close()
+            except Exception:
+                pass
+            self._article_reader = None
 
         # Cancel all scan tasks
         for task in self._scan_tasks:
@@ -4264,32 +4395,67 @@ class GlobalRadarMonitor:
 
     async def _extract_http(self, url: str) -> str | None:
         """
-        HTTP-based content extraction (faster than Playwright).
+        HTTP-based content extraction with WAF bypass.
 
         V8.1: Uses centralized HTTP client with rate limiting to prevent bans.
+        V13.1: Uses ArticleReader (Scrapling) for TLS fingerprint impersonation.
+               Fixes: bot User-Agent, missing trafilatura, WAF block detection.
 
         Args:
             url: URL to extract from
 
         Returns:
-            Extracted content or None
+            Extracted clean text or None
         """
+        # V13.1: Primary path - Scrapling stealth extraction
+        if self._article_reader is not None:
+            try:
+                result = await self._article_reader.fetch_and_extract(url, timeout=15)
+                if result["success"] and result["text"]:
+                    if len(result["text"]) >= HTTP_MIN_CONTENT_LENGTH:
+                        method = (
+                            "Scrapling/browser"
+                            if result["method"] == "browser"
+                            else "Scrapling/HTTP"
+                        )
+                        logger.debug(f"⚡ [GLOBAL-RADAR] {method} success: {url[:40]}...")
+                        return result["text"]
+                logger.debug(f"⚠️ [GLOBAL-RADAR] Scrapling failed for {url[:40]}...")
+            except Exception as e:
+                logger.debug(f"⚠️ [GLOBAL-RADAR] Scrapling error: {e}")
+
+        # Legacy fallback - standard httpx
         try:
-            # V8.1: Use centralized HTTP client with rate limiting
             http_client = get_http_client()
             response = await asyncio.to_thread(
                 http_client.get_sync,
                 url,
                 rate_limit_key="news_radar",
-                use_fingerprint=False,  # Use custom headers instead
+                use_fingerprint=False,
                 timeout=15,
-                headers={"User-Agent": "EarlyBird-Radar/11.0"},
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                },
             )
+
+            if response.status_code in WAF_BLOCK_CODES:
+                logger.warning(
+                    f"🛡️ [GLOBAL-RADAR] WAF block ({response.status_code}): "
+                    f"{url.split('//')[1].split('/')[0] if '//' in url else url[:30]}"
+                )
+                return None
 
             if response.status_code == 200:
                 content = response.text
                 if len(content) >= HTTP_MIN_CONTENT_LENGTH:
-                    return content
+                    # V13.1: Apply trafilatura for clean text (was missing before)
+                    text = None
+                    if _extract_with_fallback is not None:
+                        text, _ = _extract_with_fallback(content)
+                    if text:
+                        return text
+                    return content[:MAX_TEXT_LENGTH]
 
             return None
 

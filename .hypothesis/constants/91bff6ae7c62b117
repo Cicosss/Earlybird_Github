@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/utils/match_helper.py
+# hypothesis_version: 6.151.4
+
+['%Y-%m-%d', 'Unknown', '_extra_fields', 'away_team', 'current_away_odd', 'current_btts_no', 'current_btts_yes', 'current_draw_odd', 'current_home_odd', 'current_over_2_5', 'current_under_2_5', 'home_team', 'id', 'isoformat', 'last_deep_dive_time', 'league', 'opening_away_odd', 'opening_btts_no', 'opening_btts_yes', 'opening_draw_odd', 'opening_home_odd', 'opening_over_2_5', 'opening_under_2_5', 'start_time', 'strftime']

@@ -74,8 +74,8 @@ from src.processing.news_hunter import run_hunter_for_match  # noqa: E402
 # ============================================
 
 # Thresholds from settings
-MARKET_VETO_DROP_THRESHOLD = 15.0  # 15% drop triggers veto
-ALERT_THRESHOLD = ALERT_THRESHOLD_HIGH  # 9.0 from settings
+MARKET_VETO_DROP_THRESHOLD = 25.0  # 25% drop triggers veto (V11.1: Relaxed from 15%)
+ALERT_THRESHOLD = ALERT_THRESHOLD_HIGH  # 8.0 from settings (V11.1: Relaxed from 9.0)
 
 # ============================================
 # HELPER FUNCTIONS
@@ -106,8 +106,7 @@ def check_active_continent(match: Match) -> tuple[bool, str]:
             if "africa" in league.lower():
                 return True, "AFRICA"
             elif any(
-                x in league.lower()
-                for x in ["argentina", "brazil", "mexico", "colombia", "usa"]
+                x in league.lower() for x in ["argentina", "brazil", "mexico", "colombia", "usa"]
             ):
                 return True, "LATAM"
             elif any(x in league.lower() for x in ["japan", "china", "korea", "australia"]):
@@ -123,7 +122,7 @@ def check_active_continent(match: Match) -> tuple[bool, str]:
 
 def check_market_veto(match: Match) -> tuple[bool, float]:
     """
-    Check if market veto should be triggered (15%+ odds drop).
+    Check if market veto should be triggered (25%+ odds drop).
 
     Returns:
         Tuple of (is_vetoed, drop_percentage)
@@ -142,23 +141,17 @@ def check_market_veto(match: Match) -> tuple[bool, float]:
 
     # Check home odd drop
     if opening_home_odd and current_home_odd:
-        home_drop_pct = (
-            (opening_home_odd - current_home_odd) / opening_home_odd
-        ) * 100
+        home_drop_pct = ((opening_home_odd - current_home_odd) / opening_home_odd) * 100
         max_drop_pct = max(max_drop_pct, home_drop_pct)
 
     # Check away odd drop
     if opening_away_odd and current_away_odd:
-        away_drop_pct = (
-            (opening_away_odd - current_away_odd) / opening_away_odd
-        ) * 100
+        away_drop_pct = ((opening_away_odd - current_away_odd) / opening_away_odd) * 100
         max_drop_pct = max(max_drop_pct, away_drop_pct)
 
     # Check draw odd drop
     if opening_draw_odd and current_draw_odd:
-        draw_drop_pct = (
-            (opening_draw_odd - current_draw_odd) / opening_draw_odd
-        ) * 100
+        draw_drop_pct = ((opening_draw_odd - current_draw_odd) / opening_draw_odd) * 100
         max_drop_pct = max(max_drop_pct, draw_drop_pct)
 
     is_vetoed = max_drop_pct >= MARKET_VETO_DROP_THRESHOLD
@@ -288,19 +281,13 @@ def trace_match_pipeline(match: Match, analysis_engine: AnalysisEngine, fotmob) 
                 fotmob_away_id = get_fotmob_team_id(away_team)
 
                 if fotmob_home_id and fotmob_away_id:
-                    fotmob_match = fotmob.get_match(
-                        fotmob_home_id, fotmob_away_id, start_time
-                    )
+                    fotmob_match = fotmob.get_match(fotmob_home_id, fotmob_away_id, start_time)
 
                     if fotmob_match:
                         fotmob_home_name = fotmob_match.get("home", {}).get("name", "")
                         fotmob_away_name = fotmob_match.get("away", {}).get("name", "")
 
-                        if (
-                            fotmob_home_name
-                            and fotmob_away_name
-                            and home_team != fotmob_home_name
-                        ):
+                        if fotmob_home_name and fotmob_away_name and home_team != fotmob_home_name:
                             home_team_valid, away_team_valid = away_team_valid, home_team_valid
             except Exception as e:
                 logger.debug(f"Team order validation skipped: {e}")

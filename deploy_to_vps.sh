@@ -132,7 +132,8 @@ echo -e "${CYAN}   Vuoi configurare la sessione Telegram ora? (y/n)${NC}"
 read -r SETUP_TELEGRAM
 if [ "$SETUP_TELEGRAM" = "y" ] || [ "$SETUP_TELEGRAM" = "Y" ]; then
     echo -e "${CYAN}   Inserisci la password SSH quando richiesto${NC}"
-    ssh "$VPS_USER@$VPS_IP" "cd $VPS_DIR && python3 setup_telegram_auth.py"
+    echo -e "${CYAN}   Il flag -t è richiesto per l'input interattivo (codice OTP)${NC}"
+    ssh -t "$VPS_USER@$VPS_IP" "cd $VPS_DIR && python3 setup_telegram_auth.py"
     echo -e "${GREEN}   ✅ Sessione Telegram configurata${NC}"
 else
     echo -e "${YELLOW}   ⚠️  Sessione Telegram non configurata (50% funzionalità)${NC}"

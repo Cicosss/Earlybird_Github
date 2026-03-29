@@ -115,7 +115,7 @@ class IntelligenceRouter:
         operation: str,
         primary_func: Callable,
         fallback_1_func: Callable,
-        fallback_2_func: Callable,
+        fallback_2_func: Callable | None,
         *args,
         **kwargs,
     ) -> Any | None:
@@ -129,7 +129,7 @@ class IntelligenceRouter:
             operation: Name of the operation for logging
             primary_func: Primary provider (DeepSeek) method to call
             fallback_1_func: Fallback 1 provider (Tavily) method to call
-            fallback_2_func: Fallback 2 provider (Claude 3 Haiku) method to call
+            fallback_2_func: Fallback 2 provider (Claude 3 Haiku) method to call, or None
             *args, **kwargs: Arguments to pass to the provider method
 
         Returns:
@@ -152,12 +152,15 @@ class IntelligenceRouter:
                     f"⚠️ [TAVILY] {operation} fallback failed: {tavily_error}, trying Claude 3 Haiku fallback..."
                 )
 
-                # Fall back to Claude 3 Haiku
-                try:
-                    return fallback_2_func(*args, **kwargs)
-                except Exception as claude_error:
-                    logger.warning(f"⚠️ [CLAUDE] {operation} fallback failed: {claude_error}")
-                    return None
+                # Fall back to Claude 3 Haiku (if available)
+                if fallback_2_func is not None:
+                    try:
+                        return fallback_2_func(*args, **kwargs)
+                    except Exception as claude_error:
+                        logger.warning(f"⚠️ [CLAUDE] {operation} fallback failed: {claude_error}")
+                else:
+                    logger.warning(f"⚠️ [FALLBACK] {operation}: no third-level fallback configured")
+                return None
 
     # ============================================
     # PROXIED METHODS - Same interface as GeminiAgentProvider/DeepSeekIntelProvider

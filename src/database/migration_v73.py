@@ -19,7 +19,9 @@ def migrate_v73():
     """
     Add last_alert_time column to matches table.
 
-    V7.3 FIX: Enables temporal reset of highest_score_sent after 24h.
+    NOTE: The comment below about "highest_score_sent" is misleading.
+    This migration only adds last_alert_time column - it does NOT implement
+    any temporal reset logic for highest_score_sent (which was never implemented).
     """
     logger.info("🔄 Running V7.3 migration: Adding last_alert_time column...")
 

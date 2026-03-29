@@ -18,6 +18,7 @@ Requirements: 10.1, 10.2, 10.3, 10.4
 import argparse
 import asyncio
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -125,6 +126,11 @@ async def main(config_file: str, use_supabase: bool = True):
     # Run until stopped or shutdown signal received
     try:
         while _monitor.is_running() and not _shutdown_event.is_set():
+            # V14.0: Check for FULL STOP - exit completely if stopped
+            if os.path.exists(settings.STOP_FILE):
+                logger.info("🛑 FULL STOP DETECTED - News Radar shutting down until /start")
+                break
+
             # V7.2: Check both monitor state and shutdown event
             try:
                 await asyncio.wait_for(_shutdown_event.wait(), timeout=1.0)

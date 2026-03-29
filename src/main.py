@@ -117,6 +117,17 @@ def cleanup_on_exit():
     except Exception as e:
         logging.warning(f"⚠️ Failed to stop budget intelligence monitoring: {e}")
 
+    # V14.0 COVE FIX: Cleanup browser monitor
+    try:
+        from src.services.browser_monitor import get_browser_monitor
+
+        monitor = get_browser_monitor()
+        if monitor and monitor.is_running():
+            monitor.request_stop()
+            logging.info("✅ Cleanup completed: browser monitor stop requested")
+    except Exception as e:
+        logging.warning(f"⚠️ Failed to stop browser monitor: {e}")
+
 
 # Register cleanup hooks
 atexit.register(cleanup_on_exit)
@@ -561,6 +572,7 @@ from config.settings import (
     BISCOTTO_SIGNIFICANT_DROP,
     BISCOTTO_SUSPICIOUS_LOW,
     PAUSE_FILE,
+    STOP_FILE,
 )
 from src.alerting.health_monitor import get_health_monitor
 from src.alerting.notifier import send_biscotto_alert, send_status_message
@@ -873,7 +885,7 @@ def check_odds_drops():
             # Calculate home odd drop
             if opening_home_odd and current_home_odd:
                 home_drop_pct = ((opening_home_odd - current_home_odd) / opening_home_odd) * 100
-                if home_drop_pct > 15:  # 15%+ drop is significant
+                if home_drop_pct > 25:  # 25%+ drop is significant
                     significant_drops.append(
                         {
                             "match": match,
@@ -887,7 +899,7 @@ def check_odds_drops():
             # Calculate away odd drop
             if opening_away_odd and current_away_odd:
                 away_drop_pct = ((opening_away_odd - current_away_odd) / opening_away_odd) * 100
-                if away_drop_pct > 15:  # 15%+ drop is significant
+                if away_drop_pct > 25:  # 25%+ drop is significant
                     significant_drops.append(
                         {
                             "match": match,
@@ -1158,9 +1170,15 @@ def process_radar_triggers(analysis_engine, fotmob, now_utc, db):
 # ============================================
 def run_pipeline():
     """
-    REFACTORED V1.0: Triangulation Pipeline with ContinentalOrchestrator
+    REFACTORED V12.3: Pipeline Resuscitation & Operational Dominance
 
-    KEY CHANGES:
+    KEY CHANGES (V12.3):
+    - DYNAMIC LEAGUE SYNC: Uses ALL active leagues from GlobalOrchestrator (Supabase)
+      No more hardcoded 7-league discrimination. If Supabase says 13 leagues are active, we analyze all 13.
+    - ingest_fixtures() receives the full dynamic league list for consistent Odds-API fetching
+    - Empty Portfolio visibility: explicit logging when 0 matches found with active continents/leagues listed
+
+    PRESERVED (V1.0):
     - Uses ContinentalOrchestrator for "Follow the Sun" scheduling
     - Delegates all league selection and continental filtering to the orchestrator
     - Preserves all existing functionality (Tactical Veto, Balanced Probability, etc.)
@@ -1301,9 +1319,110 @@ def run_pipeline():
         logging.error(f"Failed to initialize FotMob: {e}")
         fotmob = None
 
-    # 1. Ingest Fixtures & Update Odds (uses auto-discovered leagues)
-    logging.info("📊 Refreshing fixtures and odds from The-Odds-API...")
-    ingest_fixtures(use_auto_discovery=True)
+    # ============================================
+    # V12.0: ALPHA HUNTER MODE (News-Driven Architecture)
+    # ============================================
+    # PARADIGM SHIFT: Instead of downloading ALL fixtures first, we now:
+    # 1. Search for TRIGGER KEYWORDS on news domains
+    # 2. Extract team entities from relevant articles
+    # 3. Fetch odds ON-DEMAND only for teams with signals
+    # 4. Analyze matches with confirmed signals
+    #
+    # This reduces Odds-API consumption by ~99% and makes the bot a true "Alpha Hunter"
+
+    ALPHA_HUNTER_MODE = os.getenv("ENABLE_ALPHA_HUNTER_MODE", "false").lower() == "true"
+
+    if ALPHA_HUNTER_MODE:
+        logging.info("🐺 [ALPHA-HUNTER] V12.0 News-Driven Architecture ACTIVE")
+
+        # Import Alpha Hunter
+        try:
+            from src.ingestion.alpha_hunter import AlphaHunter, get_alpha_hunter
+
+            hunter = get_alpha_hunter()
+
+            # Get news sources from Supabase
+            news_sources = get_news_sources_with_fallback()
+
+            if not news_sources:
+                logging.warning(
+                    "⚠️ [ALPHA-HUNTER] No news sources available, falling back to fixture mode"
+                )
+                ALPHA_HUNTER_MODE = False
+            else:
+                logging.info(
+                    f"🔍 [ALPHA-HUNTER] Running broad discovery on {len(news_sources)} sources..."
+                )
+
+                # Run Alpha Hunter Loop
+                signals = hunter.run_broad_discovery(news_sources)
+
+                if signals:
+                    logging.info(
+                        f"📡 [ALPHA-HUNTER] Found {len(signals)} signals with extracted teams"
+                    )
+
+                    # Process each signal
+                    matches_found = 0
+                    for signal in signals:
+                        if signal.extracted_team and signal.confidence >= 0.5:
+                            # Skip if no league extracted
+                            if not signal.extracted_league:
+                                continue
+
+                            # Fetch odds on-demand for this team
+                            candidates = hunter.fetch_on_demand_odds(
+                                team_name=signal.extracted_team,
+                                league_key=signal.extracted_league,
+                            )
+
+                            # Process candidates (may be multiple or empty)
+                            for candidate in candidates:
+                                matches_found += 1
+                                # Analyze using save_and_analyze which handles DB and engine
+                                result = hunter.save_and_analyze(
+                                    candidate=candidate,
+                                    signal=signal,
+                                    analysis_engine=analysis_engine,
+                                    fotmob=fotmob,
+                                    db_session=db,
+                                )
+
+                                if result.get("alert_sent"):
+                                    logging.info(
+                                        f"🎯 [ALPHA-HUNTER] Alert sent for {signal.extracted_team} "
+                                        f"(score: {result.get('score', 0):.1f})"
+                                    )
+
+                    logging.info(f"✅ [ALPHA-HUNTER] Loop complete: {matches_found} matches found")
+                else:
+                    logging.info("📭 [ALPHA-HUNTER] No signals found this cycle")
+
+        except ImportError as e:
+            logging.warning(
+                f"⚠️ [ALPHA-HUNTER] Module not available: {e}, falling back to fixture mode"
+            )
+            ALPHA_HUNTER_MODE = False
+        except Exception as e:
+            logging.error(f"❌ [ALPHA-HUNTER] Error: {e}, falling back to fixture mode")
+            ALPHA_HUNTER_MODE = False
+
+    # FALLBACK: Traditional Fixture-Driven Mode (if Alpha Hunter disabled or failed)
+    if not ALPHA_HUNTER_MODE:
+        # 1. Ingest Fixtures & Update Odds (V11.0 Continental Wiring)
+        logging.info("📊 Refreshing fixtures and odds from The-Odds-API...")
+
+        # V11.0 CONTINENTAL WIRING: Safe handoff with fallback
+        # If active_leagues contains leagues from Supabase -> Use them, disable auto-discovery
+        # If active_leagues is empty -> Fall back to auto-discovery (Elite 6)
+        if active_leagues:
+            logging.info(
+                f"🌐 CONTINENTAL WIRING: Passing {len(active_leagues)} leagues to ingest_fixtures"
+            )
+            ingest_fixtures(target_leagues=active_leagues, use_auto_discovery=False)
+        else:
+            logging.warning("⚠️ No active leagues from orchestrator, falling back to auto-discovery")
+            ingest_fixtures(use_auto_discovery=True)
 
     # 2. Initialize Analysis Engine
     logging.info("🧠 Initializing Analysis Engine...")
@@ -1440,21 +1559,44 @@ def run_pipeline():
             except Exception as e:
                 logging.error(f"❌ [INTELLIGENCE-QUEUE] Failed to process queue: {e}")
 
-        # Filter to Elite 6 leagues only to save API credits on AI analysis
+        # V12.3 DYNAMIC LEAGUE SYNC: Use ALL active leagues from GlobalOrchestrator (Supabase)
+        # If Supabase marks 13 leagues as active, we analyze all 13.
+        # Fallback to ELITE_LEAGUES only if GlobalOrchestrator returned empty list.
         # HARD-BLOCK: Only future matches (start_time > now) within the analysis window
+        # V14.1 FIX: Require odds availability to prevent "No Odds Black Hole" silent drops
+        analysis_leagues = active_leagues if active_leagues else list(ELITE_LEAGUES)
+
+        logging.info(
+            f"🎯 V12.3 Dynamic League Sync: Analyzing {len(analysis_leagues)} active leagues "
+            f"(source: {'Supabase' if active_leagues else 'ELITE_LEAGUES fallback'})"
+        )
+
         matches = (
             db.query(Match)
             .filter(
                 Match.start_time > now_naive,  # STRICT: Future only (Ghost Match Prevention)
                 Match.start_time <= end_window_naive,
-                Match.league.in_(ELITE_LEAGUES),
+                Match.league.in_(
+                    analysis_leagues
+                ),  # V12.3: Dynamic leagues from Supabase (was ELITE_LEAGUES)
+                Match.current_home_odd.isnot(None),  # V14.1: Require odds to avoid silent drops
             )
             .all()
         )
 
-        logging.info(
-            f"Trovate {len(matches)} partite Elite da analizzare nelle prossime {ANALYSIS_WINDOW_HOURS} ore."
-        )
+        # V12.3 Task 4: Ingestion Hardening & Visibility
+        if not matches:
+            logging.warning(
+                f"⚠️ Empty Portfolio: 0 upcoming matches found for the currently active "
+                f"continents {active_continent_blocks} | "
+                f"Active leagues ({len(analysis_leagues)}): {', '.join(analysis_leagues[:10])}"
+            )
+        else:
+            logging.info(
+                f"📊 Found {len(matches)} matches across {len(analysis_leagues)} leagues "
+                f"to analyze in the next {ANALYSIS_WINDOW_HOURS}h "
+                f"(leagues: {', '.join(analysis_leagues[:5])}...)"
+            )
 
         # V4.3: Tier 2 Fallback tracking
         increment_cycle()  # Incrementa contatore cicli per fallback system
@@ -1528,12 +1670,14 @@ def run_pipeline():
                 for league_key in tier2_batch:
                     try:
                         # Get matches for this Tier 2 league
+                        # V14.1 FIX: Require odds availability to prevent "No Odds Black Hole" silent drops
                         tier2_matches = (
                             db.query(Match)
                             .filter(
                                 Match.start_time > now_naive,
                                 Match.start_time <= end_window_naive,
                                 Match.league == league_key,
+                                Match.current_home_odd.isnot(None),  # V14.1: Require odds
                             )
                             .all()
                         )
@@ -1685,11 +1829,8 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
     )
 
     # V11.1 FIX: Implement real queue iteration and processing
-    # Get all items from queue (thread-safe access)
-    items_to_process = []
-    with discovery_queue._lock:
-        # Make a copy of the queue for processing
-        items_to_process = list(discovery_queue._queue)
+    # V13 FIX: Use public API instead of accessing private members (_lock, _queue, _ttl_hours)
+    items_to_process = discovery_queue.get_all_items()
 
     # Process queue items
     processed_count = 0
@@ -1697,8 +1838,8 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
 
     for item in items_to_process[:max_items]:
         try:
-            # Skip expired items
-            if item.is_expired(discovery_queue._ttl_hours):
+            # Skip expired items - use public ttl_hours property
+            if item.is_expired(discovery_queue.ttl_hours):
                 logging.debug(f"⏰ [INTELLIGENCE-QUEUE] Skipping expired item: {item.title[:50]}")
                 continue
 
@@ -1933,26 +2074,29 @@ def refresh_twitter_intel_sync():
 # BACKGROUND WORKERS CLEANUP (V5.2)
 # ============================================
 def _cleanup_background_workers(
-    browser_monitor_instance, browser_monitor_loop, browser_monitor_thread
+    browser_monitor_instance,
+    browser_monitor_loop,
+    browser_monitor_thread,
+    budget_intelligence_loop=None,
+    budget_intelligence_thread=None,
 ):
     """
     Cleanup background workers before shutdown.
 
     This function ensures all background workers are properly
     stopped and cleaned up before the application exits.
+
+    V14.0: Extended to include budget_intelligence cleanup.
     """
     if browser_monitor_instance and browser_monitor_loop:
         try:
-            # Stop the browser monitor
             if browser_monitor_instance.is_running():
                 asyncio.run_coroutine_threadsafe(
                     browser_monitor_instance.stop(), browser_monitor_loop
                 ).result(timeout=10)
 
-            # Stop the event loop
             browser_monitor_loop.call_soon_threadsafe(browser_monitor_loop.stop)
 
-            # Wait for thread to finish
             if browser_monitor_thread and browser_monitor_thread.is_alive():
                 browser_monitor_thread.join(timeout=5)
 
@@ -1960,12 +2104,21 @@ def _cleanup_background_workers(
         except Exception as e:
             logging.warning(f"⚠️ Browser monitor cleanup failed: {e}")
 
+    if budget_intelligence_loop and budget_intelligence_thread:
+        try:
+            budget_intelligence_loop.call_soon_threadsafe(budget_intelligence_loop.stop)
+            if budget_intelligence_thread.is_alive():
+                budget_intelligence_thread.join(timeout=5)
+            logging.info("✅ Budget intelligence cleanup completed")
+        except Exception as e:
+            logging.warning(f"⚠️ Budget intelligence cleanup failed: {e}")
+
 
 # ============================================
 # CONTINUOUS LOOP (V6.0)
 # ============================================
 def run_continuous():
-    """Continuous loop - runs pipeline every hour"""
+    """Continuous loop - runs pipeline every 2 hours with 15-min radar wake-ups (V12.3 Active Hunter)"""
     logging.info("🦅 EARLYBIRD NEWS & ODDS MONITOR - 24/7 MODE ACTIVATED")
 
     # Log elite quality thresholds
@@ -2151,12 +2304,14 @@ def run_continuous():
                     end_window_naive = now_naive + timedelta(hours=ANALYSIS_WINDOW_HOURS)
 
                     # Filter matches for this specific league (within analysis window)
+                    # V14.1 FIX: Require odds availability to prevent "No Odds Black Hole" silent drops
                     league_matches = (
                         db.query(Match)
                         .filter(
                             Match.start_time > now_naive,
                             Match.start_time <= end_window_naive,
                             Match.league == league_key,
+                            Match.current_home_odd.isnot(None),  # V14.1: Require odds
                         )
                         .all()
                     )
@@ -2311,7 +2466,23 @@ def run_continuous():
     while True:
         cycle_count += 1
 
-        # Check for pause lock file
+        # V14.0: Check for FULL STOP first - this takes precedence over PAUSE
+        if os.path.exists(STOP_FILE):
+            logging.info("🛑 FULL STOP DETECTED - System shutting down until /start")
+            logging.info("💡 Use /start from Telegram to resume the system")
+
+            # V14.0 COVE FIX: Cleanup all background workers before exit
+            _cleanup_background_workers(
+                browser_monitor_instance,
+                browser_monitor_loop,
+                browser_monitor_thread,
+                budget_intelligence_loop,
+                budget_intelligence_thread,
+            )
+
+            break
+
+        # Check for pause lock file (backwards compatibility)
         if os.path.exists(PAUSE_FILE):
             logging.info("💤 System Paused (pause.lock detected). Sleeping 60s...")
             time.sleep(60)
@@ -2412,8 +2583,96 @@ def run_continuous():
                 if send_status_message(heartbeat_msg):
                     health.mark_heartbeat_sent()
 
-            logging.info("💤 Sleeping for 360 minutes (6 hours) until next cycle...")
-            time.sleep(21600)
+            # V12.3: HIGH-FREQUENCY RADAR POLLING (The "Interrupt" Logic)
+            # Main cycle reduced from 6h → 2h. During the 2h sleep, we wake up
+            # every 15 minutes to check for PENDING_RADAR_TRIGGER from NewsRadar.
+            # This ensures "Breaking News" found by the Radar is processed within
+            # 15 minutes, even if the main pipeline is resting.
+            MAIN_CYCLE_SECONDS = 7200  # 2 hours (was 21600 = 6 hours)
+            MINI_CYCLE_SECONDS = 900  # 15 minutes
+            elapsed = 0
+
+            logging.info(
+                f"💤 V12.3 Active Hunter Mode: 2h cycle with 15-min radar wake-ups. "
+                f"Next full pipeline in {MAIN_CYCLE_SECONDS // 60} minutes."
+            )
+
+            while elapsed < MAIN_CYCLE_SECONDS:
+                remaining = MAIN_CYCLE_SECONDS - elapsed
+                sleep_time = min(MINI_CYCLE_SECONDS, remaining)
+
+                logging.info(
+                    f"💤 Mini-cycle sleep: {sleep_time // 60}m "
+                    f"({elapsed // 60}/{MAIN_CYCLE_SECONDS // 60}m elapsed)..."
+                )
+                time.sleep(sleep_time)
+                elapsed += sleep_time
+
+                # Check for early termination (STOP file takes precedence)
+                if os.path.exists(STOP_FILE):
+                    logging.info("🛑 STOP detected during mini-cycle, breaking sleep...")
+                    break
+
+                # Skip radar check if paused
+                if os.path.exists(PAUSE_FILE):
+                    logging.info("💤 PAUSE detected during mini-cycle, skipping radar check...")
+                    continue
+
+                # MINI-CYCLE: Process PENDING_RADAR_TRIGGER from NewsRadar
+                if elapsed < MAIN_CYCLE_SECONDS:
+                    try:
+                        db_mini = SessionLocal()
+                        try:
+                            now_utc_mini = datetime.now(timezone.utc)
+
+                            # Quick count check before initializing heavy components
+                            pending_count = (
+                                db_mini.query(NewsLog)
+                                .filter(NewsLog.status == "PENDING_RADAR_TRIGGER")
+                                .count()
+                            )
+
+                            if pending_count > 0:
+                                logging.info(
+                                    f"📬 MINI-CYCLE [{elapsed // 60}m]: Found {pending_count} "
+                                    f"PENDING_RADAR_TRIGGER(s) - processing immediately!"
+                                )
+
+                                # Get singleton instances (cheap - already initialized by main cycle)
+                                mini_engine = get_analysis_engine()
+                                mini_fotmob = get_data_provider()
+
+                                processed = process_radar_triggers(
+                                    analysis_engine=mini_engine,
+                                    fotmob=mini_fotmob,
+                                    now_utc=now_utc_mini,
+                                    db=db_mini,
+                                )
+
+                                if processed > 0:
+                                    logging.info(
+                                        f"✅ MINI-CYCLE: Processed {processed} radar trigger(s) "
+                                        f"within 15 minutes of discovery!"
+                                    )
+
+                                # Cleanup stale triggers that failed during mini-cycle
+                                try:
+                                    cleanup_stats = cleanup_stale_radar_triggers(timeout_minutes=10)
+                                    if cleanup_stats.get("triggers_cleaned", 0) > 0:
+                                        logging.info(
+                                            f"🧹 MINI-CYCLE: Cleaned "
+                                            f"{cleanup_stats['triggers_cleaned']} stale trigger(s)"
+                                        )
+                                except Exception:
+                                    pass
+                            else:
+                                logging.debug(
+                                    f"📭 MINI-CYCLE [{elapsed // 60}m]: No pending radar triggers"
+                                )
+                        finally:
+                            db_mini.close()
+                    except Exception as e:
+                        logging.error(f"❌ MINI-CYCLE: Radar trigger processing failed: {e}")
 
         except KeyboardInterrupt:
             logging.info("\n🛑 SHUTDOWN SIGNAL RECEIVED")
@@ -2421,7 +2680,11 @@ def run_continuous():
 
             # V5.2: Cleanup background workers before exit
             _cleanup_background_workers(
-                browser_monitor_instance, browser_monitor_loop, browser_monitor_thread
+                browser_monitor_instance,
+                browser_monitor_loop,
+                browser_monitor_thread,
+                budget_intelligence_loop,
+                budget_intelligence_thread,
             )
 
             # Send shutdown notification
@@ -2460,7 +2723,11 @@ def run_continuous():
                 logging.critical("🚨 TOO MANY MEMORY ERRORS - SHUTTING DOWN")
                 # V5.2: Cleanup before exit
                 _cleanup_background_workers(
-                    browser_monitor_instance, browser_monitor_loop, browser_monitor_thread
+                    browser_monitor_instance,
+                    browser_monitor_loop,
+                    browser_monitor_thread,
+                    budget_intelligence_loop,
+                    budget_intelligence_thread,
                 )
                 break
             time.sleep(600)  # Wait 10 minutes
@@ -2488,7 +2755,11 @@ def run_continuous():
                 logging.critical("🚨 TOO MANY CONNECTION ERRORS - SHUTTING DOWN")
                 # V5.2: Cleanup before exit
                 _cleanup_background_workers(
-                    browser_monitor_instance, browser_monitor_loop, browser_monitor_thread
+                    browser_monitor_instance,
+                    browser_monitor_loop,
+                    browser_monitor_thread,
+                    budget_intelligence_loop,
+                    budget_intelligence_thread,
                 )
                 break
             time.sleep(300)  # Wait 5 minutes
@@ -2512,7 +2783,11 @@ def run_continuous():
                 logging.critical("Please check logs and restart manually.")
                 # V5.2: Cleanup before exit
                 _cleanup_background_workers(
-                    browser_monitor_instance, browser_monitor_loop, browser_monitor_thread
+                    browser_monitor_instance,
+                    browser_monitor_loop,
+                    browser_monitor_thread,
+                    budget_intelligence_loop,
+                    budget_intelligence_thread,
                 )
                 break
 
@@ -2695,24 +2970,30 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
                 radar_score = 10  # Maximum score for radar-detected intelligence
                 try:
                     from src.analysis.optimizer import get_optimizer
+
                     optimizer = get_optimizer()
                     league = getattr(match, "league", None)
                     # Radar intelligence doesn't have a specific market, use None
                     # The optimizer will use league-level weights
                     if league:
-                        adjusted_score, weight_log_msg = optimizer.apply_weight_to_score(
-                            base_score=radar_score,
-                            league=league,
-                            market=None,  # No specific market for radar intelligence
-                            driver="RADAR_INTEL"  # Use category as driver
+                        # COVE FIX: Use apply_weight_to_score_with_original to preserve
+                        # original AI score for threshold checks
+                        original_score, adjusted_score, weight_log_msg, weight = (
+                            optimizer.apply_weight_to_score_with_original(
+                                base_score=radar_score,
+                                league=league,
+                                market=None,  # No specific market for radar intelligence
+                                driver="RADAR_INTEL",  # Use category as driver
+                            )
                         )
                         if weight_log_msg:
                             logging.info(weight_log_msg)
-                        radar_score = adjusted_score
+                        # COVE FIX: Use ORIGINAL AI score for NewsLog, not adjusted
+                        radar_score = original_score
                 except Exception as e:
                     logging.warning(f"⚠️ Failed to apply optimizer weight to radar score: {e}")
                     # Continue with original score
-                
+
                 radar_log = NewsLog(
                     match_id=match_id,
                     url="radar://opportunity-radar",
@@ -2744,7 +3025,12 @@ def analyze_single_match(match_id: str, forced_narrative: str = None):
             now_naive = now_utc.replace(tzinfo=None)
 
             analysis_result = analysis_engine.analyze_match(
-                match=match, fotmob=fotmob, now_utc=now_naive, db_session=db, context_label="RADAR"
+                match=match,
+                fotmob=fotmob,
+                now_utc=now_naive,
+                db_session=db,
+                context_label="RADAR",
+                forced_narrative=forced_narrative,
             )
 
             # 7. Return results

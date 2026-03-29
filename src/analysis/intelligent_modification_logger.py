@@ -756,11 +756,20 @@ class IntelligentModificationLogger:
         - Removed modification_history append (unbounded memory growth)
         - Data is persisted in ModificationHistory database table by StepByStepFeedbackLoop
         - Added thread-safe access to learning_patterns using threading.Lock
+
+        DATA STRUCTURE FIX (2026-03-18):
+        - learning_patterns now uses consistent dict structure with statistics
+        - This matches _load_learning_patterns_from_db() and step_by_step_feedback._update_learning_patterns()
+        - The structure is: {modification_count, confidence_level, discrepancy_count,
+                            total_occurrences, auto_apply_count, manual_review_count,
+                            ignore_count, success_rate, last_updated}
+        - StepByStepFeedbackLoop._update_learning_patterns() will persist to database and
+          update the in-memory pattern with accurate statistics from the database.
         """
 
         # VPS FIX #3: Removed modification_history (unbounded memory growth)
         # Data is already persisted in ModificationHistory database table
-        # by StepByStepFeedbackLoop._persist_modification_history()
+        # by StepByStepFeedbackLoop._persist_modification()
         # The log_entry below is no longer needed and has been removed
 
         # Update learning patterns with thread-safe access
@@ -769,14 +778,40 @@ class IntelligentModificationLogger:
         )
 
         # VPS FIX: Thread-safe access to learning_patterns
+        # DATA STRUCTURE FIX: Use dict with statistics (consistent with DB load and step_by_step_feedback)
         with self._learning_patterns_lock:
             if pattern_key not in self.learning_patterns:
-                self.learning_patterns[pattern_key] = []
-            self.learning_patterns[pattern_key].append(decision)
+                # Initialize new pattern with dict structure (matches LearningPattern model)
+                self.learning_patterns[pattern_key] = {
+                    "modification_count": len(modifications),
+                    "confidence_level": situation.get("confidence_level", "MEDIUM"),
+                    "discrepancy_count": situation.get("discrepancy_count", 0),
+                    "total_occurrences": 0,
+                    "auto_apply_count": 0,
+                    "manual_review_count": 0,
+                    "ignore_count": 0,
+                    "success_rate": None,
+                    "last_updated": None,
+                }
+
+            # Increment occurrence counters (will be properly updated by StepByStepFeedbackLoop)
+            pattern = self.learning_patterns[pattern_key]
+            pattern["total_occurrences"] += 1
+
+            # Increment decision-specific counter
+            if decision == FeedbackDecision.AUTO_APPLY:
+                pattern["auto_apply_count"] += 1
+            elif decision == FeedbackDecision.MANUAL_REVIEW:
+                pattern["manual_review_count"] += 1
+            elif decision == FeedbackDecision.IGNORE:
+                pattern["ignore_count"] += 1
+
+            # Update timestamp
+            pattern["last_updated"] = datetime.now(timezone.utc).isoformat()
 
         logger.debug(
             f"🧠 [INTELLIGENT LOGGER] Updated learning pattern '{pattern_key}': "
-            f"{len(self.learning_patterns[pattern_key])} decisions"
+            f"total={pattern['total_occurrences']}, decision={decision.value}"
         )
 
     def _calculate_new_market(self, current_market: str, description: str) -> str | None:
@@ -809,8 +844,15 @@ _intelligent_logger_instance_init_lock = threading.Lock()  # Lock for thread-saf
 
 
 def get_intelligent_modification_logger() -> IntelligentModificationLogger:
-    """Get or create the singleton IntelligentModificationLogger instance."""
+    """Get or create the singleton IntelligentModificationLogger instance.
+
+    VPS FIX: Uses double-checked locking pattern for thread-safe singleton initialization.
+    This prevents race conditions when multiple threads call this function simultaneously.
+    """
     global _intelligent_logger_instance
     if _intelligent_logger_instance is None:
-        _intelligent_logger_instance = IntelligentModificationLogger()
+        with _intelligent_logger_instance_init_lock:
+            # Double-check after acquiring lock to prevent race condition
+            if _intelligent_logger_instance is None:
+                _intelligent_logger_instance = IntelligentModificationLogger()
     return _intelligent_logger_instance

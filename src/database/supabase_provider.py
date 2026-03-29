@@ -594,10 +594,13 @@ class SupabaseProvider:
                 elif key == "leagues":
                     required_fields = ["id", "api_key", "tier_name", "country_id"]
                 elif key == "news_sources":
-                    required_fields = ["id", "name", "league_id"]
+                    # V13.0 COVE FIX: Removed "name" from required_fields - downstream code uses .get() with fallback
+                    # The news_sources table may have records without explicit "name" field
+                    required_fields = ["id", "league_id"]
                 elif key == "social_sources":
-                    # V13.0: Added validation for social_sources items
-                    required_fields = ["id", "name", "league_id"]
+                    # V13.0 COVE FIX: Removed "name" from required_fields - downstream code uses .get() with fallback
+                    # The social_sources table may have records without explicit "name" field
+                    required_fields = ["id", "league_id"]
                 else:
                     required_fields = []
 

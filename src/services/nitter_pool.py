@@ -49,6 +49,43 @@ class CircuitState(Enum):
     HALF_OPEN = "half_open"  # Testing if service has recovered
 
 
+class NitterPoolExhaustedError(Exception):
+    """
+    Raised when all Nitter instances have been tried and none succeeded.
+
+    This signals the caller to activate fallback mechanisms (e.g., Brave Search).
+
+    Attributes:
+        username: The Twitter username that was being fetched
+        instances_tried: Number of instances that were tried
+        last_error: The last error that occurred
+    """
+
+    def __init__(
+        self,
+        message: str,
+        username: str = "",
+        instances_tried: int = 0,
+        last_error: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.username = username
+        self.instances_tried = instances_tried
+        self.last_error = last_error
+
+
+# Cloudflare detection indicators (copied from nitter_fallback_scraper.py for consistency)
+CLOUDFLARE_INDICATORS = [
+    "cloudflare",
+    "captcha",
+    "challenge platform",
+    "attention required",
+    "checking your browser",
+    "ray id",
+    "cf_chl_rc_i",
+]
+
+
 @dataclass
 class InstanceHealth:
     """
@@ -490,6 +527,25 @@ class NitterPool:
         error_type_name = type(error).__name__
         return error_type_name in TRANSIENT_ERROR_CONFIG["error_types"]
 
+    def _detect_cloudflare_block(self, content: str) -> bool:
+        """
+        Detect if content indicates a Cloudflare challenge/block.
+
+        COVE FIX: Add Cloudflare detection to distinguish between:
+        - Empty response (user has no tweets)
+        - Cloudflare challenge (instance is blocked)
+
+        Args:
+            content: HTML/text content to check
+
+        Returns:
+            True if Cloudflare challenge detected, False otherwise
+        """
+        if not content:
+            return False
+        content_lower = content.lower()
+        return any(indicator in content_lower for indicator in CLOUDFLARE_INDICATORS)
+
     def _clean_tweet_text(self, text: str) -> str:
         """
         Clean HTML tags and links from tweet text.
@@ -736,7 +792,9 @@ class NitterPool:
             logger.error(f"❌ [NITTER-POOL] Browser fetch failed for {url}: {e}")
             raise
 
-    async def fetch_tweets_async(self, username: str, max_retries: int = 3) -> List[Dict[str, any]]:
+    async def fetch_tweets_async(
+        self, username: str, max_retries: Optional[int] = None
+    ) -> List[Dict[str, any]]:
         """
         Fetch tweets from a Twitter username using Nitter instances with hybrid scraping.
 
@@ -744,11 +802,17 @@ class NitterPool:
         1. Fast Path: AsyncFetcher (awaitable) - RSS first, then HTML parsing
         2. Slow Path (Fallback): If HTTP fails (403/Captcha), trigger Browser via asyncio.to_thread
 
-        Automatically retries with different instances on connection errors.
+        COVE FIX: Automatically retries ALL available instances until one succeeds.
+        Previously used max_retries=3 which was too limiting with 13 instances available.
+
+        When all instances fail, raises NitterPoolExhaustedError to signal caller
+        to activate fallback mechanisms (e.g., Brave Search).
 
         Args:
             username: Twitter username (without @)
-            max_retries: Maximum number of instance retries (default: 3)
+            max_retries: Maximum number of instance retries.
+                        None = try all instances (len(self.instances))
+                        This ensures all instances are tried before giving up.
 
         Returns:
             List of standardized tweet dictionaries with keys:
@@ -756,6 +820,9 @@ class NitterPool:
             - published_at: datetime - UTC timestamp
             - url: str - Tweet URL
             - id: str - Tweet ID
+
+        Raises:
+            NitterPoolExhaustedError: When all instances have been tried and none succeeded
         """
         # Strip @ prefix if present
         username = username.lstrip("@")
@@ -763,21 +830,36 @@ class NitterPool:
         tweets = []
         retry_count = 0
 
+        # COVE FIX: Use all instances by default, not just 3
+        # If max_retries is None, use len(self.instances) to try all instances
+        effective_max_retries = max_retries if max_retries is not None else len(self.instances)
+
+        # Track instances tried and last error for NitterPoolExhaustedError
+        instances_tried = 0
+        last_error = None
+
         # Initialize Scrapling fetcher with stealth capabilities (V11.0 optimization: create once outside retry loop)
         # Note: Scrapling handles User-Agent rotation automatically via stealthy_headers
         # V11.0.1: Using AsyncFetcher directly with parameters in get() calls
         fetcher = AsyncFetcher()
 
-        while retry_count < max_retries:
+        while retry_count < effective_max_retries:
             # CRITICAL BUG #2 FIX: get_healthy_instance() is now sync, no await needed
             instance = self.get_healthy_instance()
             if not instance:
-                logger.error(f"❌ [NITTER-POOL] No healthy instances available for @{username}")
-                break
+                # COVE FIX: When no healthy instances available, raise NitterPoolExhaustedError
+                # This signals the caller to activate fallback mechanisms
+                raise NitterPoolExhaustedError(
+                    f"❌ [NITTER-POOL] All instances unhealthy or exhausted for @{username} "
+                    f"(tried {instances_tried} instances)",
+                    username=username,
+                    instances_tried=instances_tried,
+                    last_error=last_error,
+                )
 
             logger.debug(
                 f"🔄 [NITTER-POOL] Attempting to fetch tweets for @{username} from {instance} "
-                f"(attempt {retry_count + 1}/{max_retries})"
+                f"(attempt {retry_count + 1}/{effective_max_retries})"
             )
 
             try:
@@ -808,7 +890,16 @@ class NitterPool:
                             )
                             return tweets
                         else:
-                            logger.debug(f"⚠️ [NITTER-POOL] RSS response was empty for @{username}")
+                            # COVE FIX: Check if this is a Cloudflare block or genuinely empty
+                            if self._detect_cloudflare_block(rss_content):
+                                logger.warning(
+                                    f"⚠️ [NITTER-POOL] RSS blocked by Cloudflare for @{username} on {instance}"
+                                )
+                                self.record_failure(instance, is_transient=False)
+                            else:
+                                logger.debug(
+                                    f"⚠️ [NITTER-POOL] RSS response was empty for @{username} (genuinely no tweets)"
+                                )
                     elif response.status == 404:
                         # SERIOUS BUG #6 FIX: Record failure for 404 responses
                         # If an instance consistently returns 404, it should be marked as unhealthy
@@ -880,7 +971,16 @@ class NitterPool:
                             )
                             return tweets
                         else:
-                            logger.debug(f"⚠️ [NITTER-POOL] HTML response was empty for @{username}")
+                            # COVE FIX: Check if this is a Cloudflare block or genuinely empty
+                            if self._detect_cloudflare_block(html_content):
+                                logger.warning(
+                                    f"⚠️ [NITTER-POOL] HTML blocked by Cloudflare for @{username} on {instance}"
+                                )
+                                self.record_failure(instance, is_transient=False)
+                            else:
+                                logger.debug(
+                                    f"⚠️ [NITTER-POOL] HTML response was empty for @{username} (genuinely no tweets)"
+                                )
                     elif response.status == 404:
                         # SERIOUS BUG #6 FIX: Record failure for 404 responses
                         # If an instance consistently returns 404, it should be marked as unhealthy
@@ -931,6 +1031,8 @@ class NitterPool:
                 # Note: We can't determine is_transient here without the exception object
                 # For now, we'll use a conservative approach and treat as permanent
                 self.record_failure(instance, is_transient=False)
+                instances_tried += 1
+                last_error = "RSS+HTML both empty or failed"
                 retry_count += 1
 
             except Exception as e:
@@ -941,13 +1043,21 @@ class NitterPool:
                     f"❌ [NITTER-POOL] Unexpected error fetching tweets for @{username}: {e} (transient={is_transient})"
                 )
                 self.record_failure(instance, is_transient=is_transient)
+                instances_tried += 1
+                last_error = str(e)
                 retry_count += 1
 
-        # All retries exhausted
+        # All retries exhausted - COVE FIX: Raise NitterPoolExhaustedError to signal caller
+        # This enables fallback mechanisms (e.g., Brave Search) to be activated
         logger.error(
-            f"❌ [NITTER-POOL] Failed to fetch tweets for @{username} after {max_retries} attempts"
+            f"❌ [NITTER-POOL] Failed to fetch tweets for @{username} after {instances_tried} instances tried"
         )
-        return tweets
+        raise NitterPoolExhaustedError(
+            f"❌ [NITTER-POOL] All instances exhausted for @{username} after {instances_tried} attempts",
+            username=username,
+            instances_tried=instances_tried,
+            last_error=last_error,
+        )
 
 
 # Singleton instance for global access

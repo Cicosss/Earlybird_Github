@@ -11,7 +11,7 @@ GATE LEVELS:
 
 MODEL HIERARCHY:
 - Model A (Standard): deepseek/deepseek-chat - Translation, metadata extraction, low-priority tasks
-- Model B (Reasoner): deepseek/deepseek-r1-0528:free - Triangulation, Verification, BET/NO BET verdict
+- Model B (Reasoner): deepseek/deepseek-r1-0528 - Triangulation, Verification, BET/NO BET verdict
 
 EXPECTED COST SAVINGS: 95% reduction in token costs by filtering at local level.
 """
@@ -35,7 +35,7 @@ DEEPSEEK_V3_MODEL = "deepseek/deepseek-chat"  # DeepSeek V3 Stable via OpenRoute
 MODEL_A_STANDARD = DEEPSEEK_V3_MODEL
 
 # Model B (Reasoner): For Triangulation, VerificationLayer, final BET/NO BET verdict
-MODEL_B_REASONER = "deepseek/deepseek-r1-0528:free"  # DeepSeek R1 Deep Reasoner via OpenRouter
+MODEL_B_REASONER = "deepseek/deepseek-r1-0528"  # DeepSeek R1 Deep Reasoner via OpenRouter (paid tier, ~14s avg vs 132s free)
 
 # ============================================
 # KEYWORD DICTIONARIES (Level 1 - Zero Cost)
@@ -529,6 +529,7 @@ async def level_2_translate_and_classify(text: str, ai_provider=None) -> dict[st
             json=payload,
             timeout=30,
             max_retries=1,
+            use_fingerprint=False,
         )
 
         # Handle response
@@ -694,7 +695,7 @@ INTELLIGENCE PACKAGE:
 RULES:
 1. Cross-reference all data sources (News, Market, FotMob, Twitter)
 2. Apply Tactical Veto Rules when injury/absence data contradicts statistical signals
-3. The 15% Market Veto: If odds already dropped >15%, value is gone - NO BET
+3. The 25% Market Veto: If odds already dropped >25%, value is gone - NO BET
 4. Use ITALIAN for all reasoning
 
 OUTPUT FORMAT (JSON only):
@@ -717,7 +718,7 @@ async def level_3_deep_reasoning(intel_package: dict[str, Any], ai_provider=None
     This is the heavy thinking layer that applies:
     - Cross-source correlation
     - Tactical Veto Rules
-    - 15% Market Veto
+    - 25% Market Veto
     - Final BET/NO BET verdict
 
     Args:
@@ -804,6 +805,7 @@ async def level_3_deep_reasoning(intel_package: dict[str, Any], ai_provider=None
             json=payload,
             timeout=60,  # Longer timeout for deep reasoning
             max_retries=2,
+            use_fingerprint=False,
         )
 
         # Handle response

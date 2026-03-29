@@ -221,8 +221,7 @@ LEAGUE_SPORT_KEYWORDS = {
     # Spain
     "soccer_spain_la_liga": "fútbol",
     "soccer_spain_segunda_division": "fútbol",
-    # Portugal
-    "soccer_portugal_primeira_liga": "futebol",
+    # V12.4: PURged - Portugal not in active scope
     # Brazil
     "soccer_brazil_campeonato": "futebol",
     "soccer_brazil_serie_b": "futebol",
@@ -321,8 +320,7 @@ LEAGUE_DOMAINS = {
     "soccer_australia_aleague": ["theroar.com.au", "ftbl.com.au", "keepup.com.au"],
     # FRANCE (news + forums)
     "soccer_france_ligue_one": ["maxifoot.fr", "lequipe.fr", "culturepsg.com", "lephoceen.fr"],
-    # PORTUGAL
-    "soccer_portugal_primeira_liga": ["ojogo.pt", "abola.pt", "maisfutebol.iol.pt"],
+    # V12.4: PURGED - Portugal not in active scope
     # SWITZERLAND
     "soccer_switzerland_superleague": ["blick.ch", "20min.ch", "transfermarkt.ch"],
     # ==========================================
@@ -458,7 +456,7 @@ class SearchProvider:
             return []
 
         try:
-            results = self._brave.search_news(query, num_results)
+            results = self._brave.search_news(query, num_results, component="search_provider")
             # Normalize field names for compatibility
             for r in results:
                 if "url" in r and "link" not in r:

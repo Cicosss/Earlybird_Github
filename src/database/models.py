@@ -96,9 +96,12 @@ class Match(Base):
     )
     sharp_alert_sent = Column(Boolean, default=False, comment="Prevents repeated sharp alerts")
 
-    # Score-delta deduplication
+    # V2.6: Settlement tracking - used by settlement service to filter matches for CLV calculation
+    # NOTE: This field is NOT used for alert deduplication (which uses boolean flags instead)
     highest_score_sent = Column(
-        Float, default=0.0, comment="Highest score already alerted for this match"
+        Float,
+        default=0.0,
+        comment="Highest score sent to settlement service (settlement tracking only)",
     )
     last_alert_time = Column(
         DateTime, nullable=True, comment="When last alert was sent (temporal reset)"

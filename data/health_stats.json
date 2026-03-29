@@ -1,0 +1,12 @@
+{
+  "total_scans": 0,
+  "total_alerts_sent": 10,
+  "total_errors": 0,
+  "matches_processed": 0,
+  "news_items_analyzed": 0,
+  "start_time": "2026-03-20T22:34:14.049669+00:00",
+  "last_scan_time": null,
+  "last_alert_time": "2026-03-28T21:39:40.901017+00:00",
+  "last_error_time": null,
+  "last_error_message": ""
+}

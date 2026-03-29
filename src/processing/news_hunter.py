@@ -1327,9 +1327,7 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> l
             from src.ingestion.brave_provider import get_brave_provider
 
             provider = get_brave_provider()
-            brave_results = provider.search_news(
-                query=query, limit=5, component="news_hunter_dynamic"
-            )
+            brave_results = provider.search_news(query=query, limit=5, component="news_hunter")
 
             for item in brave_results:
                 results.append(
@@ -1441,9 +1439,7 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> lis
                 from src.ingestion.brave_provider import get_brave_provider
 
                 provider = get_brave_provider()
-                brave_results = provider.search_news(
-                    query=query, limit=5, component="news_hunter_exotic"
-                )
+                brave_results = provider.search_news(query=query, limit=5, component="news_hunter")
 
                 for item in brave_results:
                     results.append(

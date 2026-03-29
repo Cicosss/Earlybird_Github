@@ -76,6 +76,8 @@ def _format_match_time(match: Any) -> str:
         return start_time.strftime("%d/%m %H:%M")
     except Exception:
         return "N/A"
+    except Exception:
+        return "N/A"
 
 
 def _format_odds(match: Any) -> str:

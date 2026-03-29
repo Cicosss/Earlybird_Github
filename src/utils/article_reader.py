@@ -450,8 +450,9 @@ async def apply_deep_dive_to_results(
 
     logger.info(f"🔍 [DEEP-DIVE] Found {len(candidates)} candidates, fetching full text...")
 
-    # Process candidates
-    for candidate in candidates:
+    # V11.0 TURBO: Parallel fetch for Deep Dive articles using asyncio.gather
+    async def _fetch_single_candidate(candidate: dict) -> dict:
+        """Fetch full article text for a single candidate (helper for parallel execution)."""
         item = candidate["item"]
         url = candidate["url"]
         trigger = candidate["trigger"]
@@ -459,22 +460,22 @@ async def apply_deep_dive_to_results(
         # Skip if no URL
         if not url:
             logger.debug("⚠️ [DEEP-DIVE] Skipping item with no URL")
-            continue
+            return None
 
         # Skip Twitter URLs (already have full content)
         if "twitter.com" in url or "x.com" in url:
             logger.debug(f"⏭️ [DEEP-DIVE] Skipping Twitter URL: {url[:60]}...")
-            continue
+            return None
 
         try:
-            # Fetch full article text (FIX #2: Pass timeout parameter)
+            # Fetch full article text with timeout
             result = await reader.fetch_and_extract(url, timeout=timeout)
 
             if result["success"]:
                 # Truncate to 2000 chars
                 full_text = result["text"][:2000]
 
-                # FIX #1: Save original snippet BEFORE overwriting
+                # Save original snippet BEFORE overwriting
                 original_snippet = item.get("snippet", "")
                 item["deep_dive_original_snippet"] = original_snippet[:500]
 
@@ -493,11 +494,23 @@ async def apply_deep_dive_to_results(
                 logger.info(
                     f"✅ [DEEP-DIVE] Upgraded article ({trigger}): {item.get('title', '')[:60]}..."
                 )
+                return {"success": True, "item": item, "url": url}
             else:
                 logger.debug(f"⚠️ [DEEP-DIVE] Failed to fetch: {url[:60]}...")
+                return None
 
         except Exception as e:
             logger.warning(f"⚠️ [DEEP-DIVE] Error fetching {url[:60]}...: {e}")
-            # Continue with next candidate
+            return None
+
+    # V11.0 TURBO: Execute all fetches in parallel with return_exceptions=True for safety
+    fetch_results = await asyncio.gather(
+        *[_fetch_single_candidate(c) for c in candidates], return_exceptions=True
+    )
+
+    # Log any exceptions that were caught
+    for i, result in enumerate(fetch_results):
+        if isinstance(result, Exception):
+            logger.warning(f"⚠️ [DEEP-DIVE] Exception in parallel fetch {i}: {result}")
 
     return results

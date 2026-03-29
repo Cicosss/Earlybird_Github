@@ -16,6 +16,7 @@ import asyncio
 import logging
 import os
 import sys
+import time
 
 # ============================================
 # UVLOOP OPTIMIZATION (Rust-based event loop)
@@ -120,7 +121,9 @@ from logging.handlers import RotatingFileHandler
 from telethon import TelegramClient, events
 
 from config.settings import (
+    DATA_DIR,
     PAUSE_FILE,
+    STOP_FILE,
     TELEGRAM_API_HASH,
     TELEGRAM_API_ID,
     TELEGRAM_BOT_TOKEN,
@@ -199,11 +202,38 @@ async def setup_handlers():
 
     @client.on(events.NewMessage(pattern="/start"))
     async def start_handler(event):
+        """
+        V14.0: /start now removes STOP_FILE and resumes all processes.
+
+        This allows the admin to fully restart the system after a /stop command.
+        """
         sender = await event.get_sender()
-        if not is_admin(sender.id if sender else 0):
+        sender_id = sender.id if sender else 0
+
+        if not is_admin(sender_id):
             return
 
-        welcome_text = """🦅 <b>EARLYBIRD BOT ONLINE</b>
+        logger.info(f"▶️ /start da {sender_id}")
+
+        try:
+            started = False
+
+            # V14.0: Remove STOP_FILE if it exists (full system restart)
+            if os.path.exists(STOP_FILE):
+                os.remove(STOP_FILE)
+                started = True
+                logger.info("✅ STOP_FILE rimosso - sistema in riavvio")
+
+            # Also remove PAUSE_FILE for backwards compatibility
+            if os.path.exists(PAUSE_FILE):
+                os.remove(PAUSE_FILE)
+                started = True
+                logger.info("✅ PAUSE_FILE rimosso")
+
+            if started:
+                welcome_text = """🦅 <b>EARLYBIRD RIPARTITO</b>
+
+✅ Sistema completamente riavviato.
 
 📊 <b>/stat</b> - Dashboard statistiche
 ⚠️ <b>/debug</b> - Log errori recenti
@@ -211,8 +241,24 @@ async def setup_handlers():
 💰 <b>/settle</b> - Calcola risultati
 🏓 <b>/ping</b> - Test connessione
 
+🛑 <b>/stop</b> - Ferma tutti i processi
 <i>Sistema attivo h24.</i>"""
-        await event.reply(welcome_text, parse_mode="html")
+            else:
+                welcome_text = """🦅 <b>EARLYBIRD BOT ONLINE</b>
+
+📊 <b>/stat</b> - Dashboard statistiche
+⚠️ <b>/debug</b> - Log errori recenti
+📂 <b>/report</b> - Export CSV
+💰 <b>/settle</b> - Calcola risultati
+🏓 <b>/ping</b> - Test connessione
+
+🛑 <b>/stop</b> - Ferma tutti i processi
+<i>Sistema attivo h24.</i>"""
+            await event.reply(welcome_text, parse_mode="html")
+
+        except Exception as e:
+            logger.error(f"Errore /start: {e}")
+            await event.reply(f"❌ Errore: {e}")
 
     @client.on(events.NewMessage(pattern="/debug"))
     async def debug_handler(event):
@@ -384,7 +430,17 @@ async def setup_handlers():
 
     @client.on(events.NewMessage(pattern="/stop"))
     async def stop_handler(event):
-        """Pause the analysis loop by creating a lock file."""
+        """
+        V14.0: FULL STOP - Completely halts all processes until manually unlocked.
+
+        Unlike the old PAUSE_FILE which only paused main.py loop, STOP_FILE halts:
+        - main.py (pipeline)
+        - run_telegram_monitor.py
+        - run_news_radar.py
+        - Prevents launcher from restarting processes
+
+        Use /start to resume (removes STOP_FILE).
+        """
         sender = await event.get_sender()
         sender_id = sender.id if sender else 0
 
@@ -392,20 +448,26 @@ async def setup_handlers():
             logger.warning(f"⚠️ /stop non autorizzato da {sender_id}")
             return
 
-        logger.info(f"🛑 /stop da {sender_id}")
+        logger.info(f"🛑 FULL STOP da {sender_id}")
 
         try:
             # Ensure data directory exists
-            os.makedirs(os.path.dirname(PAUSE_FILE), exist_ok=True)
-            # Create lock file
-            with open(PAUSE_FILE, "w") as f:
-                f.write(f"Paused by {sender_id}")
+            os.makedirs(os.path.dirname(STOP_FILE), exist_ok=True)
+
+            # V14.0: Create FULL STOP file instead of PAUSE file
+            # This file is checked by ALL processes (main.py, telegram_monitor, news_radar, launcher)
+            with open(STOP_FILE, "w") as f:
+                f.write(
+                    f"Full stop initiated by {sender_id} at {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
 
             await event.reply(
-                "🛑 <b>Bot Paused.</b>\nIl loop di analisi è in pausa.\nUsa /resume per riprendere.",
+                "🛑 <b>FULL STOP - Sistema Arrestato</b>\n"
+                "Tutti i processi sono fermati.\n"
+                "Usa /start per riavviare il sistema.",
                 parse_mode="html",
             )
-            logger.info("✅ Sistema in pausa (pause.lock creato)")
+            logger.info("✅ FULL STOP attivato (stop.lock creato)")
 
         except Exception as e:
             logger.error(f"Errore /stop: {e}")
@@ -413,7 +475,11 @@ async def setup_handlers():
 
     @client.on(events.NewMessage(pattern="/resume"))
     async def resume_handler(event):
-        """Resume the analysis loop by removing the lock file."""
+        """
+        V14.0: Resume from FULL STOP by removing STOP_FILE.
+
+        Also removes PAUSE_FILE for backwards compatibility.
+        """
         sender = await event.get_sender()
         sender_id = sender.id if sender else 0
 
@@ -424,15 +490,25 @@ async def setup_handlers():
         logger.info(f"▶️ /resume da {sender_id}")
 
         try:
+            stopped = False
+            if os.path.exists(STOP_FILE):
+                os.remove(STOP_FILE)
+                stopped = True
+                logger.info("✅ FULL STOP rimosso (stop.lock rimosso)")
+
+            # Backwards compatibility: also remove PAUSE_FILE
             if os.path.exists(PAUSE_FILE):
                 os.remove(PAUSE_FILE)
+                stopped = True
+                logger.info("✅ PAUSE_FILE rimosso (per compatibilità)")
+
+            if stopped:
                 await event.reply(
-                    "▶️ <b>Bot Resumed.</b>\nIl loop di analisi riprenderà al prossimo ciclo.",
+                    "▶️ <b>Sistema Riavviato</b>\nTutti i processi riprenderanno al prossimo ciclo.",
                     parse_mode="html",
                 )
-                logger.info("✅ Sistema ripreso (pause.lock rimosso)")
             else:
-                await event.reply("ℹ️ Il sistema non era in pausa.", parse_mode="html")
+                await event.reply("ℹ️ Il sistema non era in stop.", parse_mode="html")
 
         except Exception as e:
             logger.error(f"Errore /resume: {e}")
@@ -542,8 +618,10 @@ async def main():
     logger.info("✅ Database initialized")
 
     # Initialize client inside async context (uvloop compatibility)
+    # Use DATA_DIR for session file to keep all sessions in one place (VPS compatibility)
     if BOT_TOKEN and TELEGRAM_API_ID and TELEGRAM_API_HASH:
-        client = TelegramClient("earlybird_cmd_bot", int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
+        session_path = os.path.join(DATA_DIR, "earlybird_cmd_bot")
+        client = TelegramClient(session_path, int(TELEGRAM_API_ID), TELEGRAM_API_HASH)
     else:
         logger.error("❌ TELEGRAM_BOT_TOKEN o API credentials non configurati in .env")
         logger.error("⚠️ Telegram Bot functionality DISABLED. Configure .env to enable.")

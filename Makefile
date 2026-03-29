@@ -38,6 +38,8 @@ RUN_TELEGRAM_MONITOR := run_telegram_monitor.py
 CHECK_APIS := src/utils/check_apis.py
 CHECK_LEAGUES := src/utils/check_leagues.py
 RUN_FUNNEL := src/utils/debug_funnel.py
+RUN_DEBUGGER := src/utils/debug_force_analysis.py
+RUN_INTELLIGENCE_FUNNEL := src/utils/debug_intelligence_funnel.py
 
 # Database scripts
 DB_MAINTENANCE := src/database/maintenance.py
@@ -77,7 +79,7 @@ COLOR_BLUE := \033[34m
 
 .PHONY: help sync-memory map serve-map test test-unit test-integration test-regression test-coverage test-global
 .PHONY: setup setup-python setup-system setup-playwright-browsers install setup-telegram-auth verify-setup
-.PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor run-funnel
+.PHONY: run run-launcher run-main run-bot run-news-radar run-telegram-monitor run-funnel run-debug run-intelligence-funnel
 .PHONY: check-apis check-startup check-health check-database
 .PHONY: clean clean-db clean-all
 .PHONY: migrate lint fix format
@@ -126,6 +128,8 @@ help:
 	@echo "  make run-news-radar    - Run News Radar only"
 	@echo "  make run-telegram-monitor - Run Telegram Monitor only"
 	@echo "  make run-funnel       - Run Pipeline Funnel Diagnostic"
+	@echo "  make run-debug        - Run Force Ignition Diagnostic"
+	@echo "  make run-intelligence-funnel - Run Intelligence Funnel Diagnostic"
 	@echo ""
 	@echo "$(COLOR_BOLD)Diagnostics Commands:$(COLOR_RESET)"
 	@echo "  make check-apis        - API Diagnostics"
@@ -295,6 +299,16 @@ run-funnel: check-env
 	@echo "$(COLOR_GREEN)Running Pipeline Funnel Diagnostic...$(COLOR_RESET)"
 	@echo "$(COLOR_YELLOW)Using entry point: $(RUN_FUNNEL)$(COLOR_RESET)"
 	@PYTHONPATH=. $(PYTHON) $(RUN_FUNNEL)
+
+run-debug: check-env
+	@echo "$(COLOR_GREEN)Running Force Ignition Diagnostic...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Using entry point: $(RUN_DEBUGGER)$(COLOR_RESET)"
+	@PYTHONPATH=. $(PYTHON) $(RUN_DEBUGGER)
+
+run-intelligence-funnel: check-env
+	@echo "$(COLOR_GREEN)Running Intelligence Funnel Diagnostic...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Using entry point: $(RUN_INTELLIGENCE_FUNNEL)$(COLOR_RESET)"
+	@PYTHONPATH=. $(PYTHON) $(RUN_INTELLIGENCE_FUNNEL)
 
 run-telegram-monitor: check-env
 	@echo "$(COLOR_GREEN)Running Telegram Monitor only...$(COLOR_RESET)"

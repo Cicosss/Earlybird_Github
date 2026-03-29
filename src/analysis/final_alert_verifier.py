@@ -19,6 +19,7 @@ import threading
 
 from src.database.models import Match, NewsLog, get_db_session
 from src.services.intelligence_router import get_intelligence_router
+from src.utils.match_helper import format_datetime_to_date
 from src.utils.validators import safe_get
 
 logger = logging.getLogger(__name__)
@@ -117,16 +118,45 @@ class FinalAlertVerifier:
                     self._handle_alert_rejection(match, analysis, result)
                     return False, result
             else:
-                logger.warning("⚠️ [FINAL VERIFIER] No response from IntelligenceRouter")
-                # CRITICAL FIX #3: Return False on failure instead of True
-                # This prevents unverified alerts from being sent to Telegram
-                return False, {"status": "error", "reason": "No response from IntelligenceRouter"}
+                # COVE FIX: When IntelligenceRouter returns None (all providers unavailable),
+                # this is an infrastructure failure, NOT an AI analysis rejection.
+                # The alert has already passed: Analyzer → Verification Layer → this point.
+                # Blocking here means a transient API outage vetoes ALL alerts silently.
+                # Fail-open: allow the alert to proceed without final AI verification.
+                home_team = (
+                    getattr(match, "home_team", "Unknown") if "match" in dir() else "Unknown"
+                )
+                away_team = (
+                    getattr(match, "away_team", "Unknown") if "match" in dir() else "Unknown"
+                )
+                logger.warning(
+                    f"⚠️ [FINAL VERIFIER] IntelligenceRouter UNAVAILABLE for {home_team} vs {away_team} "
+                    f"- FAIL-OPEN: alert proceeding WITHOUT final AI verification "
+                    f"(providers down, not an AI rejection)"
+                )
+                return True, {
+                    "status": "unavailable",
+                    "reason": "IntelligenceRouter unavailable - fail-open, alert proceeds without final verification",
+                    "should_send": True,
+                    "fail_open": True,
+                }
 
         except Exception as e:
-            logger.error(f"❌ [FINAL VERIFIER] Verification failed: {e}")
-            # CRITICAL FIX #3: Return False on failure instead of True
-            # This prevents unverified alerts from being sent to Telegram
-            return False, {"status": "error", "reason": str(e)}
+            # COVE FIX: Exception during verification is infrastructure failure,
+            # not an AI analysis rejection. Fail-open to avoid blocking all alerts
+            # when the verification infrastructure has transient issues.
+            home_team = getattr(match, "home_team", "Unknown") if "match" in dir() else "Unknown"
+            away_team = getattr(match, "away_team", "Unknown") if "match" in dir() else "Unknown"
+            logger.warning(
+                f"⚠️ [FINAL VERIFIER] Verification EXCEPTION for {home_team} vs {away_team} "
+                f"(error: {e}) - FAIL-OPEN: alert proceeding without final verification"
+            )
+            return True, {
+                "status": "error",
+                "reason": str(e),
+                "should_send": True,
+                "fail_open": True,
+            }
 
     def _build_verification_prompt(
         self, match: Match, analysis: NewsLog, alert_data: dict, context_data: dict
@@ -150,7 +180,8 @@ class FinalAlertVerifier:
         away_team = getattr(match, "away_team", None)
         league = getattr(match, "league", None)
         start_time = getattr(match, "start_time", None)
-        match_date = start_time.strftime("%Y-%m-%d") if start_time else "Unknown"
+        # COVE FIX: Use format_datetime_to_date() to handle both datetime and string serialization
+        match_date = format_datetime_to_date(start_time)
 
         # VPS FIX: Extract Match odds immediately to reduce DetachedInstanceError vulnerability window
         # Note: getattr() doesn't prevent DetachedInstanceError, but extracting attributes
