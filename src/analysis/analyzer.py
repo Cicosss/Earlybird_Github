@@ -420,6 +420,13 @@ These rules OVERRIDE statistical signals when tactical data contradicts them. Lo
   - "⚠️ TACTICAL VETO ATTIVO: [specific reason]"
 - Example: "⚠️ TACTICAL VETO ATTIVO: 2 attaccanti titolari assenti, Under più probabile"
 
+**VETO 5: SOUTH AMERICAN TACTICAL VETO (Volante Paradox) - V12.7**
+- TRIGGER: In transition-heavy leagues (Brazil Serie B, Argentina Primera, Colombia Liga, Peru Liga 1), absence of the primary Defensive Midfielder ("Volante" / Number 5/6) signals a SEVERE structural downgrade.
+- ACTION: The absence of a Volante/Number 5/6 is MORE destabilizing than a missing isolated striker. INCREASES probability of Over 2.5 Goals AND BTTS. Treat as losing 2.5+ starters.
+- KEYWORDS to detect: "volante", "meia defensivo", "zagueiro", "lateral", "stopper", "number 5", "number 6", "mediocentro defensivo", "holding midfielder", "pivote"
+- CONTEXT: Brazil Serie B, Argentina Primera Division, Colombia Liga, Peru Liga, Chile Primera, Uruguay Primera, Paraguay Primera, Venezuela Primera
+- REASONING TEMPLATE: "⚠️ VOLANTE PARADOX: Assenza del mediano difensivo (Volante/5/6) → instabilità strutturale > assenza attaccante → favorire Over 2.5 e BTTS."
+
 **VETO 6: LOGISTICAL VETO (Travel Crises & Strikes) - V12.8**
 - TRIGGER: Away team suffers severe travel delays (flight cancelled, bus broken, stuck at airport) OR any team faces a strike over unpaid wages.
 - ACTION: Treat as CRITICAL downgrade equivalent to losing 3 starters. Heavily favor the opposing team (1X/X2) or high volatility markets (Over/BTTS).
@@ -1648,8 +1655,9 @@ def _format_team_stats(stats: dict) -> str:
     return " | ".join(parts) if parts else "No stats available"
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def analyze_with_triangulation(
+# pyright: ignore[reportGeneralTypeIssues]
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))  # noqa: PGH005
+def analyze_with_triangulation(  # type: ignore[reportGeneralTypeIssues]
     # Legacy parameters (for backward compatibility)
     news_snippet: str | None = None,
     market_status: str | None = None,
