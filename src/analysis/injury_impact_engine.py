@@ -21,6 +21,7 @@ VPS Compatibility:
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -412,6 +413,106 @@ def calculate_player_impact(
 
 
 # ============================================
+# FINANCIAL DEPTH ANALYSIS (V12.8)
+# ============================================
+
+
+def parse_team_market_value(value: str) -> float:
+    """
+    Parse a financial string into millions (EUR).
+
+    Handles formats like:
+    - "€1.20bn"   -> 1200.0
+    - "€500M"     -> 500.0
+    - "€50M"      -> 50.0
+    - "€500k"     -> 0.5
+    - "£200M"     -> 200.0  (treated as EUR-equivalent)
+    - "$300m"     -> 300.0
+
+    Args:
+        value: Financial string with currency symbol and magnitude suffix.
+
+    Returns:
+        Value in millions (EUR). Returns 0.0 if parsing fails.
+    """
+    if not value or not isinstance(value, str):
+        return 0.0
+
+    value = value.strip().replace(",", ".")
+
+    # Try billions first (bn / B)
+    bn_match = re.search(r"([\d.]+)\s*(?:bn|B|billion)", value, re.IGNORECASE)
+    if bn_match:
+        try:
+            return float(bn_match.group(1)) * 1000.0
+        except ValueError:
+            return 0.0
+
+    # Try millions (M / m / million)
+    m_match = re.search(r"([\d.]+)\s*(?:M|million|mln)", value, re.IGNORECASE)
+    if m_match:
+        try:
+            return float(m_match.group(1))
+        except ValueError:
+            return 0.0
+
+    # Try thousands (k / K / thousand)
+    k_match = re.search(r"([\d.]+)\s*(?:k|K|thousand)", value, re.IGNORECASE)
+    if k_match:
+        try:
+            return float(k_match.group(1)) / 1000.0
+        except ValueError:
+            return 0.0
+
+    # Fallback: try bare number (assume millions if >= 1)
+    num_match = re.search(r"([\d.]+)", value)
+    if num_match:
+        try:
+            return float(num_match.group(1))
+        except ValueError:
+            return 0.0
+
+    return 0.0
+
+
+def calculate_financial_depth_multiplier(value_millions: float) -> float:
+    """
+    Calculate a squad-depth multiplier based on total team market value.
+
+    A wealthier team (higher market value) typically has a deeper bench,
+    so losing a starter is less impactful. A poorer team has a shallow bench,
+    amplifying the impact of each absence.
+
+    Thresholds (linear interpolation between):
+    - > 100M EUR -> 0.6  (deep bench mitigates injury loss)
+    - ~ 20M EUR  -> 1.0  (neutral / base)
+    - < 10M EUR  -> 1.4  (shallow bench amplifies loss)
+
+    Args:
+        value_millions: Total squad market value in millions EUR.
+                        0.0 means "unknown / not provided".
+
+    Returns:
+        Multiplier in range [0.6, 1.4]. Returns 1.0 if data missing (value_millions <= 0).
+    """
+    if value_millions <= 0:
+        return 1.0
+
+    if value_millions >= 100.0:
+        return 0.6
+    elif value_millions <= 10.0:
+        return 1.4
+    elif value_millions <= 20.0:
+        # Linear interpolation: 10M -> 1.4, 20M -> 1.0
+        # slope = (1.0 - 1.4) / (20 - 10) = -0.04
+        return 1.4 + (value_millions - 10.0) * (-0.04)
+    else:
+        # Linear interpolation: 20M -> 1.0, 100M -> 0.6
+        # slope = (0.6 - 1.0) / (100 - 20) = -0.005
+        return 1.0 + (value_millions - 20.0) * (-0.005)
+
+
+# ============================================
 # TEAM IMPACT AGGREGATION
 # ============================================
 
@@ -421,6 +522,7 @@ def calculate_team_injury_impact(
     injuries: list[dict],
     squad_data: dict | None = None,
     key_players: list[str] | None = None,
+    team_market_value: str | float | None = None,
 ) -> TeamInjuryImpact:
     """
     Calcola l'impatto totale degli infortuni su una squadra.
@@ -430,6 +532,7 @@ def calculate_team_injury_impact(
         injuries: Lista di infortuni da FotMob [{name, reason, status}]
         squad_data: Dati rosa completa da FotMob (opzionale, per ruoli)
         key_players: Lista nomi key players noti (opzionale)
+        team_market_value: Valore rosa (string "€50M" or float in millions). V12.8.
 
     Returns:
         TeamInjuryImpact con analisi completa
@@ -503,6 +606,28 @@ def calculate_team_injury_impact(
         for p in player_impacts
         if p.position in (PlayerPosition.FORWARD, PlayerPosition.MIDFIELDER)
     )
+
+    # V12.8: Apply financial depth multiplier
+    # Parse team_market_value (string like "€50M" or float in millions)
+    if team_market_value is not None:
+        if isinstance(team_market_value, str):
+            value_millions = parse_team_market_value(team_market_value)
+        elif isinstance(team_market_value, (int, float)):
+            value_millions = float(team_market_value)
+        else:
+            value_millions = 0.0
+    else:
+        value_millions = 0.0
+
+    depth_multiplier = calculate_financial_depth_multiplier(value_millions)
+    if depth_multiplier != 1.0:
+        total_score *= depth_multiplier
+        defensive_impact *= depth_multiplier
+        offensive_impact *= depth_multiplier
+        logger.info(
+            f"💰 V12.8 Financial Depth: {team_name} value={value_millions:.1f}M "
+            f"-> multiplier={depth_multiplier:.2f}"
+        )
 
     return TeamInjuryImpact(
         team_name=team_name,
@@ -643,6 +768,8 @@ def calculate_injury_differential(
     away_squad: dict | None = None,
     home_key_players: list[str] | None = None,
     away_key_players: list[str] | None = None,
+    home_market_value: str | float | None = None,
+    away_market_value: str | float | None = None,
 ) -> InjuryDifferential:
     """
     Calcola il differenziale di impatto infortuni tra due squadre.
@@ -656,6 +783,8 @@ def calculate_injury_differential(
         away_squad: Rosa completa ospite (opzionale)
         home_key_players: Key players casa (opzionale)
         away_key_players: Key players ospite (opzionale)
+        home_market_value: Valore rosa casa (V12.8, opzionale)
+        away_market_value: Valore rosa ospite (V12.8, opzionale)
 
     Returns:
         InjuryDifferential con analisi completa
@@ -679,6 +808,7 @@ def calculate_injury_differential(
         injuries=home_injuries,
         squad_data=home_squad,
         key_players=home_key_players,
+        team_market_value=home_market_value,
     )
 
     away_impact = calculate_team_injury_impact(
@@ -686,6 +816,7 @@ def calculate_injury_differential(
         injuries=away_injuries,
         squad_data=away_squad,
         key_players=away_key_players,
+        team_market_value=away_market_value,
     )
 
     # Calcola differenziale (positivo = home più colpita)
@@ -839,14 +970,18 @@ def analyze_match_injuries(
     away_injuries: list[dict] = []
     home_squad: dict | None = None
     away_squad: dict | None = None
+    home_market_value: str | float | None = None
+    away_market_value: str | float | None = None
 
     if home_context and isinstance(home_context, dict):
         home_injuries = home_context.get("injuries") or []
         home_squad = home_context.get("squad")
+        home_market_value = home_context.get("team_market_value")
 
     if away_context and isinstance(away_context, dict):
         away_injuries = away_context.get("injuries") or []
         away_squad = away_context.get("squad")
+        away_market_value = away_context.get("team_market_value")
 
     return calculate_injury_differential(
         home_team=home_team,
@@ -857,6 +992,8 @@ def analyze_match_injuries(
         away_squad=away_squad,
         home_key_players=home_key_players,
         away_key_players=away_key_players,
+        home_market_value=home_market_value,
+        away_market_value=away_market_value,
     )
 
 
@@ -874,6 +1011,8 @@ __all__ = [
     "detect_position_from_player_data",
     "estimate_player_role",
     "calculate_player_impact",
+    "parse_team_market_value",
+    "calculate_financial_depth_multiplier",
     "calculate_team_injury_impact",
     "calculate_injury_differential",
     "analyze_match_injuries",

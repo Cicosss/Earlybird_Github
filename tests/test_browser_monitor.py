@@ -4291,7 +4291,9 @@ class TestV75AnalyzeAndCreateNews:
 
         with patch.object(monitor, "analyze_relevance", mock_analyze):
             result = await monitor._analyze_and_create_news(
-                source, "https://test.com/article3", content  # Unique URL for this test
+                source,
+                "https://test.com/article3",
+                content,  # Unique URL for this test
             )
 
         # Should create alert directly, no API call
@@ -4336,7 +4338,9 @@ class TestV75AnalyzeAndCreateNews:
 
         with patch.object(monitor, "analyze_relevance", mock_analyze):
             result = await monitor._analyze_and_create_news(
-                source, "https://test.com/article4", content  # Unique URL for this test
+                source,
+                "https://test.com/article4",
+                content,  # Unique URL for this test
             )
 
         # Should call DeepSeek for medium confidence

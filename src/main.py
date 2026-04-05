@@ -168,8 +168,8 @@ from src.database.models import Match, NewsLog, SessionLocal, init_db
 from src.ingestion.data_provider import get_data_provider
 from src.ingestion.ingest_fixtures import ingest_fixtures
 from src.ingestion.league_manager import (
-    ELITE_LEAGUES,
     get_active_niche_leagues,
+    get_all_active_leagues,
     get_tier2_fallback_batch,
     increment_cycle,
     record_tier2_activation,
@@ -869,7 +869,7 @@ def check_odds_drops():
             .all()
         )
 
-        significant_drops = []
+        significant_drops: list[dict] = []
 
         for match in matches:
             # VPS FIX: Extract Match attributes safely to prevent session detachment
@@ -950,7 +950,7 @@ def check_biscotto_suspects():
             .all()
         )
 
-        suspects = []
+        suspects: list[dict] = []
 
         for match in matches:
             result = is_biscotto_suspect(match)
@@ -1282,7 +1282,7 @@ def run_pipeline():
                 logging.info(f"   📌 {league}")
         except Exception as e:
             logging.warning(f"⚠️ League discovery failed: {e} - using defaults")
-            active_leagues = []
+            active_leagues: list[str] = []
 
     # V11.0: Initialize Intelligence Queue for Global Parallel Architecture
     _discovery_queue = None
@@ -1561,14 +1561,14 @@ def run_pipeline():
 
         # V12.3 DYNAMIC LEAGUE SYNC: Use ALL active leagues from GlobalOrchestrator (Supabase)
         # If Supabase marks 13 leagues as active, we analyze all 13.
-        # Fallback to ELITE_LEAGUES only if GlobalOrchestrator returned empty list.
+        # V11.2: NO hardcoded fallback. If no Supabase data, try get_all_active_leagues() from mirror.
         # HARD-BLOCK: Only future matches (start_time > now) within the analysis window
         # V14.1 FIX: Require odds availability to prevent "No Odds Black Hole" silent drops
-        analysis_leagues = active_leagues if active_leagues else list(ELITE_LEAGUES)
+        analysis_leagues = active_leagues if active_leagues else get_all_active_leagues()
 
         logging.info(
             f"🎯 V12.3 Dynamic League Sync: Analyzing {len(analysis_leagues)} active leagues "
-            f"(source: {'Supabase' if active_leagues else 'ELITE_LEAGUES fallback'})"
+            f"(source: {'Supabase/Orchestrator' if active_leagues else 'Supabase/Mirror'})"
         )
 
         matches = (
@@ -1578,7 +1578,7 @@ def run_pipeline():
                 Match.start_time <= end_window_naive,
                 Match.league.in_(
                     analysis_leagues
-                ),  # V12.3: Dynamic leagues from Supabase (was ELITE_LEAGUES)
+                ),  # V12.3/V11.2: Dynamic leagues from Supabase/Mirror (was ELITE_LEAGUES)
                 Match.current_home_odd.isnot(None),  # V14.1: Require odds to avoid silent drops
             )
             .all()
@@ -2467,7 +2467,7 @@ def run_continuous():
         cycle_count += 1
 
         # V14.0: Check for FULL STOP first - this takes precedence over PAUSE
-        if os.path.exists(STOP_FILE):
+        if settings.is_stop_requested():
             logging.info("🛑 FULL STOP DETECTED - System shutting down until /start")
             logging.info("💡 Use /start from Telegram to resume the system")
 
@@ -2494,9 +2494,13 @@ def run_continuous():
 
             # V9.5: Refresh local mirror with social_sources and news_sources at start of each cycle
             # V12.5: Check and reconnect to Supabase before refresh (COVE FIX)
+            # V15.0 FIX: Import only refresh_mirror locally. get_supabase is already
+            # available from the module-level import (line 195). A local import of get_supabase
+            # here would make it a local variable for the entire function, causing UnboundLocalError
+            # at line 2414 (startup heartbeat) which runs before this while loop.
             if _SUPABASE_PROVIDER_AVAILABLE:
                 try:
-                    from src.database.supabase_provider import get_supabase, refresh_mirror
+                    from src.database.supabase_provider import refresh_mirror
 
                     # V12.5: Check connection and reconnect if necessary (COVE FIX)
                     supabase = get_supabase()
@@ -2605,11 +2609,25 @@ def run_continuous():
                     f"💤 Mini-cycle sleep: {sleep_time // 60}m "
                     f"({elapsed // 60}/{MAIN_CYCLE_SECONDS // 60}m elapsed)..."
                 )
-                time.sleep(sleep_time)
+                # P4: Interruptible sleep — wake every 30s to check STOP
+                stop_detected = False
+                sleep_elapsed = 0
+                while sleep_elapsed < sleep_time:
+                    if settings.is_stop_requested():
+                        logging.info("🛑 STOP detected during mini-cycle sleep, breaking...")
+                        stop_detected = True
+                        break
+                    chunk = min(30, sleep_time - sleep_elapsed)
+                    time.sleep(chunk)
+                    sleep_elapsed += chunk
+
                 elapsed += sleep_time
 
+                if stop_detected:
+                    break
+
                 # Check for early termination (STOP file takes precedence)
-                if os.path.exists(STOP_FILE):
+                if settings.is_stop_requested():
                     logging.info("🛑 STOP detected during mini-cycle, breaking sleep...")
                     break
 

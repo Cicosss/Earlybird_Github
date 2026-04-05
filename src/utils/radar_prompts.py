@@ -18,6 +18,8 @@ def build_analysis_prompt_v2(
     content: str,
     detected_signal: str | None = None,
     extracted_number: int | None = None,
+    team_hint: str | None = None,
+    source_context: str | None = None,
 ) -> str:
     """
     Build the V2 analysis prompt for DeepSeek.
@@ -28,11 +30,15 @@ def build_analysis_prompt_v2(
     3. Apply strict quality gates
     4. Focus on HIGH-VALUE betting signals only
     5. V3.0: Cross-validate with pattern-detected signal
+    6. V4.0: Use source context and team hints for intelligent extraction
 
     Args:
         content: Raw content text (any language)
         detected_signal: Signal type detected by pattern matching (optional)
         extracted_number: Number extracted from text (optional, e.g., absent players count)
+        team_hint: Team name pre-extracted by pattern matching (optional). Use as strong hint.
+        source_context: Geographic context from source URL/timezone (optional).
+                       Contains likely country and candidate teams from database.
 
     Returns:
         Formatted prompt string
@@ -59,7 +65,30 @@ def build_analysis_prompt_v2(
         signal_context += "  - Use extracted_number to verify your absent_count calculation\n"
         signal_context += "  - If there's a discrepancy, prioritize more reliable evidence\n"
 
-    return f"""You are a sports betting analyst. Analyze this football news article (in ANY language) and extract betting-relevant information.{signal_context}
+    # V4.0: Build intelligence context from source and pattern extraction
+    intelligence_context = ""
+    if team_hint or source_context:
+        intelligence_context = "\n🧠 INTELLIGENCE CONTEXT (from source analysis):\n"
+        if source_context:
+            intelligence_context += f"{source_context}\n"
+        if team_hint:
+            intelligence_context += (
+                f"  - PATTERN-DETECTED TEAM: '{team_hint}' "
+                f"(a regex pattern found this team name in the text)\n"
+            )
+        intelligence_context += "\n⚠️ INSTRUCTIONS FOR TEAM EXTRACTION:\n"
+        intelligence_context += "  - Use the intelligence context to guide your team identification\n"
+        if team_hint:
+            intelligence_context += (
+                f"  - If the pattern-detected team '{team_hint}' makes sense in context, "
+                f"use it as the team name\n"
+            )
+            intelligence_context += "  - If the pattern detection is wrong (e.g., a player name mistaken for team), ignore it\n"
+        if source_context:
+            intelligence_context += "  - Prefer teams from the listed candidates when the article is ambiguous\n"
+        intelligence_context += "  - Always verify against the actual article content\n"
+
+    return f"""You are a sports betting analyst. Analyze this football news article (in ANY language) and extract betting-relevant information.{signal_context}{intelligence_context}
 
 ⚠️ CRITICAL: Only mark as relevant if there is REAL BETTING VALUE:
 - 3+ first-team players unavailable = HIGH VALUE ✅

@@ -28,11 +28,13 @@ def test_debug_leagues():
     print("\n[1/5] Importing SupabaseProvider...")
     try:
         from src.database.supabase_provider import get_supabase
+
         supabase = get_supabase()
         print("   ✅ SupabaseProvider imported successfully")
     except Exception as e:
         print(f"   ❌ Failed to import SupabaseProvider: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -44,6 +46,7 @@ def test_debug_leagues():
     except Exception as e:
         print(f"   ❌ Failed to get active leagues: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -52,7 +55,9 @@ def test_debug_leagues():
     leagues_by_continent = {}
     for league in all_leagues:
         continent_obj = league.get("continent", {})
-        continent = continent_obj.get("name", "UNKNOWN") if isinstance(continent_obj, dict) else "UNKNOWN"
+        continent = (
+            continent_obj.get("name", "UNKNOWN") if isinstance(continent_obj, dict) else "UNKNOWN"
+        )
 
         if continent not in leagues_by_continent:
             leagues_by_continent[continent] = []
@@ -104,6 +109,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed with exception: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

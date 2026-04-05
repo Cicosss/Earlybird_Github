@@ -137,6 +137,7 @@ from config.settings import (
     STOP_FILE,
     TELEGRAM_API_HASH,
     TELEGRAM_API_ID,
+    is_stop_requested,
 )
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.database.models import Match, init_db
@@ -172,7 +173,7 @@ async def monitor_loop():
 
     while True:
         # V14.0: Check for FULL STOP - exit completely if stopped
-        if os.path.exists(STOP_FILE):
+        if is_stop_requested():
             logger.info("🛑 FULL STOP DETECTED - Telegram Monitor shutting down until /start")
             break
 
@@ -246,7 +247,7 @@ async def monitor_loop():
             # Sleep 10 minuti tra i cicli - con controlli STOP intermedi (V14.0 COVE FIX)
             logger.info("💤 Pausa 10 minuti con controlli STOP...")
             for _ in range(20):  # Check ogni 30 secondi
-                if os.path.exists(STOP_FILE):
+                if is_stop_requested():
                     logger.info("🛑 STOP rilevato durante pausa - uscita immediata")
                     break
                 await asyncio.sleep(30)
@@ -268,7 +269,16 @@ async def monitor_loop():
             if consecutive_errors >= 5:
                 logger.critical(f"🚨 {consecutive_errors} errori consecutivi nel monitor!")
 
-            await asyncio.sleep(backoff_seconds)
+            # P3: Chunked backoff sleep with STOP check
+            chunk_size = 10  # Check STOP every 10 seconds
+            remaining_backoff = backoff_seconds
+            while remaining_backoff > 0:
+                if is_stop_requested():
+                    logger.info("🛑 Stop requested during error backoff, aborting")
+                    return
+                sleep_chunk = min(chunk_size, remaining_backoff)
+                await asyncio.sleep(sleep_chunk)
+                remaining_backoff -= sleep_chunk
 
 
 async def main():
@@ -338,6 +348,11 @@ async def main():
 
             # Enter idle mode: watch for session file changes
             while True:
+                # P7: Check for stop in session watch loop
+                if is_stop_requested():
+                    logger.info("🛑 Stop requested during session watch, exiting")
+                    break
+
                 try:
                     # Check if session file exists and get modification time
                     if os.path.exists(session_file_path):

@@ -601,7 +601,7 @@ class MediastackProvider:
                 logger.debug("Mediastack: No results found")
                 return []
 
-            results = []
+            results: list[dict[str, Any]] = []
             filtered_count = 0
             for item in news_items:
                 # Extract and clean fields

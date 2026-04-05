@@ -9,6 +9,7 @@ tenacity==9.0.0
 pydantic==2.12.5
 python-dateutil>=2.9.0.post0  # For robust datetime parsing (timezone handling)
 thefuzz[speedup]==0.22.1  # Fuzzy string matching for team names (token_set_ratio)
+python-Levenshtein>=0.23.0  # C extension for thefuzz speedup (auto-installed by [speedup], explicit for VPS reliability)
 
 # AI/LLM
 openai==2.16.0  # Used by Perplexity fallback (OpenAI-compatible API)
@@ -75,3 +76,9 @@ typing-extensions>=4.14.1  # Extended typing support
 # V9.0: Supabase Database Integration (New Intelligence Source)
 supabase==2.27.3  # Official Supabase Python client
 postgrest==2.27.3  # PostgREST client for Supabase
+
+# V12.6: Stealth Browser Automation (Cloudflare Bypass)
+patchright>=1.0.0  # Undetected Playwright fork for Cloudflare challenge solving (used by StealthyFetcher)
+
+# V12.6: High-Performance Serialization
+msgspec>=0.18.0  # DO NOT REMOVE: Silent dependency required by Scrapling for high-speed JSON parsing

@@ -290,7 +290,7 @@ class DiscoveryQueue:
 
             # Update league index
             if league_key not in self._by_league:
-                self._by_league[league_key] = []
+                self._by_league[league_key]: list[str] = []
             self._by_league[league_key].append(item_uuid)
 
             self._total_pushed += 1
@@ -347,9 +347,9 @@ class DiscoveryQueue:
         if not team_names:
             return []
 
-        results = []
+        results: list[dict] = []
         now = datetime.now(timezone.utc)
-        matching_items = []
+        matching_items: list[DiscoveryItem] = []
 
         with self._lock:
             # Get UUIDs for this league
@@ -439,7 +439,7 @@ class DiscoveryQueue:
 
         with self._lock:
             # Build list of non-expired items
-            valid_items = []
+            valid_items: list[DiscoveryItem] = []
             valid_uuids_by_league: dict[str, list[str]] = {}
 
             for item in self._queue:
@@ -449,7 +449,7 @@ class DiscoveryQueue:
                 else:
                     valid_items.append(item)
                     if item.league_key not in valid_uuids_by_league:
-                        valid_uuids_by_league[item.league_key] = []
+                        valid_uuids_by_league[item.league_key]: list[str] = []
                     valid_uuids_by_league[item.league_key].append(item.uuid)
 
             # Replace queue contents

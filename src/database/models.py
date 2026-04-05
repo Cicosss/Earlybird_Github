@@ -17,7 +17,6 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -27,8 +26,9 @@ from sqlalchemy import (
     Text,
     create_engine,
     event,
+    text,
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import Mapped, mapped_column, declarative_base, relationship, sessionmaker
 
 logger = logging.getLogger(__name__)
 Base = declarative_base()
@@ -46,103 +46,191 @@ class Match(Base):
 
     # Primary identification
     # Phase 1 Critical Fix: Added COLLATE NOCASE for proper Unicode handling
-    id = Column(String, primary_key=True, comment="Unique ID from The-Odds-API")
-    league = Column(String, nullable=False, comment="Sport/league key (e.g., soccer_epl)")
-    home_team = Column(String, nullable=False, comment="Home team name")
-    away_team = Column(String, nullable=False, comment="Away team name")
-    start_time = Column(DateTime, nullable=False, comment="Match kickoff time (UTC)")
+    id: Mapped[str] = mapped_column(String, primary_key=True, comment="Unique ID from The-Odds-API")
+    league: Mapped[str] = mapped_column(
+        String, nullable=False, comment="Sport/league key (e.g., soccer_epl)"
+    )
+    home_team: Mapped[str] = mapped_column(String, nullable=False, comment="Home team name")
+    away_team: Mapped[str] = mapped_column(String, nullable=False, comment="Away team name")
+    start_time: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, comment="Match kickoff time (UTC)"
+    )
 
     # Opening Odds (First time we see the match - NEVER updated)
-    opening_home_odd = Column(Float, nullable=True, comment="Opening home win odds")
-    opening_away_odd = Column(Float, nullable=True, comment="Opening away win odds")
-    opening_draw_odd = Column(
+    opening_home_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Opening home win odds"
+    )
+    opening_away_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Opening away win odds"
+    )
+    opening_draw_odd: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Opening draw odds (Biscotto detection)"
     )
 
     # Current Odds (Latest market prices - Updated on each ingestion)
-    current_home_odd = Column(Float, nullable=True, comment="Current home win odds")
-    current_away_odd = Column(Float, nullable=True, comment="Current away win odds")
-    current_draw_odd = Column(Float, nullable=True, comment="Current draw odds")
+    current_home_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current home win odds"
+    )
+    current_away_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current away win odds"
+    )
+    current_draw_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current draw odds"
+    )
 
     # Totals Market (Over/Under 2.5 Goals)
-    opening_over_2_5 = Column(Float, nullable=True, comment="Opening over 2.5 goals odds")
-    opening_under_2_5 = Column(Float, nullable=True, comment="Opening under 2.5 goals odds")
-    current_over_2_5 = Column(Float, nullable=True, comment="Current over 2.5 goals odds")
-    current_under_2_5 = Column(Float, nullable=True, comment="Current under 2.5 goals odds")
+    opening_over_2_5: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Opening over 2.5 goals odds"
+    )
+    opening_under_2_5: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Opening under 2.5 goals odds"
+    )
+    current_over_2_5: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current over 2.5 goals odds"
+    )
+    current_under_2_5: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current under 2.5 goals odds"
+    )
 
     # BTTS Market (Both Teams To Score) - V12.7
-    opening_btts_yes = Column(Float, nullable=True, comment="Opening BTTS Yes odds")
-    opening_btts_no = Column(Float, nullable=True, comment="Opening BTTS No odds")
-    current_btts_yes = Column(Float, nullable=True, comment="Current BTTS Yes odds")
-    current_btts_no = Column(Float, nullable=True, comment="Current BTTS No odds")
+    opening_btts_yes: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Opening BTTS Yes odds"
+    )
+    opening_btts_no: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Opening BTTS No odds"
+    )
+    current_btts_yes: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current BTTS Yes odds"
+    )
+    current_btts_no: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Current BTTS No odds"
+    )
 
     # Sharp Odds (Smart Money Detection)
-    sharp_bookie = Column(String, nullable=True, comment="Sharp bookie name (e.g., 'pinnacle')")
-    sharp_home_odd = Column(Float, nullable=True, comment="Sharp bookie home odds")
-    sharp_draw_odd = Column(Float, nullable=True, comment="Sharp bookie draw odds")
-    sharp_away_odd = Column(Float, nullable=True, comment="Sharp bookie away odds")
-    avg_home_odd = Column(Float, nullable=True, comment="Average home odds across bookies")
-    avg_draw_odd = Column(Float, nullable=True, comment="Average draw odds across bookies")
-    avg_away_odd = Column(Float, nullable=True, comment="Average away odds across bookies")
-    is_sharp_drop = Column(Boolean, default=False, comment="True if smart money detected")
-    sharp_signal = Column(
+    sharp_bookie: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Sharp bookie name (e.g., 'pinnacle')"
+    )
+    sharp_home_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Sharp bookie home odds"
+    )
+    sharp_draw_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Sharp bookie draw odds"
+    )
+    sharp_away_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Sharp bookie away odds"
+    )
+    avg_home_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Average home odds across bookies"
+    )
+    avg_draw_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Average draw odds across bookies"
+    )
+    avg_away_odd: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Average away odds across bookies"
+    )
+    is_sharp_drop: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="True if smart money detected"
+    )
+    sharp_signal: Mapped[str | None] = mapped_column(
         String, nullable=True, comment="Signal description (e.g., 'SMART MONEY on HOME')"
     )
 
     # Alert flags to prevent spam
-    odds_alert_sent = Column(Boolean, default=False, comment="Prevents repeated odds alerts")
-    biscotto_alert_sent = Column(
+    odds_alert_sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="Prevents repeated odds alerts"
+    )
+    biscotto_alert_sent: Mapped[bool] = mapped_column(
         Boolean, default=False, comment="Prevents repeated biscotto alerts"
     )
-    sharp_alert_sent = Column(Boolean, default=False, comment="Prevents repeated sharp alerts")
+    sharp_alert_sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="Prevents repeated sharp alerts"
+    )
 
     # V2.6: Settlement tracking - used by settlement service to filter matches for CLV calculation
     # NOTE: This field is NOT used for alert deduplication (which uses boolean flags instead)
-    highest_score_sent = Column(
+    highest_score_sent: Mapped[float] = mapped_column(
         Float,
         default=0.0,
         comment="Highest score sent to settlement service (settlement tracking only)",
     )
-    last_alert_time = Column(
+    last_alert_time: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, comment="When last alert was sent (temporal reset)"
     )
 
     # Investigation cooldown
-    last_deep_dive_time = Column(
+    last_deep_dive_time: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, comment="When last full investigation was done"
     )
 
     # Post-match statistics (populated by settler)
-    home_corners = Column(Integer, nullable=True, comment="Final home team corners")
-    away_corners = Column(Integer, nullable=True, comment="Final away team corners")
-    home_yellow_cards = Column(Integer, nullable=True, comment="Final home yellow cards")
-    away_yellow_cards = Column(Integer, nullable=True, comment="Final away yellow cards")
-    home_red_cards = Column(Integer, nullable=True, comment="Final home red cards")
-    away_red_cards = Column(Integer, nullable=True, comment="Final away red cards")
-    home_xg = Column(Float, nullable=True, comment="Home expected goals (xG)")
-    away_xg = Column(Float, nullable=True, comment="Away expected goals (xG)")
-    home_possession = Column(Float, nullable=True, comment="Home possession percentage")
-    away_possession = Column(Float, nullable=True, comment="Away possession percentage")
-    home_shots_on_target = Column(Integer, nullable=True, comment="Home shots on target")
-    away_shots_on_target = Column(Integer, nullable=True, comment="Away shots on target")
-    home_big_chances = Column(Integer, nullable=True, comment="Home big chances created")
-    away_big_chances = Column(Integer, nullable=True, comment="Away big chances created")
-    home_fouls = Column(Integer, nullable=True, comment="Home fouls committed")
-    away_fouls = Column(Integer, nullable=True, comment="Away fouls committed")
+    home_corners: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final home team corners"
+    )
+    away_corners: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final away team corners"
+    )
+    home_yellow_cards: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final home yellow cards"
+    )
+    away_yellow_cards: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final away yellow cards"
+    )
+    home_red_cards: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final home red cards"
+    )
+    away_red_cards: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final away red cards"
+    )
+    home_xg: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Home expected goals (xG)"
+    )
+    away_xg: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Away expected goals (xG)"
+    )
+    home_possession: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Home possession percentage"
+    )
+    away_possession: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Away possession percentage"
+    )
+    home_shots_on_target: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Home shots on target"
+    )
+    away_shots_on_target: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Away shots on target"
+    )
+    home_big_chances: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Home big chances created"
+    )
+    away_big_chances: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Away big chances created"
+    )
+    home_fouls: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Home fouls committed"
+    )
+    away_fouls: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Away fouls committed"
+    )
 
     # Final result (populated after match ends)
-    final_home_goals = Column(Integer, nullable=True, comment="Final home goals")
-    final_away_goals = Column(Integer, nullable=True, comment="Final away goals")
-    match_status = Column(String, nullable=True, comment="Match status: scheduled, live, finished")
+    final_home_goals: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final home goals"
+    )
+    final_away_goals: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Final away goals"
+    )
+    match_status: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Match status: scheduled, live, finished"
+    )
 
     # Timestamps
-    created_at = Column(
-        DateTime, default=datetime.now(timezone.utc), comment="Record creation time"
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), comment="Record creation time"
     )
-    last_updated = Column(
+    last_updated: Mapped[datetime | None] = mapped_column(
         DateTime,
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         comment="Last update time",
     )
 
@@ -239,108 +327,152 @@ class NewsLog(Base):
     __tablename__ = "news_logs"
 
     # Primary identification
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    match_id: Mapped[str] = mapped_column(
+        String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False
+    )
 
     # Content fields
-    url = Column(String, nullable=True, comment="Source URL")
-    summary = Column(Text, nullable=True, comment="Analysis summary/reasoning")
-    score = Column(Integer, default=0, comment="Relevance score 0-10")
-    category = Column(String, nullable=True, comment="Alert category (INJURY, TURNOVER, etc.)")
-    affected_team = Column(String, nullable=True, comment="Team affected by the news")
+    url: Mapped[str | None] = mapped_column(String, nullable=True, comment="Source URL")
+    summary: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Analysis summary/reasoning"
+    )
+    score: Mapped[int] = mapped_column(Integer, default=0, comment="Relevance score 0-10")
+    category: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Alert category (INJURY, TURNOVER, etc.)"
+    )
+    affected_team: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Team affected by the news"
+    )
 
     # Status tracking
-    sent = Column(Boolean, default=False, comment="Whether alert was sent to Telegram")
-    status = Column(String, nullable=True, comment="Alert status: pending, sent, no_bet, rejected")
-    verification_status = Column(String, nullable=True, comment="Verification layer status")
-    verification_reason = Column(String, nullable=True, comment="Reason for verification decision")
+    sent: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="Whether alert was sent to Telegram"
+    )
+    status: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Alert status: pending, sent, no_bet, rejected"
+    )
+    verification_status: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Verification layer status"
+    )
+    verification_reason: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Reason for verification decision"
+    )
 
     # Combo bet fields
-    combo_suggestion = Column(String, nullable=True, comment="e.g., 'Over 2.5 + BTTS'")
-    combo_reasoning = Column(Text, nullable=True, comment="Why this combo was suggested")
-    recommended_market = Column(String, nullable=True, comment="Primary market recommendation")
+    combo_suggestion: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="e.g., 'Over 2.5 + BTTS'"
+    )
+    combo_reasoning: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Why this combo was suggested"
+    )
+    recommended_market: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Primary market recommendation"
+    )
 
     # Driver classification
-    primary_driver = Column(
+    primary_driver: Mapped[str | None] = mapped_column(
         String,
         nullable=True,
         comment="Main signal: INJURY_INTEL, SHARP_MONEY, MATH_VALUE, CONTEXT_PLAY, CONTRARIAN",
     )
 
     # CLV Tracking (Closing Line Value) - V8.3 FIX: Proper historical odds capture
-    odds_taken = Column(
+    odds_taken: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Odds when alert was sent (legacy - use odds_at_alert)"
     )
-    closing_odds = Column(
+    closing_odds: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Closing odds for CLV analysis (legacy - use odds_at_kickoff)"
     )
-    clv_percent = Column(Float, nullable=True, comment="Calculated CLV percentage")
-    line_movement_explanation = Column(
+    clv_percent: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Calculated CLV percentage"
+    )
+    line_movement_explanation: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="AI-generated explanation of line movement cause (via Tavily)"
     )
 
     # V8.3: Proper historical odds tracking for accurate ROI calculation
-    odds_at_alert = Column(
+    odds_at_alert: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
         comment="Actual odds when Telegram alert was sent (for ROI calculation)",
     )
-    odds_at_kickoff = Column(
+    odds_at_kickoff: Mapped[float | None] = mapped_column(
         Float, nullable=True, comment="Actual odds at match kickoff (for CLV analysis)"
     )
-    alert_sent_at = Column(
+    alert_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, comment="Timestamp when alert was sent to Telegram"
     )
 
     # Combo outcome tracking (Auto-Learning)
-    combo_outcome = Column(String, nullable=True, comment="WIN/LOSS/PENDING for expansion")
-    combo_explanation = Column(
+    combo_outcome: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="WIN/LOSS/PENDING for expansion"
+    )
+    combo_explanation: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="Detailed explanation of expansion result"
     )
-    expansion_type = Column(
+    expansion_type: Mapped[str | None] = mapped_column(
         String, nullable=True, comment="Type: over/under, gg/ng, corners, cards"
     )
 
     # V13.0: Primary bet outcome tracking (for CLV and ROI analysis)
-    outcome = Column(String, nullable=True, comment="WIN/LOSS/PUSH/PENDING for primary bet")
-    outcome_explanation = Column(
+    outcome: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="WIN/LOSS/PUSH/PENDING for primary bet"
+    )
+    outcome_explanation: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="Detailed explanation of primary bet result"
     )
 
     # V11.1: AI confidence (0-100) - Used by BettingQuant for market warning generation
-    confidence = Column(Float, nullable=True, comment="AI confidence percentage 0-100")
+    confidence: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="AI confidence percentage 0-100"
+    )
 
     # Source tracking
-    source = Column(String, default="web", comment="Source: web, telegram_ocr, telegram_channel")
-    source_confidence = Column(Float, nullable=True, comment="Confidence in source reliability 0-1")
+    source: Mapped[str] = mapped_column(
+        String, default="web", comment="Source: web, telegram_ocr, telegram_channel"
+    )
+    source_confidence: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Confidence in source reliability 0-1"
+    )
 
     # V8.1: Confidence breakdown (JSON)
-    confidence_breakdown = Column(
+    confidence_breakdown: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment='JSON: {"news_weight": 30, "odds_weight": 20, ...}'
     )
 
     # V8.2: Final Verifier tracking (JSON)
-    final_verifier_result = Column(
+    final_verifier_result: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="JSON with complete verifier result"
     )
 
     # V8.2: Feedback Loop tracking
-    feedback_loop_used = Column(Boolean, default=False, comment="Whether feedback loop was applied")
-    feedback_loop_iterations = Column(Integer, default=0, comment="Number of feedback iterations")
-    modification_plan = Column(Text, nullable=True, comment="JSON with modification plan")
-    modification_applied = Column(
+    feedback_loop_used: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="Whether feedback loop was applied"
+    )
+    feedback_loop_iterations: Mapped[int] = mapped_column(
+        Integer, default=0, comment="Number of feedback iterations"
+    )
+    modification_plan: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="JSON with modification plan"
+    )
+    modification_applied: Mapped[bool] = mapped_column(
         Boolean, default=False, comment="Whether modifications were applied"
     )
-    original_score = Column(Integer, nullable=True, comment="Original score before modifications")
-    original_market = Column(String, nullable=True, comment="Original market before modifications")
+    original_score: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Original score before modifications"
+    )
+    original_market: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Original market before modifications"
+    )
 
     # V9.5: Cross-Source Convergence Detection
-    is_convergent = Column(
+    is_convergent: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         comment="True if signal confirmed by both Web (Brave) and Social (Nitter) sources",
     )
-    convergence_sources = Column(
+    convergence_sources: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="JSON: {'web': {'type': 'Injury', 'confidence': 0.8}, 'social': {'type': 'Injury', 'confidence': 0.75}}",
@@ -349,14 +481,16 @@ class NewsLog(Base):
     # Timestamps
     # COVE FIX: Use timezone-aware datetime for consistency with Match model
     # datetime.utcnow() returns naive datetime, datetime.now(timezone.utc) returns timezone-aware
-    timestamp = Column(DateTime, default=datetime.now(timezone.utc), comment="Analysis timestamp")
-    created_at = Column(
-        DateTime, default=datetime.now(timezone.utc), comment="Record creation time"
+    timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), comment="Analysis timestamp"
     )
-    updated_at = Column(
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), comment="Record creation time"
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime,
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         comment="Last update time",
     )
 
@@ -452,20 +586,28 @@ class TeamAlias(Base):
 
     __tablename__ = "team_aliases"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    api_name = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    api_name: Mapped[str] = mapped_column(
         String, unique=True, nullable=False, comment="Team name from API (The-Odds-API)"
     )
-    search_name = Column(String, nullable=False, comment="Clean name for search queries")
-    twitter_handle = Column(
+    search_name: Mapped[str] = mapped_column(
+        String, nullable=False, comment="Clean name for search queries"
+    )
+    twitter_handle: Mapped[str | None] = mapped_column(
         String, nullable=True, comment="Twitter/X handle (e.g., @GalatasaraySK)"
     )
-    telegram_channel = Column(
+    telegram_channel: Mapped[str | None] = mapped_column(
         String, nullable=True, comment="Telegram channel (e.g., 'galatasaray')"
     )
-    fotmob_id = Column(String, nullable=True, comment="FotMob team ID for data enrichment")
-    country = Column(String, nullable=True, comment="Team country for regional context")
-    league = Column(String, nullable=True, comment="Primary league for this team")
+    fotmob_id: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="FotMob team ID for data enrichment"
+    )
+    country: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Team country for regional context"
+    )
+    league: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Primary league for this team"
+    )
 
     # Indexes
     __table_args__ = (
@@ -487,42 +629,68 @@ class ModificationHistory(Base):
     __tablename__ = "modification_history"
 
     # Primary identification
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    alert_id = Column(Integer, ForeignKey("news_logs.id", ondelete="CASCADE"), nullable=False)
-    match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    alert_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("news_logs.id", ondelete="CASCADE"), nullable=False
+    )
+    match_id: Mapped[str] = mapped_column(
+        String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False
+    )
 
     # Modification details
-    modification_type = Column(
+    modification_type: Mapped[str] = mapped_column(
         String,
         nullable=False,
         comment="Type: market_change, score_adjustment, data_correction, reasoning_update (combo_modification removed as dead code)",
     )
-    original_value = Column(Text, nullable=True, comment="Original value before modification")
-    suggested_value = Column(Text, nullable=True, comment="Suggested value after modification")
-    reason = Column(Text, nullable=True, comment="Reason for the modification")
-    priority = Column(String, nullable=False, comment="Priority: critical, high, medium, low")
-    confidence = Column(Float, nullable=True, comment="Confidence level (0-1)")
-    impact_assessment = Column(
+    original_value: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Original value before modification"
+    )
+    suggested_value: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Suggested value after modification"
+    )
+    reason: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Reason for the modification"
+    )
+    priority: Mapped[str] = mapped_column(
+        String, nullable=False, comment="Priority: critical, high, medium, low"
+    )
+    confidence: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Confidence level (0-1)"
+    )
+    impact_assessment: Mapped[str | None] = mapped_column(
         String, nullable=True, comment="Impact assessment: HIGH, MEDIUM, LOW"
     )
 
     # Execution details
-    applied = Column(Boolean, default=False, comment="Whether modification was applied")
-    success = Column(Boolean, nullable=True, comment="Whether modification was successful")
-    error_message = Column(Text, nullable=True, comment="Error message if failed")
+    applied: Mapped[bool] = mapped_column(
+        Boolean, default=False, comment="Whether modification was applied"
+    )
+    success: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True, comment="Whether modification was successful"
+    )
+    error_message: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Error message if failed"
+    )
 
     # Context
-    verification_context = Column(Text, nullable=True, comment="JSON with verification context")
-    component_communications = Column(
+    verification_context: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="JSON with verification context"
+    )
+    component_communications: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="JSON with component communication results"
     )
 
     # Timestamps
     # COVE FIX: Use timezone-aware datetime for consistency
-    created_at = Column(
-        DateTime, default=datetime.now(timezone.utc), comment="When modification was suggested"
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        comment="When modification was suggested",
     )
-    applied_at = Column(DateTime, nullable=True, comment="When modification was applied")
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="When modification was applied"
+    )
 
     # Relationships
     alert = relationship("NewsLog", backref="modifications")
@@ -550,34 +718,56 @@ class ManualReview(Base):
     __tablename__ = "manual_reviews"
 
     # Primary identification
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    alert_id = Column(Integer, ForeignKey("news_logs.id", ondelete="CASCADE"), nullable=False)
-    match_id = Column(String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    alert_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("news_logs.id", ondelete="CASCADE"), nullable=False
+    )
+    match_id: Mapped[str] = mapped_column(
+        String, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False
+    )
 
     # Review details
-    modification_plan = Column(Text, nullable=False, comment="JSON with modification plan")
-    original_alert_data = Column(Text, nullable=True, comment="JSON with original alert data")
-    context_data = Column(Text, nullable=True, comment="JSON with context data")
+    modification_plan: Mapped[str] = mapped_column(
+        Text, nullable=False, comment="JSON with modification plan"
+    )
+    original_alert_data: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="JSON with original alert data"
+    )
+    context_data: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="JSON with context data"
+    )
 
     # Status tracking
-    status = Column(
+    status: Mapped[str] = mapped_column(
         String,
         default="pending_review",
         comment="Status: pending_review, reviewed, approved, rejected",
     )
-    reviewed_by = Column(String, nullable=True, comment="Username of reviewer")
-    review_timestamp = Column(DateTime, nullable=True, comment="When review was completed")
-    review_decision = Column(String, nullable=True, comment="Decision: approve, reject, modify")
-    review_notes = Column(Text, nullable=True, comment="Notes from reviewer")
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Username of reviewer"
+    )
+    review_timestamp: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="When review was completed"
+    )
+    review_decision: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="Decision: approve, reject, modify"
+    )
+    review_notes: Mapped[str | None] = mapped_column(
+        Text, nullable=True, comment="Notes from reviewer"
+    )
 
     # Risk assessment
-    risk_level = Column(String, nullable=False, comment="Risk level: LOW, MEDIUM, HIGH")
-    modification_count = Column(Integer, nullable=False, comment="Number of modifications needed")
+    risk_level: Mapped[str] = mapped_column(
+        String, nullable=False, comment="Risk level: LOW, MEDIUM, HIGH"
+    )
+    modification_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="Number of modifications needed"
+    )
 
     # Timestamps
     # COVE FIX: Use timezone-aware datetime for consistency
-    created_at = Column(
-        DateTime, default=datetime.now(timezone.utc), comment="When review was queued"
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), comment="When review was queued"
     )
 
     # Relationships
@@ -606,29 +796,43 @@ class LearningPattern(Base):
     __tablename__ = "learning_patterns"
 
     # Primary identification
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    pattern_key = Column(String, unique=True, nullable=False, comment="Unique pattern identifier")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pattern_key: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False, comment="Unique pattern identifier"
+    )
 
     # Pattern data
-    modification_count = Column(
+    modification_count: Mapped[int] = mapped_column(
         Integer, nullable=False, comment="Number of modifications in pattern"
     )
-    confidence_level = Column(String, nullable=False, comment="Confidence level: HIGH, MEDIUM, LOW")
-    discrepancy_count = Column(Integer, nullable=False, comment="Number of data discrepancies")
+    confidence_level: Mapped[str] = mapped_column(
+        String, nullable=False, comment="Confidence level: HIGH, MEDIUM, LOW"
+    )
+    discrepancy_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="Number of data discrepancies"
+    )
 
     # Decision tracking
-    total_occurrences = Column(Integer, default=0, comment="Total times pattern occurred")
-    auto_apply_count = Column(Integer, default=0, comment="Times AUTO_APPLY was chosen")
-    manual_review_count = Column(Integer, default=0, comment="Times MANUAL_REVIEW was chosen")
-    ignore_count = Column(Integer, default=0, comment="Times IGNORE was chosen")
+    total_occurrences: Mapped[int] = mapped_column(
+        Integer, default=0, comment="Total times pattern occurred"
+    )
+    auto_apply_count: Mapped[int] = mapped_column(
+        Integer, default=0, comment="Times AUTO_APPLY was chosen"
+    )
+    manual_review_count: Mapped[int] = mapped_column(
+        Integer, default=0, comment="Times MANUAL_REVIEW was chosen"
+    )
+    ignore_count: Mapped[int] = mapped_column(Integer, default=0, comment="Times IGNORE was chosen")
 
     # Success metrics
-    success_rate = Column(Float, nullable=True, comment="Success rate when applied")
+    success_rate: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Success rate when applied"
+    )
     # COVE FIX: Use timezone-aware datetime for consistency
-    last_updated = Column(
+    last_updated: Mapped[datetime | None] = mapped_column(
         DateTime,
-        default=datetime.now(timezone.utc),
-        onupdate=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         comment="Last update time",
     )
 
@@ -859,7 +1063,7 @@ def vacuum_db() -> None:
     """Run VACUUM to optimize database file size."""
     try:
         with engine.connect() as conn:
-            conn.execute("VACUUM")
+            conn.execute(text("VACUUM"))
         logger.info("Database vacuum completed")
     except Exception as e:
         logger.error(f"Database vacuum failed: {e}")

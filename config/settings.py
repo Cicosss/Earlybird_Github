@@ -594,6 +594,78 @@ PAUSE_FILE = os.path.join(DATA_DIR, "pause.lock")
 # including run_telegram_monitor.py, run_news_radar.py, and prevents launcher restarts
 STOP_FILE = os.path.join(DATA_DIR, "stop.lock")
 
+
+# ========================================
+# PROCESS CONTROL UTILITIES (V14.1)
+# ========================================
+def is_stop_requested() -> bool:
+    """
+    Check if a full system stop has been requested via /stop command.
+
+    This is the centralized, zero-dependency check that ALL components
+    should call inside long-running loops (Nitter scraping, Telegram channel
+    iteration, sleep cycles, thread loops) to enable responsive /stop.
+
+    Returns True if stop.lock file exists (system should halt).
+    """
+    return os.path.exists(STOP_FILE)
+
+
+def is_pause_requested() -> bool:
+    """
+    Check if the system has been paused via /pause or legacy mechanism.
+
+    Returns True if pause.lock file exists.
+    """
+    return os.path.exists(PAUSE_FILE)
+
+
+def cleanup_stale_stop_lock() -> bool:
+    """
+    Remove stale stop.lock if it predates the system boot time.
+
+    On VPS crash/reboot, a stop.lock from a previous session becomes stale
+    because no admin initiated it in the current session. This would deadlock
+    the system (launcher refuses to start processes, no bot to receive /start).
+
+    Detection: compare stop.lock mtime with /proc/1 boot time.
+    If the file is older than boot → it's stale → remove it.
+    If the file is newer than boot → admin intentionally stopped → keep it.
+
+    Returns True if a stale lock was removed, False otherwise.
+    """
+    if not os.path.exists(STOP_FILE):
+        return False
+
+    try:
+        lock_mtime = os.path.getmtime(STOP_FILE)
+
+        # Get system boot time from /proc/stat (Linux-specific, zero-dependency)
+        boot_time = None
+        try:
+            with open("/proc/stat", "r") as f:
+                for line in f:
+                    if line.startswith("btime "):
+                        boot_time = float(line.split()[1])
+                        break
+        except (FileNotFoundError, IndexError, ValueError):
+            pass
+
+        if boot_time is not None and lock_mtime < boot_time:
+            # Lock file predates boot → stale from previous session
+            import logging
+            os.remove(STOP_FILE)
+            logging.getLogger(__name__).warning(
+                "🔄 Removed stale stop.lock (predates system boot) — "
+                "VPS reboot clears /stop state"
+            )
+            return True
+
+    except OSError:
+        pass
+
+    return False
+
 # ========================================
 # ANALYZER LIMITS (V6.1)
 # ========================================

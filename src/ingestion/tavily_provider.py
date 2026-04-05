@@ -560,7 +560,7 @@ class TavilyProvider:
             # Parse response
             data = response.json()
 
-            results = []
+            results: list[dict[str, Any]] = []
             for item in data.get("results", []):
                 results.append(
                     TavilyResult(
@@ -669,7 +669,7 @@ class TavilyProvider:
             data = response.json()
             web_results = safe_get(data, "web", "results", default=[])
 
-            results = []
+            results: list[dict[str, Any]] = []
             for item in web_results[:max_results]:
                 results.append(
                     TavilyResult(
@@ -783,7 +783,7 @@ class TavilyProvider:
                 logger.warning("⚠️ [DDG] No results found")
                 return None
 
-            results = []
+            results: list[dict[str, Any]] = []
             for item in ddg_results[:max_results]:
                 results.append(
                     TavilyResult(

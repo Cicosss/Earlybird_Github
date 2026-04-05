@@ -134,7 +134,7 @@ class TweetRelevanceFilter:
             logger.debug("[TWEET-FILTER] Empty or invalid text")
             return {"is_relevant": False, "score": 0.0, "topics": []}
 
-        topics = []
+        topics: list[str] = []
 
         # Priority 1: Check for excluded sports (basketball, tennis, etc.)
         # VPS FIX: Add error handling
@@ -403,7 +403,7 @@ def calculate_relevance_score(tweet_topics: list[str] | None, tweet_content: str
         Relevance score (0.0-1.0)
     """
     if not tweet_topics:
-        tweet_topics = []
+        tweet_topics: list[str] = []
 
     score = 0.0
 
@@ -615,7 +615,7 @@ def filter_tweets_for_match(
                 formatted_for_ai="",
             )
 
-        scored_tweets = []
+        scored_tweets: list[ScoredTweet] = []
 
         for tweet_data in all_tweets:
             try:
@@ -727,7 +727,7 @@ def format_tweets_for_ai(
     if not tweets:
         return ""
 
-    lines = []
+    lines: list[str] = []
     lines.append(f"🐦 TWITTER INTEL ({total_relevant} relevant tweets)")
     lines.append("=" * 60)
 

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/image_ocr.py
+# hypothesis_version: 6.151.4
+
+[0.3, 0.5, 2.0, 100, 200, 1000, '--psm 6', '0', '1', '2', '5', 'Empty text', 'I', 'L', 'No intent keywords', 'No text', 'O', 'S', 'Z', '\\s+', 'cup_absence', 'file://', 'injury', 'squad_list', 'suspension', 'team', 'tur+ita+pol+eng', 'type', 'youth_callup']

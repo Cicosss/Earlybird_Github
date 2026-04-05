@@ -65,6 +65,27 @@ LOW_IMPACT_KEYWORDS = [
     r"\b(interview|quotes|comments)\b",
 ]
 
+# V12.7: Source Credibility Classification
+# Forum/rumor sources that REQUIRE VerificationLayer (Tavily fallback) before 9.0 threshold
+FORUM_DOMAINS: set[str] = {
+    "pieandbovril.com",
+    "austriansoccerboard.at",
+    "reddit.com",
+    "facebook.com",
+    "tiktok.com",
+    "quora.com",
+}
+
+# V12.7: Official/institutional portals that BYPASS VerificationLayer
+# These are verified official league/club portals with first-hand information
+OFFICIAL_PORTAL_DOMAINS: set[str] = {
+    "uaeproleague.ae",
+    "90minut.pl",
+    "aleagues.com.au",
+    "ekstraklasa.org",
+    "jleague.jp",
+}
+
 
 @dataclass
 class NewsScore:
@@ -87,6 +108,9 @@ class NewsScore:
     detected_keywords: list[str] = field(default_factory=list)
     players_mentioned: list[str] = field(default_factory=list)
     news_age_hours: float | None = None
+    # V12.7: Forum sources MUST trigger VerificationLayer (Tavily fallback)
+    # before hitting the 9.0 threshold. Official portals bypass this requirement.
+    requires_verification: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -105,6 +129,7 @@ class NewsScore:
             "primary_driver": self.primary_driver,
             "detected_keywords": self.detected_keywords[:5],  # Limit to 5
             "players_mentioned": self.players_mentioned[:3],  # Limit to 3
+            "requires_verification": self.requires_verification,
         }
 
 
@@ -115,15 +140,47 @@ def _score_source(url: str) -> tuple[float, SourceTier]:
     TIER 1 sources (in Supabase white-list): 3 points
     TIER 3 sources (not in white-list): 1 point
 
-    Note: TIER 2 has been eliminated - sources are either in white-list (Tier 1)
-    or not (Tier 3). This is the "Zero-Maintenance Credibility Strategy".
+    V12.7: Forum sources are flagged with source_type="forum" and
+    requires_verification=True, meaning they MUST pass VerificationLayer
+    (Tavily fallback) before reaching the 9.0 confidence threshold.
+    Official portals (in Supabase white-list) bypass this requirement.
     """
     tier_info = get_trust_score(url)
+
+    # V12.7: Forum source detection
+    # Extract domain for forum check
+    normalized = url.strip().lower() if url else ""
+    if "://" in normalized:
+        normalized = normalized.split("://")[1]
+    domain = normalized.split("/")[0]
+    if domain.startswith("www."):
+        domain = domain[4:]
+
+    if _is_forum_domain(domain):
+        # Forum source: override source_type to "forum"
+        # Tier stays as-is (likely 3), but the flag propagates downstream
+        return 1.0, SourceTier(tier=tier_info.tier, weight=tier_info.weight, source_type="forum")
 
     if tier_info.tier == 1:
         return 3.0, tier_info
     else:
         return 1.0, tier_info
+
+
+def _is_forum_domain(domain: str) -> bool:
+    """
+    V12.7: Check if a domain is a known fan forum / rumor board.
+
+    Forum sources provide crowd-sourced intel that needs independent
+    verification via Tavily/Perplexity before reaching high confidence.
+    """
+    if not domain:
+        return False
+    domain_lower = domain.lower()
+    for forum in FORUM_DOMAINS:
+        if forum in domain_lower or domain_lower.endswith(forum):
+            return True
+    return False
 
 
 def _score_content(text: str) -> tuple[float, list[str]]:
@@ -137,7 +194,7 @@ def _score_content(text: str) -> tuple[float, list[str]]:
         return 0.0, []
 
     text_lower = text.lower()
-    detected = []
+    detected: list[dict[str, Any]] = []
     score = 0.0
 
     # Check high-impact keywords
@@ -394,6 +451,9 @@ def score_news_item(news_item: dict[str, Any]) -> NewsScore:
         detected_keywords=detected_keywords,
         players_mentioned=players,
         news_age_hours=news_age_hours,
+        # V12.7: Forum sources MUST trigger VerificationLayer (Tavily fallback)
+        # Official portals (Tier 1) bypass this requirement.
+        requires_verification=(source_info.source_type == "forum"),
     )
 
 
@@ -422,7 +482,7 @@ def score_news_batch(news_items: list[dict[str, Any]]) -> dict[str, Any]:
             "top_item": None,
         }
 
-    scored_items = []
+    scored_items: list[dict[str, Any]] = []
     for item in news_items:
         score = score_news_item(item)
         scored_items.append(
@@ -458,12 +518,24 @@ def format_news_score_for_prompt(news_score: NewsScore) -> str:
     Format news score for inclusion in DeepSeek prompt.
 
     This gives DeepSeek explicit information about news credibility.
+    V12.7: Includes forum source warning for verification requirement.
     """
+    # V12.7: Forum sources require VerificationLayer (Tavily fallback)
+    verification_warning = ""
+    if news_score.requires_verification:
+        verification_warning = (
+            "\n- ⚠️ FORUM/RUMOR SOURCE: This intelligence originates from a fan forum or "
+            "unverified community board. It MUST be treated with skepticism. "
+            "Apply Internal Crisis veto ONLY if corroborated by official data. "
+            "Do NOT let this source alone push the score above 9.0 without VerificationLayer."
+        )
+
     return (
         f"[NEWS CREDIBILITY: {news_score.tier}]\n"
         f"- Source: TIER {news_score.source_tier} ({news_score.source_type}) - weight {news_score.source_weight:.0%}\n"
         f"- Score: {news_score.raw_score:.1f}/10 ({news_score.primary_driver})\n"
         f"- Keywords detected: {', '.join(news_score.detected_keywords[:3]) if news_score.detected_keywords else 'None'}"
+        f"{verification_warning}"
     )
 
 

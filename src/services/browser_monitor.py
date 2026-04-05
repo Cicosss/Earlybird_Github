@@ -127,6 +127,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# P5: Import stop check utility
+from config.settings import is_stop_requested
+
 # Configuration constants
 DEFAULT_CONFIG_FILE = "config/browser_sources.json"
 MAX_TEXT_LENGTH = 30000  # 30k characters
@@ -642,7 +645,7 @@ def load_config(config_file: str = DEFAULT_CONFIG_FILE) -> MonitorConfig:
         )
 
         # Parse sources
-        sources = []
+        sources: list[MonitoredSource] = []
         for src_data in data.get("sources", []):
             if "url" not in src_data or "league_key" not in src_data:
                 logger.warning(f"⚠️ [BROWSER-MONITOR] Skipping invalid source: {src_data}")
@@ -2018,11 +2021,11 @@ class BrowserMonitor:
                             f"⚠️ [BROWSER-MONITOR] Failed to extract links with "
                             f"selector '{link_selector}': {e}"
                         )
-                        links = []
+                        links: list[str] = []
 
                     # V7.4: Deduplicate and limit links
                     seen_links = set()
-                    unique_links = []
+                    unique_links: list[str] = []
                     for link in links:
                         if link not in seen_links and len(unique_links) < max_links:
                             seen_links.add(link)
@@ -2160,7 +2163,7 @@ class BrowserMonitor:
         max_age_seconds = max_age_hours * 3600
 
         # Find breakers to remove (no recent failure = not actively tracked)
-        to_remove = []
+        to_remove: list[str] = []
         for url, cb in self._circuit_breakers.items():
             # Remove if: no failure recorded OR last failure was too long ago
             if cb.last_failure_time is None:
@@ -2320,6 +2323,11 @@ class BrowserMonitor:
         logger.info("🔄 [BROWSER-MONITOR] Scan loop started")
 
         while self._running and not self._stop_event.is_set():
+            # P5: Check for full stop
+            if is_stop_requested():
+                logger.info("🛑 [BROWSER-MONITOR] Stop requested, breaking scan loop")
+                break
+
             try:
                 # Check for config hot reload
                 if self._check_config_changed():
@@ -2486,8 +2494,12 @@ class BrowserMonitor:
         )
 
         if not results:
-            # No content extracted - could be network error or empty page
-            # Don't count as network error for circuit breaker (selector might just not match)
+            # V12.6: Record failure for circuit breaker.
+            # Previously skipped, causing infinite retry loops when paginated extraction
+            # fails due to Cloudflare blocks, timeouts, or other network errors.
+            # The circuit breaker threshold (default: 3) prevents false opens from
+            # occasional selector mismatches.
+            self._record_source_failure(source.url, is_network_error=True)
             logger.debug(
                 f"📄 [BROWSER-MONITOR] No content from paginated source: {source.url[:40]}..."
             )
@@ -2651,6 +2663,7 @@ class BrowserMonitor:
             summary = (analysis.get("summary") or "").strip()
 
         # Validate category is one of the allowed values
+        # V12.8: Added LOGISTICAL_CRISIS for travel disruption / strike detection
         valid_categories = {
             "INJURY",
             "LINEUP",
@@ -2660,6 +2673,7 @@ class BrowserMonitor:
             "NATIONAL_TEAM",
             "YOUTH_CALLUP",
             "CUP_ABSENCE",
+            "LOGISTICAL_CRISIS",
             "OTHER",
         }
         if category not in valid_categories:
@@ -2797,7 +2811,7 @@ class BrowserMonitor:
                 self._tavily_budget.record_call("browser_monitor")
 
                 # Merge original content with Tavily results
-                merged_parts = []
+                merged_parts: list[str] = []
 
                 if content.strip():
                     merged_parts.append(content)

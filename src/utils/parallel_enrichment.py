@@ -101,7 +101,7 @@ class EnrichmentResult:
 
     def get_summary(self) -> str:
         """Get human-readable summary of enrichment."""
-        parts = []
+        parts: list[str] = []
 
         if self.has_injuries():
             home_count = len(self.home_context.get("injuries", []))

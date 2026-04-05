@@ -38,6 +38,41 @@ def get_table_columns(cursor, table_name: str) -> set:
     return columns
 
 
+def _apply_supabase_data_fixes() -> None:
+    """
+    Apply known data fixes to Supabase news_sources.
+
+    V12.6: This function integrates the manual fix_paginated_sources.py
+    into the standard migration flow. It is idempotent and safe to call
+    on every migration run.
+
+    The actual fix logic lives in SupabaseProvider.apply_known_data_fixes()
+    which is the SINGLE SOURCE OF TRUTH for all known source misconfigurations.
+    """
+    try:
+        from src.database.supabase_provider import SupabaseProvider
+
+        provider = SupabaseProvider()
+        if not provider.is_connected():
+            logger.info(
+                "🛠️ [DB-MIGRATION] Supabase not connected - "
+                "skipping data fixes (will use local mirror)"
+            )
+            return
+
+        fixes = provider.apply_known_data_fixes()
+        if fixes > 0:
+            logger.info(f"🛠️ [DB-MIGRATION] Applied {fixes} Supabase data fix(es)")
+        else:
+            logger.info("🛠️ [DB-MIGRATION] Supabase sources verified - no fixes needed")
+
+    except ImportError:
+        logger.debug("🛠️ [DB-MIGRATION] SupabaseProvider not available - skipping data fixes")
+    except Exception as e:
+        # Non-fatal: data fixes should NOT block migration
+        logger.warning(f"🛠️ [DB-MIGRATION] Supabase data fixes failed (non-fatal): {e}")
+
+
 def check_and_migrate():
     """
     Check database schema and apply migrations if needed.
@@ -49,6 +84,10 @@ def check_and_migrate():
 
     Safe to run multiple times - only adds missing columns.
     """
+    # V12.6: Always apply Supabase data fixes FIRST (operates on remote DB, not local SQLite).
+    # This must run even when the local DB doesn't exist yet (fresh VPS scenario).
+    _apply_supabase_data_fixes()
+
     if not os.path.exists(DB_PATH):
         logger.info("📦 Database not found - will be created on first run")
         return
@@ -236,7 +275,9 @@ def check_and_migrate():
         # CRITICAL FIX: Added to prevent OperationalError when settlement_service
         # tries to save line_movement_explanation to news_logs
         if "line_movement_explanation" not in news_logs_columns:
-            logger.info("   📝 Adding column: news_logs.line_movement_explanation (V14.0 - Line Movement)")
+            logger.info(
+                "   📝 Adding column: news_logs.line_movement_explanation (V14.0 - Line Movement)"
+            )
             cursor.execute("ALTER TABLE news_logs ADD COLUMN line_movement_explanation TEXT")
             migrations_applied += 1
 

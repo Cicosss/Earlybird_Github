@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
 def test_supabase_leagues_by_continent():
     """Test Supabase connection and check active leagues by continent."""
     print("=" * 80)
@@ -39,12 +40,14 @@ def test_supabase_leagues_by_continent():
     print("[2/4] Creating SupabaseProvider...")
     try:
         from src.database.supabase_provider import get_supabase
+
         supabase = get_supabase()
         print("✅ SupabaseProvider created successfully")
         print()
     except Exception as e:
         print(f"❌ Failed to create SupabaseProvider: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -57,6 +60,7 @@ def test_supabase_leagues_by_continent():
     except Exception as e:
         print(f"❌ Failed to fetch active leagues: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -67,7 +71,9 @@ def test_supabase_leagues_by_continent():
     for league in all_leagues:
         # continent is a nested object with a 'name' field
         continent_obj = league.get("continent", {})
-        continent = continent_obj.get("name", "UNKNOWN") if isinstance(continent_obj, dict) else "UNKNOWN"
+        continent = (
+            continent_obj.get("name", "UNKNOWN") if isinstance(continent_obj, dict) else "UNKNOWN"
+        )
 
         if continent not in leagues_by_continent:
             leagues_by_continent[continent] = []
@@ -123,6 +129,7 @@ def test_supabase_leagues_by_continent():
     print("✅ Supabase leagues verification PASSED")
     return True
 
+
 if __name__ == "__main__":
     try:
         success = test_supabase_leagues_by_continent()
@@ -130,5 +137,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"❌ Test failed with exception: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

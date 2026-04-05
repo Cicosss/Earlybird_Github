@@ -15,6 +15,7 @@ print("TEST 1: Cache Miss Monitoring in verification_layer.py")
 print("=" * 60)
 try:
     from src.analysis.verification_layer import REFEREE_CACHE_MONITOR_AVAILABLE
+
     print(f"✅ REFEREE_CACHE_MONITOR_AVAILABLE = {REFEREE_CACHE_MONITOR_AVAILABLE}")
     if REFEREE_CACHE_MONITOR_AVAILABLE:
         print("✅ Referee cache monitor is available")
@@ -41,7 +42,7 @@ try:
         sys.exit(1)
 
     # Check if lock is initialized
-    if hasattr(OrchestrationMetricsCollector, '__init__'):
+    if hasattr(OrchestrationMetricsCollector, "__init__"):
         init_source = inspect.getsource(OrchestrationMetricsCollector.__init__)
         if "self._lock = threading.Lock()" in init_source:
             print("✅ Lock is initialized in __init__()")
@@ -74,6 +75,7 @@ try:
 
     # Check if RotatingFileHandler is imported
     import src.analysis.referee_boost_logger as logger_module
+
     logger_source = inspect.getsource(logger_module)
     if "from logging.handlers import RotatingFileHandler" in logger_source:
         print("✅ RotatingFileHandler is imported")

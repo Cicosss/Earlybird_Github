@@ -78,7 +78,7 @@ def _tavily_post_match_search(home_team: str, away_team: str, match_date: dateti
         if response:
             budget.record_call("settlement_clv")
 
-            insights = []
+            insights: list[str] = []
 
             if response.answer:
                 insights.append(response.answer[:300])
@@ -333,8 +333,8 @@ def evaluate_combo_bet(
     if len(components) != 2:
         return RESULT_PENDING, f"Combo con {len(components)} componenti non supportata", "unknown"
 
-    outcomes = []
-    explanations = []
+    outcomes: list[str] = []
+    explanations: list[str] = []
     expansion_type = "unknown"
 
     for i, component in enumerate(components):
@@ -577,7 +577,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
     }
 
     # PHASE 1: Query DB (fast, minimal lock time)
-    matches_to_settle = []
+    matches_to_settle: list[dict[str, Any]] = []
 
     with get_db_context() as db:
         try:
@@ -653,7 +653,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
     # PHASE 2: Fetch results from FotMob (NO DB LOCK)
     logger.info(f"🌐 Fetching results for {len(matches_to_settle)} matches (no DB lock)...")
 
-    results_cache = []
+    results_cache: list[dict[str, Any]] = []
 
     for match_data in matches_to_settle:
         stats["total_checked"] += 1

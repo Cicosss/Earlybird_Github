@@ -14,4 +14,4 @@ Data ingestion from external sources (APIs, scrapers, etc.).
 # - from src.ingestion.search_provider import SearchProvider (not from src.ingestion import SearchProvider)
 # - from src.ingestion.tavily_provider import TavilyProvider (not from src.ingestion import TavilyProvider)
 
-__all__ = []
+__all__: list[str] = []

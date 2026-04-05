@@ -405,6 +405,18 @@ def main():
     logger.info(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("=" * 60)
 
+    # V14.1 COVE FIX: Clean up stale stop.lock from previous VPS session.
+    # If the VPS crashed while /stop was active, stop.lock persists on disk.
+    # On reboot, this would deadlock the system (launcher won't start processes,
+    # no bot running to receive /start). This compares stop.lock mtime vs boot time.
+    try:
+        from config.settings import cleanup_stale_stop_lock
+
+        if cleanup_stale_stop_lock():
+            logger.info("🔄 Stale stop.lock removed — system will start normally")
+    except Exception as e:
+        logger.warning(f"⚠️ Stale lock cleanup check failed (non-critical): {e}")
+
     # Scoperta dinamica dei processi
     logger.info("🔍 Ricerca script disponibili...")
     PROCESSES = discover_processes()

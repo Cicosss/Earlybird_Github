@@ -57,6 +57,7 @@ def test_supabase_provider_singleton():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -73,7 +74,7 @@ def test_global_orchestrator_integration():
         orchestrator = get_global_orchestrator()
 
         # Check if SupabaseProvider is initialized
-        if hasattr(orchestrator, 'supabase_provider'):
+        if hasattr(orchestrator, "supabase_provider"):
             print("✅ GlobalOrchestrator has SupabaseProvider")
         else:
             print("❌ GlobalOrchestrator missing SupabaseProvider!")
@@ -92,6 +93,7 @@ def test_global_orchestrator_integration():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -124,6 +126,7 @@ def test_news_hunter_integration():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -145,6 +148,7 @@ def test_league_manager_integration():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -170,6 +174,7 @@ def main():
         except Exception as e:
             print(f"❌ Test failed with exception: {e}")
             import traceback
+
             traceback.print_exc()
             results.append(False)
 

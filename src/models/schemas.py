@@ -16,9 +16,11 @@ class GeminiResponse(BaseModel):
     Validated response from Gemini Agent deep dive analysis.
 
     ⚠️ DEPRECATED (V6.0+): This schema is legacy code and is NOT actively instantiated.
-    The system has migrated to DeepDiveResponse from src/schemas/perplexity_schemas.py,
-    which is used by DeepSeekIntelProvider (primary), PerplexityProvider (fallback),
-    and OpenRouterFallbackProvider (Claude 3 Haiku fallback).
+    The the system has migrated to DeepDiveResponse from src/schemas/perplexity_schemas.py,
+    which is used by DeepSeekIntelProvider (primary), and OpenRouterFallbackProvider (Claude 3 Haiku fallback).
+
+    Architecture: DeepSeek (primary) → Claude 3 Haiku (fallback).
+    Tavily serves as pre-enrichment/search provider, not as AI analysis fallback.
 
     All fields have safe defaults to prevent None propagation.
     """
@@ -45,8 +47,8 @@ class GeminiResponse(BaseModel):
         warnings.warn(
             "GeminiResponse is DEPRECATED (V6.0+). "
             "Use DeepDiveResponse from src.schemas.perplexity_schemas instead. "
-            "The system now uses DeepSeek as primary provider with three-level fallback: "
-            "DeepSeek → Tavily → Claude 3 Haiku.",
+            "The system now uses a two-level AI fallback chain with Tavily enrichment: "
+            "DeepSeek (primary) → Claude 3 Haiku (fallback).",
             DeprecationWarning,
             stacklevel=2,
         )

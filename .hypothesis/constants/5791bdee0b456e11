@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/alerting/orchestration_metrics.py
+# hypothesis_version: 6.151.4
+
+[0.0, 1.0, 80.0, 85.0, 90.0, 100, 300, 500, 600, 3600, 86400, '/', '0.5', '10', '5', '7', '80.0', '85.0', '90.0', 'CPU', 'DISK', 'ERROR', 'MEMORY', 'METRICS_DISK_PATH', '__main__', 'analysis_errors', 'api_errors', 'business', 'cache_corruption', 'cache_name', 'data', 'database_errors', 'earlybird.db', 'error', 'leagues', 'lock_contention', 'notification_errors', 'orchestration', 'referee_timeout', 'referee_wait_time', 'reset_lock_stats', 'restart_count', 'supabase_timeout', 'supabase_wait_time', 'system', 'timeout_count', 'timestamp', 'wait_count', 'wait_time_avg', 'wait_time_total', '📈 Business Metrics:', '🖥️ System Metrics:']

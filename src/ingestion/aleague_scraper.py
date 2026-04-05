@@ -236,7 +236,7 @@ def scrape_aleague_news_list() -> list[dict]:
     Returns:
         List of article metadata (url, title, date)
     """
-    articles = []
+    articles: list[dict[str, Any]] = []
 
     headers = {
         "User-Agent": USER_AGENT,
@@ -301,7 +301,7 @@ def scrape_aleague_news_list() -> list[dict]:
 
         # Deduplicate by URL
         seen_urls = set()
-        unique_articles = []
+        unique_articles: list[str] = []
         for article in articles:
             if article["url"] not in seen_urls:
                 seen_urls.add(article["url"])
@@ -393,7 +393,7 @@ def search_aleague_news(team_name: str, match_id: str, force: bool = False) -> l
         return []
 
     team_name = team_name.strip()
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Rate limiting - use atomic check-and-mark to prevent race conditions
     if not force and not _try_acquire_scrape_lock():

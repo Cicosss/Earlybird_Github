@@ -34,7 +34,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from config.settings import DEEPSEEK_CACHE_TTL_SECONDS
-from src.ingestion.brave_provider import get_brave_provider
+
+# Lazy import to prevent module-load failure if brave_provider is unavailable.
+# brave_provider depends on BRAVE_API_KEY and may raise ImportError if
+# dependencies are missing. Using a lazy pattern keeps this module loadable.
+try:
+    from src.ingestion.brave_provider import get_brave_provider
+except ImportError:
+    get_brave_provider = None  # type: ignore[assignment,misc]
+
 from src.ingestion.prompts import (
     build_betting_stats_prompt,
     build_biscotto_confirmation_prompt,
@@ -49,6 +57,12 @@ from src.prompts.system_prompts import (
 )
 from src.schemas.perplexity_schemas import DeepDiveResponse
 from src.utils.ai_parser import normalize_deep_dive_response, parse_ai_json
+from src.utils.normalizers import (
+    normalize_biscotto_confirmation,
+    normalize_final_alert_verification,
+    normalize_match_enrichment,
+    normalize_verification_result,
+)
 from src.utils.http_client import get_http_client
 from src.utils.validators import safe_get, safe_list_get
 
@@ -156,7 +170,7 @@ class DeepSeekIntelProvider:
             return
 
         try:
-            self._brave_provider = get_brave_provider()
+            self._brave_provider = get_brave_provider() if get_brave_provider is not None else None
             self._search_provider = get_search_provider()  # V6.1: DDG primary for DeepSeek
             self._http_client = get_http_client()  # Use centralized HTTP client
             self._enabled = True
@@ -692,112 +706,25 @@ Be conservative in your assessments when lacking current data.
     # ============================================
 
     def _normalize_verification_result(self, data: dict) -> dict:
-        """Normalize news verification response with safe defaults."""
+        """Normalize news verification response with safe defaults.
 
-        def safe_bool(val, default=False):
-            if val is None:
-                return default
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() in ("true", "yes", "si", "1", "confirmed")
-            return default
-
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        def safe_list(val, default=None):
-            if default is None:
-                default = []
-            if val is None:
-                return default
-            if isinstance(val, list):
-                return [str(v) for v in val if v]
-            if isinstance(val, str):
-                return [val]
-            return default
-
-        return {
-            "verified": safe_bool(data.get("verified")),
-            "verification_status": safe_str(data.get("verification_status"), "UNVERIFIED"),
-            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
-            "verification_sources": safe_list(data.get("verification_sources")),
-            "additional_context": safe_str(data.get("additional_context"), ""),
-            "betting_impact": safe_str(data.get("betting_impact"), "Unknown"),
-            "is_current": safe_bool(data.get("is_current"), True),
-            "notes": safe_str(data.get("notes"), ""),
-        }
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
+        """
+        return normalize_verification_result(data)
 
     def _normalize_biscotto_confirmation(self, data: dict) -> dict:
-        """Normalize biscotto confirmation response with safe defaults."""
+        """Normalize biscotto confirmation response with safe defaults.
 
-        def safe_bool(val, default=False):
-            if val is None:
-                return default
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() in ("true", "yes", "si", "1", "confirmed")
-            return default
-
-        def safe_int(val, default=0, min_val=0, max_val=30):
-            if val is None:
-                return default
-            try:
-                result = int(val)
-                return max(min_val, min(max_val, result))
-            except (ValueError, TypeError):
-                return default
-
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        return {
-            "biscotto_confirmed": safe_bool(data.get("biscotto_confirmed")),
-            "confidence_boost": safe_int(data.get("confidence_boost"), 0, 0, 30),
-            "home_team_objective": safe_str(data.get("home_team_objective")),
-            "away_team_objective": safe_str(data.get("away_team_objective")),
-            "mutual_benefit_found": safe_bool(data.get("mutual_benefit_found")),
-            "mutual_benefit_reason": safe_str(
-                data.get("mutual_benefit_reason"), "No clear mutual benefit"
-            ),
-            "h2h_pattern": safe_str(data.get("h2h_pattern"), "No data"),
-            "club_relationship": safe_str(data.get("club_relationship"), "None found"),
-            "manager_hints": safe_str(data.get("manager_hints"), "None found"),
-            "market_sentiment": safe_str(data.get("market_sentiment"), "Unknown"),
-            "additional_context": safe_str(data.get("additional_context"), ""),
-            "final_recommendation": safe_str(data.get("final_recommendation"), "MONITOR LIVE"),
-        }
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
+        """
+        return normalize_biscotto_confirmation(data)
 
     def _normalize_match_enrichment(self, data: dict) -> dict:
-        """Normalize match enrichment response with safe defaults."""
+        """Normalize match enrichment response with safe defaults.
 
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        return {
-            "home_form": safe_str(data.get("home_form")),
-            "home_form_trend": safe_str(data.get("home_form_trend")),
-            "away_form": safe_str(data.get("away_form")),
-            "away_form_trend": safe_str(data.get("away_form_trend")),
-            "home_recent_news": safe_str(data.get("home_recent_news")),
-            "away_recent_news": safe_str(data.get("away_recent_news")),
-            "h2h_recent": safe_str(data.get("h2h_recent")),
-            "h2h_goals_pattern": safe_str(data.get("h2h_goals_pattern")),
-            "match_importance": safe_str(data.get("match_importance")),
-            "home_motivation": safe_str(data.get("home_motivation")),
-            "away_motivation": safe_str(data.get("away_motivation")),
-            "weather_forecast": safe_str(data.get("weather_forecast")),
-            "weather_impact": safe_str(data.get("weather_impact")),
-            "additional_context": safe_str(data.get("additional_context"), ""),
-            "data_freshness": safe_str(data.get("data_freshness"), "Unknown"),
-        }
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
+        """
+        return normalize_match_enrichment(data)
 
     def _normalize_betting_stats(self, data: dict) -> dict:
         """
@@ -1100,7 +1027,7 @@ Be conservative in your assessments when lacking current data.
         ]
 
         # Filter items that need verification
-        items_to_verify = []
+        items_to_verify: list[dict] = []
         for item in news_items:
             confidence = item.get("confidence", "LOW")
 
@@ -1315,71 +1242,11 @@ Be conservative in your assessments when lacking current data.
             return None
 
     def _normalize_final_alert_verification(self, data: dict) -> dict:
-        """Normalize final alert verification response with safe defaults."""
+        """Normalize final alert verification response with safe defaults.
 
-        def safe_bool(val, default=False):
-            if val is None:
-                return default
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() in ("true", "yes", "si", "1", "confirmed")
-            return default
-
-        def safe_int(val, default=0, min_val=0, max_val=10):
-            if val is None:
-                return default
-            try:
-                result = int(val)
-                return max(min_val, min(max_val, result))
-            except (ValueError, TypeError):
-                return default
-
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        def safe_list(val, default=None):
-            if default is None:
-                default = []
-            if val is None:
-                return default
-            if isinstance(val, list):
-                return [str(v) for v in val if v]
-            if isinstance(val, str):
-                return [val]
-            return default
-
-        return {
-            "verification_status": safe_str(data.get("verification_status"), "NEEDS_REVIEW"),
-            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
-            "should_send": safe_bool(data.get("should_send"), False),
-            "logic_score": safe_int(data.get("logic_score"), 5, 0, 10),
-            "data_accuracy_score": safe_int(data.get("data_accuracy_score"), 5, 0, 10),
-            "reasoning_quality_score": safe_int(data.get("reasoning_quality_score"), 5, 0, 10),
-            "market_validation": safe_str(data.get("market_validation"), "QUESTIONABLE"),
-            "key_strengths": safe_list(data.get("key_strengths")),
-            "key_weaknesses": safe_list(data.get("key_weaknesses")),
-            "missing_information": safe_list(data.get("missing_information")),
-            "rejection_reason": safe_str(data.get("rejection_reason"), ""),
-            "final_recommendation": safe_str(data.get("final_recommendation"), "NO_BET"),
-            "suggested_modifications": safe_str(data.get("suggested_modifications"), ""),
-            "data_discrepancies": safe_list(data.get("data_discrepancies")),
-            "discrepancy_impact": safe_str(data.get("discrepancy_impact"), "MINOR"),
-            "adjusted_score_if_discrepancy": safe_int(
-                data.get("adjusted_score_if_discrepancy"), 5, 0, 10
-            ),
-            "source_verification": {
-                "source_confirmed": safe_bool(data.get("source_confirmed"), False),
-                "cross_source_found": safe_bool(data.get("cross_source_found"), False),
-                "source_bias_detected": safe_bool(data.get("source_bias_detected"), False),
-                "source_reliability_adjusted": safe_str(
-                    data.get("source_reliability_adjusted"), "LOW"
-                ),
-                "verification_issues": safe_list(data.get("verification_issues")),
-            },
-        }
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
+        """
+        return normalize_final_alert_verification(data)
 
     def enrich_match_context(
         self,
@@ -1527,7 +1394,7 @@ Be conservative in your assessments when lacking current data.
             ]
 
             # Collect all relevant tweets from cache
-            all_accounts = []
+            all_accounts: list[dict] = []
             for handle in valid_handles:
                 # Search cache for this handle
                 handle_clean = handle.replace("@", "")
@@ -1542,7 +1409,7 @@ Be conservative in your assessments when lacking current data.
                     tweets = relevant_tweets[:max_posts_per_account]
 
                     # Format posts to match expected structure
-                    posts = []
+                    posts: list[dict] = []
                     for tweet in tweets:
                         posts.append(
                             {

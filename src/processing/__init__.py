@@ -8,4 +8,4 @@ Orchestration and processing components.
 # - from src.processing.global_orchestrator import GlobalOrchestrator (not from src.processing import GlobalOrchestrator)
 # - from src.processing.news_hunter import run_hunter_for_match (not from src.processing import run_hunter_for_match)
 
-__all__ = []
+__all__: list[str] = []

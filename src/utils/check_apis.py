@@ -89,7 +89,7 @@ def test_odds_api():
         print("-" * 50)
 
         keywords = ["france", "romania", "cup", "coupe"]
-        found = []
+        found: list[tuple] = []
 
         for sport in sports:
             key = sport.get("key", "")
@@ -367,7 +367,7 @@ def test_tavily_api():
     print("=" * 60)
 
     # Test all 7 keys
-    keys = []
+    keys: list[str] = []
     for i in range(1, 8):
         key = os.getenv(f"TAVILY_API_KEY_{i}", "")
         keys.append(key)

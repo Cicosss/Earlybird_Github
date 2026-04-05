@@ -76,7 +76,7 @@ sudo apt-get install -y \
     htop \
     net-tools \
     telnet \
-     \
+    unzip \
     jq \
     openssh-server \
     ufw
@@ -177,7 +177,7 @@ echo -e "${GREEN}🌐 [3c/6] Installing Playwright Browser Automation (V7.0)...$
 # This section now only installs browser binaries, not the Python package
 
 # Install Chromium browser for Playwright (headless) - V7.2: use python -m for reliability
-echo -e "${GREEN}   Installing Chromium browser...${NC}"
+echo -e "${GREEN}   🎭 Installing Playwright Browsers (Standard)...${NC}"
 if ! python -m playwright install chromium; then
     echo -e "${RED}   ❌ CRITICAL: Failed to install Chromium browser${NC}"
     echo -e "${RED}   ❌ Bot will NOT work without Playwright Chromium${NC}"
@@ -194,6 +194,25 @@ if ! install_output=$(python -m playwright install-deps chromium 2>&1); then
     echo -e "${YELLOW}   Note: Playwright may still work if system dependencies are already installed${NC}"
 else
     echo -e "${GREEN}   ✅ System dependencies installed${NC}"
+fi
+
+# V12.6: Install Patchright browser engine (Stealth Chromium for Cloudflare bypass)
+# Patchright is an undetected Playwright fork used by StealthyFetcher
+# It needs its own browser binary separate from Playwright
+echo ""
+echo -e "${GREEN}   🥷 Installing Patchright Browsers (Stealth)...${NC}"
+if python -c "import patchright" 2>/dev/null; then
+    echo -e "${GREEN}   Patchright package detected, installing stealth Chromium...${NC}"
+    if ! python -m patchright install chromium 2>&1; then
+        echo -e "${YELLOW}   ⚠️  Patchright browser installation failed (non-critical)${NC}"
+        echo -e "${YELLOW}   ⚠️  Cloudflare bypass will use fallback path${NC}"
+        echo -e "${YELLOW}   ⚠️  Try manually: python -m patchright install chromium${NC}"
+    else
+        echo -e "${GREEN}   ✅ Patchright stealth Chromium installed${NC}"
+    fi
+else
+    echo -e "${YELLOW}   ⚠️  Patchright package not found (skipping browser install)${NC}"
+    echo -e "${YELLOW}   ℹ️  Install via: pip install patchright && python -m patchright install chromium${NC}"
 fi
 
 # V12.5 COVE FIX: Verify Playwright browser binaries are installed and accessible

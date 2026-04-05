@@ -15,7 +15,8 @@ from unittest.mock import patch, MagicMock
 # Import the module to test
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from ingestion.aleague_scraper import (
     _last_scrape_time,
@@ -33,9 +34,9 @@ def test_fix1_atomic_scrape_lock():
     Test Fix 1: Verify _try_acquire_scrape_lock() is atomic
     and prevents concurrent scrapes.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 1: Atomic Scrape Lock")
-    print("="*60)
+    print("=" * 60)
 
     # Reset global state
     global _last_scrape_time
@@ -84,9 +85,9 @@ def test_fix1_deprecated_functions_still_work():
     Test that deprecated _should_scrape() and _mark_scraped()
     still work for backward compatibility.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 2: Deprecated Functions Backward Compatibility")
-    print("="*60)
+    print("=" * 60)
 
     # Reset global state
     global _last_scrape_time
@@ -113,9 +114,9 @@ def test_fix2_atomic_availability_check():
     Test Fix 2: Verify is_available() is atomic and prevents
     multiple threads from triggering simultaneous checks.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 3: Atomic Availability Check")
-    print("="*60)
+    print("=" * 60)
 
     scraper = get_aleague_scraper()
 
@@ -134,7 +135,7 @@ def test_fix2_atomic_availability_check():
         time.sleep(0.01)  # Simulate network delay
         return True
 
-    with patch('ingestion.aleague_scraper.is_aleague_scraper_available', side_effect=mock_check):
+    with patch("ingestion.aleague_scraper.is_aleague_scraper_available", side_effect=mock_check):
         # Test 2a: First call should trigger check
         result = scraper.is_available()
         assert result is True, "Availability check should return True"
@@ -153,6 +154,7 @@ def test_fix2_atomic_availability_check():
         check_count = 0
 
         results = []
+
         def check_availability():
             results.append(scraper.is_available())
 
@@ -174,9 +176,9 @@ def test_fix3_retry_logic():
     """
     Test Fix 3: Verify retry logic re-checks availability after 5 minutes.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 4: Retry Logic (5-minute re-check)")
-    print("="*60)
+    print("=" * 60)
 
     scraper = get_aleague_scraper()
 
@@ -192,7 +194,7 @@ def test_fix3_retry_logic():
         # First check fails, second succeeds
         return check_count > 1
 
-    with patch('ingestion.aleague_scraper.is_aleague_scraper_available', side_effect=mock_check):
+    with patch("ingestion.aleague_scraper.is_aleague_scraper_available", side_effect=mock_check):
         # Test 3a: First check fails
         result = scraper.is_available()
         assert result is False, "First check should fail"
@@ -227,9 +229,9 @@ def test_integration():
     """
     Integration test: Verify all fixes work together in a realistic scenario.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 5: Integration Test (All Fixes Together)")
-    print("="*60)
+    print("=" * 60)
 
     scraper = get_aleague_scraper()
 
@@ -253,8 +255,10 @@ def test_integration():
         scrape_attempts += 1
         return []
 
-    with patch('ingestion.aleague_scraper.is_aleague_scraper_available', side_effect=mock_availability):
-        with patch('ingestion.aleague_scraper.search_aleague_news', side_effect=mock_search):
+    with patch(
+        "ingestion.aleague_scraper.is_aleague_scraper_available", side_effect=mock_availability
+    ):
+        with patch("ingestion.aleague_scraper.search_aleague_news", side_effect=mock_search):
             # Simulate multiple threads calling the scraper
             results = []
             lock = threading.Lock()
@@ -275,7 +279,9 @@ def test_integration():
                 t.join()
 
             # Verify behavior
-            assert availability_checks == 1, f"Should check availability once, got {availability_checks}"
+            assert availability_checks == 1, (
+                f"Should check availability once, got {availability_checks}"
+            )
             assert scrape_attempts == 1, f"Should scrape once, got {scrape_attempts}"
             assert len(results) == 5, f"Should have 5 results, got {len(results)}"
             print("✓ All fixes work together correctly")
@@ -286,9 +292,9 @@ def test_integration():
 
 def main():
     """Run all tests."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("ALEAGUE SCRAPER THREAD SAFETY TEST SUITE")
-    print("="*60)
+    print("=" * 60)
     print("\nTesting VPS Fixes:")
     print("1. Atomic scrape lock (Fix 1)")
     print("2. Atomic availability check (Fix 2)")
@@ -301,9 +307,9 @@ def main():
         test_fix3_retry_logic()
         test_integration()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("✅ ALL TESTS PASSED")
-        print("="*60)
+        print("=" * 60)
         print("\nThe ALeagueScraper is now thread-safe and VPS-ready!")
         print("\nFixes applied:")
         print("  ✓ Fix 1: Atomic _try_acquire_scrape_lock() prevents concurrent scrapes")
@@ -312,17 +318,18 @@ def main():
         return 0
 
     except AssertionError as e:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("❌ TEST FAILED")
-        print("="*60)
+        print("=" * 60)
         print(f"\nError: {e}")
         return 1
     except Exception as e:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("❌ TEST ERROR")
-        print("="*60)
+        print("=" * 60)
         print(f"\nUnexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

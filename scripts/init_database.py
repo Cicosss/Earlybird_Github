@@ -27,7 +27,7 @@ def main():
     logger.info("=" * 80)
     logger.info("EarlyBird Database Initialization")
     logger.info("=" * 80)
-    
+
     try:
         init_db()
         logger.info("✅ Database initialized successfully!")

@@ -478,7 +478,7 @@ def main():
         logger.info("")
 
         # Trace each match and save results
-        trace_results = []
+        trace_results: list[str] = []
         for i, match in enumerate(matches, 1):
             logger.info("=" * 80)
             logger.info(f"TRACE #{i}: {match.home_team} vs {match.away_team}")

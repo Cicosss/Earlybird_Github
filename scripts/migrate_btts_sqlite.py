@@ -12,6 +12,7 @@ import os
 
 DB_PATH = "data/earlybird.db"
 
+
 def migrate_btts_columns():
     """Add BTTS columns to matches table."""
     print("=" * 60)

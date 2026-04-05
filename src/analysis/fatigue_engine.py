@@ -387,7 +387,7 @@ def calculate_fatigue_index(
     # Filter matches in the 21-day window
     window_start = match_date - timedelta(days=FATIGUE_WINDOW_DAYS)
 
-    recent_games = []
+    recent_games: list[str] = []
     naive_datetime_count = 0  # V4.6: Track naive datetimes for debugging
 
     for game_date in team_schedule:
@@ -566,7 +566,7 @@ def analyze_team_fatigue(
     late_game_risk, late_game_prob = calculate_late_game_risk(fatigue_index, fatigue_level)
 
     # Build reasoning
-    reasoning_parts = []
+    reasoning_parts: list[str] = []
 
     if hours_since_last is not None:
         # Skip negative values (data corruption or future dates)
@@ -796,8 +796,8 @@ def get_enhanced_fatigue_context(
 
     # V6.0: Get real match history from database for enhanced fatigue analysis
     # This enables the sophisticated exponential decay model to work with actual data
-    home_recent_matches = []
-    away_recent_matches = []
+    home_recent_matches: list[str] = []
+    away_recent_matches: list[str] = []
 
     try:
         # Get home team match history

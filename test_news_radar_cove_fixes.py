@@ -48,113 +48,113 @@ class TestErrorClassification:
         """Test that permanent errors are correctly classified."""
         # FileNotFoundError
         error = FileNotFoundError("Config file not found")
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
         # JSONDecodeError
         error = json.JSONDecodeError("Invalid JSON", "", 0)
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
         # SyntaxError
         error = SyntaxError("Invalid syntax")
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
         # PermissionError
         error = PermissionError("Permission denied")
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
         # Configuration error
         error = ValueError("Invalid config: missing required field")
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
     def test_classify_rate_limit_errors(self, mock_monitor):
         """Test that rate limit errors are correctly classified."""
         # HTTP 429 with status attribute
         error = MagicMock()
-        error.__class__.__name__ = 'HTTPStatusError'
+        error.__class__.__name__ = "HTTPStatusError"
         error.status = 429
-        assert mock_monitor._classify_error(error) == 'RATE_LIMIT'
+        assert mock_monitor._classify_error(error) == "RATE_LIMIT"
 
         # Rate limit in error message
         error = Exception("Rate limit exceeded")
-        assert mock_monitor._classify_error(error) == 'RATE_LIMIT'
+        assert mock_monitor._classify_error(error) == "RATE_LIMIT"
 
         error = Exception("429 Too Many Requests")
-        assert mock_monitor._classify_error(error) == 'RATE_LIMIT'
+        assert mock_monitor._classify_error(error) == "RATE_LIMIT"
 
     def test_classify_transient_errors(self, mock_monitor):
         """Test that transient errors are correctly classified."""
         # TimeoutError
         error = TimeoutError("Connection timeout")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # ConnectionError
         error = ConnectionError("Connection refused")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # ConnectionRefusedError
         error = ConnectionRefusedError("Connection refused")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # ConnectionResetError
         error = ConnectionResetError("Connection reset")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # OSError
         error = OSError("Network error")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # RuntimeError
         error = RuntimeError("Runtime error")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # Network-related errors
         error = Exception("Network timeout")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         error = Exception("Connection failed")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
     def test_classify_http_errors(self, mock_monitor):
         """Test that HTTP errors are correctly classified."""
         # 5xx errors (server-side, transient)
         error = MagicMock()
-        error.__class__.__name__ = 'HTTPStatusError'
+        error.__class__.__name__ = "HTTPStatusError"
         error.status = 500
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         error = MagicMock()
-        error.__class__.__name__ = 'HTTPStatusError'
+        error.__class__.__name__ = "HTTPStatusError"
         error.status = 503
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # 4xx errors (client-side, permanent)
         error = MagicMock()
-        error.__class__.__name__ = 'HTTPStatusError'
+        error.__class__.__name__ = "HTTPStatusError"
         error.status = 404
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
         error = MagicMock()
-        error.__class__.__name__ = 'HTTPStatusError'
+        error.__class__.__name__ = "HTTPStatusError"
         error.status = 401
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
         error = MagicMock()
-        error.__class__.__name__ = 'HTTPStatusError'
+        error.__class__.__name__ = "HTTPStatusError"
         error.status = 403
-        assert mock_monitor._classify_error(error) == 'PERMANENT'
+        assert mock_monitor._classify_error(error) == "PERMANENT"
 
     def test_classify_unknown_errors(self, mock_monitor):
         """Test that unknown errors default to TRANSIENT."""
         # Unknown error type
         error = Exception("Unknown error")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
         # Custom exception
         class CustomError(Exception):
             pass
 
         error = CustomError("Custom error")
-        assert mock_monitor._classify_error(error) == 'TRANSIENT'
+        assert mock_monitor._classify_error(error) == "TRANSIENT"
 
 
 class TestCacheErrorHandling:
@@ -190,7 +190,7 @@ class TestCacheErrorHandling:
         url = "https://example.com/test"
 
         # Mock shared cache import to raise ImportError
-        with patch('src.services.news_radar.get_shared_cache', side_effect=ImportError):
+        with patch("src.services.news_radar.get_shared_cache", side_effect=ImportError):
             # This should not raise an exception
             result = await mock_monitor._process_content(content, mock_source, url)
             # Result depends on other logic, but should not crash
@@ -206,7 +206,7 @@ class TestCacheErrorHandling:
         mock_shared_cache = AsyncMock()
         mock_shared_cache.check_and_mark = AsyncMock(side_effect=Exception("Cache error"))
 
-        with patch('src.services.news_radar.get_shared_cache', return_value=mock_shared_cache):
+        with patch("src.services.news_radar.get_shared_cache", return_value=mock_shared_cache):
             # This should not raise an exception
             result = await mock_monitor._process_content(content, mock_source, url)
             # Result depends on other logic, but should not crash
@@ -249,10 +249,12 @@ class TestCacheErrorHandling:
         # Mock all caches to raise exceptions
         mock_shared_cache = AsyncMock()
         mock_shared_cache.check_and_mark = AsyncMock(side_effect=Exception("Shared cache error"))
-        mock_monitor._content_cache.is_cached = AsyncMock(side_effect=Exception("Local cache error"))
+        mock_monitor._content_cache.is_cached = AsyncMock(
+            side_effect=Exception("Local cache error")
+        )
         mock_monitor._content_cache.add = AsyncMock(side_effect=Exception("Local cache add error"))
 
-        with patch('src.services.news_radar.get_shared_cache', return_value=mock_shared_cache):
+        with patch("src.services.news_radar.get_shared_cache", return_value=mock_shared_cache):
             # This should not raise an exception
             result = await mock_monitor._process_content(content, mock_source, url)
             # Result depends on other logic, but should not crash
@@ -295,7 +297,7 @@ class TestAtomicCacheOperations:
         mock_shared_cache = AsyncMock()
         mock_shared_cache.check_and_mark = AsyncMock(return_value=True)
 
-        with patch('src.services.news_radar.get_shared_cache', return_value=mock_shared_cache):
+        with patch("src.services.news_radar.get_shared_cache", return_value=mock_shared_cache):
             result = await mock_monitor._process_content(content, mock_source, url)
             # Should return None (skipped)
             assert result is None
@@ -312,7 +314,7 @@ class TestAtomicCacheOperations:
         mock_shared_cache = AsyncMock()
         mock_shared_cache.check_and_mark = AsyncMock(return_value=False)
 
-        with patch('src.services.news_radar.get_shared_cache', return_value=mock_shared_cache):
+        with patch("src.services.news_radar.get_shared_cache", return_value=mock_shared_cache):
             result = await mock_monitor._process_content(content, mock_source, url)
             # Result depends on other logic, but should not crash
             assert result is None or isinstance(result, MagicMock)
@@ -329,7 +331,7 @@ class TestAtomicCacheOperations:
         mock_shared_cache = AsyncMock()
         mock_shared_cache.check_and_mark = AsyncMock(return_value=False)
 
-        with patch('src.services.news_radar.get_shared_cache', return_value=mock_shared_cache):
+        with patch("src.services.news_radar.get_shared_cache", return_value=mock_shared_cache):
             result = await mock_monitor._process_content(content, mock_source, url)
 
             # Verify that check_and_mark was called
@@ -338,8 +340,14 @@ class TestAtomicCacheOperations:
             )
 
             # Verify that is_duplicate and mark_seen were NOT called separately
-            assert not hasattr(mock_shared_cache, 'is_duplicate') or not mock_shared_cache.is_duplicate.called
-            assert not hasattr(mock_shared_cache, 'mark_seen') or not mock_shared_cache.mark_seen.called
+            assert (
+                not hasattr(mock_shared_cache, "is_duplicate")
+                or not mock_shared_cache.is_duplicate.called
+            )
+            assert (
+                not hasattr(mock_shared_cache, "mark_seen")
+                or not mock_shared_cache.mark_seen.called
+            )
 
 
 class TestSizeSyncComment:

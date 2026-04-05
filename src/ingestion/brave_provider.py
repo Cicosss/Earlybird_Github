@@ -206,7 +206,7 @@ class BraveSearchProvider:
             # Parse results from web.results
             web_results = safe_get(data, "web", "results", default=[])
 
-            results = []
+            results: list[dict[str, str]] = []
             for item in web_results[:limit]:
                 raw_desc = item.get("description", "")
                 clean_summary = html.unescape(raw_desc)[:350] if raw_desc else ""

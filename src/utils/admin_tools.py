@@ -61,7 +61,7 @@ def format_debug_output(error_lines: list[str]) -> str:
     if not error_lines:
         return "✅ **Nessun errore recente.**"
 
-    formatted_lines = []
+    formatted_lines: list[str] = []
     for line in error_lines:
         # Add appropriate icon
         if "CRITICAL" in line:

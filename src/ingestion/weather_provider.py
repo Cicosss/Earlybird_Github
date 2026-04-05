@@ -161,9 +161,9 @@ def analyze_weather_impact(weather_data: dict) -> dict | None:
     wind = weather_data.get("wind_kmh", 0) or 0
     temp = weather_data.get("temperature_c")
 
-    conditions = []
-    impacts = []
-    betting_advice = []
+    conditions: list[str] = []
+    impacts: list[str] = []
+    betting_advice: list[str] = []
     severity = "NORMAL"
 
     # Check SNOW (highest priority)

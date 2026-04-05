@@ -10,7 +10,7 @@ Requirements: Player stats enrichment for missing players analysis
 import logging
 import os
 from difflib import SequenceMatcher
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 from dotenv import load_dotenv
@@ -89,7 +89,7 @@ def match_player(player_name: str, team_players: List[Dict]) -> Optional[tuple]:
         player_lastname_api = player_info.get("lastname", "")
 
         # Try different matching strategies
-        scores = []
+        scores: list[dict[str, Any]] = []
 
         # 1. Full name match
         scores.append(similarity(player_name_norm, normalize_name(player_full_name)))
@@ -181,7 +181,7 @@ def get_team_players_with_stats(team_id: int, season: int) -> Optional[List[Dict
     headers = {"x-rapidapi-key": API_FOOTBALL_KEY, "x-rapidapi-host": "v3.football.api-sports.io"}
 
     try:
-        all_players = []
+        all_players: list[str] = []
         page = 1
 
         while True:

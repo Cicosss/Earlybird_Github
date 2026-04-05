@@ -175,6 +175,7 @@ class SetupVerifier:
         # Verify EnrichmentContext class
         try:
             from src.utils.radar_enrichment import EnrichmentContext
+
             self.print_success("EnrichmentContext class is importable")
         except Exception as e:
             self.print_error(f"EnrichmentContext import failed: {e}", critical=True)
@@ -183,6 +184,7 @@ class SetupVerifier:
         # Verify RadarLightEnricher class
         try:
             from src.utils.radar_enrichment import RadarLightEnricher
+
             self.print_success("RadarLightEnricher class is importable")
         except Exception as e:
             self.print_error(f"RadarLightEnricher import failed: {e}", critical=True)
@@ -191,6 +193,7 @@ class SetupVerifier:
         # Verify enrich_radar_alert_async function
         try:
             from src.utils.radar_enrichment import enrich_radar_alert_async
+
             self.print_success("enrich_radar_alert_async function is importable")
         except Exception as e:
             self.print_error(f"enrich_radar_alert_async import failed: {e}", critical=True)
@@ -199,6 +202,7 @@ class SetupVerifier:
         # Verify Biscotto Engine availability
         try:
             from src.analysis.biscotto_engine import analyze_biscotto
+
             self.print_success("Biscotto Engine (analyze_biscotto) is importable")
         except Exception as e:
             self.print_error(f"Biscotto Engine import failed: {e}", critical=True)
@@ -207,6 +211,7 @@ class SetupVerifier:
         # Verify FotMob Provider availability
         try:
             from src.ingestion.data_provider import FotMobProvider
+
             self.print_success("FotMobProvider class is importable")
         except Exception as e:
             self.print_error(f"FotMobProvider import failed: {e}", critical=True)
@@ -215,6 +220,7 @@ class SetupVerifier:
         # Test instantiation of RadarLightEnricher (singleton pattern)
         try:
             from src.utils.radar_enrichment import get_radar_enricher
+
             enricher = get_radar_enricher()
             self.print_success("RadarLightEnricher singleton can be instantiated")
         except Exception as e:

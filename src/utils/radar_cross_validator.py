@@ -140,7 +140,22 @@ class CrossSourceValidator:
         # Normalize team name for matching
         team_normalized = team.lower().strip()
         # Remove common suffixes (both with and without space)
-        for suffix in [" fc", "fc", " sc", "sc", " cf", "cf", " ac", "ac", " as", "as", " fk", "fk", " sk", "sk"]:
+        for suffix in [
+            " fc",
+            "fc",
+            " sc",
+            "sc",
+            " cf",
+            "cf",
+            " ac",
+            "ac",
+            " as",
+            "as",
+            " fk",
+            "fk",
+            " sk",
+            "sk",
+        ]:
             if team_normalized.endswith(suffix):
                 team_normalized = team_normalized[: -len(suffix)].strip()
                 # Don't break - continue to check for multiple suffixes (e.g., "afc fc")

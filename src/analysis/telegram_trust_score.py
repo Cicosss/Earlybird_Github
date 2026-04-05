@@ -233,7 +233,7 @@ def detect_red_flags(text: str) -> list[str]:
         return []
 
     text_lower = text.lower()
-    flags = []
+    flags: list[str] = []
 
     # Check keywords
     for keyword in RED_FLAG_KEYWORDS:
@@ -564,7 +564,7 @@ def check_echo_chamber(
 
         # FIX: Cleanup expired entries (TTL-based) + size limit
         now = datetime.now(timezone.utc)
-        expired_keys = []
+        expired_keys: list[str] = []
 
         for key, (_, entry_time) in _recent_messages_cache.items():
             if entry_time.tzinfo is None:
@@ -1014,14 +1014,14 @@ def get_channel_trust_metrics(channel_id: str) -> ChannelMetrics | None:
                     logger.warning(
                         f"red_flag_types is not a list for channel {channel_id}, defaulting to empty list"
                     )
-                    red_flag_types = []
+                    red_flag_types: list[dict[str, Any]] = []
             except json.JSONDecodeError:
                 logger.warning(
                     f"Failed to parse red_flag_types JSON for channel {channel_id}, defaulting to empty list"
                 )
-                red_flag_types = []
+                red_flag_types: list[dict[str, Any]] = []
         else:
-            red_flag_types = []
+            red_flag_types: list[dict[str, Any]] = []
 
         return ChannelMetrics(
             channel_id=metrics_dict.get("channel_id", channel_id),

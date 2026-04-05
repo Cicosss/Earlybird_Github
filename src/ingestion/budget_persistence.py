@@ -322,7 +322,7 @@ class BudgetPersistence:
 
                     rows = cursor.fetchall()
 
-                    history = []
+                    history: list[dict[str, Any]] = []
                     for row in rows:
                         # Deserialize component_usage from JSON
                         component_usage = json.loads(row[5])

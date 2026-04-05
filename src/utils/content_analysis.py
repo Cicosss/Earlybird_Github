@@ -725,6 +725,13 @@ class RelevanceAnalyzer:
         "categorias de base",
         "time b",
         "aspirantes",
+        # ========== PORTUGUESE (BR) B-TEAM SLANG - V12.8 ==========
+        # Brazilian insider slang for B-Teams and reserve lineups
+        # Synced with intelligence_gate.py TEAM_KEYWORDS["portuguese"]
+        "time misto",  # Mixed team (B-team + reserves) - prevents "sometimes"/"misto" false positives
+        "time reserva",  # Reserve team
+        "elenco alternativo",  # Alternative squad
+        # =========================================================
         # Polish
         "młodzież",
         "rezerwy",
@@ -989,6 +996,82 @@ class RelevanceAnalyzer:
         "skład",
     ]
 
+    # LOGISTICAL CRISIS KEYWORDS - V12.8: Travel disruptions, strikes, administrative crises
+    # These indicate severe logistical problems that affect match preparation/outcome
+    LOGISTICAL_CRISIS_KEYWORDS = [
+        # ========== ENGLISH ==========
+        "flight delayed",
+        "flight cancelled",
+        "stuck at airport",
+        "bus broken",
+        "bus breakdown",
+        "travel chaos",
+        "travel disruption",
+        "behind closed doors",
+        "stadium ban",
+        "administrative sanction",
+        "unpaid wages",
+        "strike",
+        "player strike",
+        "travel nightmare",
+        "team stranded",
+        "team delayed",
+        # ========== ITALIAN ==========
+        "volo cancellato",
+        "bloccati in aeroporto",
+        "sciopero",
+        "stipendi non pagati",
+        "a porte chiuse",
+        "sanzione amministrativa",
+        "ritardo volo",
+        "autobus rotto",
+        "crisi logistica",
+        "squadra bloccata",
+        # ========== PORTUGUESE ==========
+        "voo atrasado",
+        "voo cancelado",
+        "presos no aeroporto",
+        "portões fechados",
+        "punição",
+        "salários atrasados",
+        "greve",
+        "autocarro avariado",
+        "crise logística",
+        "time preso",
+        "atrás de portas fechadas",
+        # ========== SPANISH ==========
+        "vuelo cancelado",
+        "varados",
+        "puertas cerradas",
+        "sanción administrativa",
+        "sin público",
+        "sueldos atrasados",
+        "huelga",
+        "autobús averiado",
+        "crisis logística",
+        "equipo varado",
+        "vuelo retrasado",
+        # ========== ARABIC ==========
+        "تأخر رحلة",
+        "عالقون في المطار",
+        "بدون جمهور",
+        "عقوبة إدارية",
+        "أزمة المستحقات",
+        "إضراب",
+        "أزمة سفر",
+        # ========== FRENCH ==========
+        "vol retardé",
+        "vol annulé",
+        "bloqués",
+        "huis clos",
+        "sanction disciplinaire",
+        "grève des salaires",
+        "grève",
+        "autocar en panne",
+        "crise logistique",
+        "équipe bloquée",
+    ]
+
     def __init__(self):
         """Initialize with compiled regex patterns for efficiency."""
         self._injury_pattern = self._compile_pattern(self.INJURY_KEYWORDS)
@@ -998,6 +1081,7 @@ class RelevanceAnalyzer:
         self._youth_pattern = self._compile_pattern(self.YOUTH_CALLUP_KEYWORDS)
         self._general_sports_pattern = self._compile_pattern(self.GENERAL_SPORTS_KEYWORDS)
         self._squad_pattern = self._compile_pattern(self.SQUAD_KEYWORDS)
+        self._logistical_crisis_pattern = self._compile_pattern(self.LOGISTICAL_CRISIS_KEYWORDS)
 
     def _compile_pattern(self, keywords: list[str]) -> re.Pattern:
         """
@@ -1075,10 +1159,24 @@ class RelevanceAnalyzer:
         cup_matches = len(self._cup_pattern.findall(content))
         youth_matches = len(self._youth_pattern.findall(content))
         general_sports_matches = len(self._general_sports_pattern.findall(content))
+        logistical_crisis_matches = len(self._logistical_crisis_pattern.findall(content))
 
         # V1.9: Try to extract team name BEFORE checking relevance
         # This allows us to use team extraction as a relevance factor
         affected_team = self._extract_team_name(content)
+
+        # V12.8: LOGISTICAL_CRISIS has high priority - check early
+        # Travel disruptions, strikes, unpaid wages severely affect match outcomes
+        if logistical_crisis_matches > 0:
+            confidence = min(0.5 + (logistical_crisis_matches * 0.1), 0.85)
+            summary = self._generate_summary(content, "LOGISTICAL_CRISIS")
+            return AnalysisResult(
+                is_relevant=True,
+                category="LOGISTICAL_CRISIS",
+                affected_team=affected_team,
+                confidence=confidence,
+                summary=summary,
+            )
 
         # V12.4: Active Scope Filter - reject teams from non-active leagues
         # ROOT CAUSE FIX: "Benfica Infection" - content_analysis.py had 500+ known clubs

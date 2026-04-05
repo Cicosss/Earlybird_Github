@@ -253,7 +253,7 @@ class TestBTTSImpactCaseInsensitive:
             "motivation_away": "Medium - Valid",
             "table_context": "Valid context",
         }
-        
+
         response = DeepDiveResponse(**data)
         # Should be normalized to "Positive -"
         assert response.btts_impact == "Positive -"

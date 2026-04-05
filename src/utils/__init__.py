@@ -5,4 +5,4 @@
 # All imports should be done directly from modules:
 # - from src.utils.intelligence_gate import apply_intelligence_gate (not from src.utils import apply_intelligence_gate)
 
-__all__ = []
+__all__: list[str] = []

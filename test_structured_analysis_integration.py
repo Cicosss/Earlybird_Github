@@ -50,12 +50,20 @@ def test_from_dict():
     assert analysis.absent_count == 4, f"Expected 4, got {analysis.absent_count}"
     assert len(analysis.absent_names) == 4, f"Expected 4 players, got {len(analysis.absent_names)}"
     assert len(analysis.absent_roles) == 4, f"Expected 4 roles, got {len(analysis.absent_roles)}"
-    assert analysis.match_importance == "IMPORTANT", f"Expected 'IMPORTANT', got '{analysis.match_importance}'"
+    assert analysis.match_importance == "IMPORTANT", (
+        f"Expected 'IMPORTANT', got '{analysis.match_importance}'"
+    )
     assert analysis.motivation_home == "HIGH", f"Expected 'HIGH', got '{analysis.motivation_home}'"
-    assert analysis.motivation_away == "NORMAL", f"Expected 'NORMAL', got '{analysis.motivation_away}'"
+    assert analysis.motivation_away == "NORMAL", (
+        f"Expected 'NORMAL', got '{analysis.motivation_away}'"
+    )
     assert analysis.has_travel_issues == False, f"Expected False, got {analysis.has_travel_issues}"
-    assert analysis.has_financial_crisis == False, f"Expected False, got {analysis.has_financial_crisis}"
-    assert analysis.summary_en == "Juventus missing 4 starters due to injuries", f"Summary EN mismatch"
+    assert analysis.has_financial_crisis == False, (
+        f"Expected False, got {analysis.has_financial_crisis}"
+    )
+    assert analysis.summary_en == "Juventus missing 4 starters due to injuries", (
+        f"Summary EN mismatch"
+    )
     assert analysis.summary_it == "Juventus senza 4 titolari per infortunio", f"Summary IT mismatch"
 
     print("✅ from_dict() conversion: PASSED")
@@ -274,8 +282,12 @@ def test_enrich_with_context():
     # Verify enrichment
     assert analysis.opponent == "Como", f"Expected 'Como', got '{analysis.opponent}'"
     assert analysis.competition == "Serie B", f"Expected 'Serie B', got '{analysis.competition}'"
-    assert analysis.match_date == "2026-03-21", f"Expected '2026-03-21', got '{analysis.match_date}'"
-    assert analysis.match_importance == "IMPORTANT", f"Expected 'IMPORTANT', got '{analysis.match_importance}'"
+    assert analysis.match_date == "2026-03-21", (
+        f"Expected '2026-03-21', got '{analysis.match_date}'"
+    )
+    assert analysis.match_importance == "IMPORTANT", (
+        f"Expected 'IMPORTANT', got '{analysis.match_importance}'"
+    )
     assert analysis.motivation_home == "HIGH", f"Expected 'HIGH', got '{analysis.motivation_home}'"
     assert analysis.motivation_away == "LOW", f"Expected 'LOW', got '{analysis.motivation_away}'"
 
@@ -320,18 +332,34 @@ def test_to_dict():
     assert result["team"] == "Palermo", f"Expected 'Palermo', got '{result['team']}'"
     assert result["opponent"] == "Bari", f"Expected 'Bari', got '{result['opponent']}'"
     assert result["absent_count"] == 2, f"Expected 2, got {result['absent_count']}"
-    assert len(result["absent_players"]) == 2, f"Expected 2 players, got {len(result['absent_players'])}"
+    assert len(result["absent_players"]) == 2, (
+        f"Expected 2 players, got {len(result['absent_players'])}"
+    )
     assert len(result["absent_roles"]) == 2, f"Expected 2 roles, got {len(result['absent_roles'])}"
     assert result["competition"] == "Serie C", f"Expected 'Serie C', got '{result['competition']}'"
-    assert result["match_date"] == "2026-03-22", f"Expected '2026-03-22', got '{result['match_date']}'"
-    assert result["match_importance"] == "NORMAL", f"Expected 'NORMAL', got '{result['match_importance']}'"
-    assert result["motivation_home"] == "NORMAL", f"Expected 'NORMAL', got '{result['motivation_home']}'"
-    assert result["motivation_away"] == "NORMAL", f"Expected 'NORMAL', got '{result['motivation_away']}'"
-    assert result["has_travel_issues"] == False, f"Expected False, got {result['has_travel_issues']}"
-    assert result["has_financial_crisis"] == False, f"Expected False, got {result['has_financial_crisis']}"
+    assert result["match_date"] == "2026-03-22", (
+        f"Expected '2026-03-22', got '{result['match_date']}'"
+    )
+    assert result["match_importance"] == "NORMAL", (
+        f"Expected 'NORMAL', got '{result['match_importance']}'"
+    )
+    assert result["motivation_home"] == "NORMAL", (
+        f"Expected 'NORMAL', got '{result['motivation_home']}'"
+    )
+    assert result["motivation_away"] == "NORMAL", (
+        f"Expected 'NORMAL', got '{result['motivation_away']}'"
+    )
+    assert result["has_travel_issues"] == False, (
+        f"Expected False, got {result['has_travel_issues']}"
+    )
+    assert result["has_financial_crisis"] == False, (
+        f"Expected False, got {result['has_financial_crisis']}"
+    )
     assert result["summary_en"] == "Palermo missing 2 players", f"Summary EN mismatch"
-    assert result["summary_it"] == "Palermo senza 2 giocatori", f"Summary IT mismatch"
-    assert result["betting_impact"] == "MEDIUM", f"Expected 'MEDIUM', got '{result['betting_impact']}'"
+    assert result["summary_italian"] == "Palermo senza 2 giocatori", f"Summary IT mismatch"
+    assert result["betting_impact"] == "MEDIUM", (
+        f"Expected 'MEDIUM', got '{result['betting_impact']}'"
+    )
 
     print("✅ to_dict() conversion: PASSED")
     return True

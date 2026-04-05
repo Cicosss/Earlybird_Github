@@ -119,7 +119,7 @@ def inspect_stats(match_data: dict):
     print("📋 AVAILABLE STATS BY CATEGORY")
     print("-" * 60)
 
-    all_stats = []
+    all_stats: list[str] = []
 
     for category in stats_list:
         if not isinstance(category, dict):

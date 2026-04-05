@@ -132,7 +132,7 @@ class EnhancedFinalVerifier(FinalAlertVerifier):
         Returns:
             List of DataDiscrepancy objects with real values
         """
-        discrepancies = []
+        discrepancies: list[dict[str, Any]] = []
 
         for raw in raw_discrepancies:
             try:

@@ -18,12 +18,13 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.errors import ChannelInvalidError, ChannelPrivateError, UsernameNotOccupiedError
 
-from config.settings import DATA_DIR
+from config.settings import DATA_DIR, is_stop_requested
 from src.analysis.image_ocr import process_squad_image
 from src.analysis.squad_analyzer import analyze_squad_list
 from src.database.models import Match, TeamAlias
@@ -263,7 +264,7 @@ def extract_team_names_from_text(text: str) -> list[str]:
     if not text:
         return []
 
-    teams = []
+    teams: list[str] = []
 
     # Pattern 1: Words starting with capital letter (potential team names)
     # Match 2+ consecutive capitalized words
@@ -311,17 +312,11 @@ def has_upcoming_match(
         Tuple of (has_match, match_object)
     """
     try:
-        # V12.4: Use dynamic active scope instead of hardcoded ELITE_LEAGUES
+        # V12.4/V11.2: Use dynamic active scope from Supabase/Mirror
+        # No more hardcoded ELITE_LEAGUES fallback
         from src.database.models import get_db_session
 
-        try:
-            from src.ingestion.league_manager import is_in_active_scope
-
-            _has_dynamic_scope = True
-        except ImportError:
-            from src.ingestion.league_manager import ELITE_LEAGUES
-
-            _has_dynamic_scope = False
+        from src.ingestion.league_manager import is_in_active_scope
 
         with get_db_session() as db:
             now = datetime.now(timezone.utc)
@@ -355,28 +350,17 @@ def has_upcoming_match(
                     or home_lower in team_lower
                     or away_lower in team_lower
                 ):
-                    # V12.4: Dynamic scope filter - replaces hardcoded ELITE_LEAGUES check
-                    # Now validates against ALL active leagues (Supabase + Tier1 + Tier2)
+                    # V11.2: Use dynamic active scope from Supabase/Mirror
                     if league:
-                        if _has_dynamic_scope:
-                            if not is_in_active_scope(league):
-                                logger.debug(f"⏭️ [SCOPE] Skipping non-active league: {league}")
-                                continue
-                        else:
-                            # Fallback to hardcoded ELITE_LEAGUES if dynamic scope unavailable
-                            if league not in ELITE_LEAGUES:
-                                logger.debug(f"⏭️ Skipping non-Elite league: {league}")
-                                continue
+                        if not is_in_active_scope(league):
+                            logger.debug(f"⏭️ [SCOPE] Skipping non-active league: {league}")
+                            continue
 
                     logger.debug(f"🏆 [TELEGRAM] Found upcoming match: {home_team} vs {away_team}")
                     return True, match
 
             logger.debug(f"🏆 [TELEGRAM] No upcoming matches for {team_name}")
             return False, None
-
-    except Exception as e:
-        logger.error(f"Error checking upcoming match for {team_name}: {e}")
-        return False, None
 
     except Exception as e:
         logger.error(f"Error checking upcoming match for {team_name}: {e}")
@@ -491,7 +475,7 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
         logging.error("❌ Session file not found. Please run: python setup_telegram_auth.py")
         return []
 
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Initialize Trust Score DB once at start (not in loop to avoid lock issues)
     if _TRUST_SCORE_AVAILABLE:
@@ -524,7 +508,7 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
         # Also get teams with configured Telegram channels (legacy support)
         from src.database.models import get_db_session
 
-        teams = []
+        teams: list[dict[str, str]] = []
         try:
             with get_db_session() as db:
                 teams = db.query(TeamAlias).filter(TeamAlias.telegram_channel.isnot(None)).all()
@@ -541,7 +525,7 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
             logging.warning(f"⚠️ Could not load team aliases: {e}")
 
         # Build channel list: insider channels + team-specific channels
-        channels_to_monitor = []
+        channels_to_monitor: list[dict[str, str]] = []
 
         # Add insider channels
         for country, channels in all_channels.items():
@@ -586,6 +570,11 @@ async def fetch_squad_images(existing_client: TelegramClient = None) -> list[dic
 
         # Loop through each channel
         for channel_info in channels_to_monitor:
+            # P1: Check for full stop before each channel
+            if is_stop_requested():
+                logging.info("🛑 Stop requested during channel iteration, aborting")
+                break
+
             channel = channel_info["channel"]
 
             # ROBUST CONNECTION: Safe entity retrieval
@@ -959,7 +948,7 @@ async def monitor_channels_for_squads(existing_client: TelegramClient = None) ->
     """
     squad_images = await fetch_squad_images(existing_client=existing_client)
 
-    alerts = []
+    alerts: list[dict[str, Any]] = []
 
     for squad in squad_images:
         has_image = safe_dict_get(squad, "has_image", default=False)

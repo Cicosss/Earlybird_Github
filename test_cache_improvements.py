@@ -45,6 +45,7 @@ def test_cache_improvements():
     print("\n[2/6] Importing SupabaseProvider...")
     try:
         from src.database.supabase_provider import SupabaseProvider, CACHE_TTL_SECONDS
+
         print("   ✅ SupabaseProvider imported successfully")
         print(f"   CACHE_TTL_SECONDS constant: {CACHE_TTL_SECONDS}")
         if CACHE_TTL_SECONDS == 300:
@@ -54,6 +55,7 @@ def test_cache_improvements():
     except Exception as e:
         print(f"   ❌ Failed to import SupabaseProvider: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -65,6 +67,7 @@ def test_cache_improvements():
     except Exception as e:
         print(f"   ❌ Failed to create SupabaseProvider: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -74,7 +77,15 @@ def test_cache_improvements():
         metrics = supabase.get_cache_metrics()
         print("   ✅ get_cache_metrics() method exists")
         print(f"   Metrics: {metrics}")
-        expected_keys = ["hit_count", "miss_count", "bypass_count", "total_requests", "hit_ratio_percent", "cache_ttl_seconds", "cached_keys_count"]
+        expected_keys = [
+            "hit_count",
+            "miss_count",
+            "bypass_count",
+            "total_requests",
+            "hit_ratio_percent",
+            "cache_ttl_seconds",
+            "cached_keys_count",
+        ]
         for key in expected_keys:
             if key in metrics:
                 print(f"      ✅ {key}: {metrics[key]}")
@@ -83,6 +94,7 @@ def test_cache_improvements():
     except Exception as e:
         print(f"   ❌ Failed to get cache metrics: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -103,6 +115,7 @@ def test_cache_improvements():
     except Exception as e:
         print(f"   ❌ Failed to test cache invalidation: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -123,6 +136,7 @@ def test_cache_improvements():
     except Exception as e:
         print(f"   ❌ Failed to test bypass_cache parameter: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -154,6 +168,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed with exception: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

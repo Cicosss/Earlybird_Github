@@ -259,7 +259,7 @@ class FinalAlertVerifier:
             for inc in inconsistencies[:3]:
                 extracted_lines.append(f"  - {inc}")
 
-        source_verification_lines = []
+        source_verification_lines: list[str] = []
         if context_data.get("news_source_verification"):
             source_ver = context_data["news_source_verification"]
             source_verification_lines = [

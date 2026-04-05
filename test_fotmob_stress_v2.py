@@ -43,6 +43,7 @@ TEAMS = [
     ("Lazio", "2578"),
 ]
 
+
 class StressTestStats:
     def __init__(self):
         self.requests = 0
@@ -65,14 +66,17 @@ class StressTestStats:
             if error:
                 self.errors[error] += 1
 
-        self.timeline.append({
-            "request_num": self.requests,
-            "url": url,
-            "status_code": status_code,
-            "success": success,
-            "error": error,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.timeline.append(
+            {
+                "request_num": self.requests,
+                "url": url,
+                "status_code": status_code,
+                "success": success,
+                "error": error,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
+
 
 def make_fotmob_request(url, stats, log_file):
     headers = BASE_HEADERS.copy()
@@ -96,18 +100,24 @@ def make_fotmob_request(url, stats, log_file):
             if resp.status_code == 403:
                 if attempt < FOTMOB_MAX_RETRIES - 1:
                     delay = 5 ** (attempt + 1)
-                    log_file.write(f"⚠️  Request #{stats.requests + 1}: 403 - retrying in {delay}s ({attempt + 1}/{FOTMOB_MAX_RETRIES})\n")
+                    log_file.write(
+                        f"⚠️  Request #{stats.requests + 1}: 403 - retrying in {delay}s ({attempt + 1}/{FOTMOB_MAX_RETRIES})\n"
+                    )
                     log_file.flush()
                     time.sleep(delay)
                     continue
                 stats.record_request(url, resp.status_code, False, "403 Forbidden")
-                log_file.write(f"❌ Request #{stats.requests + 1}: 403 Forbidden (max retries reached)\n")
+                log_file.write(
+                    f"❌ Request #{stats.requests + 1}: 403 Forbidden (max retries reached)\n"
+                )
                 log_file.flush()
                 return False
 
             if resp.status_code == 429:
                 delay = 3 ** (attempt + 1)
-                log_file.write(f"⚠️  Request #{stats.requests + 1}: 429 Rate Limit - waiting {delay}s...\n")
+                log_file.write(
+                    f"⚠️  Request #{stats.requests + 1}: 429 Rate Limit - waiting {delay}s...\n"
+                )
                 log_file.flush()
                 time.sleep(delay)
                 continue
@@ -132,6 +142,7 @@ def make_fotmob_request(url, stats, log_file):
     stats.record_request(url, 0, False, "Max retries exceeded")
     return False
 
+
 def run_stress_test(num_requests, log_file):
     stats = StressTestStats()
     stats.start_time = datetime.now()
@@ -149,7 +160,9 @@ def run_stress_test(num_requests, log_file):
         team_name, team_id = TEAMS[request_count % len(TEAMS)]
         url = f"https://www.fotmob.com/api/teams/{team_id}/details"
 
-        log_file.write(f"Request #{request_count + 1}/{num_requests}: team - {team_name} (ID: {team_id})\n")
+        log_file.write(
+            f"Request #{request_count + 1}/{num_requests}: team - {team_name} (ID: {team_id})\n"
+        )
         log_file.flush()
 
         success = make_fotmob_request(url, stats, log_file)
@@ -172,13 +185,15 @@ def run_stress_test(num_requests, log_file):
     log_file.write("STRESS TEST SUMMARY\n")
     log_file.write("=" * 60 + "\n")
     log_file.write(f"Total Requests: {stats.requests}\n")
-    log_file.write(f"Successes: {stats.successes} ({stats.successes/stats.requests*100:.1f}%)\n")
-    log_file.write(f"Failures: {stats.failures} ({stats.failures/stats.requests*100:.1f}%)\n")
+    log_file.write(
+        f"Successes: {stats.successes} ({stats.successes / stats.requests * 100:.1f}%)\n"
+    )
+    log_file.write(f"Failures: {stats.failures} ({stats.failures / stats.requests * 100:.1f}%)\n")
     log_file.write(f"Duration: {duration:.1f}s\n")
-    log_file.write(f"Requests/sec: {stats.requests/duration:.2f}\n\n")
+    log_file.write(f"Requests/sec: {stats.requests / duration:.2f}\n\n")
     log_file.write("Status Codes:\n")
     for code, count in sorted(stats.status_codes.items()):
-        log_file.write(f"  {code}: {count} ({count/stats.requests*100:.1f}%)\n")
+        log_file.write(f"  {code}: {count} ({count / stats.requests * 100:.1f}%)\n")
 
     if stats.errors:
         log_file.write("\nErrors:\n")
@@ -207,6 +222,7 @@ def run_stress_test(num_requests, log_file):
 
     return stats
 
+
 def main():
     import sys
 
@@ -224,6 +240,7 @@ def main():
         sys.exit(1)
     else:
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

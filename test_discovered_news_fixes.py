@@ -20,24 +20,37 @@ print("=" * 80)
 # Read the docstring from browser_monitor.py
 with open("src/services/browser_monitor.py", "r") as f:
     content = f.read()
-    
+
 # Check if all 9 categories are documented
-expected_categories = ["INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "NATIONAL_TEAM", "YOUTH_CALLUP", "CUP_ABSENCE", "OTHER"]
+expected_categories = [
+    "INJURY",
+    "LINEUP",
+    "SUSPENSION",
+    "TRANSFER",
+    "TACTICAL",
+    "NATIONAL_TEAM",
+    "YOUTH_CALLUP",
+    "CUP_ABSENCE",
+    "OTHER",
+]
 docstring_line = None
-for i, line in enumerate(content.split('\n'), 1):
-    if 'category: str  #' in line and 'DiscoveredNews' in content[max(0, content.find(line)-500):content.find(line)]:
+for i, line in enumerate(content.split("\n"), 1):
+    if (
+        "category: str  #" in line
+        and "DiscoveredNews" in content[max(0, content.find(line) - 500) : content.find(line)]
+    ):
         docstring_line = line
         break
 
 if docstring_line:
     print(f"✅ Found docstring line: {docstring_line.strip()}")
-    
+
     # Check if all categories are present
     missing_categories = []
     for category in expected_categories:
         if category not in docstring_line:
             missing_categories.append(category)
-    
+
     if missing_categories:
         print(f"❌ FAILED: Missing categories in docstring: {missing_categories}")
         sys.exit(1)
@@ -106,14 +119,20 @@ with open("tests/test_browser_monitor.py", "r") as f:
     test_content = f.read()
 
 # Check if all 9 categories are in VALID_CATEGORIES
-if 'VALID_CATEGORIES = ["INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "NATIONAL_TEAM", "YOUTH_CALLUP", "CUP_ABSENCE", "OTHER"]' in test_content:
+if (
+    'VALID_CATEGORIES = ["INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "NATIONAL_TEAM", "YOUTH_CALLUP", "CUP_ABSENCE", "OTHER"]'
+    in test_content
+):
     print("✅ PASSED: VALID_CATEGORIES includes all 9 categories")
 else:
     print("❌ FAILED: VALID_CATEGORIES does not include all 9 categories")
     sys.exit(1)
 
 # Check if valid_categories in test function includes all 9 categories
-if 'valid_categories = {"INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "NATIONAL_TEAM", "YOUTH_CALLUP", "CUP_ABSENCE", "OTHER"}' in test_content:
+if (
+    'valid_categories = {"INJURY", "LINEUP", "SUSPENSION", "TRANSFER", "TACTICAL", "NATIONAL_TEAM", "YOUTH_CALLUP", "CUP_ABSENCE", "OTHER"}'
+    in test_content
+):
     print("✅ PASSED: valid_categories in test function includes all 9 categories")
 else:
     print("❌ FAILED: valid_categories in test function does not include all 9 categories")

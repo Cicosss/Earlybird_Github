@@ -185,7 +185,7 @@ class GlobalOrchestrator:
                     logger.error(f"❌ [GLOBAL-ORCHESTRATOR] Failed to run Nitter cycle: {e}")
 
         # Fetch ALL active leagues
-        active_leagues = []
+        active_leagues: list[str] = []
         source = "mirror"
 
         if self.supabase_available:
@@ -321,7 +321,7 @@ class GlobalOrchestrator:
             country_map = {c["id"]: c for c in countries}
 
             # Filter leagues by continent blocks
-            active_leagues = []
+            active_leagues: list[str] = []
 
             for league in leagues_data:
                 # Skip inactive leagues

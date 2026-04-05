@@ -19,10 +19,16 @@ load_dotenv()
 
 # Import after loading env
 from src.database.models import Match, SessionLocal, init_db
-from src.alerting.notifier import send_alert, validate_telegram_credentials, validate_telegram_chat_id
+from src.alerting.notifier import (
+    send_alert,
+    validate_telegram_credentials,
+    validate_telegram_chat_id,
+)
+
 
 def create_test_match():
     """Create a test match object for testing alerts."""
+
     # Create a mock match object
     class TestMatch:
         def __init__(self):
@@ -39,15 +45,16 @@ def create_test_match():
             self.current_draw_odd = 3.20
             self.current_over_2_5 = 1.85
             self.current_under_2_5 = 2.00
-    
+
     return TestMatch()
+
 
 def test_telegram_workflow():
     """Test the complete Telegram alert workflow."""
     print("=" * 70)
     print("🧪 TELEGRAM ALERT WORKFLOW TEST")
     print("=" * 70)
-    
+
     # Step 1: Validate Telegram credentials
     print("\n[1/5] 🔍 Validating Telegram credentials...")
     try:
@@ -61,7 +68,7 @@ def test_telegram_workflow():
         return False
     except Exception as e:
         print(f"   ⚠️  Telegram validation skipped: {e}")
-    
+
     # Step 2: Validate chat ID
     print("\n[2/5] 🔍 Validating Telegram chat ID...")
     if validate_telegram_chat_id():
@@ -69,30 +76,30 @@ def test_telegram_workflow():
     else:
         print("   ❌ Chat ID format is invalid")
         return False
-    
+
     # Step 3: Create test match
     print("\n[3/5] 🏟 Creating test match...")
     match = create_test_match()
     print(f"   ✅ Test match created: {match.home_team} vs {match.away_team}")
     print(f"   📊 Odds: {match.opening_home_odd:.2f} → {match.current_home_odd:.2f}")
-    
+
     # Step 4: Check environment variables
     print("\n[4/5] 🔍 Checking environment configuration...")
     token = os.getenv("TELEGRAM_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    
+
     if token:
         print(f"   ✅ TELEGRAM_TOKEN: {token[:10]}...{token[-5:]}")
     else:
         print("   ❌ TELEGRAM_TOKEN not configured")
         return False
-    
+
     if chat_id:
         print(f"   ✅ TELEGRAM_CHAT_ID: {chat_id}")
     else:
         print("   ❌ TELEGRAM_CHAT_ID not configured")
         return False
-    
+
     # Step 5: Send test alert
     print("\n[5/5] 📤 Sending test alert to Telegram...")
     try:
@@ -133,8 +140,10 @@ def test_telegram_workflow():
     except Exception as e:
         print(f"   ❌ Failed to send test alert: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_telegram_workflow()

@@ -21,37 +21,38 @@ load_dotenv()
 # Import after loading env
 from src.alerting.notifier import send_alert
 
+
 def test_simple_alert():
     """Send a simple test alert."""
     print("=" * 60)
     print("🧪 SIMPLE TELEGRAM ALERT TEST")
     print("=" * 60)
-    
+
     # Check credentials
     token = os.getenv("TELEGRAM_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    
+
     if not token:
         print("❌ TELEGRAM_TOKEN not configured")
         return False
     print(f"✅ Token: {token[:10]}...{token[-5:]}")
-    
+
     if not chat_id:
         print("❌ TELEGRAM_CHAT_ID not configured")
         return False
     print(f"✅ Chat ID: {chat_id}")
-    
+
     # Create mock match object
     class TestMatch:
         pass
-    
+
     match = TestMatch()
     match.home_team = "Test Home"
     match.away_team = "Test Away"
     match.league = "Test League"
     match.start_time = None
     match.opening_home_odd = 2.50
-    match.current_home_odd = 2.10     
+    match.current_home_odd = 2.10
     # Send test alert
     print("\n📤 Sending test alert...")
     try:
@@ -85,8 +86,10 @@ def test_simple_alert():
     except Exception as e:
         print(f"❌ Failed to send test alert: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_simple_alert()

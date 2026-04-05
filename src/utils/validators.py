@@ -91,7 +91,7 @@ class ValidationResult:
 
     def format_report(self) -> str:
         """Format a human-readable validation report."""
-        lines = []
+        lines: list[str] = []
         status = "✅ VALID" if self.is_valid else "❌ INVALID"
         lines.append(f"Validation: {status}")
 
@@ -965,8 +965,8 @@ def validate_batch(
             for idx, err in errors:
                 logging.warning(f"Invalid news at index {idx}: {err.errors}")
     """
-    valid_items = []
-    errors = []
+    valid_items: list[Any] = []
+    errors: list[tuple[int, ValidationResult]] = []
 
     if items is None:
         return [], [(0, fail(f"{item_name}_list: è None"))]

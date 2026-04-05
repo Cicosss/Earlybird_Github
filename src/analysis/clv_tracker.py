@@ -280,7 +280,7 @@ class CLVTracker:
             logs = query.all()
 
             # Extract CLV values
-            clv_values = []
+            clv_values: list[str] = []
             for log in logs:
                 if log.clv_percent is not None:
                     clv_values.append(log.clv_percent)
@@ -369,7 +369,7 @@ class CLVTracker:
                 return None
 
             # Categorize bets
-            clv_values = []
+            clv_values: list[str] = []
             wins_positive_clv = 0
             wins_negative_clv = 0
             losses_positive_clv = 0
@@ -483,7 +483,7 @@ class CLVTracker:
         Returns:
             Formatted report string
         """
-        lines = []
+        lines: list[str] = []
         lines.append("=" * 60)
         lines.append(f"📈 CLV ANALYSIS REPORT (Last {days_back} days)")
         lines.append("=" * 60)
@@ -614,7 +614,7 @@ class CLVTracker:
             results = query.all()
 
             # Build list of significant movements
-            movements = []
+            movements: list[str] = []
             for news_log, match in results:
                 movement = {
                     "match": f"{match.home_team} vs {match.away_team}",

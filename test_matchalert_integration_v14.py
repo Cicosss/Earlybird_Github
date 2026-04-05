@@ -21,6 +21,7 @@ print("TEST 1: Import EnhancedMatchAlert")
 print("=" * 80)
 try:
     from src.models import EnhancedMatchAlert, MatchAlert
+
     print("✅ PASS: Successfully imported EnhancedMatchAlert and MatchAlert")
 except ImportError as e:
     print(f"❌ FAIL: Could not import EnhancedMatchAlert: {e}")
@@ -164,6 +165,7 @@ try:
 except Exception as e:
     print(f"❌ FAIL: Could not create EnhancedMatchAlert from_kwargs: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -222,6 +224,7 @@ try:
 except Exception as e:
     print(f"❌ FAIL: Could not import or use send_alert_wrapper: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 

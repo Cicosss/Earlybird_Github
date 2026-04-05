@@ -1090,7 +1090,7 @@ def analyze_market_intelligence(
 
     rlm_v2_signal = detect_rlm_v2(match, public_bet_distribution)
 
-    signals = []
+    signals: list[str] = []
     if steam_signal and steam_signal.detected:
         signals.append(steam_signal.message)
 

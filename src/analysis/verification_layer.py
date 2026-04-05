@@ -48,9 +48,31 @@ except ImportError:
     CARDS_SIGNAL_AVAILABLE = False
     REFEREE_STRICTNESS_AVAILABLE = False
     SIGNAL_LEVEL_AVAILABLE = False
-    logger.warning("⚠️ CardsSignal enum not available")
-    logger.warning("⚠️ RefereeStrictness enum not available")
-    logger.warning("⚠️ SignalLevel enum not available")
+
+    # Fallback enum stubs — same structure as the real enums in perplexity_schemas.
+    # These prevent NameError at module-load time when the real schemas are unavailable.
+    # All values match the canonical definitions exactly for cross-module compatibility.
+    class RefereeStrictness(str, Enum):  # type: ignore[no-redef]
+        STRICT = "Strict"
+        MEDIUM = "Medium"
+        LENIENT = "Lenient"
+        UNKNOWN = "Unknown"
+
+    class SignalLevel(str, Enum):  # type: ignore[no-redef]
+        HIGH = "High"
+        MEDIUM = "Medium"
+        LOW = "Low"
+        UNKNOWN = "Unknown"
+
+    class CardsSignal(str, Enum):  # type: ignore[no-redef]
+        AGGRESSIVE = "Aggressive"
+        MEDIUM = "Medium"
+        DISCIPLINED = "Disciplined"
+        UNKNOWN = "Unknown"
+
+    logger.warning("⚠️ CardsSignal enum not available — using fallback stub")
+    logger.warning("⚠️ RefereeStrictness enum not available — using fallback stub")
+    logger.warning("⚠️ SignalLevel enum not available — using fallback stub")
 
 # Import DataConfidence enum for type consistency
 try:
@@ -1099,7 +1121,7 @@ class VerificationResult:
 
         Returns Italian-language summary suitable for Telegram alert.
         """
-        lines = []
+        lines: list[str] = []
 
         if self.status == VerificationStatus.CONFIRM:
             lines.append("✅ VERIFICATO")
@@ -1526,7 +1548,7 @@ last 5 meetings average goals corners cards results"""
         Returns:
             List of tuples (label, query) for fallback queries
         """
-        queries = []
+        queries: list[tuple] = []
 
         for data_type in missing_data:
             if data_type == "team_stats" or data_type == "corners":
@@ -1633,7 +1655,7 @@ class OptimizedResponseParser:
         # Intelligent type validation for players
         # Handle edge cases: None, string, or other types
         if players is None:
-            self.players_original = []
+            self.players_original: list[dict[str, Any]] = []
             logger.warning("⚠️ [OptimizedResponseParser] players is None, using empty list")
         elif isinstance(players, str):
             # If a string was passed instead of a list, log warning and convert
@@ -2655,6 +2677,17 @@ class TavilyVerifier:
             self._provider = get_tavily_provider()
         return self._provider
 
+    def _require_provider(self) -> TavilyProvider:
+        """Get Tavily provider, asserting it is not None.
+
+        Call this ONLY after is_available() has returned True.
+        This narrows the type from TavilyProvider | None to TavilyProvider
+        so that mypy/pyright can verify safe attribute access on the returned object.
+        """
+        p = self.provider
+        assert p is not None, "provider must not be None after is_available() check"
+        return p
+
     def is_available(self) -> bool:
         """Check if Tavily is available for queries."""
         if not TAVILY_AVAILABLE:
@@ -2681,7 +2714,7 @@ class TavilyVerifier:
 
         Requirements: 1.1, 2.1, 3.1, 4.1, 5.1
         """
-        parts = []
+        parts: list[str] = []
 
         # Match identification
         parts.append(f"{request.home_team} vs {request.away_team}")
@@ -2742,7 +2775,8 @@ class TavilyVerifier:
 
         # V12.4: Budget-aware check - prevent calls when budget is exhausted
         try:
-            budget_status = self.provider.get_budget_status()
+            _prov = self._require_provider()
+            budget_status = _prov.get_budget_status()
             if budget_status.is_disabled:
                 logger.warning(
                     "⚠️ [VERIFICATION-V12.4] Tavily budget DISABLED "
@@ -2764,7 +2798,8 @@ class TavilyVerifier:
         start_time = time.time()
 
         try:
-            response = self.provider.search(
+            _prov = self._require_provider()
+            response = _prov.search(
                 query=query,
                 search_depth="advanced",
                 max_results=10,
@@ -2995,7 +3030,7 @@ class TavilyVerifier:
 
         Requirements: 1.4
         """
-        impacts = []
+        impacts: list[dict[str, Any]] = []
         text_lower = text.lower()
 
         # High impact keywords
@@ -3582,15 +3617,16 @@ class TavilyVerifier:
         logger.info(f"🔍 [VERIFICATION] Starting optimized queries for {request.match_id}")
         start_time = time.time()
 
-        all_answers = []
-        all_results = []
+        all_answers: list[dict[str, Any]] = []
+        all_results: list[dict[str, Any]] = []
         query_times = {}
 
         # Execute all queries
         for label, query in query_builder.get_all_queries():
             try:
                 query_start = time.time()
-                response = self.provider.search(
+                _prov = self._require_provider()
+                response = _prov.search(
                     query=query,
                     search_depth="advanced",
                     max_results=8,
@@ -3830,7 +3866,7 @@ class TavilyVerifier:
                 if (corners_still_missing and "corners" in missing_data) or (
                     form_still_missing and "form" in missing_data
                 ):
-                    missing_types = []
+                    missing_types: list[str] = []
                     if corners_still_missing:
                         missing_types.append("corners")
                     if form_still_missing:
@@ -3881,7 +3917,7 @@ class TavilyVerifier:
         perplexity_data = None
 
         if corners_missing or form_missing:
-            missing_types = []
+            missing_types: list[str] = []
             if corners_missing:
                 missing_types.append("corners")
             if form_missing:
@@ -3917,7 +3953,7 @@ class TavilyVerifier:
         Returns:
             List of missing data type labels
         """
-        missing = []
+        missing: list[str] = []
 
         # Check corners (most commonly missing)
         if verified.home_corner_avg is None and verified.away_corner_avg is None:
@@ -3966,14 +4002,15 @@ class TavilyVerifier:
         if not fallback_queries:
             return None
 
-        all_answers = []
-        all_results = []
+        all_answers: list[dict[str, Any]] = []
+        all_results: list[dict[str, Any]] = []
         query_times = {}
 
         for label, query in fallback_queries:
             try:
                 query_start = time.time()
-                response = self.provider.search(
+                _prov = self._require_provider()
+                response = _prov.search(
                     query=query,
                     search_depth="advanced",
                     max_results=5,
@@ -4226,15 +4263,28 @@ class PerplexityVerifier:
         self._call_count_lock = threading.Lock()  # Thread safety for counter
 
     @property
-    def provider(self) -> Optional["PerplexityProvider"]:
-        """Get Perplexity provider (lazy initialization)."""
-        if self._provider is None and PERPLEXITY_AVAILABLE:
-            self._provider = get_perplexity_provider()
+    def provider(self) -> TavilyProvider | None:
+        """Get Tavily provider (lazy initialization)."""
+        if self._provider is None and TAVILY_AVAILABLE:
+            self._provider = get_tavily_provider()
         return self._provider
 
+    def _require_provider(self) -> TavilyProvider:
+        """Get guaranteed non-None Tavily provider.
+
+        Must be called only after is_available() returns True.
+        Raises RuntimeError if provider is unexpectedly None.
+        """
+        p = self.provider
+        if p is None:
+            raise RuntimeError(
+                "TavilyProvider is None despite is_available()=True. This should never happen."
+            )
+        return p
+
     def is_available(self) -> bool:
-        """Check if Perplexity is available for queries."""
-        if not PERPLEXITY_AVAILABLE:
+        """Check if Tavily is available for queries."""
+        if not TAVILY_AVAILABLE:
             return False
         provider = self.provider
         return provider is not None and provider.is_available()
@@ -4249,7 +4299,7 @@ class PerplexityVerifier:
         Returns:
             Prompt string for Perplexity
         """
-        parts = []
+        parts: list[str] = []
 
         parts.append(f"Match: {request.home_team} vs {request.away_team}")
         parts.append(f"Date: {request.match_date}")
@@ -4306,7 +4356,11 @@ class PerplexityVerifier:
 
         try:
             # Use Perplexity's deep dive method with custom prompt
-            result = self.provider._query_api(prompt)
+            _prov = self.provider
+            if _prov is None:
+                logger.error("❌ [VERIFICATION] PerplexityProvider unexpectedly None")
+                return None
+            result = _prov._query_api(prompt)
 
             latency_ms = int((time.time() - start_time) * 1000)
             with self._call_count_lock:
@@ -4778,9 +4832,9 @@ class LogicValidator:
         Returns:
             VerificationResult with status, adjustments, and reasoning
         """
-        inconsistencies = []
-        alternative_markets = []
-        score_adjustments = []
+        inconsistencies: list[dict[str, Any]] = []
+        alternative_markets: list[dict[str, Any]] = []
+        score_adjustments: list[dict[str, Any]] = []
 
         # 1. Check injury-market consistency
         injury_issues = self._check_injury_market_consistency(request, verified)
@@ -4817,7 +4871,7 @@ class LogicValidator:
 
         # Calculate score adjustment
         adjusted_score = request.preliminary_score
-        adjustment_reasons = []
+        adjustment_reasons: list[str] = []
 
         # Apply penalty for critical injury + Over market
         if self._should_apply_injury_penalty(request, verified):
@@ -4894,7 +4948,7 @@ class LogicValidator:
 
         Key rule: CRITICAL injury + Over market = inconsistency
         """
-        issues = []
+        issues: list[str] = []
 
         # Check for CRITICAL injury + Over market inconsistency
         if request.has_critical_injuries() and request.is_over_market():
@@ -4994,7 +5048,7 @@ class LogicValidator:
 
         Requirements: 2.2, 2.3, 8.3
         """
-        issues = []
+        issues: list[str] = []
 
         # Check for both teams low scoring + Over market
         if verified.both_teams_low_scoring() and request.is_over_market():
@@ -5032,8 +5086,8 @@ class LogicValidator:
         Returns:
             Tuple of (issues, alternative_markets)
         """
-        issues = []
-        alternatives = []
+        issues: list[str] = []
+        alternatives: list[str] = []
 
         if not verified.h2h or not verified.h2h.has_data():
             return issues, alternatives
@@ -5075,7 +5129,7 @@ class LogicValidator:
 
         Requirements: 4.2, 4.3
         """
-        issues = []
+        issues: list[dict[str, Any]] = []
 
         if not verified.referee:
             return issues
@@ -5120,8 +5174,8 @@ class LogicValidator:
         Returns:
             Tuple of (issues, alternative_markets)
         """
-        issues = []
-        alternatives = []
+        issues: list[str] = []
+        alternatives: list[str] = []
 
         # Check if combined corners suggest Over 9.5
         # V7.0.2: Removed unused 'combined' variable
@@ -5153,8 +5207,8 @@ class LogicValidator:
         Returns:
             Tuple of (issues, alternative_markets)
         """
-        issues = []
-        alternatives = []
+        issues: list[str] = []
+        alternatives: list[str] = []
 
         # Skip if no xG data available
         if not verified.home_xg and not verified.away_xg:
@@ -5196,7 +5250,7 @@ class LogicValidator:
         Requirements: 8.2
         V13.1: Enhanced with intelligent cards market suggestions
         """
-        alternatives = []
+        alternatives: list[str] = []
 
         # If both teams have CRITICAL injuries, suggest Under
         if request.both_teams_critical():
@@ -5331,7 +5385,7 @@ class LogicValidator:
 
         Requirements: 6.5
         """
-        parts = []
+        parts: list[str] = []
 
         # Status summary
         if status == VerificationStatus.CONFIRM:
@@ -5583,8 +5637,8 @@ def create_verification_request_from_match(
     )
 
     # Extract injury info - prioritize FotMob context, fallback to analysis object
-    home_missing = []
-    away_missing = []
+    home_missing: list[dict[str, Any]] = []
+    away_missing: list[dict[str, Any]] = []
     home_severity = "LOW"
     away_severity = "LOW"
     home_impact = 0.0
@@ -5708,7 +5762,7 @@ def build_italian_reasoning(
 
     Requirements: 6.5
     """
-    parts = []
+    parts: list[str] = []
 
     # Status header
     if status == VerificationStatus.CONFIRM:
@@ -5727,7 +5781,7 @@ def build_italian_reasoning(
         parts.append("⚠️ Dati verificati con bassa confidenza.")
 
     # Key findings
-    findings = []
+    findings: list[str] = []
 
     if verified.home_form and verified.away_form:
         if verified.both_teams_low_scoring():

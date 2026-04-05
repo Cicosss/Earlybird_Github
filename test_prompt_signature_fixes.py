@@ -32,10 +32,10 @@ from src.ingestion.prompts import (
 
 def test_build_news_verification_prompt():
     """Test build_news_verification_prompt with 5 parameters as used by providers."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST 1: build_news_verification_prompt")
-    print("="*70)
-    
+    print("=" * 70)
+
     try:
         # Parameters exactly as passed by deepseek_intel_provider, perplexity_provider,
         # and openrouter_fallback_provider
@@ -46,19 +46,19 @@ def test_build_news_verification_prompt():
             news_source="@juventusfc",
             match_context="Upcoming match vs AC Milan, critical for title race",
         )
-        
+
         # Verify prompt contains all expected information
         assert "Player Injury Update" in prompt, "Missing news_title in prompt"
         assert "Star striker injured in training" in prompt, "Missing news_snippet in prompt"
         assert "Juventus" in prompt, "Missing team_name in prompt"
         assert "@juventusfc" in prompt, "Missing news_source in prompt"
         assert "title race" in prompt, "Missing match_context in prompt"
-        
+
         print("✅ PASS: Function accepts 5 parameters correctly")
         print(f"✅ PASS: Prompt generated successfully ({len(prompt)} chars)")
         print(f"✅ PASS: All parameters properly included in prompt")
         return True
-        
+
     except TypeError as e:
         print(f"❌ FAIL: TypeError - {e}")
         print("   This indicates the function signature is still incorrect")
@@ -70,10 +70,10 @@ def test_build_news_verification_prompt():
 
 def test_build_biscotto_confirmation_prompt():
     """Test build_biscotto_confirmation_prompt with 9 parameters as used by providers."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST 2: build_biscotto_confirmation_prompt")
-    print("="*70)
-    
+    print("=" * 70)
+
     try:
         # Parameters exactly as passed by deepseek_intel_provider, perplexity_provider,
         # and openrouter_fallback_provider
@@ -88,7 +88,7 @@ def test_build_biscotto_confirmation_prompt():
             season_context="final matchday of the season",
             detected_factors="both teams safe from relegation, no European spots at stake",
         )
-        
+
         # Verify prompt contains all expected information
         assert "Juventus" in prompt, "Missing home_team in prompt"
         assert "AC Milan" in prompt, "Missing away_team in prompt"
@@ -99,12 +99,12 @@ def test_build_biscotto_confirmation_prompt():
         assert "dropping" in prompt, "Missing odds_pattern in prompt"
         assert "final matchday" in prompt, "Missing season_context in prompt"
         assert "safe from relegation" in prompt, "Missing detected_factors in prompt"
-        
+
         print("✅ PASS: Function accepts 9 parameters correctly")
         print(f"✅ PASS: Prompt generated successfully ({len(prompt)} chars)")
         print(f"✅ PASS: All parameters properly included in prompt")
         return True
-        
+
     except TypeError as e:
         print(f"❌ FAIL: TypeError - {e}")
         print("   This indicates the function signature is still incorrect")
@@ -116,10 +116,10 @@ def test_build_biscotto_confirmation_prompt():
 
 def test_build_match_context_enrichment_prompt():
     """Test build_match_context_enrichment_prompt with 5 parameters as used by providers."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST 3: build_match_context_enrichment_prompt")
-    print("="*70)
-    
+    print("=" * 70)
+
     try:
         # Parameters exactly as passed by deepseek_intel_provider
         prompt = build_match_context_enrichment_prompt(
@@ -129,19 +129,19 @@ def test_build_match_context_enrichment_prompt():
             league="Serie A",
             existing_context="Both teams coming off wins",
         )
-        
+
         # Verify prompt contains all expected information
         assert "Juventus" in prompt, "Missing home_team in prompt"
         assert "AC Milan" in prompt, "Missing away_team in prompt"
         assert "2026-03-15" in prompt, "Missing match_date in prompt"
         assert "Serie A" in prompt, "Missing league in prompt"
         assert "coming off wins" in prompt, "Missing existing_context in prompt"
-        
+
         print("✅ PASS: Function accepts 5 parameters correctly")
         print(f"✅ PASS: Prompt generated successfully ({len(prompt)} chars)")
         print(f"✅ PASS: All parameters properly included in prompt")
         return True
-        
+
     except TypeError as e:
         print(f"❌ FAIL: TypeError - {e}")
         print("   This indicates the function signature is still incorrect")
@@ -153,32 +153,32 @@ def test_build_match_context_enrichment_prompt():
 
 def main():
     """Run all verification tests."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PROMPT SIGNATURE FIXES VERIFICATION TEST")
-    print("="*70)
+    print("=" * 70)
     print("\nThis test verifies that the critical signature mismatches")
     print("have been fixed to prevent runtime crashes on VPS.")
     print("\nTesting functions with parameters exactly as passed by providers:")
     print("- deepseek_intel_provider")
     print("- perplexity_provider")
     print("- openrouter_fallback_provider")
-    
+
     results = []
-    
+
     # Run all tests
     results.append(test_build_news_verification_prompt())
     results.append(test_build_biscotto_confirmation_prompt())
     results.append(test_build_match_context_enrichment_prompt())
-    
+
     # Summary
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST SUMMARY")
-    print("="*70)
+    print("=" * 70)
     passed = sum(results)
     total = len(results)
-    
+
     print(f"\nTests Passed: {passed}/{total}")
-    
+
     if passed == total:
         print("\n✅ ALL TESTS PASSED!")
         print("\nThe signature mismatches have been successfully fixed.")

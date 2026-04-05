@@ -16,6 +16,7 @@ VPS_DIR = "/root/earlybird"
 ZIP_FILE = "earlybird_deploy.zip"
 LOCAL_DIR = "/home/linux/Earlybird_Github"
 
+
 def run_command(cmd, check=True):
     """Execute a command and return the result"""
     print(f"\n🔧 Executing: {cmd}")
@@ -28,6 +29,7 @@ def run_command(cmd, check=True):
         print(f"❌ Command failed with exit code {result.returncode}")
         sys.exit(1)
     return result
+
 
 def main():
     print("=" * 60)
@@ -72,7 +74,7 @@ def main():
     # Step 6: Setup Telegram session (optional)
     print("\n[6/8] 🔐 Setup sessione Telegram (opzionale)...")
     setup_telegram = input("Vuoi configurare la sessione Telegram ora? (y/n): ").strip().lower()
-    if setup_telegram == 'y':
+    if setup_telegram == "y":
         print("⚠️  NOTA: La sessione Telegram richiede input interattivo.")
         print("⚠️  Dovrai inserire il numero e il codice OTP nel terminale VPS.")
         cmd = f"sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {VPS_USER}@{VPS_IP} 'cd {VPS_DIR} && python3 setup_telegram_auth.py'"
@@ -103,6 +105,7 @@ def main():
     print("   • Detach tmux:         Ctrl+B poi d")
     print("   • Stop bot:            tmux kill-session -t earlybird")
     print()
+
 
 if __name__ == "__main__":
     main()

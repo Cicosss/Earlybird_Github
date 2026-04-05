@@ -11,7 +11,11 @@ import threading
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.ingestion.brave_provider import get_brave_provider, reset_brave_provider, BraveSearchProvider
+from src.ingestion.brave_provider import (
+    get_brave_provider,
+    reset_brave_provider,
+    BraveSearchProvider,
+)
 
 
 class TestBraveProviderThreadSafety:
@@ -61,7 +65,9 @@ class TestBraveProviderThreadSafety:
         instance_ids = [id(i) for i in instances]
         unique_ids = set(instance_ids)
 
-        assert len(unique_ids) == 1, f"Multiple instances created: {len(unique_ids)} unique instances"
+        assert len(unique_ids) == 1, (
+            f"Multiple instances created: {len(unique_ids)} unique instances"
+        )
 
     def test_concurrent_singleton_creation_with_mock_init(self):
         """Test thread-safety with a mocked __init__ that simulates slow initialization."""
@@ -72,6 +78,7 @@ class TestBraveProviderThreadSafety:
         def slow_init(self):
             """Simulate slow initialization to increase race condition probability."""
             import time
+
             time.sleep(init_delay)
             # Original __init__ logic
             from src.ingestion.brave_key_rotator import get_brave_key_rotator
@@ -92,7 +99,7 @@ class TestBraveProviderThreadSafety:
             instances.append(instance)
 
         # Patch __init__ to be slow
-        with patch.object(BraveSearchProvider, '__init__', slow_init):
+        with patch.object(BraveSearchProvider, "__init__", slow_init):
             # Create multiple threads
             threads = [threading.Thread(target=create_instance) for _ in range(num_threads)]
 
@@ -110,7 +117,9 @@ class TestBraveProviderThreadSafety:
         instance_ids = [id(i) for i in instances]
         unique_ids = set(instance_ids)
 
-        assert len(unique_ids) == 1, f"Multiple instances created with slow init: {len(unique_ids)} unique instances"
+        assert len(unique_ids) == 1, (
+            f"Multiple instances created with slow init: {len(unique_ids)} unique instances"
+        )
 
     def test_reset_brave_provider(self):
         """Test that reset_brave_provider() allows re-initialization."""
@@ -163,7 +172,9 @@ class TestBraveProviderThreadSafety:
         if non_reset_instances:
             instance_ids = [id(i) for i in non_reset_instances]
             unique_ids = set(instance_ids)
-            assert len(unique_ids) == 1, f"Multiple instances after concurrent reset: {len(unique_ids)} unique instances"
+            assert len(unique_ids) == 1, (
+                f"Multiple instances after concurrent reset: {len(unique_ids)} unique instances"
+            )
 
     def test_singleton_is_initialized_once(self):
         """Test that __init__ is called exactly once even with concurrent access."""
@@ -178,6 +189,7 @@ class TestBraveProviderThreadSafety:
 
             # Simulate some initialization work
             import time
+
             time.sleep(0.01)
 
             # Minimal initialization for test
@@ -190,7 +202,7 @@ class TestBraveProviderThreadSafety:
             get_brave_provider()
 
         # Patch __init__ to count calls
-        with patch.object(BraveSearchProvider, '__init__', counting_init):
+        with patch.object(BraveSearchProvider, "__init__", counting_init):
             # Create multiple threads
             num_threads = 10
             threads = [threading.Thread(target=create_instance) for _ in range(num_threads)]
@@ -226,7 +238,7 @@ class TestBraveProviderThreadSafetyIntegration:
                     {
                         "title": "Test Result",
                         "url": "https://example.com",
-                        "description": "Test description"
+                        "description": "Test description",
                     }
                 ]
             }

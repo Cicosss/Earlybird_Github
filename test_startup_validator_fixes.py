@@ -40,6 +40,7 @@ print("=" * 70)
 try:
     # Test that timezone is imported
     from datetime import timezone
+
     print("✅ timezone module imported successfully")
 
     # Test that UTC timestamp is generated correctly
@@ -61,6 +62,7 @@ try:
 
     # Check that disabled_features is in the dataclass
     import dataclasses
+
     fields = [f.name for f in dataclasses.fields(StartupValidationReport)]
     print(f"StartupValidationReport fields: {fields}")
     assert "disabled_features" in fields, "disabled_features should be in StartupValidationReport"
@@ -133,6 +135,7 @@ try:
 
     # Verify global report is set
     from src.utils.startup_validator import get_validation_report
+
     global_report = get_validation_report()
     assert global_report is not None, "Global report should be set after validation"
     assert global_report is report, "Global report should be the same as returned report"
@@ -147,6 +150,7 @@ except SystemExit as e:
 except Exception as e:
     print(f"❌ Test 5 FAILED: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
@@ -177,6 +181,7 @@ try:
 except Exception as e:
     print(f"❌ Test 6 FAILED: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 

@@ -17,7 +17,7 @@ import os
 import re
 import threading
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -31,6 +31,7 @@ from src.utils.validators import safe_get
 # Import TeamInjuryImpact for type hints (TYPE_CHECKING only to avoid runtime issues)
 if TYPE_CHECKING:
     from src.analysis.injury_impact_engine import TeamInjuryImpact
+    from openai.types.chat import ChatCompletionMessageParam
 
 # V11.0: Import Contract Validation
 try:
@@ -96,9 +97,9 @@ def _validate_newslog_contract(newslog: NewsLog, context: str = "") -> NewsLog:
         }
 
         # Validate against contract
-        ANALYSIS_RESULT_CONTRACT.assert_valid(newslog_dict, context=context)
+        ANALYSIS_RESULT_CONTRACT.assert_valid(newslog_dict, context=context)  # pyright: ignore[reportPossiblyUnboundVariable]
         return newslog
-    except ContractViolation as e:
+    except ContractViolation as e:  # pyright: ignore[reportPossiblyUnboundVariable]
         # V14.0 FIX: Enhanced logging with context details
         # FIX: Return newslog instead of None to prevent downstream crashes
         logging.warning(
@@ -113,12 +114,12 @@ def _validate_newslog_contract(newslog: NewsLog, context: str = "") -> NewsLog:
 
 # Import referee monitoring modules for V9.0
 try:
-    from src.analysis.referee_boost_logger import (
-        BoostType,
-        get_referee_boost_logger,
+    from src.analysis.referee_boost_logger import (  # pyright: ignore[reportAssignmentType]
+        BoostType,  # pyright: ignore[reportAssignmentType]
+        get_referee_boost_logger,  # pyright: ignore[reportAssignmentType]
     )
-    from src.analysis.referee_cache_monitor import get_referee_cache_monitor
-    from src.analysis.referee_influence_metrics import get_referee_influence_metrics
+    from src.analysis.referee_cache_monitor import get_referee_cache_monitor  # pyright: ignore[reportAssignmentType]
+    from src.analysis.referee_influence_metrics import get_referee_influence_metrics  # pyright: ignore[reportAssignmentType]
 
     REFEREE_MONITORING_AVAILABLE = True
 except ImportError:
@@ -418,6 +419,12 @@ These rules OVERRIDE statistical signals when tactical data contradicts them. Lo
 - When applying ANY veto, you MUST include in reasoning:
   - "⚠️ TACTICAL VETO ATTIVO: [specific reason]"
 - Example: "⚠️ TACTICAL VETO ATTIVO: 2 attaccanti titolari assenti, Under più probabile"
+
+**VETO 6: LOGISTICAL VETO (Travel Crises & Strikes) - V12.8**
+- TRIGGER: Away team suffers severe travel delays (flight cancelled, bus broken, stuck at airport) OR any team faces a strike over unpaid wages.
+- ACTION: Treat as CRITICAL downgrade equivalent to losing 3 starters. Heavily favor the opposing team (1X/X2) or high volatility markets (Over/BTTS).
+- KEYWORDS to detect: "flight delayed", "stuck at airport", "bus broken", "behind closed doors", "strike", "unpaid wages", "huelga", "grève", "greve"
+- REASONING TEMPLATE: "⚠️ LOGISTICAL VETO: Travel disruption/strike detected → treated as losing 3 starters → favoring opposing team or high-volatility market."
 
 **VETO HIERARCHY:**
 1. Tactical Veto Rules > Historical Statistics
@@ -1051,7 +1058,7 @@ def call_deepseek(
                 # V6.3 FIX: Add timeout parameter to prevent excessive wait times
                 response = client.chat.completions.create(
                     model=model_id,
-                    messages=messages,
+                    messages=cast("list[ChatCompletionMessageParam]", messages),
                     temperature=0.3,  # Lower for more consistent JSON
                     max_tokens=1000,
                     extra_body=extra_body if extra_body else None,
@@ -1279,14 +1286,14 @@ def detect_cross_source_convergence(
                     "confidence": web_confidence,
                     "team": web_team,
                     "source": web_source,
-                    "timestamp": web_timestamp.isoformat() if web_timestamp else None,
+                    "timestamp": web_timestamp.isoformat() if web_timestamp else None,  # pyright: ignore[reportAttributeAccessIssue]
                 },
                 "social": {
                     "type": social_signal_type,
                     "confidence": social_confidence,
                     "team": social_team,
                     "source": "nitter",
-                    "timestamp": social_timestamp.isoformat() if social_timestamp else None,
+                    "timestamp": social_timestamp.isoformat() if social_timestamp else None,  # pyright: ignore[reportAttributeAccessIssue]
                     "handle": social_signal.get("handle", ""),
                 },
                 "time_diff_hours": time_diff,
@@ -1562,7 +1569,9 @@ def extract_player_names(text: str) -> list[str]:
     return unique_names[:5]
 
 
-def enrich_with_player_data(news_snippet: str, team_name: str = None, team_id: int = None) -> str:
+def enrich_with_player_data(
+    news_snippet: str, team_name: str | None = None, team_id: int | None = None
+) -> str:
     """
     Extract player names from news and check their status via FotMob.
 
@@ -1586,7 +1595,8 @@ def enrich_with_player_data(news_snippet: str, team_name: str = None, team_id: i
                 status = provider.check_player_status(player_name, team_id=team_id)
             else:
                 # Fallback to old behavior (team_name only)
-                status = provider.check_player_status(player_name, team_name=team_name)
+                _team_name_arg: str = team_name or ""  # pyright: ignore[reportAssignmentType]
+                status = provider.check_player_status(player_name, team_name=_team_name_arg)
 
             if status["found"]:
                 if status["is_key"]:

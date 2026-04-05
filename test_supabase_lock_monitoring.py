@@ -28,26 +28,26 @@ def test_method_exists():
     provider = SupabaseProvider()
 
     # Check if method exists
-    if hasattr(provider, '_acquire_cache_lock_with_monitoring'):
+    if hasattr(provider, "_acquire_cache_lock_with_monitoring"):
         print("✅ _acquire_cache_lock_with_monitoring method exists")
     else:
         print("❌ _acquire_cache_lock_with_monitoring method NOT found")
         return False
 
     # Check if metrics are initialized
-    if hasattr(provider, '_cache_lock_wait_time'):
+    if hasattr(provider, "_cache_lock_wait_time"):
         print("✅ _cache_lock_wait_time metric initialized")
     else:
         print("❌ _cache_lock_wait_time metric NOT initialized")
         return False
 
-    if hasattr(provider, '_cache_lock_wait_count'):
+    if hasattr(provider, "_cache_lock_wait_count"):
         print("✅ _cache_lock_wait_count metric initialized")
     else:
         print("❌ _cache_lock_wait_count metric NOT initialized")
         return False
 
-    if hasattr(provider, '_cache_lock_timeout_count'):
+    if hasattr(provider, "_cache_lock_timeout_count"):
         print("✅ _cache_lock_timeout_count metric initialized")
     else:
         print("❌ _cache_lock_timeout_count metric NOT initialized")
@@ -73,23 +73,23 @@ def test_lock_acquisition():
     for i in range(5):
         acquired = provider._acquire_cache_lock_with_monitoring(timeout=5.0)
         if acquired:
-            print(f"✅ Lock acquisition {i+1} successful")
+            print(f"✅ Lock acquisition {i + 1} successful")
             provider._cache_lock.release()
         else:
-            print(f"❌ Lock acquisition {i+1} failed")
+            print(f"❌ Lock acquisition {i + 1} failed")
             return False
 
     # Check updated stats
     updated_stats = provider.get_cache_lock_stats()
     print(f"Updated stats: {updated_stats}")
 
-    if updated_stats['wait_count'] == initial_stats['wait_count'] + 5:
+    if updated_stats["wait_count"] == initial_stats["wait_count"] + 5:
         print(f"✅ Wait count increased correctly: {updated_stats['wait_count']}")
     else:
         print(f"❌ Wait count NOT increased correctly: {updated_stats['wait_count']}")
         return False
 
-    if updated_stats['wait_time_total'] > initial_stats['wait_time_total']:
+    if updated_stats["wait_time_total"] > initial_stats["wait_time_total"]:
         print(f"✅ Wait time increased: {updated_stats['wait_time_total']:.3f}s")
     else:
         print(f"❌ Wait time NOT increased")
@@ -139,7 +139,7 @@ def test_cache_operations():
     updated_stats = provider.get_cache_lock_stats()
     print(f"Updated stats: {updated_stats}")
 
-    if updated_stats['wait_count'] > initial_stats['wait_count']:
+    if updated_stats["wait_count"] > initial_stats["wait_count"]:
         print(f"✅ Wait count increased: {updated_stats['wait_count']}")
     else:
         print(f"❌ Wait count NOT increased")
@@ -188,7 +188,7 @@ def test_concurrent_access():
     updated_stats = provider.get_cache_lock_stats()
     print(f"Updated stats: {updated_stats}")
 
-    if updated_stats['wait_count'] > initial_stats['wait_count']:
+    if updated_stats["wait_count"] > initial_stats["wait_count"]:
         print(f"✅ Wait count increased: {updated_stats['wait_count']}")
     else:
         print(f"❌ Wait count NOT increased")
@@ -210,7 +210,7 @@ def test_get_cache_lock_stats():
     print(f"Stats: {stats}")
 
     # Check required keys
-    required_keys = ['wait_count', 'wait_time_total', 'wait_time_avg', 'timeout_count']
+    required_keys = ["wait_count", "wait_time_total", "wait_time_avg", "timeout_count"]
     for key in required_keys:
         if key in stats:
             print(f"✅ Stats has key: {key}")
@@ -219,25 +219,25 @@ def test_get_cache_lock_stats():
             return False
 
     # Check data types
-    if isinstance(stats['wait_count'], int):
+    if isinstance(stats["wait_count"], int):
         print(f"✅ wait_count is int: {stats['wait_count']}")
     else:
         print(f"❌ wait_count is not int: {type(stats['wait_count'])}")
         return False
 
-    if isinstance(stats['wait_time_total'], (int, float)):
+    if isinstance(stats["wait_time_total"], (int, float)):
         print(f"✅ wait_time_total is number: {stats['wait_time_total']}")
     else:
         print(f"❌ wait_time_total is not number: {type(stats['wait_time_total'])}")
         return False
 
-    if isinstance(stats['wait_time_avg'], (int, float)):
+    if isinstance(stats["wait_time_avg"], (int, float)):
         print(f"✅ wait_time_avg is number: {stats['wait_time_avg']}")
     else:
         print(f"❌ wait_time_avg is not number: {type(stats['wait_time_avg'])}")
         return False
 
-    if isinstance(stats['timeout_count'], int):
+    if isinstance(stats["timeout_count"], int):
         print(f"✅ timeout_count is int: {stats['timeout_count']}")
     else:
         print(f"❌ timeout_count is not int: {type(stats['timeout_count'])}")
@@ -269,6 +269,7 @@ def main():
         except Exception as e:
             print(f"❌ Test failed with exception: {e}")
             import traceback
+
             traceback.print_exc()
             results.append(False)
 

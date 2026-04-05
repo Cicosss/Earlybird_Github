@@ -199,7 +199,7 @@ class BudgetReporter:
         Returns:
             List of recommendations
         """
-        recommendations = []
+        recommendations: list[str] = []
 
         usage_percentage = status.get("usage_percentage", 0.0)
         is_degraded = status.get("is_degraded", False)

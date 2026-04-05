@@ -62,6 +62,9 @@ from src.utils.content_analysis import (
     get_relevance_analyzer,
 )
 
+# P2: Import stop check utility
+from config.settings import is_stop_requested
+
 # FIX #2: Import transient error configuration
 # FIX #6: Import CIRCUIT_BREAKER_CONFIG for threshold configuration
 try:
@@ -79,8 +82,12 @@ except ImportError:
     CIRCUIT_BREAKER_CONFIG = {"failure_threshold": 3, "recovery_timeout": 600}
 
 # V10.0: Import Multi-Level Intelligence Gate (Layer 1 only - Layer 2 removed as dead code)
+# V12.7 ROOT FIX: Import ALL_KEYWORDS to eliminate duplicate keyword dictionary.
+# Previously maintained a separate NATIVE_KEYWORDS dict that went out of sync.
+# Now intelligence_gate.py is the single source of truth for all keyword data.
 try:
     from src.utils.intelligence_gate import (
+        ALL_KEYWORDS as _UNIFIED_GATE_KEYWORDS,
         apply_intelligence_gate,
         level_1_keyword_check,
         level_1_keyword_check_with_details,
@@ -89,6 +96,7 @@ try:
     _INTELLIGENCE_GATE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_GATE_AVAILABLE = False
+    _UNIFIED_GATE_KEYWORDS: list[str] = []  # Empty: populated from emergency fallback below
 
 logger = logging.getLogger(__name__)
 
@@ -105,32 +113,46 @@ if not STEALTH_AVAILABLE:
 # CONFIGURATION
 # ============================================
 
-# Nitter instances (round-robin)
-NITTER_INSTANCES = [
-    "https://twiiit.com",  # Redirects to active Nitter instance
-    "https://xcancel.com",  # Alternative Nitter frontend
+# Dedicated fallback instances (separate from NitterPool to avoid duplicate load)
+# These are Playwright-based instances, NOT Scrapling-based (unlike NitterPool)
+_FALLBACK_PRIMARY_INSTANCES = [
+    "https://twiiit.com",
+    "https://xcancel.com",
 ]
 
-# Fallback instances if primary ones fail
-NITTER_FALLBACK_INSTANCES = [
+_FALLBACK_SECONDARY_INSTANCES = [
     "https://nitter.poast.org",
-    "https://nitter.privacydev.net",
+]
+
+# V13.1 COVE FIX: Tertiary instances from NitterPool config (non-overlapping with primary/secondary)
+# These are tried last, providing a wider safety net when primary/secondary fail on VPS
+_FALLBACK_TERTIARY_INSTANCES = [
+    "https://nitter.privacyredirect.com",
+    "https://lightbrd.com",
+    "https://nitter.space",
+    "https://nitter.tiekoetter.com",
+    "https://nitter.hostux.net",
+    "https://nt.ggtyler.dev",
 ]
 
 # Scraping configuration
-SCRAPE_DELAY_MIN = 1.5  # Minimum delay between requests (seconds)
-SCRAPE_DELAY_MAX = 3.0  # Maximum delay between requests (seconds)
+SCRAPE_DELAY_MIN = 1.5
+SCRAPE_DELAY_MAX = 3.0
 PAGE_TIMEOUT_SECONDS = 30
 MAX_TWEETS_PER_ACCOUNT = 5
-# COVE FIX: Make MAX_RETRIES_PER_ACCOUNT configurable via NITTER_MAX_RETRIES env var
-# Default changed from 3 to number of instances to ensure ALL instances are tried
-# This ensures all Nitter instances are attempted before giving up, instead of
-# artificially limiting retries to just 3 instances when 13+ are available.
-# The env var can still override, but now defaults to a value that covers all instances.
-from src.config.nitter_instances import NITTER_INSTANCES
-# Account for both primary instances and fallback instances
-NUM_NITTER_INSTANCES = len(NITTER_INSTANCES) + 3  # +3 for fallback instances
-MAX_RETRIES_PER_ACCOUNT = int(os.getenv("NITTER_MAX_RETRIES", str(NUM_NITTER_INSTANCES)))
+
+# V13.1 COVE FIX: Per-instance retry before switching to next instance
+# Previously was 1 (try once, switch). Now 2: retry same instance once before switching.
+# This handles transient VPS network issues (brief timeouts, connection resets)
+RETRIES_PER_INSTANCE = int(os.getenv("NITTER_RETRIES_PER_INSTANCE", "2"))
+
+# Calculate max retries from the actual dedicated fallback instances
+_NUM_FALLBACK_INSTANCES = (
+    len(_FALLBACK_PRIMARY_INSTANCES)
+    + len(_FALLBACK_SECONDARY_INSTANCES)
+    + len(_FALLBACK_TERTIARY_INSTANCES)
+)
+MAX_RETRIES_PER_ACCOUNT = int(os.getenv("NITTER_MAX_RETRIES", str(_NUM_FALLBACK_INSTANCES)))
 # V12.5.1 COVE FIX: MAX_NITTER_RECOVERY_ACCOUNTS limits accounts to recover via Nitter
 # This prevents excessive latency when many accounts lack data after Tavily
 MAX_NITTER_RECOVERY_ACCOUNTS = int(os.getenv("MAX_NITTER_RECOVERY_ACCOUNTS", "10"))
@@ -178,172 +200,52 @@ RELEVANCE_KEYWORDS = [
 # V9.5: NATIVE KEYWORD GATE (Layer 1 - Zero Cost)
 # ============================================
 
-# Native language keywords for pre-AI filtering
-# These are betting-relevant terms in non-English/Italian languages
-# VPS FIX: Updated to match intelligence_gate.py keywords for consistency
-# Now covers 9 languages instead of 3 (spanish, arabic, french, german, portuguese, polish, turkish, russian, dutch)
-NATIVE_KEYWORDS = {
-    "spanish": [
-        "lesión",  # injury
-        "huelga",  # strike
-        "lesionado",  # injured
-        "dolor",  # pain
-        "problema físico",  # physical problem
-        "baja",  # absence/miss
-        "reserva",  # reserve/bench
-        "descartado",  # ruled out
-        "duda",  # doubtful
-        "convocatoria",  # call-up/squad announcement
-        "equipo",  # team
-        "jugador",  # player
-        "entrenador",  # coach
-        "club",  # club
-        "alineación",  # lineup
-        "once titular",  # starting eleven
-        "banquillo",  # bench
-    ],
-    "arabic": [
-        "إصابة",  # injury
-        "أزمة",  # crisis
-        "إصابة طبية",  # medical injury
-        "مشكلة صحية",  # health problem
-        "غياب",  # absence
-        "مصاب",  # injured
-        "الاحتياط",  # reserve/bench
-        "تشكيلة",  # lineup/formation
-        "فريق",  # team
-        "لاعب",  # player
-        "مدرب",  # coach
-        "نادي",  # club
-        "الفريق الأساسي",  # starting team
-        "القائمة",  # squad list
-    ],
-    "french": [
-        "blessure",  # injury
-        "grève",  # strike
-        "douleur",  # pain
-        "problème physique",  # physical problem
-        "absence",  # absence
-        "blessé",  # injured
-        "forfait",  # ruled out
-        "réserve",  # reserve/bench
-        "composition",  # lineup/formation
-        "équipe",  # team
-        "joueur",  # player
-        "entraîneur",  # coach
-        "club",  # club
-        "titulaire",  # starter
-        "remplaçant",  # substitute
-        "effectif",  # squad
-    ],
-    "german": [
-        "verletzung",  # injury
-        "streik",  # strike
-        "schmerz",  # pain
-        "körperliches problem",  # physical problem
-        "abwesenheit",  # absence
-        "verletzt",  # injured
-        "reservist",  # reserve/bench
-        "aufstellung",  # lineup/formation
-        "mannschaft",  # team
-        "spieler",  # player
-        "trainer",  # coach
-        "verein",  # club
-        "stammspieler",  # starter
-        "ersatzspieler",  # substitute
-        "kader",  # squad
-    ],
-    "portuguese": [
-        "lesão",  # injury
-        "greve",  # strike
-        "dor",  # pain
-        "problema físico",  # physical problem
-        "ausência",  # absence
-        "lesionado",  # injured
-        "reserva",  # reserve/bench
-        "escalação",  # lineup/formation
-        "equipe",  # team
-        "jogador",  # player
-        "treinador",  # coach
-        "clube",  # club
-        "titular",  # starter
-        "reserva",  # substitute
-        "elenco",  # squad
-    ],
-    "polish": [
-        "kontuzja",  # injury
-        "strajk",  # strike
-        "ból",  # pain
-        "problem fizyczny",  # physical problem
-        "nieobecność",  # absence
-        "kontuzjowany",  # injured
-        "rezerwowy",  # reserve/bench
-        "skład",  # lineup/formation
-        "drużyna",  # team
-        "zawodnik",  # player
-        "trener",  # coach
-        "klub",  # club
-        "wyjściowy",  # starter
-        "rezerwowy",  # substitute
-        "kadr",  # squad
-    ],
-    "turkish": [
-        "sakatlık",  # injury
-        "grev",  # strike
-        "ağrı",  # pain
-        "fiziksel sorun",  # physical problem
-        "yokluk",  # absence
-        "sakat",  # injured
-        "yedek",  # reserve/bench
-        "kadro",  # lineup/formation
-        "takım",  # team
-        "oyuncu",  # player
-        "antrenör",  # coach
-        "kulüp",  # club
-        "ilk on bir",  # starting eleven
-        "yedek",  # substitute
-        "squad",  # squad
-    ],
-    "russian": [
-        "травма",  # injury
-        "забастовка",  # strike
-        "боль",  # pain
-        "физическая проблема",  # physical problem
-        "отсутствие",  # absence
-        "травмирован",  # injured
-        "запасной",  # reserve/bench
-        "состав",  # lineup/formation
-        "команда",  # team
-        "игрок",  # player
-        "тренер",  # coach
-        "клуб",  # club
-        "основной",  # starter
-        "запасной",  # substitute
-        "состав",  # squad
-    ],
-    "dutch": [
-        "blessure",  # injury
-        "staking",  # strike
-        "pijn",  # pain
-        "fysiek probleem",  # physical problem
-        "afwezigheid",  # absence
-        "geblesseerd",  # injured
-        "reservespeler",  # reserve/bench
-        "opstelling",  # lineup/formation
-        "team",  # team
-        "speler",  # player
-        "trainer",  # coach
-        "club",  # club
-        "basis",  # starter
-        "wisselspeler",  # substitute
-        "selectie",  # squad
-    ],
-}
+# Single Source of Truth: ALL_KEYWORDS imported from intelligence_gate.py
+# Contains INJURY_KEYWORDS (10 languages) + TEAM_KEYWORDS (9 languages) = 199 keywords
+#
+# ROOT FIX (V12.7): Previously this module maintained a separate 157-line NATIVE_KEYWORDS
+# dictionary that was a duplicate of intelligence_gate.py keyword data. This caused:
+#   1. Type annotation mismatch (ALL_NATIVE_KEYWORDS: list[dict[str, Any]] but contained str)
+#   2. Keyword desync between modules (V12.7 Arabic/Spanish/Portuguese crisis keywords missing)
+#   3. Maintenance burden (every keyword change required editing 2 files)
+# Now intelligence_gate.py is the canonical source, eliminating all three problems.
 
-# Flatten all keywords for efficient matching
-ALL_NATIVE_KEYWORDS = []
-for lang, keywords in NATIVE_KEYWORDS.items():
-    ALL_NATIVE_KEYWORDS.extend(keywords)
+# Emergency-only fallback: minimal critical keywords if intelligence_gate.py is completely unavailable
+# This covers only the most essential betting-relevant terms that exist in ALL_KEYWORDS.
+# IMPORTANT: All keywords here MUST be in ALL_KEYWORDS to maintain consistency between
+# normal path (uses ALL_KEYWORDS via intelligence_gate) and emergency path (uses this list).
+# Keywords NOT in ALL_KEYWORDS: lineup, bench, strike (removed - not in canonical list)
+_EMERGENCY_FALLBACK_KEYWORDS: list[str] = [
+    # Injury terms (core) - all from ALL_KEYWORDS
+    "injury",
+    "injured",
+    "lesión",
+    "blessure",
+    "verletzung",
+    "lesão",
+    "kontuzja",
+    "sakatlık",
+    "травма",
+    # Absence/ruled out - all from ALL_KEYWORDS
+    "absent",
+    "ruled out",
+    "doubt",
+    "absence",
+    "غياب",
+    # Team/squad - subset from ALL_KEYWORDS
+    "squad",
+    # Arabic critical injury terms - from ALL_KEYWORDS
+    "مصاب",
+    "إصابة",
+    # Crisis/disruption (translated forms in target languages) - from ALL_KEYWORDS
+    "huelga",  # Spanish strike
+    "grève",  # French strike
+]
+
+# Use unified keywords from intelligence_gate if available, otherwise emergency fallback
+_GATE_KEYWORDS: list[str] = (
+    _UNIFIED_GATE_KEYWORDS if _UNIFIED_GATE_KEYWORDS else _EMERGENCY_FALLBACK_KEYWORDS
+)
 
 
 # ============================================
@@ -384,6 +286,10 @@ def passes_native_gate(tweet_text: str) -> tuple[bool, str | None]:
     language keywords BEFORE any API calls. Only tweets that pass this gate
     proceed to Layer 2 (DeepSeek analysis).
 
+    V12.7 ROOT FIX: Now uses _GATE_KEYWORDS (imported from intelligence_gate.py)
+    instead of a duplicate local dictionary, guaranteeing keyword consistency
+    across all modules in the bot.
+
     Args:
         tweet_text: The tweet content to check
 
@@ -403,8 +309,8 @@ def passes_native_gate(tweet_text: str) -> tuple[bool, str | None]:
     # Normalize text for matching (lowercase)
     text_lower = tweet_text.lower()
 
-    # Check each keyword
-    for keyword in ALL_NATIVE_KEYWORDS:
+    # Check each keyword from the unified gate keywords (single source of truth)
+    for keyword in _GATE_KEYWORDS:
         if keyword in text_lower:
             logger.debug(f"🚪 [NATIVE-GATE] PASSED - Keyword found: '{keyword}'")
             return True, keyword
@@ -623,16 +529,18 @@ class NitterFallbackScraper:
 
     def __init__(self):
         """Initialize the scraper."""
-        self._instances = list(NITTER_INSTANCES)
-        self._fallback_instances = list(NITTER_FALLBACK_INSTANCES)
+        self._instances = list(_FALLBACK_PRIMARY_INSTANCES)
+        self._fallback_instances = list(_FALLBACK_SECONDARY_INSTANCES)
+        # V13.1 COVE FIX: Tertiary instances from NitterPool config (last resort)
+        self._tertiary_instances = list(_FALLBACK_TERTIARY_INSTANCES)
         self._instance_index = 0
         self._instance_health: dict[str, InstanceHealth] = {}
 
         # Thread safety: Add lock for protecting InstanceHealth modifications
         self._health_lock = threading.Lock()
 
-        # Initialize health tracking
-        for url in self._instances + self._fallback_instances:
+        # Initialize health tracking for all instance tiers
+        for url in self._instances + self._fallback_instances + self._tertiary_instances:
             self._instance_health[url] = InstanceHealth(url=url)
 
         # Cache
@@ -729,8 +637,84 @@ class NitterFallbackScraper:
     # that were never used by any downstream component.
     # This eliminates wasted API calls, reduces latency, and simplifies the codebase.
 
-    def _get_next_instance(self) -> str:
-        """Get next healthy instance (round-robin)."""
+    # Recovery timeout: how long before an unhealthy instance gets a second chance
+    # V13.1 COVE FIX: Reduced from 600s to 300s for faster recovery on VPS
+    _RECOVERY_TIMEOUT_SECONDS = 300  # 5 minutes (was 10 minutes)
+
+    def _soft_reset_unhealthy_instances(self) -> int:
+        """
+        V13.1 COVE FIX: Soft reset transient failure counters on all instances.
+
+        Called when ALL instances are unhealthy, before giving up on an account.
+        This prevents cascading failures where one bad account poisons the pool
+        for all subsequent accounts.
+
+        Unlike full recovery (which requires waiting 10 minutes), this only resets
+        transient failure counters and consecutive_failures, allowing instances to
+        be retried for the next account. Permanent failures (403, Cloudflare) are
+        NOT reset.
+
+        Returns:
+            Number of instances that were soft-reset
+        """
+        reset_count = 0
+        with self._health_lock:
+            for url, health in self._instance_health.items():
+                if not health.is_healthy:
+                    # Only soft-reset if the failure was primarily transient
+                    # (more transient than permanent failures)
+                    if health.transient_failures > health.permanent_failures:
+                        health.is_healthy = True
+                        health.consecutive_failures = 0
+                        health.transient_failures = 0
+                        # Keep permanent_failures and last_failure_time for monitoring
+                        reset_count += 1
+                        logger.debug(
+                            f"🔄 [NITTER-FALLBACK] Soft-reset instance: {url} "
+                            f"(permanent_failures={health.permanent_failures} preserved)"
+                        )
+        if reset_count > 0:
+            logger.info(
+                f"🔄 [NITTER-FALLBACK] Soft-reset {reset_count} instances "
+                f"(transient-only reset, permanent failures preserved)"
+            )
+        return reset_count
+
+    def _recover_stale_instances(self) -> int:
+        """
+        Reset instances that have been unhealthy longer than the recovery timeout.
+
+        Unlike NitterPool which uses a proper CircuitBreaker with HALF_OPEN state,
+        this method provides a simpler time-based recovery for NitterFallbackScraper.
+
+        Returns:
+            Number of instances recovered
+        """
+        recovered = 0
+        now = time.time()
+        with self._health_lock:
+            for url, health in self._instance_health.items():
+                if not health.is_healthy and health.last_failure_time is not None:
+                    elapsed = now - health.last_failure_time
+                    if elapsed >= self._RECOVERY_TIMEOUT_SECONDS:
+                        health.is_healthy = True
+                        health.consecutive_failures = 0
+                        health.transient_failures = 0
+                        health.permanent_failures = 0
+                        recovered += 1
+                        logger.info(
+                            f"🔄 [NITTER-FALLBACK] Instance recovered after {int(elapsed)}s: {url}"
+                        )
+        return recovered
+
+    def _get_next_instance(self) -> str | None:
+        """Get next healthy instance (round-robin) with automatic recovery.
+
+        V13.1 COVE FIX: Now includes tertiary instances from NitterPool config
+        as last resort, providing 8+ total instances instead of just 3.
+        """
+        self._recover_stale_instances()
+
         # Try primary instances first
         for _ in range(len(self._instances)):
             url = self._instances[self._instance_index]
@@ -740,16 +724,22 @@ class NitterFallbackScraper:
             if health and health.is_healthy:
                 return url
 
-        # Try fallback instances
+        # Try fallback (secondary) instances
         for url in self._fallback_instances:
             health = self._instance_health.get(url)
             if health and health.is_healthy:
                 self._instance_switches += 1
                 return url
 
-        # V12.5 COVE FIX: When all instances are unhealthy, return None instead of
-        # retrying with an unhealthy instance. This prevents endless HTTP 403 loops
-        # for permanently blocked instances like twiiit.com
+        # V13.1 COVE FIX: Try tertiary instances (from NitterPool config)
+        # These are the last resort before giving up on an account
+        for url in self._tertiary_instances:
+            health = self._instance_health.get(url)
+            if health and health.is_healthy:
+                self._instance_switches += 1
+                logger.debug(f"🔄 [NITTER-FALLBACK] Using tertiary instance: {url}")
+                return url
+
         logger.debug("⚠️ [NITTER-FALLBACK] All instances unhealthy, no more retries")
         return None
 
@@ -831,6 +821,8 @@ class NitterFallbackScraper:
                 health.consecutive_failures = max(
                     health.transient_failures, health.permanent_failures
                 )
+                # Track last failure time for recovery mechanism
+                health.last_failure_time = time.time()
 
                 # Check if instance should be marked unhealthy
                 if failure_count >= threshold:
@@ -854,11 +846,14 @@ class NitterFallbackScraper:
             Dict mapping instance URL to health status
         """
         if not await self._ensure_browser():
-            return {url: False for url in self._instances + self._fallback_instances}
+            return {
+                url: False
+                for url in self._instances + self._fallback_instances + self._tertiary_instances
+            }
 
         results = {}
 
-        for url in self._instances + self._fallback_instances:
+        for url in self._instances + self._fallback_instances + self._tertiary_instances:
             try:
                 page = await self._browser.new_page()
                 # V12.1: Apply stealth mode (COVE FIX)
@@ -997,7 +992,7 @@ class NitterFallbackScraper:
         if not BS4_AVAILABLE or not html:
             return []
 
-        tweets = []
+        tweets: list[ScrapedTweet] = []
         soup = BeautifulSoup(html, "html.parser")
 
         # Nitter tweet selectors (may vary by instance)
@@ -1045,7 +1040,7 @@ class NitterFallbackScraper:
                 analysis = self._relevance_analyzer.analyze(content)
 
                 # Determine topics
-                topics = []
+                topics: list[str] = []
                 if analysis.category != "OTHER":
                     topics.append(analysis.category.lower())
 
@@ -1070,6 +1065,15 @@ class NitterFallbackScraper:
     async def _scrape_account(self, handle: str) -> list[ScrapedTweet]:
         """
         Scrape tweets from a single account.
+
+        V13.1 COVE FIX: Now includes per-instance retry (RETRIES_PER_INSTANCE=2)
+        and soft reset when all instances are unhealthy.
+
+        Retry strategy:
+        1. Outer loop: iterate over different instances (up to MAX_RETRIES_PER_ACCOUNT)
+        2. Inner loop: retry same instance up to RETRIES_PER_INSTANCE times
+        3. If all instances unhealthy: soft-reset transient failures and retry once more
+        4. Only then give up on this account
 
         Args:
             handle: Twitter handle (with or without @)
@@ -1106,162 +1110,202 @@ class NitterFallbackScraper:
         if not await self._ensure_browser():
             return []
 
-        tweets = []
+        tweets: list[ScrapedTweet] = []
         last_error = None
+        soft_reset_done = False  # V13.1: Track if soft reset was already attempted
 
-        # Try with retry
-        for attempt in range(MAX_RETRIES_PER_ACCOUNT):
+        # Outer loop: try different instances
+        attempt = 0
+        while attempt < MAX_RETRIES_PER_ACCOUNT:
             instance_url = self._get_next_instance()
-            # V12.5 COVE FIX: If no healthy instance available, stop retrying
+
+            # V13.1 COVE FIX: If no healthy instance available, try soft reset first
             if instance_url is None:
-                logger.warning(
-                    f"⚠️ [NITTER-FALLBACK] No healthy instances available for @{handle_clean}, "
-                    f"stopping after {attempt} attempts"
-                )
-                # Set last_error to avoid "NoneType: None" in final error logging
-                last_error = Exception("No healthy Nitter instances available")
-                break
+                if not soft_reset_done:
+                    reset_count = self._soft_reset_unhealthy_instances()
+                    soft_reset_done = True
+                    if reset_count > 0:
+                        # Try again after soft reset
+                        instance_url = self._get_next_instance()
+                        logger.info(
+                            f"🔄 [NITTER-FALLBACK] Soft-reset recovered {reset_count} instances "
+                            f"for @{handle_clean}, retrying..."
+                        )
+
+                if instance_url is None:
+                    logger.warning(
+                        f"⚠️ [NITTER-FALLBACK] No healthy instances available for @{handle_clean}, "
+                        f"stopping after {attempt} attempts"
+                    )
+                    last_error = Exception("No healthy Nitter instances available")
+                    break
+
             profile_url = f"{instance_url}/{handle_clean}"
 
-            try:
-                page = await self._browser.new_page()
+            # V13.1 COVE FIX: Inner loop - retry same instance before switching
+            instance_succeeded = False
+            for instance_retry in range(RETRIES_PER_INSTANCE):
+                page = None  # Track page for guaranteed cleanup
+                try:
+                    page = await self._browser.new_page()
 
-                # V12.1: Apply stealth mode (COVE FIX)
-                await self._apply_stealth(page)
+                    # V12.1: Apply stealth mode (COVE FIX)
+                    await self._apply_stealth(page)
 
-                # Set stealth headers
-                await page.set_extra_http_headers(
-                    {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                        "Accept-Language": "en-US,en;q=0.5",
-                        "Accept-Encoding": "gzip, deflate, br",
-                        "DNT": "1",
-                        "Connection": "keep-alive",
-                        "Upgrade-Insecure-Requests": "1",
-                    }
-                )
+                    # Set stealth headers
+                    await page.set_extra_http_headers(
+                        {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                            "Accept-Language": "en-US,en;q=0.5",
+                            "Accept-Encoding": "gzip, deflate, br",
+                            "DNT": "1",
+                            "Connection": "keep-alive",
+                            "Upgrade-Insecure-Requests": "1",
+                        }
+                    )
 
-                # Navigate to profile
-                response = await page.goto(
-                    profile_url, timeout=PAGE_TIMEOUT_SECONDS * 1000, wait_until="domcontentloaded"
-                )
+                    # Navigate to profile
+                    response = await page.goto(
+                        profile_url,
+                        timeout=PAGE_TIMEOUT_SECONDS * 1000,
+                        wait_until="domcontentloaded",
+                    )
 
-                if not response or response.status != 200:
-                    status_code = response.status if response else "unknown"
+                    if not response or response.status != 200:
+                        status_code = response.status if response else "unknown"
+                        await page.close()
+                        last_error = Exception(f"HTTP{status_code}")
+                        self._mark_instance_failure(instance_url, f"HTTP{status_code}")
+                        # V13.1: Don't retry on HTTP errors - switch instance immediately
+                        break
+
+                    # Wait for content to load (Nitter uses JS)
+                    await page.wait_for_timeout(2000)
+
+                    # Get HTML
+                    html = await page.content()
                     await page.close()
-                    # V12.5 COVE FIX: Set last_error for non-200 responses to avoid "NoneType: None" in logs
-                    last_error = Exception(f"HTTP{status_code}")
-                    self._mark_instance_failure(instance_url, f"HTTP{status_code}")
-                    continue
 
-                # Wait for content to load (Nitter uses JS)
-                await page.wait_for_timeout(2000)
+                    # Pre-filter check
+                    if not self._pre_filter_html(html):
+                        logger.debug(
+                            f"🐦 [NITTER-FALLBACK] No relevant content for @{handle_clean}"
+                        )
+                        self._mark_instance_success(instance_url)
+                        # Cache empty result to avoid re-scraping
+                        self._cache.set(handle_clean, [])
+                        return []
 
-                # Get HTML
-                html = await page.content()
-                await page.close()
+                    # Extract tweets (includes V10.0 Layer 1 gate)
+                    tweets = self._extract_tweets_from_html(html, f"@{handle_clean}")
 
-                # Pre-filter check
-                if not self._pre_filter_html(html):
-                    logger.debug(f"🐦 [NITTER-FALLBACK] No relevant content for @{handle_clean}")
-                    self._mark_instance_success(instance_url)
-                    # Cache empty result to avoid re-scraping
-                    self._cache.set(handle_clean, [])
-                    return []
+                    if tweets:
+                        self._mark_instance_success(instance_url)
+                        self._total_scraped += len(tweets)
 
-                # Extract tweets (includes V10.0 Layer 1 gate)
-                tweets = self._extract_tweets_from_html(html, f"@{handle_clean}")
+                        # Cache results (simplified - only essential fields)
+                        self._cache.set(
+                            handle_clean,
+                            [
+                                {
+                                    "date": t.date,
+                                    "content": t.content,
+                                    "topics": t.topics,
+                                    "relevance_score": t.relevance_score,
+                                }
+                                for t in tweets
+                            ],
+                        )
 
-                if tweets:
-                    self._mark_instance_success(instance_url)
-                    self._total_scraped += len(tweets)
+                        logger.debug(
+                            f"✅ [NITTER-FALLBACK] Scraped {len(tweets)} tweets from @{handle_clean}"
+                        )
+                        return tweets
+                    else:
+                        # No tweets found but page loaded OK
+                        self._mark_instance_success(instance_url)
+                        self._cache.set(handle_clean, [])
+                        return []
 
-                    # REMOVED: V10.0 Layer 2 processing (dead code)
-                    # Layer 2 fields (translation, is_betting_relevant, gate_triggered_keyword)
-                    # were never used by any downstream component, so processing them was wasted API calls.
+                except Exception as e:
+                    # FIX: Close leaked page on any exception (TimeoutError, network error, etc.)
+                    if page is not None:
+                        try:
+                            await page.close()
+                        except Exception:
+                            pass  # Page cleanup must never mask the original error
 
-                    # Cache results (simplified - only essential fields)
-                    self._cache.set(
-                        handle_clean,
-                        [
-                            {
-                                "date": t.date,
-                                "content": t.content,
-                                "topics": t.topics,
-                                "relevance_score": t.relevance_score,
-                            }
-                            for t in tweets
-                        ],
-                    )
+                    last_error = e
+                    error_type = type(e).__name__
+                    error_message = str(e)
 
-                    logger.debug(
-                        f"✅ [NITTER-FALLBACK] Scraped {len(tweets)} tweets from @{handle_clean}"
-                    )
-                    return tweets
-                else:
-                    # No tweets found but page loaded OK
-                    self._mark_instance_success(instance_url)
-                    self._cache.set(handle_clean, [])
-                    return []
+                    # V13.1 COVE FIX: Enhanced error classification with per-instance retry awareness
+                    if error_type == "ConnectionRefusedError":
+                        logger.warning(
+                            f"⚠️ [NITTER-FALLBACK] Connection REFUSED for @{handle_clean} from {instance_url} "
+                            f"(instance retry {instance_retry + 1}/{RETRIES_PER_INSTANCE}, "
+                            f"attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
+                            f"Possible causes: VPS firewall, IP blocked by Nitter, or instance down"
+                        )
+                        self._mark_instance_failure(instance_url, error_type)
+                        # Connection refused is usually permanent - don't retry same instance
+                        break
+                    elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
+                        logger.warning(
+                            f"⚠️ [NITTER-FALLBACK] TIMEOUT for @{handle_clean} from {instance_url} "
+                            f"(instance retry {instance_retry + 1}/{RETRIES_PER_INSTANCE}, "
+                            f"attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
+                            f"Network issue or slow response"
+                        )
+                        self._mark_instance_failure(instance_url, error_type)
+                        # V13.1: Timeout is transient - retry same instance with short delay
+                        if instance_retry < RETRIES_PER_INSTANCE - 1:
+                            await asyncio.sleep(random.uniform(1.0, 2.0))
+                            continue
+                    elif (
+                        "403" in error_message
+                        or "429" in error_message
+                        or "blocked" in error_message.lower()
+                    ):
+                        logger.warning(
+                            f"⚠️ [NITTER-FALLBACK] BLOCKED/RATE LIMITED for @{handle_clean} from {instance_url} "
+                            f"(instance retry {instance_retry + 1}/{RETRIES_PER_INSTANCE}, "
+                            f"attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
+                            f"Instance may be blocking requests"
+                        )
+                        self._mark_instance_failure(instance_url, "RateLimited")
+                        # Rate limit is permanent - don't retry same instance
+                        break
+                    else:
+                        logger.info(
+                            f"⚠️ [NITTER-FALLBACK] Attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT} failed "
+                            f"for @{handle_clean}: {error_type}: {error_message}"
+                        )
+                        self._mark_instance_failure(instance_url, error_type)
+                        # V13.1: Generic error - retry same instance with short delay
+                        if instance_retry < RETRIES_PER_INSTANCE - 1:
+                            await asyncio.sleep(random.uniform(1.0, 2.0))
+                            continue
 
-            except Exception as e:
-                last_error = e
-                error_type = type(e).__name__
-                error_message = str(e)
-
-                # V12.5 COVE FIX: Distinguish between error types for better diagnostics
-                if error_type == "ConnectionRefusedError":
-                    # Connection refused - could be VPS firewall, IP blocking, or Nitter instance down
-                    logger.warning(
-                        f"⚠️ [NITTER-FALLBACK] Connection REFUSED for @{handle_clean} from {instance_url} "
-                        f"(attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
-                        f"Possible causes: VPS firewall, IP blocked by Nitter, or instance down"
-                    )
-                    self._mark_instance_failure(instance_url, error_type)
-                elif error_type in ("TimeoutError", "asyncio.TimeoutError"):
-                    # Timeout error - network issue or slow response
-                    logger.warning(
-                        f"⚠️ [NITTER-FALLBACK] TIMEOUT for @{handle_clean} from {instance_url} "
-                        f"(attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
-                        f"Network issue or slow response"
-                    )
-                    self._mark_instance_failure(instance_url, error_type)
-                elif (
-                    "403" in error_message
-                    or "429" in error_message
-                    or "blocked" in error_message.lower()
-                ):
-                    # Rate limiting or blocking
-                    logger.warning(
-                        f"⚠️ [NITTER-FALLBACK] BLOCKED/RATE LIMITED for @{handle_clean} from {instance_url} "
-                        f"(attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT}) - "
-                        f"Instance may be blocking requests"
-                    )
-                    self._mark_instance_failure(instance_url, "RateLimited")
-                else:
-                    # Generic error
-                    logger.info(
-                        f"⚠️ [NITTER-FALLBACK] Attempt {attempt + 1}/{MAX_RETRIES_PER_ACCOUNT} failed for @{handle_clean}: "
-                        f"{error_type}: {error_message}"
-                    )
-                    self._mark_instance_failure(instance_url, error_type)
-
-                # Random delay before retry
+            # Move to next instance
+            attempt += 1
+            # V13.1: Delay between instance switches (not between per-instance retries)
+            if attempt < MAX_RETRIES_PER_ACCOUNT:
                 await asyncio.sleep(random.uniform(SCRAPE_DELAY_MIN, SCRAPE_DELAY_MAX))
 
         # V12.5 COVE FIX: Log final failure with detailed error classification
-        final_error_type = type(last_error).__name__
-        final_error_message = str(last_error)
+        final_error_type = type(last_error).__name__ if last_error else "Unknown"
+        final_error_message = str(last_error) if last_error else "No error recorded"
 
         if final_error_type == "ConnectionRefusedError":
             logger.error(
-                f"❌ [NITTER-FALLBACK] All {MAX_RETRIES_PER_ACCOUNT} attempts failed for @{handle_clean} - "
+                f"❌ [NITTER-FALLBACK] All {attempt} attempts failed for @{handle_clean} - "
                 f"CONNECTION REFUSED - Check VPS firewall and ensure Nitter instances are accessible"
             )
         elif final_error_type in ("TimeoutError", "asyncio.TimeoutError"):
             logger.error(
-                f"❌ [NITTER-FALLBACK] All {MAX_RETRIES_PER_ACCOUNT} attempts failed for @{handle_clean} - "
+                f"❌ [NITTER-FALLBACK] All {attempt} attempts failed for @{handle_clean} - "
                 f"TIMEOUT - Network connectivity issue or Nitter instances too slow"
             )
         elif (
@@ -1270,12 +1314,12 @@ class NitterFallbackScraper:
             or "blocked" in final_error_message.lower()
         ):
             logger.error(
-                f"❌ [NITTER-FALLBACK] All {MAX_RETRIES_PER_ACCOUNT} attempts failed for @{handle_clean} - "
+                f"❌ [NITTER-FALLBACK] All {attempt} attempts failed for @{handle_clean} - "
                 f"BLOCKED/RATE LIMITED - Nitter instances are blocking requests"
             )
         else:
             logger.error(
-                f"❌ [NITTER-FALLBACK] All {MAX_RETRIES_PER_ACCOUNT} attempts failed for @{handle_clean}: "
+                f"❌ [NITTER-FALLBACK] All {attempt} attempts failed for @{handle_clean}: "
                 f"{final_error_type}: {final_error_message}"
             )
         return []
@@ -1314,9 +1358,14 @@ class NitterFallbackScraper:
 
         logger.info(f"🐦 [NITTER-FALLBACK] Scraping {len(valid_handles)} accounts...")
 
-        accounts_data = []
+        accounts_data: list[dict[str, Any]] = []
 
         for handle in valid_handles:
+            # P2: Check for full stop before each handle
+            if is_stop_requested():
+                logger.info("🛑 [NITTER-FALLBACK] Stop requested during scraping, aborting")
+                break
+
             # Scrape account
             tweets = await self._scrape_account(handle)
 
@@ -1457,6 +1506,12 @@ class NitterFallbackScraper:
 
             # Step 2: Scrape tweets via NitterPool
             handles_list = list(handles_with_league.keys())
+
+            # P2: Check for stop before heavy scraping
+            if is_stop_requested():
+                logger.info("🛑 [NITTER-CYCLE] Stop requested, aborting cycle")
+                return result
+
             scrape_result = await self.scrape_accounts(handles_list)
 
             if not scrape_result:
@@ -1467,7 +1522,7 @@ class NitterFallbackScraper:
             accounts_data = scrape_result.get("accounts", [])
 
             # Step 3: Filter via TweetRelevanceFilter
-            relevant_tweets = []
+            relevant_tweets: list[dict[str, Any]] = []
             for account in accounts_data:
                 handle = account.get("handle", "")
                 posts = account.get("posts", [])
@@ -1537,7 +1592,7 @@ class NitterFallbackScraper:
             if continent:
                 # Get leagues for this continent, then get social sources for those leagues
                 active_leagues = supabase.get_active_leagues_for_continent(continent)
-                all_sources = []
+                all_sources: list[dict[str, Any]] = []
                 for league in active_leagues:
                     league_id = league.get("id")
                     if league_id:
@@ -1802,7 +1857,7 @@ def clear_nitter_intel_cache() -> None:
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
-    expired_keys = []
+    expired_keys: list[str] = []
 
     with _nitter_intel_cache_lock:  # VPS FIX: Thread-safe modification
         for match_id, intel_data in _nitter_intel_cache.items():

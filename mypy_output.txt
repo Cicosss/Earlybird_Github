@@ -1,0 +1,1312 @@
+config/twitter_intel_accounts.py:798: error: Unsupported target for indexed assignment ("object")  [index]
+config/twitter_intel_accounts.py:801: error: Unsupported target for indexed assignment ("object")  [index]
+config/twitter_intel_accounts.py:805: error: Unsupported target for indexed assignment ("object")  [index]
+config/twitter_intel_accounts.py:807: error: Unsupported left operand type for + ("object")  [operator]
+config/twitter_intel_accounts.py:809: error: Incompatible return value type (got "dict[str, object]", expected "dict[str, int]")  [return-value]
+config/twitter_intel_accounts.py:884: error: "int" has no attribute "items"  [attr-defined]
+src/ingestion/fotmob_team_mapping.py:49: error: Incompatible return value type (got "int | None", expected "int")  [return-value]
+src/ingestion/fotmob_team_mapping.py:88: error: Incompatible return value type (got "None", expected "int")  [return-value]
+src/utils/text_normalizer.py:21: error: Skipping analyzing "thefuzz": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/utils/trafilatura_extractor.py:37: error: Skipping analyzing "trafilatura": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/utils/high_value_detector.py:836: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:151: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:152: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:153: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:154: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:155: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:159: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:160: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/browser_fingerprint.py:176: error: Item "None" of "BrowserProfile | None" has no attribute "name"  [union-attr]
+src/utils/browser_fingerprint.py:252: error: Argument 1 to "_build_headers_from_profile" of "BrowserFingerprint" has incompatible type "BrowserProfile | None"; expected "BrowserProfile"  [arg-type]
+src/ingestion/weather_provider.py:16: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/mediastack_query_builder.py:185: error: Need type annotation for "bins" (hint: "bins: list[<type>] = ...")  [var-annotated]
+src/ingestion/budget_monitor.py:33: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/ingestion/budget_monitor.py:37: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/database/team_alias_enrichment.py:629: error: Need type annotation for "all_teams" (hint: "all_teams: set[<type>] = ...")  [var-annotated]
+src/analysis/injury_impact_engine.py:530: error: Need type annotation for "player_map" (hint: "player_map: dict[<type>, <type>] = ...")  [var-annotated]
+src/analysis/biscotto_engine.py:265: error: Incompatible default for parameter "matches_remaining" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/biscotto_engine.py:265: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:265: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:478: error: Incompatible default for parameter "home_motivation" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/biscotto_engine.py:478: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:478: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:479: error: Incompatible default for parameter "away_motivation" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/biscotto_engine.py:479: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:479: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:480: error: Incompatible default for parameter "matches_remaining" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/biscotto_engine.py:480: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:480: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:482: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/biscotto_engine.py:482: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:482: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:684: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/biscotto_engine.py:684: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:684: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:706: error: Incompatible return value type (got "None", expected "int")  [return-value]
+src/analysis/biscotto_engine.py:753: error: Incompatible return value type (got "None", expected "int")  [return-value]
+src/analysis/biscotto_engine.py:769: error: Incompatible return value type (got "None", expected "int")  [return-value]
+src/analysis/biscotto_engine.py:773: error: Incompatible default for parameter "home_motivation" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/biscotto_engine.py:773: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/biscotto_engine.py:773: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/biscotto_engine.py:773: error: Incompatible default for parameter "away_motivation" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/biscotto_engine.py:817: error: Argument 2 to "_estimate_matches_remaining_from_date" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/biscotto_engine.py:829: error: Argument "league_key" to "analyze_biscotto" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/inspect_fotmob.py:18: error: Library stubs not installed for "requests"  [import-untyped]
+src/utils/inspect_fotmob.py:45: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/utils/inspect_fotmob.py:60: error: Incompatible return value type (got "None", expected "int")  [return-value]
+src/utils/inspect_fotmob.py:133: error: Item "None" of "Any | None" has no attribute "__iter__" (not iterable)  [union-attr]
+src/utils/inspect_fotmob.py:175: error: Item "None" of "Any | None" has no attribute "lower"  [union-attr]
+src/ingestion/base_budget_manager.py:119: error: Incompatible types in assignment (expression has type "BudgetPersistence", variable has type "None")  [assignment]
+src/ingestion/base_budget_manager.py:126: error: Incompatible types in assignment (expression has type "BudgetMonitor", variable has type "None")  [assignment]
+src/ingestion/base_budget_manager.py:127: error: "None" has no attribute "start_monitoring"  [attr-defined]
+src/ingestion/base_budget_manager.py:130: error: "None" has no attribute "register_alert_callback"  [attr-defined]
+src/ingestion/base_budget_manager.py:136: error: Incompatible types in assignment (expression has type "BudgetReporter", variable has type "None")  [assignment]
+src/utils/telegram_echo.py:15: error: Library stubs not installed for "requests"  [import-untyped]
+src/utils/startup_validator.py:20: error: Library stubs not installed for "requests"  [import-untyped]
+src/utils/startup_validator.py:232: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/startup_validator.py:233: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/startup_validator.py:234: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/startup_validator.py:500: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/utils/startup_validator.py:794: error: Incompatible types in assignment (expression has type "APIConnectivityResult", variable has type "ValidationResult")  [assignment]
+src/utils/startup_validator.py:796: error: "ValidationResult" has no attribute "response_time_ms"  [attr-defined]
+src/utils/startup_validator.py:797: error: "ValidationResult" has no attribute "quota_info"  [attr-defined]
+src/utils/startup_validator.py:798: error: "ValidationResult" has no attribute "api_name"  [attr-defined]
+src/utils/startup_validator.py:799: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:800: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:806: error: Incompatible types in assignment (expression has type "ConfigFileValidationResult", variable has type "ValidationResult")  [assignment]
+src/utils/startup_validator.py:809: error: "ValidationResult" has no attribute "file_size_bytes"  [attr-defined]
+src/utils/startup_validator.py:811: error: "ValidationResult" has no attribute "last_modified"  [attr-defined]
+src/utils/startup_validator.py:812: error: "ValidationResult" has no attribute "file_path"  [attr-defined]
+src/utils/startup_validator.py:813: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:814: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:864: error: Incompatible types in assignment (expression has type "APIConnectivityResult", variable has type "ValidationResult")  [assignment]
+src/utils/startup_validator.py:870: error: "ValidationResult" has no attribute "api_name"  [attr-defined]
+src/utils/startup_validator.py:873: error: "ValidationResult" has no attribute "response_time_ms"  [attr-defined]
+src/utils/startup_validator.py:874: error: "ValidationResult" has no attribute "response_time_ms"  [attr-defined]
+src/utils/startup_validator.py:877: error: "ValidationResult" has no attribute "quota_info"  [attr-defined]
+src/utils/startup_validator.py:878: error: "ValidationResult" has no attribute "quota_info"  [attr-defined]
+src/utils/startup_validator.py:879: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:880: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:889: error: Incompatible types in assignment (expression has type "ConfigFileValidationResult", variable has type "ValidationResult")  [assignment]
+src/utils/startup_validator.py:895: error: "ValidationResult" has no attribute "file_path"  [attr-defined]
+src/utils/startup_validator.py:897: error: "ValidationResult" has no attribute "file_size_bytes"  [attr-defined]
+src/utils/startup_validator.py:898: error: "ValidationResult" has no attribute "last_modified"  [attr-defined]
+src/utils/startup_validator.py:899: error: "ValidationResult" has no attribute "last_modified"  [attr-defined]
+src/utils/startup_validator.py:900: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:901: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:939: error: Incompatible types in assignment (expression has type "APIConnectivityResult", variable has type "ValidationResult")  [assignment]
+src/utils/startup_validator.py:940: error: "ValidationResult" has no attribute "api_name"  [attr-defined]
+src/utils/startup_validator.py:940: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/startup_validator.py:947: error: Incompatible types in assignment (expression has type "ConfigFileValidationResult", variable has type "ValidationResult")  [assignment]
+src/utils/startup_validator.py:948: error: "ValidationResult" has no attribute "file_path"  [attr-defined]
+src/utils/startup_validator.py:948: error: "ValidationResult" has no attribute "error_message"  [attr-defined]
+src/utils/contracts.py:260: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:272: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:303: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:340: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:346: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:377: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[str]]"; expected "type"  [arg-type]
+src/utils/contracts.py:381: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:387: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:393: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:433: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:483: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:489: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:567: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:612: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:619: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/utils/contracts.py:696: error: Argument "field_type" to "FieldSpec" has incompatible type "tuple[type[int], type[float]]"; expected "type"  [arg-type]
+src/ingestion/mediastack_key_rotator.py:263: error: Value of type "str | None" is not indexable  [index]
+src/ingestion/mediastack_key_rotator.py:268: error: Value of type "str | None" is not indexable  [index]
+src/analysis/math_engine.py:183: error: Argument 1 to "_get_home_advantage" of "MathPredictor" has incompatible type "str | None"; expected "str"  [arg-type]
+src/analysis/math_engine.py:427: error: Argument "key" to "max" has incompatible type overloaded function; expected "Callable[[str], SupportsDunderLT[Any] | SupportsDunderGT[Any]]"  [arg-type]
+src/analysis/player_intel.py:15: error: Library stubs not installed for "requests"  [import-untyped]
+src/analysis/player_intel.py:22: error: Module "config.settings" has no attribute "API_FOOTBALL_KEY"  [attr-defined]
+src/analysis/player_intel.py:112: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/analysis/player_intel.py:245: error: "None" object is not iterable  [misc]
+src/utils/ai_parser.py:41: error: Cannot assign to a type  [misc]
+src/utils/ai_parser.py:41: error: Incompatible types in assignment (expression has type "None", variable has type "type[BaseModel]")  [assignment]
+src/utils/ai_parser.py:56: error: Cannot assign to a type  [misc]
+src/utils/ai_parser.py:56: error: Incompatible types in assignment (expression has type "None", variable has type "type[BiscottoPotential]")  [assignment]
+src/utils/ai_parser.py:57: error: Cannot assign to a type  [misc]
+src/utils/ai_parser.py:57: error: Incompatible types in assignment (expression has type "None", variable has type "type[BTTSImpact]")  [assignment]
+src/utils/ai_parser.py:58: error: Cannot assign to a type  [misc]
+src/utils/ai_parser.py:58: error: Incompatible types in assignment (expression has type "None", variable has type "type[InjuryImpact]")  [assignment]
+src/utils/ai_parser.py:59: error: Cannot assign to a type  [misc]
+src/utils/ai_parser.py:59: error: Incompatible types in assignment (expression has type "None", variable has type "type[RefereeStrictness]")  [assignment]
+src/utils/ai_parser.py:60: error: Cannot assign to a type  [misc]
+src/utils/ai_parser.py:60: error: Incompatible types in assignment (expression has type "None", variable has type "type[RiskLevel]")  [assignment]
+src/utils/ai_parser.py:130: error: Incompatible default for parameter "model_class" (default has type "None", parameter has type "type")  [assignment]
+src/utils/ai_parser.py:130: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/utils/ai_parser.py:130: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/utils/ai_parser.py:130: error: Incompatible default for parameter "default_values" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/utils/ai_parser.py:236: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:237: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:239: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:242: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:245: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:247: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:248: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/ai_parser.py:249: error: Argument 1 to "_normalize_risk_value" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:23: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/perplexity_provider.py:46: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
+src/ingestion/perplexity_provider.py:84: error: Incompatible default for parameter "match_date" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/perplexity_provider.py:84: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/perplexity_provider.py:84: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/perplexity_provider.py:85: error: Incompatible default for parameter "referee" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/perplexity_provider.py:85: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/perplexity_provider.py:85: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/perplexity_provider.py:86: error: Incompatible default for parameter "missing_players" (default has type "None", parameter has type "list[Any]")  [assignment]
+src/ingestion/perplexity_provider.py:86: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/perplexity_provider.py:86: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/perplexity_provider.py:112: error: Argument "missing_players" to "build_deep_dive_prompt" has incompatible type "list[Any]"; expected "str | None"  [arg-type]
+src/ingestion/perplexity_provider.py:151: error: Incompatible types in assignment (expression has type "type[BettingStatsResponse]", variable has type "type[DeepDiveResponse]")  [assignment]
+src/ingestion/perplexity_provider.py:330: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:333: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:336: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:340: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:348: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:352: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:355: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:358: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/perplexity_provider.py:612: error: Incompatible default for parameter "league" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/perplexity_provider.py:612: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/perplexity_provider.py:612: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/perplexity_provider.py:652: error: Item "None" of "Any | None" has no attribute "value"  [union-attr]
+src/ingestion/perplexity_provider.py:655: error: Item "None" of "Any | None" has no attribute "value"  [union-attr]
+src/ingestion/perplexity_provider.py:683: error: Incompatible default for parameter "detected_factors" (default has type "None", parameter has type "list[str]")  [assignment]
+src/ingestion/perplexity_provider.py:683: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/perplexity_provider.py:683: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/perplexity_provider.py:730: error: Argument "detected_factors" to "build_biscotto_confirmation_prompt" has incompatible type "list[str]"; expected "str"  [arg-type]
+src/utils/smart_cache.py:824: error: Item "None" of "CacheEntry | None" has no attribute "ttl_seconds"  [union-attr]
+src/utils/smart_cache.py:825: error: Item "None" of "CacheEntry | None" has no attribute "ttl_seconds"  [union-attr]
+src/utils/smart_cache.py:832: error: Item "None" of "CacheEntry | None" has no attribute "ttl_seconds"  [union-attr]
+src/utils/smart_cache.py:833: error: Item "None" of "CacheEntry | None" has no attribute "ttl_seconds"  [union-attr]
+src/utils/smart_cache.py:840: error: Item "None" of "CacheEntry | None" has no attribute "ttl_seconds"  [union-attr]
+src/utils/smart_cache.py:841: error: Item "None" of "CacheEntry | None" has no attribute "ttl_seconds"  [union-attr]
+src/utils/radar_odds_check.py:720: error: Argument "is_home_team" to "check_odds_movement" of "RadarOddsChecker" has incompatible type "bool | None"; expected "bool"  [arg-type]
+src/utils/radar_odds_check.py:812: error: Item "None" of "OddsCheckResult | None" has no attribute "edge_assessment"  [union-attr]
+src/database/models.py:37: error: Variable "src.database.models.Base" is not valid as a type  [valid-type]
+src/database/models.py:37: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+src/database/models.py:37: error: Invalid base class "Base"  [misc]
+src/database/models.py:162: error: Incompatible return value type (got "Column[str]", expected "str")  [return-value]
+src/database/models.py:167: error: Incompatible return value type (got "Column[datetime]", expected "datetime")  [return-value]
+src/database/models.py:184: error: Argument "match_id" to "check_match_movement" of "RadarOddsChecker" has incompatible type "Column[str]"; expected "str | None"  [arg-type]
+src/database/models.py:188: error: Incompatible types in assignment (expression has type "dict[Never, Never]", variable has type "MatchOddsMovement")  [assignment]
+src/database/models.py:191: error: Unsupported target for indexed assignment ("MatchOddsMovement")  [index]
+src/database/models.py:196: error: Unsupported target for indexed assignment ("MatchOddsMovement")  [index]
+src/database/models.py:201: error: Unsupported target for indexed assignment ("MatchOddsMovement")  [index]
+src/database/models.py:205: error: Incompatible return value type (got "MatchOddsMovement", expected "dict[str, Any]")  [return-value]
+src/database/models.py:231: error: Variable "src.database.models.Base" is not valid as a type  [valid-type]
+src/database/models.py:231: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+src/database/models.py:231: error: Invalid base class "Base"  [misc]
+src/database/models.py:378: error: Argument 1 to "loads" has incompatible type "Column[str]"; expected "str | bytes | bytearray"  [arg-type]
+src/database/models.py:386: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/database/models.py:388: error: Incompatible types in assignment (expression has type "None", variable has type "Column[str]")  [assignment]
+src/database/models.py:394: error: Argument 1 to "loads" has incompatible type "Column[str]"; expected "str | bytes | bytearray"  [arg-type]
+src/database/models.py:402: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/database/models.py:404: error: Incompatible types in assignment (expression has type "None", variable has type "Column[str]")  [assignment]
+src/database/models.py:410: error: Argument 1 to "loads" has incompatible type "Column[str]"; expected "str | bytes | bytearray"  [arg-type]
+src/database/models.py:418: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/database/models.py:420: error: Incompatible types in assignment (expression has type "None", variable has type "Column[str]")  [assignment]
+src/database/models.py:426: error: Argument 1 to "loads" has incompatible type "Column[str]"; expected "str | bytes | bytearray"  [arg-type]
+src/database/models.py:434: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/database/models.py:436: error: Incompatible types in assignment (expression has type "None", variable has type "Column[str]")  [assignment]
+src/database/models.py:440: error: Incompatible return value type (got "ColumnElement[bool] | bool", expected "bool")  [return-value]
+src/database/models.py:446: error: Variable "src.database.models.Base" is not valid as a type  [valid-type]
+src/database/models.py:446: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+src/database/models.py:446: error: Invalid base class "Base"  [misc]
+src/database/models.py:480: error: Variable "src.database.models.Base" is not valid as a type  [valid-type]
+src/database/models.py:480: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+src/database/models.py:480: error: Invalid base class "Base"  [misc]
+src/database/models.py:543: error: Variable "src.database.models.Base" is not valid as a type  [valid-type]
+src/database/models.py:543: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+src/database/models.py:543: error: Invalid base class "Base"  [misc]
+src/database/models.py:599: error: Variable "src.database.models.Base" is not valid as a type  [valid-type]
+src/database/models.py:599: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#variables-vs-type-aliases
+src/database/models.py:599: error: Invalid base class "Base"  [misc]
+src/database/models.py:862: error: No overload variant of "execute" of "Connection" matches argument type "str"  [call-overload]
+src/database/models.py:862: note: Possible overload variants:
+src/database/models.py:862: note:     def [_T: Any] execute(self, statement: TypedReturnsRows[_T], parameters: Sequence[Mapping[str, Any]] | Mapping[str, Any] | None = ..., *, execution_options: _CoreKnownExecutionOptions | Mapping[str, Any] | None = ...) -> CursorResult[_T]
+src/database/models.py:862: note:     def execute(self, statement: Executable, parameters: Sequence[Mapping[str, Any]] | Mapping[str, Any] | None = ..., *, execution_options: _CoreKnownExecutionOptions | Mapping[str, Any] | None = ...) -> CursorResult[Any]
+src/ingestion/aleague_scraper.py:22: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/aleague_scraper.py:262: error: Unsupported right operand type for in ("str | AttributeValueList | None")  [operator]
+src/ingestion/aleague_scraper.py:266: error: Unsupported right operand type for in ("str | AttributeValueList | None")  [operator]
+src/ingestion/aleague_scraper.py:270: error: Item "AttributeValueList" of "str | AttributeValueList | None" has no attribute "startswith"  [union-attr]
+src/ingestion/aleague_scraper.py:270: error: Item "None" of "str | AttributeValueList | None" has no attribute "startswith"  [union-attr]
+src/ingestion/aleague_scraper.py:272: error: Item "AttributeValueList" of "str | AttributeValueList | None" has no attribute "startswith"  [union-attr]
+src/ingestion/aleague_scraper.py:272: error: Item "None" of "str | AttributeValueList | None" has no attribute "startswith"  [union-attr]
+src/ingestion/aleague_scraper.py:273: error: Incompatible types in assignment (expression has type "str | AttributeValueList | None", variable has type "str")  [assignment]
+src/utils/match_helper.py:26: error: Cannot assign to a type  [misc]
+src/utils/match_helper.py:26: error: Incompatible types in assignment (expression has type "None", variable has type "type[Match]")  [assignment]
+src/utils/match_helper.py:75: error: Incompatible types in assignment (expression has type "None", variable has type "dict[str, Any]")  [assignment]
+src/database/team_alias_utils.py:146: error: Incompatible return value type (got "Column[str]", expected "str | None")  [return-value]
+src/database/team_alias_utils.py:201: error: Incompatible return value type (got "Column[str]", expected "str | None")  [return-value]
+src/database/team_alias_utils.py:255: error: Incompatible return value type (got "Column[str]", expected "str | None")  [return-value]
+src/database/team_alias_utils.py:312: error: Incompatible return value type (got "Column[str]", expected "str | None")  [return-value]
+src/analysis/reporter.py:23: error: Cannot assign to a type  [misc]
+src/analysis/reporter.py:23: error: Incompatible types in assignment (expression has type "None", variable has type "type[Match]")  [assignment]
+src/analysis/reporter.py:24: error: Cannot assign to a type  [misc]
+src/analysis/reporter.py:24: error: Incompatible types in assignment (expression has type "None", variable has type "type[NewsLog]")  [assignment]
+src/analysis/reporter.py:25: error: Incompatible types in assignment (expression has type "None", variable has type "sessionmaker[Session]")  [assignment]
+src/analysis/market_intelligence.py:140: error: All conditional function variants must have identical signatures  [misc]
+src/analysis/market_intelligence.py:140: note: Original:
+src/analysis/market_intelligence.py:140: note:     def get_league_decay_rate(league_key: str | None) -> float
+src/analysis/market_intelligence.py:140: note: Redefinition:
+src/analysis/market_intelligence.py:140: note:     def get_league_decay_rate(league_key: str) -> float
+src/analysis/market_intelligence.py:212: error: Incompatible default for parameter "time_window_minutes" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/market_intelligence.py:212: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:212: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:214: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/market_intelligence.py:214: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:214: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:690: error: Incompatible default for parameter "lambda_decay" (default has type "None", parameter has type "float")  [assignment]
+src/analysis/market_intelligence.py:690: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:690: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:691: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/market_intelligence.py:691: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:691: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:747: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/market_intelligence.py:747: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:747: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:749: error: Incompatible default for parameter "minutes_to_kickoff" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/market_intelligence.py:749: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:749: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:838: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/market_intelligence.py:838: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:838: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:897: error: Library stubs not installed for "dateutil"  [import-untyped]
+src/analysis/market_intelligence.py:897: note: Hint: "python3 -m pip install types-python-dateutil"
+src/analysis/market_intelligence.py:989: error: Incompatible default for parameter "days_to_keep" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/market_intelligence.py:989: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:989: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:1040: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/market_intelligence.py:1040: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/market_intelligence.py:1040: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/market_intelligence.py:1087: error: Argument 1 to "detect_steam_move" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/market_intelligence.py:1087: error: Argument 2 to "detect_steam_move" has incompatible type "dict[str, Any | None]"; expected "dict[str, float]"  [arg-type]
+src/analysis/market_intelligence.py:1087: error: Argument "league_key" to "detect_steam_move" has incompatible type "str | Any | None"; expected "str"  [arg-type]
+src/analysis/intelligent_modification_logger.py:71: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/analysis/intelligent_modification_logger.py:71: note: Perhaps you meant "typing.Any" instead of "any"?
+src/analysis/intelligent_modification_logger.py:72: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/analysis/intelligent_modification_logger.py:72: note: Perhaps you meant "typing.Any" instead of "any"?
+src/analysis/intelligent_modification_logger.py:228: error: Argument 1 to "_log_for_learning" of "IntelligentModificationLogger" has incompatible type "Column[int]"; expected "str"  [arg-type]
+src/analysis/fatigue_engine.py:236: error: Too many values to unpack (2 expected, 3 provided)  [misc]
+src/analysis/fatigue_engine.py:523: error: Incompatible default for parameter "recent_matches" (default has type "None", parameter has type "list[datetime]")  [assignment]
+src/analysis/fatigue_engine.py:523: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/fatigue_engine.py:523: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/fatigue_engine.py:524: error: Incompatible default for parameter "target_match_date" (default has type "None", parameter has type "datetime")  [assignment]
+src/analysis/fatigue_engine.py:524: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/fatigue_engine.py:524: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/fatigue_engine.py:610: error: Incompatible default for parameter "home_recent_matches" (default has type "None", parameter has type "list[datetime]")  [assignment]
+src/analysis/fatigue_engine.py:610: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/fatigue_engine.py:610: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/fatigue_engine.py:611: error: Incompatible default for parameter "away_recent_matches" (default has type "None", parameter has type "list[datetime]")  [assignment]
+src/analysis/fatigue_engine.py:611: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/fatigue_engine.py:611: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/fatigue_engine.py:612: error: Incompatible default for parameter "target_match_date" (default has type "None", parameter has type "datetime")  [assignment]
+src/analysis/fatigue_engine.py:612: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/fatigue_engine.py:612: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/fatigue_engine.py:759: error: Incompatible default for parameter "match_start_time" (default has type "None", parameter has type "datetime")  [assignment]
+src/analysis/fatigue_engine.py:759: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/fatigue_engine.py:759: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/fatigue_engine.py:799: error: Need type annotation for "home_recent_matches" (hint: "home_recent_matches: list[<type>] = ...")  [var-annotated]
+src/analysis/fatigue_engine.py:800: error: Need type annotation for "away_recent_matches" (hint: "away_recent_matches: list[<type>] = ...")  [var-annotated]
+src/database/telegram_channel_model.py:242: error: Incompatible default for parameter "red_flags" (default has type "None", parameter has type "list[Any]")  [assignment]
+src/database/telegram_channel_model.py:242: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:242: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:243: error: Incompatible default for parameter "timestamp_lag" (default has type "None", parameter has type "float")  [assignment]
+src/database/telegram_channel_model.py:243: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:243: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:348: error: Incompatible default for parameter "match_id" (default has type "None", parameter has type "str")  [assignment]
+src/database/telegram_channel_model.py:348: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:348: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:349: error: Incompatible default for parameter "timestamp_lag" (default has type "None", parameter has type "float")  [assignment]
+src/database/telegram_channel_model.py:349: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:349: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:352: error: Incompatible default for parameter "echo_source" (default has type "None", parameter has type "str")  [assignment]
+src/database/telegram_channel_model.py:352: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:352: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:353: error: Incompatible default for parameter "trust_multiplier" (default has type "None", parameter has type "float")  [assignment]
+src/database/telegram_channel_model.py:353: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:353: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:354: error: Incompatible default for parameter "validation_reason" (default has type "None", parameter has type "str")  [assignment]
+src/database/telegram_channel_model.py:354: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:354: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:355: error: Incompatible default for parameter "red_flags" (default has type "None", parameter has type "list[Any]")  [assignment]
+src/database/telegram_channel_model.py:355: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:355: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:357: error: Incompatible default for parameter "prediction_type" (default has type "None", parameter has type "str")  [assignment]
+src/database/telegram_channel_model.py:357: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:357: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:358: error: Incompatible default for parameter "prediction_team" (default has type "None", parameter has type "str")  [assignment]
+src/database/telegram_channel_model.py:358: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/database/telegram_channel_model.py:358: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/database/telegram_channel_model.py:433: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/database/telegram_channel_model.py:458: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/analysis/telegram_trust_score.py:309: error: Incompatible default for parameter "home_team" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/telegram_trust_score.py:309: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/telegram_trust_score.py:309: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/telegram_trust_score.py:309: error: Incompatible default for parameter "away_team" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/telegram_trust_score.py:392: error: Incompatible default for parameter "home_team" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/telegram_trust_score.py:392: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/telegram_trust_score.py:392: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/telegram_trust_score.py:393: error: Incompatible default for parameter "away_team" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/telegram_trust_score.py:393: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/telegram_trust_score.py:393: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/telegram_trust_score.py:880: error: Incompatible return value type (got "Column[datetime]", expected "datetime | None")  [return-value]
+src/analysis/telegram_trust_score.py:886: error: Incompatible return value type (got "Column[datetime]", expected "datetime | None")  [return-value]
+src/analysis/telegram_trust_score.py:1043: error: Argument "first_seen" to "ChannelMetrics" has incompatible type "Any | None"; expected "datetime"  [arg-type]
+src/analysis/telegram_trust_score.py:1044: error: Argument "last_updated" to "ChannelMetrics" has incompatible type "Any | None"; expected "datetime"  [arg-type]
+src/utils/http_client.py:44: error: Incompatible types in assignment (expression has type "None", variable has type Module)  [assignment]
+src/utils/http_client.py:49: error: Library stubs not installed for "requests"  [import-untyped]
+src/utils/http_client.py:63: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], BrowserFingerprint]")  [assignment]
+src/utils/http_client.py:64: error: Cannot assign to a type  [misc]
+src/utils/http_client.py:64: error: Incompatible types in assignment (expression has type "None", variable has type "type[BrowserFingerprint]")  [assignment]
+src/utils/http_client.py:220: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:221: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:222: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:223: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:231: error: Function "get_fingerprint" could always be true in boolean context  [truthy-function]
+src/utils/http_client.py:477: error: Incompatible types in assignment (expression has type "ConnectError", variable has type "TimeoutException | None")  [assignment]
+src/utils/http_client.py:487: error: Incompatible types in assignment (expression has type "Exception", variable has type "TimeoutException | None")  [assignment]
+src/utils/http_client.py:617: error: Incompatible types in assignment (expression has type "ConnectError", variable has type "TimeoutException | None")  [assignment]
+src/utils/http_client.py:627: error: Incompatible types in assignment (expression has type "Exception", variable has type "TimeoutException | None")  [assignment]
+src/utils/http_client.py:734: error: Incompatible types in assignment (expression has type "ConnectError", variable has type "TimeoutException | None")  [assignment]
+src/utils/http_client.py:744: error: Incompatible types in assignment (expression has type "Exception", variable has type "TimeoutException | None")  [assignment]
+src/utils/http_client.py:784: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:785: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:786: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/http_client.py:793: error: Function "get_fingerprint" could always be true in boolean context  [truthy-function]
+src/database/supabase_provider.py:38: error: Cannot find implementation or library stub for module named "supabase._sync.client"  [import-not-found]
+src/database/supabase_provider.py:41: error: Cannot find implementation or library stub for module named "supabase"  [import-not-found]
+src/database/supabase_provider.py:99: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/database/supabase_provider.py:100: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/database/supabase_provider.py:103: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/database/supabase_provider.py:153: error: Cannot find implementation or library stub for module named "supabase.lib.client_options"  [import-not-found]
+src/database/supabase_provider.py:994: error: Need type annotation for "hierarchical_data"  [var-annotated]
+src/database/supabase_provider.py:1002: error: Need type annotation for "continent_data"  [var-annotated]
+src/database/supabase_provider.py:1012: error: Need type annotation for "country_data"  [var-annotated]
+src/database/supabase_provider.py:1026: error: Item "None" of "list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/database/supabase_provider.py:1028: error: Item "None" of "list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/database/supabase_provider.py:1136: error: Incompatible types in assignment (expression has type "dict[str, Any] | None", variable has type "dict[str, Any]")  [assignment]
+src/database/supabase_provider.py:1143: error: Incompatible types in assignment (expression has type "dict[str, Any] | None", variable has type "dict[str, Any]")  [assignment]
+src/database/supabase_provider.py:1436: error: Incompatible types in assignment (expression has type "dict[str, Any]", target has type "list[dict[str, Any]]")  [assignment]
+src/database/supabase_provider.py:1441: error: Incompatible types in assignment (expression has type "dict[str, list[Never] | None]", target has type "list[dict[str, Any]]")  [assignment]
+src/database/supabase_provider.py:1522: error: Value of type variable "SupportsRichComparisonT" of "max" cannot be "Any | None"  [type-var]
+src/utils/intelligence_gate.py:647: error: Incompatible types in assignment (expression has type "dict[str, Any]", target has type "str | bool | None")  [assignment]
+src/ingestion/brave_provider.py:62: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/processing/sources_config.py:450: error: Name "get_telegram_channels" already defined on line 404  [no-redef]
+src/processing/sources_config.py:519: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/processing/sources_config.py:519: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/processing/sources_config.py:519: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/league_manager.py:21: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/league_manager.py:223: error: Incompatible return value type (got "list[Any | None]", expected "list[str] | None")  [return-value]
+src/ingestion/league_manager.py:259: error: Incompatible return value type (got "list[Any | None]", expected "list[str] | None")  [return-value]
+src/ingestion/league_manager.py:727: error: Name "timedelta" is not defined  [name-defined]
+src/ingestion/search_provider.py:46: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], SupabaseProvider]")  [assignment]
+src/ingestion/search_provider.py:399: error: Module "config.settings" has no attribute "SERPER_API_KEY"  [attr-defined]
+src/ingestion/search_provider.py:758: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/search_provider.py:758: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/search_provider.py:758: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/search_provider.py:885: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/search_provider.py:885: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/search_provider.py:885: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/search_provider.py:922: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/search_provider.py:922: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/search_provider.py:922: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/search_provider.py:995: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/search_provider.py:995: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/search_provider.py:995: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/search_provider.py:1001: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/search_provider.py:1001: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/search_provider.py:1001: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/news_scorer.py:436: error: "object" has no attribute "raw_score"  [attr-defined]
+src/analysis/news_scorer.py:439: error: "object" has no attribute "raw_score"  [attr-defined]
+src/analysis/news_scorer.py:440: error: "object" has no attribute "tier"  [attr-defined]
+src/ingestion/ingest_fixtures.py:8: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/ingest_fixtures.py:9: error: Library stubs not installed for "requests.exceptions"  [import-untyped]
+src/ingestion/ingest_fixtures.py:227: error: Argument 1 to "_ensure_utc_aware" has incompatible type "Any | None"; expected "datetime"  [arg-type]
+src/ingestion/ingest_fixtures.py:239: error: Argument 1 to "_ensure_utc_aware" has incompatible type "Any | None"; expected "datetime"  [arg-type]
+src/ingestion/ingest_fixtures.py:284: error: Incompatible default for parameter "home_team" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/ingest_fixtures.py:284: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/ingest_fixtures.py:284: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/ingest_fixtures.py:284: error: Incompatible default for parameter "away_team" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/ingest_fixtures.py:445: error: Incompatible default for parameter "home_team" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/ingest_fixtures.py:445: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/ingest_fixtures.py:445: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/ingest_fixtures.py:445: error: Incompatible default for parameter "away_team" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/ingest_fixtures.py:549: error: Incompatible types in assignment (expression has type "float", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:550: error: Incompatible types in assignment (expression has type "float", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:552: error: Incompatible types in assignment (expression has type "float", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:553: error: Incompatible types in assignment (expression has type "float", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:555: error: Incompatible types in assignment (expression has type "float", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:556: error: Incompatible types in assignment (expression has type "float", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:561: error: Incompatible types in assignment (expression has type "float | None", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:562: error: Incompatible types in assignment (expression has type "float | None", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:563: error: Incompatible types in assignment (expression has type "float | None", target has type "str | int | bool | None")  [assignment]
+src/ingestion/ingest_fixtures.py:577: error: Unsupported left operand type for - ("str")  [operator]
+src/ingestion/ingest_fixtures.py:577: error: Unsupported operand types for - ("str" and "int")  [operator]
+src/ingestion/ingest_fixtures.py:577: error: Unsupported operand types for - ("int" and "str")  [operator]
+src/ingestion/ingest_fixtures.py:577: note: Both left and right operands are unions
+src/ingestion/ingest_fixtures.py:586: error: Unsupported left operand type for - ("str")  [operator]
+src/ingestion/ingest_fixtures.py:586: error: Unsupported operand types for - ("str" and "int")  [operator]
+src/ingestion/ingest_fixtures.py:586: error: Unsupported operand types for - ("int" and "str")  [operator]
+src/ingestion/ingest_fixtures.py:586: note: Both left and right operands are unions
+src/ingestion/ingest_fixtures.py:595: error: Unsupported left operand type for - ("str")  [operator]
+src/ingestion/ingest_fixtures.py:595: error: Unsupported operand types for - ("str" and "int")  [operator]
+src/ingestion/ingest_fixtures.py:595: error: Unsupported operand types for - ("int" and "str")  [operator]
+src/ingestion/ingest_fixtures.py:595: note: Both left and right operands are unions
+src/ingestion/ingest_fixtures.py:972: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:974: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:976: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:980: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:982: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:986: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:988: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:991: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[str]")  [assignment]
+src/ingestion/ingest_fixtures.py:992: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:993: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:994: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:995: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:996: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:997: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:999: error: Incompatible types in assignment (expression has type "Any | None", variable has type "Column[str]")  [assignment]
+src/ingestion/ingest_fixtures.py:1001: error: Incompatible types in assignment (expression has type "datetime", variable has type "Column[datetime]")  [assignment]
+src/ingestion/ingest_fixtures.py:1208: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1215: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1286: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:1288: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:1290: error: Incompatible types in assignment (expression has type "float", variable has type "Column[float]")  [assignment]
+src/ingestion/ingest_fixtures.py:1291: error: Incompatible types in assignment (expression has type "datetime", variable has type "Column[datetime]")  [assignment]
+src/ingestion/ingest_fixtures.py:1293: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1331: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1338: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1341: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1345: error: Name "logger" is not defined  [name-defined]
+src/ingestion/ingest_fixtures.py:1359: error: List comprehension has incompatible type List[Any | None]; expected List[str]  [misc]
+src/analysis/stats_drawer.py:96: error: Unsupported operand types for < ("int" and "object")  [operator]
+src/analysis/stats_drawer.py:97: error: Unsupported left operand type for / ("object")  [operator]
+src/analysis/stats_drawer.py:100: error: Unsupported operand types for * ("object" and "int")  [operator]
+src/analysis/stats_drawer.py:130: error: Unsupported operand types for > ("int" and "object")  [operator]
+src/analysis/stats_drawer.py:141: error: Incompatible default for parameter "stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/stats_drawer.py:141: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/stats_drawer.py:141: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/stats_drawer.py:267: error: Argument 1 to "FancyBboxPatch" has incompatible type "tuple[object, float]"; expected "tuple[float, float]"  [arg-type]
+src/analysis/stats_drawer.py:267: error: Unsupported operand types for - ("object" and "float")  [operator]
+src/analysis/stats_drawer.py:279: error: Unsupported operand types for + ("object" and "float")  [operator]
+src/analysis/stats_drawer.py:280: error: Unsupported operand types for + ("object" and "float")  [operator]
+src/analysis/stats_drawer.py:281: error: Argument 3 to "text" of "Axes" has incompatible type "object"; expected "str"  [arg-type]
+src/analysis/stats_drawer.py:291: error: Unsupported operand types for + ("object" and "float")  [operator]
+src/analysis/stats_drawer.py:292: error: Unsupported operand types for - ("object" and "float")  [operator]
+src/analysis/stats_drawer.py:293: error: Argument 3 to "text" of "Axes" has incompatible type "object"; expected "str"  [arg-type]
+src/ingestion/tavily_provider.py:773: error: Cannot find implementation or library stub for module named "duckduckgo_search"  [import-not-found]
+src/ingestion/tavily_provider.py:773: error: Name "DDGS" already defined (possibly by an import)  [no-redef]
+src/ingestion/data_provider.py:28: error: Library stubs not installed for "pytz"  [import-untyped]
+src/ingestion/data_provider.py:29: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/data_provider.py:30: error: Library stubs not installed for "requests.exceptions"  [import-untyped]
+src/ingestion/data_provider.py:31: error: Library stubs not installed for "dateutil"  [import-untyped]
+src/ingestion/data_provider.py:35: error: Skipping analyzing "thefuzz": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/ingestion/data_provider.py:65: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str], int]")  [assignment]
+src/ingestion/data_provider.py:335: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/ingestion/data_provider.py:349: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/ingestion/data_provider.py:635: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/ingestion/data_provider.py:1131: error: Item "int" of "dict[str, Any] | list[Any] | str | int | float | None" has no attribute "__iter__" (not iterable)  [union-attr]
+src/ingestion/data_provider.py:1131: error: Item "float" of "dict[str, Any] | list[Any] | str | int | float | None" has no attribute "__iter__" (not iterable)  [union-attr]
+src/ingestion/data_provider.py:1131: error: Item "None" of "dict[str, Any] | list[Any] | str | int | float | None" has no attribute "__iter__" (not iterable)  [union-attr]
+src/ingestion/data_provider.py:1132: error: Item "str" of "str | Any" has no attribute "get"  [union-attr]
+src/ingestion/data_provider.py:1395: error: Incompatible default for parameter "match_time" (default has type "None", parameter has type "datetime")  [assignment]
+src/ingestion/data_provider.py:1395: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:1395: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:1470: error: Item "list[Any]" of "dict[str, Any] | list[Any] | str | int | float" has no attribute "get"  [union-attr]
+src/ingestion/data_provider.py:1470: error: Item "str" of "dict[str, Any] | list[Any] | str | int | float" has no attribute "get"  [union-attr]
+src/ingestion/data_provider.py:1470: error: Item "int" of "dict[str, Any] | list[Any] | str | int | float" has no attribute "get"  [union-attr]
+src/ingestion/data_provider.py:1470: error: Item "float" of "dict[str, Any] | list[Any] | str | int | float" has no attribute "get"  [union-attr]
+src/ingestion/data_provider.py:1473: error: Incompatible return value type (got "dict[str, Any] | list[Any] | str | int | float | None", expected "dict[Any, Any] | None")  [return-value]
+src/ingestion/data_provider.py:1503: error: Incompatible default for parameter "match_time" (default has type "None", parameter has type "datetime")  [assignment]
+src/ingestion/data_provider.py:1503: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:1503: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:1539: error: Need type annotation for "injuries" (hint: "injuries: list[<type>] = ...")  [var-annotated]
+src/ingestion/data_provider.py:1686: error: Incompatible default for parameter "home_team" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:1686: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:1686: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:1686: error: Incompatible default for parameter "away_team" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:1752: error: Need type annotation for "h2h_data" (hint: "h2h_data: list[<type>] = ...")  [var-annotated]
+src/ingestion/data_provider.py:1918: error: Incompatible return value type (got "dict[str, Any] | list[Any] | str | int | float | None", expected "dict[Any, Any] | None")  [return-value]
+src/ingestion/data_provider.py:2124: error: Incompatible types in assignment (expression has type "int", target has type "str | None")  [assignment]
+src/ingestion/data_provider.py:2159: error: Missing return statement  [return]
+src/ingestion/data_provider.py:2174: error: Incompatible default for parameter "league_id" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:2174: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:2174: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:2175: error: Incompatible default for parameter "home_team_id" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:2175: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:2175: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:2176: error: Incompatible default for parameter "away_team_id" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:2176: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:2176: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:2177: error: Incompatible default for parameter "home_team_name" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:2177: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:2177: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:2178: error: Incompatible default for parameter "away_team_name" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:2178: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:2178: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:2267: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
+src/ingestion/data_provider.py:2791: error: Incompatible types in assignment (expression has type "Any | None", variable has type "dict[Any, Any]")  [assignment]
+src/ingestion/data_provider.py:2797: error: Incompatible types in assignment (expression has type "Any | None", variable has type "dict[Any, Any]")  [assignment]
+src/ingestion/data_provider.py:2851: error: Argument 1 to "get_team_details" of "FotMobProvider" has incompatible type "str"; expected "int"  [arg-type]
+src/ingestion/data_provider.py:2852: error: Argument 1 to "get_team_details" of "FotMobProvider" has incompatible type "str"; expected "int"  [arg-type]
+src/ingestion/data_provider.py:2966: error: Incompatible default for parameter "team_name" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/data_provider.py:2966: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/data_provider.py:2966: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/data_provider.py:2966: error: Incompatible default for parameter "team_id" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/image_ocr.py:7: error: Skipping analyzing "pytesseract": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/analysis/image_ocr.py:8: error: Library stubs not installed for "requests"  [import-untyped]
+src/analysis/image_ocr.py:164: error: Incompatible return value type (got "tuple[bool, None]", expected "tuple[bool, str]")  [return-value]
+src/analysis/image_ocr.py:299: error: Incompatible types in assignment (expression has type "Image", variable has type "ImageFile")  [assignment]
+src/analysis/image_ocr.py:303: error: Incompatible types in assignment (expression has type "Image", variable has type "ImageFile")  [assignment]
+src/analysis/image_ocr.py:306: error: Incompatible types in assignment (expression has type "Image", variable has type "ImageFile")  [assignment]
+src/analysis/image_ocr.py:312: error: Incompatible types in assignment (expression has type "Image", variable has type "ImageFile")  [assignment]
+src/utils/admin_tools.py:32: error: Need type annotation for "error_lines"  [var-annotated]
+src/analysis/clv_tracker.py:248: error: Incompatible default for parameter "strategy" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/clv_tracker.py:248: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/clv_tracker.py:248: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/clv_tracker.py:248: error: Incompatible default for parameter "league" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/clv_tracker.py:575: error: Incompatible default for parameter "strategy" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/clv_tracker.py:575: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/clv_tracker.py:575: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/utils/radar_enrichment.py:408: error: Argument "league_key" to "analyze_biscotto" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/radar_enrichment.py:535: error: Argument 1 to "_derive_motivation_from_zone" of "RadarLightEnricher" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/radar_enrichment.py:541: error: Argument 1 to "_derive_motivation_from_zone" of "RadarLightEnricher" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/radar_enrichment.py:546: error: Argument 1 to "_derive_match_importance" of "RadarLightEnricher" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/article_reader.py:67: error: Skipping analyzing "trafilatura": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/utils/article_reader.py:175: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/utils/article_reader.py:357: error: "type" has no attribute "get"  [attr-defined]
+src/utils/article_reader.py:638: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/utils/article_reader.py:643: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/utils/article_reader.py:675: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/utils/article_reader.py:679: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/services/nitter_pool.py:28: error: Library stubs not installed for "dateutil"  [import-untyped]
+src/services/nitter_pool.py:215: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/services/nitter_pool.py:215: note: Perhaps you meant "typing.Any" instead of "any"?
+src/services/nitter_pool.py:470: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/services/nitter_pool.py:470: note: Perhaps you meant "typing.Any" instead of "any"?
+src/services/nitter_pool.py:528: error: Unsupported right operand type for in ("object")  [operator]
+src/services/nitter_pool.py:630: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/services/nitter_pool.py:630: note: Perhaps you meant "typing.Any" instead of "any"?
+src/services/nitter_pool.py:698: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/services/nitter_pool.py:698: note: Perhaps you meant "typing.Any" instead of "any"?
+src/services/nitter_pool.py:736: error: Argument 1 to "_normalize_date" of "NitterPool" has incompatible type "str | AttributeValueList"; expected "str"  [arg-type]
+src/services/nitter_pool.py:798: error: Function "builtins.any" is not valid as a type  [valid-type]
+src/services/nitter_pool.py:798: note: Perhaps you meant "typing.Any" instead of "any"?
+src/analysis/optimizer.py:325: error: Incompatible default for parameter "sortino" (default has type "None", parameter has type "float")  [assignment]
+src/analysis/optimizer.py:325: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/optimizer.py:325: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/optimizer.py:326: error: Incompatible default for parameter "previous_weight" (default has type "None", parameter has type "float")  [assignment]
+src/analysis/optimizer.py:326: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/optimizer.py:326: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/optimizer.py:521: error: Unsupported target for indexed assignment ("str | dict[str, Any] | Any | None")  [index]
+src/analysis/optimizer.py:523: error: Value of type "str | dict[str, Any] | Any | None" is not indexable  [index]
+src/analysis/optimizer.py:523: error: Unsupported target for indexed assignment ("str | Any")  [index]
+src/analysis/optimizer.py:651: error: Incompatible default for parameter "expansion_type" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/optimizer.py:651: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/optimizer.py:651: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/optimizer.py:819: error: Incompatible default for parameter "driver" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/optimizer.py:819: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/optimizer.py:819: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/optimizer.py:1066: error: Incompatible default for parameter "market" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/optimizer.py:1066: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/optimizer.py:1066: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/optimizer.py:1066: error: Incompatible default for parameter "driver" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/optimizer.py:1113: error: Incompatible default for parameter "market" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/optimizer.py:1113: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/optimizer.py:1113: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/optimizer.py:1113: error: Incompatible default for parameter "driver" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/optimizer.py:1255: error: "object" has no attribute "append"  [attr-defined]
+src/analysis/optimizer.py:1258: error: "object" has no attribute "append"  [attr-defined]
+src/analysis/optimizer.py:1260: error: "object" has no attribute "append"  [attr-defined]
+src/analysis/optimizer.py:1262: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/optimizer.py:1368: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/analysis/optimizer.py:1369: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/alerting/notifier.py:26: error: Library stubs not installed for "pytz"  [import-untyped]
+src/alerting/notifier.py:26: note: Hint: "python3 -m pip install types-pytz"
+src/alerting/notifier.py:27: error: Library stubs not installed for "requests"  [import-untyped]
+src/alerting/notifier.py:28: error: Library stubs not installed for "requests.exceptions"  [import-untyped]
+src/alerting/notifier.py:1144: error: Incompatible types in assignment (expression has type "Any | None", variable has type "float")  [assignment]
+src/alerting/notifier.py:1347: error: Argument "news_url" to "send_alert" has incompatible type "str | None"; expected "str"  [arg-type]
+src/alerting/notifier.py:2188: error: Argument 3 to "_send_plain_text_fallback" has incompatible type "str | None"; expected "str"  [arg-type]
+src/alerting/notifier.py:2192: error: Argument 3 to "_send_plain_text_fallback" has incompatible type "str | None"; expected "str"  [arg-type]
+src/alerting/notifier.py:2196: error: Argument 3 to "_send_plain_text_fallback" has incompatible type "str | None"; expected "str"  [arg-type]
+src/alerting/notifier.py:2199: error: Argument 3 to "_send_plain_text_fallback" has incompatible type "str | None"; expected "str"  [arg-type]
+src/alerting/health_monitor.py:24: error: Library stubs not installed for "psutil"  [import-untyped]
+src/alerting/health_monitor.py:24: note: Hint: "python3 -m pip install types-psutil"
+src/alerting/health_monitor.py:25: error: Library stubs not installed for "requests"  [import-untyped]
+src/alerting/health_monitor.py:26: error: Library stubs not installed for "requests.exceptions"  [import-untyped]
+src/alerting/health_monitor.py:26: note: Hint: "python3 -m pip install types-requests"
+src/alerting/health_monitor.py:26: note: (or run "mypy --install-types" to install all missing stub packages)
+src/alerting/health_monitor.py:26: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+src/alerting/health_monitor.py:44: error: Incompatible types in assignment (expression has type "None", variable has type "sessionmaker[Session]")  [assignment]
+src/alerting/health_monitor.py:109: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/alerting/health_monitor.py:110: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/alerting/health_monitor.py:113: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/alerting/health_monitor.py:602: error: Need type annotation for "issues" (hint: "issues: list[<type>] = ...")  [var-annotated]
+src/processing/telegram_listener.py:23: error: Skipping analyzing "telethon": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/processing/telegram_listener.py:24: error: Skipping analyzing "telethon.errors": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/processing/telegram_listener.py:761: error: Argument "is_late" to "update_channel_metrics" has incompatible type "float | bool | None"; expected "bool"  [arg-type]
+src/processing/telegram_listener.py:767: error: Argument "timestamp_lag" to "update_channel_metrics" has incompatible type "float | None"; expected "float"  [arg-type]
+src/processing/telegram_listener.py:782: error: Argument "home_team" to "extract_prediction_from_text" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:783: error: Argument "away_team" to "extract_prediction_from_text" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:799: error: Argument "message_id" to "log_telegram_message" has incompatible type "str | None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:801: error: Argument "text_preview" to "log_telegram_message" has incompatible type "Any | str | None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:803: error: Argument "match_id" to "log_telegram_message" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:804: error: Argument "timestamp_lag" to "log_telegram_message" has incompatible type "float | None"; expected "float"  [arg-type]
+src/processing/telegram_listener.py:807: error: Argument "echo_source" to "log_telegram_message" has incompatible type "str | None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:812: error: Argument "prediction_type" to "log_telegram_message" has incompatible type "None"; expected "str"  [arg-type]
+src/processing/telegram_listener.py:813: error: Argument "prediction_team" to "log_telegram_message" has incompatible type "None"; expected "str"  [arg-type]
+src/services/browser_monitor.py:84: error: Library stubs not installed for "requests"  [import-untyped]
+src/services/browser_monitor.py:99: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], SharedContentCache]")  [assignment]
+src/services/browser_monitor.py:103: error: Library stubs not installed for "psutil"  [import-untyped]
+src/services/browser_monitor.py:126: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], BrowserFingerprint]")  [assignment]
+src/services/browser_monitor.py:195: error: Skipping analyzing "trafilatura": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/services/browser_monitor.py:198: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str, bool, bool, bool], str | None]")  [assignment]
+src/services/browser_monitor.py:199: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str], tuple[str | None, str]]")  [assignment]
+src/services/browser_monitor.py:201: error: All conditional function variants must have identical signatures  [misc]
+src/services/browser_monitor.py:201: note: Original:
+src/services/browser_monitor.py:201: note:     def is_valid_html(html: str | None) -> bool
+src/services/browser_monitor.py:201: note: Redefinition:
+src/services/browser_monitor.py:201: note:     def is_valid_html(x: Any) -> bool
+src/services/browser_monitor.py:204: error: All conditional function variants must have identical signatures  [misc]
+src/services/browser_monitor.py:204: note: Original:
+src/services/browser_monitor.py:204: note:     def record_extraction(method: str, success: bool) -> None
+src/services/browser_monitor.py:204: note: Redefinition:
+src/services/browser_monitor.py:204: note:     def record_extraction(x: Any, y: Any) -> None
+src/services/browser_monitor.py:220: error: Skipping analyzing "playwright_stealth": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/services/browser_monitor.py:956: error: Incompatible types in assignment (expression has type "TavilyProvider", variable has type "None")  [assignment]
+src/services/browser_monitor.py:957: error: Incompatible types in assignment (expression has type "BudgetManager", variable has type "None")  [assignment]
+src/services/browser_monitor.py:958: error: "None" has no attribute "is_available"  [attr-defined]
+src/services/browser_monitor.py:1158: error: Incompatible types in assignment (expression has type "Playwright", variable has type "None")  [assignment]
+src/services/browser_monitor.py:1163: error: "None" has no attribute "chromium"  [attr-defined]
+src/services/browser_monitor.py:1440: error: Incompatible return value type (got "tuple[bool, str | None]", expected "bool")  [return-value]
+src/services/browser_monitor.py:1674: error: "None" has no attribute "new_page"  [attr-defined]
+src/services/browser_monitor.py:1948: error: "None" has no attribute "new_page"  [attr-defined]
+src/services/browser_monitor.py:2025: error: Need type annotation for "unique_links" (hint: "unique_links: list[<type>] = ...")  [var-annotated]
+src/services/browser_monitor.py:2483: error: Argument "link_selector" to "extract_with_navigation" of "BrowserMonitor" has incompatible type "str | None"; expected "str"  [arg-type]
+src/services/browser_monitor.py:3085: error: Incompatible types in assignment (expression has type "TimeoutError", variable has type "ValueError | None")  [assignment]
+src/services/browser_monitor.py:3118: error: Incompatible types in assignment (expression has type "Exception", variable has type "ValueError | None")  [assignment]
+src/utils/test_scrapling_live_data_v2.py:87: error: Incompatible types in "await" (actual type "str | None", expected type "Awaitable[Any]")  [misc]
+src/utils/test_scrapling_live_data.py:67: error: Incompatible types in "await" (actual type "str | None", expected type "Awaitable[Any]")  [misc]
+src/services/twitter_intel_cache.py:50: error: Skipping analyzing "nest_asyncio": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/services/twitter_intel_cache.py:92: error: Name "_get_data_provider" already defined on line 73  [no-redef]
+src/services/twitter_intel_cache.py:142: error: Incompatible default for parameter "league_key" (default has type "None", parameter has type "str")  [assignment]
+src/services/twitter_intel_cache.py:142: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/services/twitter_intel_cache.py:142: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/services/twitter_intel_cache.py:296: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:297: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:298: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:299: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:302: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:303: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:306: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/twitter_intel_cache.py:588: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/services/twitter_intel_cache.py:589: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/services/twitter_intel_cache.py:616: error: "object" has no attribute "append"  [attr-defined]
+src/services/twitter_intel_cache.py:628: error: Incompatible types in assignment (expression has type "TwitterIntelCacheEntry | None", variable has type "TwitterIntelCacheEntry")  [assignment]
+src/services/twitter_intel_cache.py:861: error: "None" not callable  [misc]
+src/services/twitter_intel_cache.py:1171: error: Library stubs not installed for "dateutil"  [import-untyped]
+src/services/twitter_intel_cache.py:1393: error: Value of type any? is not indexable  [index]
+src/services/intelligence_router.py:708: error: Argument 2 to "_merge_tavily_context" of "IntelligenceRouter" has incompatible type "str | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:26: error: Library stubs not installed for "requests"  [import-untyped]
+src/ingestion/openrouter_fallback_provider.py:58: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
+src/ingestion/openrouter_fallback_provider.py:93: error: Incompatible default for parameter "match_date" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/openrouter_fallback_provider.py:93: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/openrouter_fallback_provider.py:93: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/openrouter_fallback_provider.py:94: error: Incompatible default for parameter "referee" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/openrouter_fallback_provider.py:94: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/openrouter_fallback_provider.py:94: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/openrouter_fallback_provider.py:95: error: Incompatible default for parameter "missing_players" (default has type "None", parameter has type "list[Any]")  [assignment]
+src/ingestion/openrouter_fallback_provider.py:95: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/openrouter_fallback_provider.py:95: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/openrouter_fallback_provider.py:123: error: Argument "missing_players" to "build_deep_dive_prompt" has incompatible type "list[Any]"; expected "str | None"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:208: error: Incompatible default for parameter "league" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/openrouter_fallback_provider.py:208: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/openrouter_fallback_provider.py:208: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/openrouter_fallback_provider.py:246: error: Item "None" of "Any | None" has no attribute "value"  [union-attr]
+src/ingestion/openrouter_fallback_provider.py:249: error: Item "None" of "Any | None" has no attribute "value"  [union-attr]
+src/ingestion/openrouter_fallback_provider.py:273: error: Incompatible default for parameter "detected_factors" (default has type "None", parameter has type "list[str]")  [assignment]
+src/ingestion/openrouter_fallback_provider.py:273: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/openrouter_fallback_provider.py:273: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/openrouter_fallback_provider.py:318: error: Argument "detected_factors" to "build_biscotto_confirmation_prompt" has incompatible type "list[str]"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:987: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:990: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:993: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:997: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:1005: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:1009: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:1012: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/openrouter_fallback_provider.py:1015: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:95: error: Incompatible types in assignment (expression has type "None", variable has type "datetime")  [assignment]
+src/ingestion/deepseek_intel_provider.py:149: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/ingestion/deepseek_intel_provider.py:445: error: Incompatible default for parameter "task_type" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/deepseek_intel_provider.py:445: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/deepseek_intel_provider.py:445: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/deepseek_intel_provider.py:508: error: Incompatible return value type (got "str | None", expected "str")  [return-value]
+src/ingestion/deepseek_intel_provider.py:542: error: Incompatible return value type (got "str | None", expected "str")  [return-value]
+src/ingestion/deepseek_intel_provider.py:548: error: Incompatible return value type (got "str | None", expected "str")  [return-value]
+src/ingestion/deepseek_intel_provider.py:818: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/ingestion/deepseek_intel_provider.py:826: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/ingestion/deepseek_intel_provider.py:836: error: Incompatible default for parameter "match_date" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/deepseek_intel_provider.py:836: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/deepseek_intel_provider.py:836: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/deepseek_intel_provider.py:837: error: Incompatible default for parameter "referee" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/deepseek_intel_provider.py:837: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/deepseek_intel_provider.py:837: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/deepseek_intel_provider.py:838: error: Incompatible default for parameter "missing_players" (default has type "None", parameter has type "list[Any]")  [assignment]
+src/ingestion/deepseek_intel_provider.py:838: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/deepseek_intel_provider.py:838: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/deepseek_intel_provider.py:880: error: Argument "missing_players" to "build_deep_dive_prompt" has incompatible type "list[Any]"; expected "str | None"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:899: error: Argument 2 to "parse_ai_json" has incompatible type "None"; expected "type"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:907: error: Incompatible default for parameter "league" (default has type "None", parameter has type "str")  [assignment]
+src/ingestion/deepseek_intel_provider.py:907: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/deepseek_intel_provider.py:907: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/deepseek_intel_provider.py:966: error: Argument 2 to "parse_ai_json" has incompatible type "None"; expected "type"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1039: error: Argument 2 to "parse_ai_json" has incompatible type "None"; expected "type"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1169: error: Incompatible default for parameter "detected_factors" (default has type "None", parameter has type "list[str]")  [assignment]
+src/ingestion/deepseek_intel_provider.py:1169: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/deepseek_intel_provider.py:1169: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/deepseek_intel_provider.py:1223: error: Argument "detected_factors" to "build_biscotto_confirmation_prompt" has incompatible type "list[str]"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1236: error: Argument 2 to "parse_ai_json" has incompatible type "None"; expected "type"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1298: error: Argument 2 to "parse_ai_json" has incompatible type "None"; expected "type"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1445: error: Argument 2 to "parse_ai_json" has incompatible type "None"; expected "type"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1624: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1627: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1630: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1634: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1641: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1644: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1647: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/ingestion/deepseek_intel_provider.py:1650: error: Argument 1 to "is_unknown" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/services/news_radar.py:41: error: Library stubs not installed for "requests"  [import-untyped]
+src/services/news_radar.py:77: error: Cannot assign to a type  [misc]
+src/services/news_radar.py:77: error: Incompatible types in assignment (expression has type "None", variable has type "type[EnrichmentContext]")  [assignment]
+src/services/news_radar.py:86: error: Cannot assign to a type  [misc]
+src/services/news_radar.py:86: error: Incompatible types in assignment (expression has type "None", variable has type "type[OddsMovementStatus]")  [assignment]
+src/services/news_radar.py:98: error: Skipping analyzing "playwright_stealth": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/services/news_radar.py:179: error: Skipping analyzing "trafilatura": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/services/news_radar.py:182: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str, bool, bool, bool], str | None]")  [assignment]
+src/services/news_radar.py:183: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str], tuple[str | None, str]]")  [assignment]
+src/services/news_radar.py:867: error: Unsupported operand types for - ("float" and "None")  [operator]
+src/services/news_radar.py:867: note: Right operand is of type "float | None"
+src/services/news_radar.py:1241: error: Module has no attribute "__version__"  [attr-defined]
+src/services/news_radar.py:1242: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1248: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1250: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1252: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1265: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1267: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1271: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1273: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1285: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1287: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1291: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1293: error: "object" has no attribute "append"  [attr-defined]
+src/services/news_radar.py:1317: error: Incompatible types in assignment (expression has type "Playwright", variable has type "None")  [assignment]
+src/services/news_radar.py:1321: error: "None" has no attribute "chromium"  [attr-defined]
+src/services/news_radar.py:1633: error: "None" has no attribute "new_page"  [attr-defined]
+src/services/news_radar.py:1744: error: "None" has no attribute "new_page"  [attr-defined]
+src/services/news_radar.py:1889: error: "BaseException" object is not iterable  [misc]
+src/services/news_radar.py:2206: error: Incompatible types in assignment (expression has type "TimeoutError", variable has type "ValueError | None")  [assignment]
+src/services/news_radar.py:2244: error: Incompatible types in assignment (expression has type "Exception", variable has type "ValueError | None")  [assignment]
+src/services/news_radar.py:2631: error: Incompatible types in assignment (expression has type "TavilyProvider", variable has type "None")  [assignment]
+src/services/news_radar.py:2632: error: Incompatible types in assignment (expression has type "BudgetManager", variable has type "None")  [assignment]
+src/services/news_radar.py:2633: error: "None" has no attribute "is_available"  [attr-defined]
+src/services/news_radar.py:2974: error: Item "None" of "ContentExtractor | None" has no attribute "extract_batch_http"  [union-attr]
+src/services/news_radar.py:3132: error: "BaseException" object is not iterable  [misc]
+src/services/news_radar.py:3160: error: Item "None" of "ContentExtractor | None" has no attribute "extract_with_navigation"  [union-attr]
+src/services/news_radar.py:3184: error: Item "None" of "ContentExtractor | None" has no attribute "extract"  [union-attr]
+src/services/news_radar.py:3337: error: Item "None" of "DeepSeekFallback | None" has no attribute "analyze_v2"  [union-attr]
+src/services/news_radar.py:3385: error: Argument "affected_team" to "enrich_radar_alert_async" has incompatible type "str | None"; expected "str"  [arg-type]
+src/services/news_radar.py:3425: error: Argument "category" to "RadarAlert" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/services/news_radar.py:3426: error: Argument "absent_count" to "RadarAlert" has incompatible type "Any | None"; expected "int"  [arg-type]
+src/services/news_radar.py:3427: error: Argument "absent_players" to "RadarAlert" has incompatible type "Any | None"; expected "list[str]"  [arg-type]
+src/services/news_radar.py:3513: error: "RadarAlert" has no attribute "_odds_suffix"  [attr-defined]
+src/services/news_radar.py:3514: error: "RadarAlert" has no attribute "_validation_tag"  [attr-defined]
+src/services/news_radar.py:4055: error: Incompatible types in assignment (expression has type "TavilyProvider", variable has type "None")  [assignment]
+src/services/news_radar.py:4056: error: Incompatible types in assignment (expression has type "BudgetManager", variable has type "None")  [assignment]
+src/services/news_radar.py:4057: error: "None" has no attribute "is_available"  [attr-defined]
+src/services/news_radar.py:4065: error: Module "src.ingestion.brave_budget" has no attribute "get_budget_manager"; maybe "get_brave_budget_manager" or "reset_brave_budget_manager"?  [attr-defined]
+src/services/news_radar.py:4068: error: Incompatible types in assignment (expression has type "BraveSearchProvider", variable has type "None")  [assignment]
+src/services/news_radar.py:4070: error: "None" has no attribute "is_available"  [attr-defined]
+src/services/news_radar.py:4162: error: Incompatible types in assignment (expression has type "Playwright", variable has type "None")  [assignment]
+src/services/news_radar.py:4164: error: "None" has no attribute "chromium"  [attr-defined]
+src/services/news_radar.py:4195: error: "None" has no attribute "new_context"  [attr-defined]
+src/services/news_radar.py:4210: error: Need type annotation for "context_sources"  [var-annotated]
+src/services/news_radar.py:4349: error: Item "None" of "DiscoveryQueue | None" has no attribute "push"  [union-attr]
+src/services/news_radar.py:4486: error: Item "None" of "ContentCache | None" has no attribute "is_cached"  [union-attr]
+src/services/news_radar.py:4506: error: Item "None" of "ContentCache | None" has no attribute "add"  [union-attr]
+src/database/maintenance.py:87: error: Incompatible types in assignment (expression has type "str", target has type "int | None")  [assignment]
+src/database/maintenance.py:165: error: Unsupported operand types for + ("None" and "int")  [operator]
+src/database/maintenance.py:165: note: Left operand is of type "int | None"
+src/database/maintenance.py:174: error: Incompatible types in assignment (expression has type "str", target has type "int | None")  [assignment]
+src/database/maintenance.py:204: error: Incompatible types in assignment (expression has type "str", target has type "int | None")  [assignment]
+src/database/maintenance.py:265: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/database/maintenance.py:267: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/database/maintenance.py:275: error: Unsupported operand types for + ("None" and "int")  [operator]
+src/database/maintenance.py:275: note: Left operand is of type "int | None"
+src/database/maintenance.py:279: error: Unsupported operand types for + ("None" and "int")  [operator]
+src/database/maintenance.py:279: note: Left operand is of type "int | None"
+src/database/maintenance.py:290: error: Unsupported operand types for < ("int" and "None")  [operator]
+src/database/maintenance.py:290: note: Left operand is of type "int | None"
+src/database/maintenance.py:314: error: Incompatible types in assignment (expression has type "str", target has type "int | None")  [assignment]
+src/core/settlement_service.py:48: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str, str, datetime, str, float], str | None]")  [assignment]
+src/core/settlement_service.py:149: error: Unsupported operand types for < ("int" and "object")  [operator]
+src/core/settlement_service.py:288: error: Argument 6 to "_evaluate_bet" of "SettlementService" has incompatible type "dict[Any, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/settlement_service.py:300: error: Argument 4 to "_evaluate_combo_bet" of "SettlementService" has incompatible type "dict[Any, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/settlement_service.py:396: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/core/settlement_service.py:401: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/core/settlement_service.py:426: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/core/settlement_service.py:442: error: Function "_tavily_verify_line_movement" could always be true in boolean context  [truthy-function]
+src/core/settlement_service.py:470: error: Argument "match_date" to "_tavily_verify_line_movement" has incompatible type "Any | None"; expected "datetime"  [arg-type]
+src/core/settlement_service.py:591: error: Incompatible types in assignment (expression has type "float", target has type "int")  [assignment]
+src/core/settlement_service.py:682: error: Argument "prediction_type" to "verify_prediction_against_result" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/core/settlement_service.py:791: error: Unsupported operand types for < ("int" and "None")  [operator]
+src/core/settlement_service.py:791: note: Left operand is of type "float | None"
+src/core/settlement_service.py:904: error: Item "None" of "Any | None" has no attribute "lower"  [union-attr]
+src/core/settlement_service.py:1034: error: Incompatible default for parameter "home_odd" (default has type "None", parameter has type "float")  [assignment]
+src/core/settlement_service.py:1034: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/core/settlement_service.py:1034: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/core/settlement_service.py:1036: error: Incompatible default for parameter "match_stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/core/settlement_service.py:1036: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/core/settlement_service.py:1036: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/core/settlement_service.py:1285: error: Incompatible default for parameter "match_stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/core/settlement_service.py:1285: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/core/settlement_service.py:1285: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/core/settlement_service.py:1319: error: Argument 4 to "_evaluate_bet" of "SettlementService" has incompatible type "None"; expected "float"  [arg-type]
+src/analysis/settler.py:266: error: Item "None" of "Any | None" has no attribute "lower"  [union-attr]
+src/analysis/settler.py:312: error: Incompatible default for parameter "match_stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/settler.py:312: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/settler.py:312: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/settler.py:342: error: Argument 4 to "evaluate_bet" has incompatible type "None"; expected "float"  [arg-type]
+src/analysis/settler.py:383: error: Incompatible default for parameter "home_odd" (default has type "None", parameter has type "float")  [assignment]
+src/analysis/settler.py:383: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/settler.py:383: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/settler.py:385: error: Incompatible default for parameter "match_stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/settler.py:385: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/settler.py:385: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/settler.py:650: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:659: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:666: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:687: error: Argument 6 to "evaluate_bet" has incompatible type "dict[Any, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/analysis/settler.py:699: error: Argument 4 to "evaluate_combo_bet" has incompatible type "dict[Any, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/analysis/settler.py:727: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "dict[str, Any]")  [assignment]
+src/analysis/settler.py:728: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "dict[Any, Any] | None")  [assignment]
+src/analysis/settler.py:729: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "dict[Any, Any] | None")  [assignment]
+src/analysis/settler.py:730: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "str")  [assignment]
+src/analysis/settler.py:731: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "str")  [assignment]
+src/analysis/settler.py:732: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "str | None")  [assignment]
+src/analysis/settler.py:733: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "str | None")  [assignment]
+src/analysis/settler.py:734: error: Incompatible types in assignment (expression has type "dict[str, Any] | dict[Any, Any] | str | None", variable has type "str | None")  [assignment]
+src/analysis/settler.py:766: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:769: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:771: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/analysis/settler.py:774: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:775: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/analysis/settler.py:779: error: "object" has no attribute "append"  [attr-defined]
+src/analysis/settler.py:785: error: Item "None" of "dict[Any, Any] | None" has no attribute "get"  [union-attr]
+src/analysis/settler.py:871: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:872: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/analysis/settler.py:877: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:900: error: Unsupported operand types for < ("int" and "None")  [operator]
+src/analysis/settler.py:900: note: Left operand is of type "float | None"
+src/analysis/settler.py:905: error: "object" has no attribute "append"  [attr-defined]
+src/analysis/settler.py:911: error: Value of type "dict[Any, Any] | None" is not indexable  [index]
+src/analysis/settler.py:928: error: Value of type "object" is not indexable  [index]
+src/analysis/settler.py:934: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/analysis/settler.py:940: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
+src/analysis/settler.py:950: error: Unsupported left operand type for + ("object")  [operator]
+src/analysis/settler.py:955: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
+src/analysis/settler.py:985: error: Incompatible types in assignment (expression has type "float", target has type "int")  [assignment]
+src/analysis/settler.py:989: error: Unsupported target for indexed assignment ("object")  [index]
+src/analysis/settler.py:992: error: Value of type "object" is not indexable  [index]
+src/analysis/settler.py:997: error: Unsupported operand types for < ("float" and "object")  [operator]
+src/analysis/settler.py:1007: error: Argument 1 to "len" has incompatible type "object"; expected "Sized"  [arg-type]
+src/utils/debug_intelligence_funnel.py:234: error: Incompatible types in assignment (expression has type "BraveSearchProvider", variable has type "SearchProvider")  [assignment]
+src/utils/debug_intelligence_funnel.py:247: error: Unexpected keyword argument "limit" for "search_news" of "SearchProvider"  [call-arg]
+src/utils/debug_intelligence_funnel.py:247: note: "search_news" defined in "src.ingestion.search_provider"
+src/utils/debug_intelligence_funnel.py:247: error: Unexpected keyword argument "component" for "search_news" of "SearchProvider"  [call-arg]
+src/utils/debug_intelligence_funnel.py:346: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/utils/debug_intelligence_funnel.py:368: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/utils/debug_intelligence_funnel.py:373: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/utils/debug_intelligence_funnel.py:379: error: Unsupported right operand type for in ("object")  [operator]
+src/utils/debug_intelligence_funnel.py:380: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/debug_intelligence_funnel.py:381: error: Value of type "object" is not indexable  [index]
+src/utils/debug_intelligence_funnel.py:381: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/debug_intelligence_funnel.py:392: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/utils/debug_intelligence_funnel.py:433: error: Need type annotation for "verified_results" (hint: "verified_results: list[<type>] = ...")  [var-annotated]
+src/utils/debug_intelligence_funnel.py:545: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/utils/debug_intelligence_funnel.py:562: error: "object" has no attribute "append"  [attr-defined]
+src/utils/debug_intelligence_funnel.py:567: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/utils/debug_intelligence_funnel.py:690: error: Argument 1 to "simulate_search_hunt" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/utils/debug_intelligence_funnel.py:690: error: Argument 2 to "simulate_search_hunt" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/utils/debug_intelligence_funnel.py:693: error: Argument 2 to "analyze_relevance_filters" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/utils/debug_intelligence_funnel.py:696: error: Argument 2 to "check_verification_layer" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/services/nitter_fallback_scraper.py:48: error: Cannot assign to a type  [misc]
+src/services/nitter_fallback_scraper.py:48: error: Incompatible types in assignment (expression has type "None", variable has type "type[BeautifulSoup]")  [assignment]
+src/services/nitter_fallback_scraper.py:52: error: Skipping analyzing "playwright_stealth": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/services/nitter_fallback_scraper.py:622: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/services/nitter_fallback_scraper.py:776: error: Incompatible return value type (got "None", expected "str")  [return-value]
+src/services/nitter_fallback_scraper.py:790: error: Unsupported right operand type for in ("object")  [operator]
+src/services/nitter_fallback_scraper.py:860: error: Unsupported operand types for >= ("int" and "object")  [operator]
+src/services/nitter_fallback_scraper.py:1066: error: Incompatible types in assignment (expression has type "str | AttributeValueList", variable has type "str")  [assignment]
+src/services/nitter_fallback_scraper.py:1498: error: Unsupported operand types for + ("object" and "int")  [operator]
+src/services/nitter_fallback_scraper.py:1539: error: "object" has no attribute "append"  [attr-defined]
+src/services/nitter_fallback_scraper.py:1624: error: Cannot find implementation or library stub for module named "src.database.db_manager"  [import-not-found]
+src/processing/news_hunter.py:97: error: Name "LEAGUE_DOMAINS" already defined (possibly by an import)  [no-redef]
+src/processing/news_hunter.py:114: error: Cannot assign to a type  [misc]
+src/processing/news_hunter.py:114: error: Incompatible types in assignment (expression has type "type[Any]", variable has type "type[DiscoveredNews]")  [assignment]
+src/processing/news_hunter.py:125: error: Cannot assign to a type  [misc]
+src/processing/news_hunter.py:125: error: Incompatible types in assignment (expression has type "type[Any]", variable has type "type[CachedTweet]")  [assignment]
+src/processing/news_hunter.py:338: error: Cannot assign to a type  [misc]
+src/processing/news_hunter.py:338: error: Incompatible types in assignment (expression has type "type[Any]", variable has type "type[DiscoveryQueue]")  [assignment]
+src/processing/news_hunter.py:737: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/processing/news_hunter.py:886: error: Need type annotation for "results" (hint: "results: list[<type>] = ...")  [var-annotated]
+src/processing/news_hunter.py:1097: error: Incompatible return value type (got "None", expected "dict[Any, Any]")  [return-value]
+src/processing/news_hunter.py:1360: error: Incompatible types in assignment (expression has type "SearchProvider", variable has type "BraveSearchProvider")  [assignment]
+src/processing/news_hunter.py:1361: error: Unexpected keyword argument "num_results" for "search_news" of "BraveSearchProvider"  [call-arg]
+src/processing/news_hunter.py:1361: note: "search_news" defined in "src.ingestion.brave_provider"
+src/processing/news_hunter.py:1361: error: Unexpected keyword argument "league_key" for "search_news" of "BraveSearchProvider"  [call-arg]
+src/processing/news_hunter.py:1475: error: Incompatible types in assignment (expression has type "SearchProvider", variable has type "BraveSearchProvider")  [assignment]
+src/processing/news_hunter.py:1476: error: Unexpected keyword argument "num_results" for "search_news" of "BraveSearchProvider"  [call-arg]
+src/processing/news_hunter.py:1476: note: "search_news" defined in "src.ingestion.brave_provider"
+src/processing/news_hunter.py:1476: error: Unexpected keyword argument "league_key" for "search_news" of "BraveSearchProvider"  [call-arg]
+src/processing/news_hunter.py:1532: error: Need type annotation for "results" (hint: "results: list[<type>] = ...")  [var-annotated]
+src/processing/news_hunter.py:1743: error: Incompatible types in assignment (expression has type "SearchProvider", variable has type "BraveSearchProvider")  [assignment]
+src/processing/news_hunter.py:1744: error: "BraveSearchProvider" has no attribute "search_local_news"; maybe "search_news"?  [attr-defined]
+src/processing/news_hunter.py:1894: error: Argument 1 to "get" of "dict" has incompatible type "str | None"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2282: error: Argument 1 to "get" of "dict" has incompatible type "str | None"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2320: error: List item 0 has incompatible type "Column[str] | Any"; expected "str"  [list-item]
+src/processing/news_hunter.py:2320: error: List item 1 has incompatible type "Column[str] | Any"; expected "str"  [list-item]
+src/processing/news_hunter.py:2346: error: Argument 1 to "search_team_news" of "ALeagueScraper" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2351: error: Argument 1 to "search_team_news" of "ALeagueScraper" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2376: error: Argument 1 to "search_beat_writers_priority" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2381: error: Argument 1 to "search_beat_writers_priority" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2399: error: Argument 1 to "search_news" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2405: error: Argument 1 to "search_news" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2417: error: Argument 1 to "search_insiders" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2420: error: Argument 1 to "search_insiders" has incompatible type "Column[str] | Any"; expected "str"  [arg-type]
+src/processing/news_hunter.py:2440: error: Incompatible types in assignment (expression has type "Coroutine[Any, Any, list[dict[Any, Any]]]", variable has type "list[dict[str, Any]]")  [assignment]
+src/processing/news_hunter.py:2440: note: Maybe you forgot to use "await"?
+src/processing/news_hunter.py:2520: error: Argument 2 to "_apply_news_decay" has incompatible type "MatchAttributes"; expected "Match | dict[str, Any]"  [arg-type]
+src/processing/news_hunter.py:2629: error: Argument "minutes_to_kickoff" to "apply_news_decay_v2" has incompatible type "int | None"; expected "int"  [arg-type]
+src/ingestion/alpha_hunter.py:322: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+src/ingestion/alpha_hunter.py:941: error: Argument "home_team" to "MatchCandidate" has incompatible type "Column[str] | str"; expected "str"  [arg-type]
+src/ingestion/alpha_hunter.py:942: error: Argument "away_team" to "MatchCandidate" has incompatible type "Column[str] | str"; expected "str"  [arg-type]
+src/ingestion/alpha_hunter.py:943: error: Argument "league" to "MatchCandidate" has incompatible type "Column[str] | str"; expected "str"  [arg-type]
+src/ingestion/alpha_hunter.py:944: error: Argument "start_time" to "MatchCandidate" has incompatible type "Column[datetime] | datetime"; expected "datetime"  [arg-type]
+src/ingestion/alpha_hunter.py:945: error: Argument "home_odd" to "MatchCandidate" has incompatible type "Column[float]"; expected "float | None"  [arg-type]
+src/ingestion/alpha_hunter.py:946: error: Argument "draw_odd" to "MatchCandidate" has incompatible type "Column[float]"; expected "float | None"  [arg-type]
+src/ingestion/alpha_hunter.py:947: error: Argument "away_odd" to "MatchCandidate" has incompatible type "Column[float]"; expected "float | None"  [arg-type]
+src/analysis/final_alert_verifier.py:498: error: Value of type "object" is not indexable  [index]
+src/analysis/final_alert_verifier.py:529: error: Argument 2 to "_handle_discrepancies_intelligently" of "FinalAlertVerifier" has incompatible type "object"; expected "list[dict[Any, Any]]"  [arg-type]
+src/analysis/final_alert_verifier.py:721: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/analysis/final_alert_verifier.py:728: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/entrypoints/run_bot.py:121: error: Skipping analyzing "telethon": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/analysis/referee_cache.py:33: error: Need type annotation for "_cache" (hint: "_cache: dict[<type>, <type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:1138: error: Argument "original_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1139: error: Argument "adjusted_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1174: error: Unsupported operand types for <= ("float" and "None")  [operator]
+src/analysis/verification_layer.py:1174: note: Left operand is of type "float | None"
+src/analysis/verification_layer.py:1181: error: Argument "original_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1182: error: Argument "adjusted_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1204: error: Argument "original_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1205: error: Argument "adjusted_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1219: error: Incompatible default for parameter "inconsistencies" (default has type "None", parameter has type "list[str]")  [assignment]
+src/analysis/verification_layer.py:1219: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verification_layer.py:1219: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verification_layer.py:1228: error: Argument "original_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:1256: error: Cannot assign to a type  [misc]
+src/analysis/verification_layer.py:1256: error: Incompatible types in assignment (expression has type "None", variable has type "type[TavilyProvider]")  [assignment]
+src/analysis/verification_layer.py:1257: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], TavilyProvider]")  [assignment]
+src/analysis/verification_layer.py:1267: error: Cannot assign to a type  [misc]
+src/analysis/verification_layer.py:1267: error: Incompatible types in assignment (expression has type "None", variable has type "type[PerplexityProvider]")  [assignment]
+src/analysis/verification_layer.py:1268: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], PerplexityProvider]")  [assignment]
+src/analysis/verification_layer.py:1294: error: All conditional function variants must have identical signatures  [misc]
+src/analysis/verification_layer.py:1294: note: Original:
+src/analysis/verification_layer.py:1294: note:     def parse_ai_json(text_response: str, model_class: type = ..., default_values: dict[Any, Any] = ...) -> dict[Any, Any]
+src/analysis/verification_layer.py:1294: note: Redefinition:
+src/analysis/verification_layer.py:1294: note:     def parse_ai_json(text: str) -> dict[Any, Any]
+src/analysis/verification_layer.py:1310: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], BudgetManager]")  [assignment]
+src/analysis/verification_layer.py:1651: error: Cannot determine type of "players_original"  [has-type]
+src/analysis/verification_layer.py:1658: error: Cannot determine type of "players_original"  [has-type]
+src/analysis/verification_layer.py:1663: error: Cannot determine type of "players_original"  [has-type]
+src/analysis/verification_layer.py:1881: error: Skipping analyzing "thefuzz": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/analysis/verification_layer.py:2116: error: Need type annotation for "stats" (hint: "stats: dict[<type>, <type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:2203: error: Need type annotation for "stats" (hint: "stats: dict[<type>, <type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:2512: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2513: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2514: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2516: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2517: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2518: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2567: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2568: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2590: error: Incompatible types in assignment (expression has type "int | None", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:2745: error: Item "None" of "TavilyProvider | None" has no attribute "get_budget_status"  [union-attr]
+src/analysis/verification_layer.py:2767: error: Item "None" of "TavilyProvider | None" has no attribute "search"  [union-attr]
+src/analysis/verification_layer.py:3593: error: Item "None" of "TavilyProvider | None" has no attribute "search"  [union-attr]
+src/analysis/verification_layer.py:3976: error: Item "None" of "TavilyProvider | None" has no attribute "search"  [union-attr]
+src/analysis/verification_layer.py:4309: error: Item "None" of "PerplexityProvider | None" has no attribute "_query_api"  [union-attr]
+src/analysis/verification_layer.py:4507: error: Unsupported operand types for > ("float" and "None")  [operator]
+src/analysis/verification_layer.py:4507: note: Left operand is of type "float | None"
+src/analysis/verification_layer.py:4783: error: Need type annotation for "score_adjustments" (hint: "score_adjustments: list[<type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:4824: error: Unsupported operand types for - ("None" and "float")  [operator]
+src/analysis/verification_layer.py:4824: note: Left operand is of type "float | None"
+src/analysis/verification_layer.py:4832: error: Unsupported operand types for - ("None" and "float")  [operator]
+src/analysis/verification_layer.py:4832: note: Left operand is of type "float | None"
+src/analysis/verification_layer.py:4838: error: Unsupported operand types for - ("None" and "float")  [operator]
+src/analysis/verification_layer.py:4838: note: Left operand is of type "float | None"
+src/analysis/verification_layer.py:4844: error: Value of type variable "SupportsRichComparisonT" of "max" cannot be "float | None"  [type-var]
+src/analysis/verification_layer.py:4847: error: Argument 4 to "_determine_status" of "LogicValidator" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:4874: error: Argument "original_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:4875: error: Argument "adjusted_score" to "VerificationResult" has incompatible type "float | None"; expected "float"  [arg-type]
+src/analysis/verification_layer.py:5035: error: Need type annotation for "issues" (hint: "issues: list[<type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:5036: error: Need type annotation for "alternatives" (hint: "alternatives: list[<type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:5078: error: Need type annotation for "issues" (hint: "issues: list[<type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:5156: error: Need type annotation for "issues" (hint: "issues: list[<type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:5157: error: Need type annotation for "alternatives" (hint: "alternatives: list[<type>] = ...")  [var-annotated]
+src/analysis/verification_layer.py:5280: error: Unsupported operand types for - ("None" and "float")  [operator]
+src/analysis/verification_layer.py:5280: note: Left operand is of type "float | None"
+src/analysis/verification_layer.py:5311: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/analysis/verification_layer.py:5539: error: Incompatible default for parameter "home_stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/verification_layer.py:5539: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verification_layer.py:5539: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verification_layer.py:5540: error: Incompatible default for parameter "away_stats" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/verification_layer.py:5540: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verification_layer.py:5540: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verification_layer.py:5541: error: Incompatible default for parameter "home_context" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/verification_layer.py:5541: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verification_layer.py:5541: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verification_layer.py:5542: error: Incompatible default for parameter "away_context" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/verification_layer.py:5542: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verification_layer.py:5542: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/analyzer.py:131: error: Name "BoostType" already defined (possibly by an import)  [no-redef]
+src/analysis/analyzer.py:142: error: All conditional function variants must have identical signatures  [misc]
+src/analysis/analyzer.py:142: note: Original:
+src/analysis/analyzer.py:142: note:     def get_referee_boost_logger() -> RefereeBoostLogger
+src/analysis/analyzer.py:142: note: Redefinition:
+src/analysis/analyzer.py:142: note:     def get_referee_boost_logger() -> Any
+src/analysis/analyzer.py:157: error: All conditional function variants must have identical signatures  [misc]
+src/analysis/analyzer.py:157: note: Original:
+src/analysis/analyzer.py:157: note:     def get_referee_cache_monitor() -> RefereeCacheMonitor
+src/analysis/analyzer.py:157: note: Redefinition:
+src/analysis/analyzer.py:157: note:     def get_referee_cache_monitor() -> Any
+src/analysis/analyzer.py:172: error: All conditional function variants must have identical signatures  [misc]
+src/analysis/analyzer.py:172: note: Original:
+src/analysis/analyzer.py:172: note:     def get_referee_influence_metrics() -> RefereeInfluenceMetrics
+src/analysis/analyzer.py:172: note: Redefinition:
+src/analysis/analyzer.py:172: note:     def get_referee_influence_metrics() -> Any
+src/analysis/analyzer.py:812: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:816: error: "object" has no attribute "get"  [attr-defined]
+src/analysis/analyzer.py:827: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:831: error: Unsupported right operand type for in ("object")  [operator]
+src/analysis/analyzer.py:831: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:832: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:833: error: Unsupported right operand type for in ("object")  [operator]
+src/analysis/analyzer.py:833: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:834: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:837: error: Unsupported right operand type for in ("object")  [operator]
+src/analysis/analyzer.py:837: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:842: error: Value of type "object" is not indexable  [index]
+src/analysis/analyzer.py:1054: error: Argument "messages" to "create" of "Completions" has incompatible type "list[dict[Any, Any]]"; expected "Iterable[ChatCompletionDeveloperMessageParam | ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam | ChatCompletionAssistantMessageParam | ChatCompletionToolMessageParam | ChatCompletionFunctionMessageParam]"  [arg-type]
+src/analysis/analyzer.py:1132: error: Incompatible types in assignment (expression has type "TimeoutError", variable has type "ValueError | None")  [assignment]
+src/analysis/analyzer.py:1144: error: Incompatible types in assignment (expression has type "Exception", variable has type "ValueError | None")  [assignment]
+src/analysis/analyzer.py:1402: error: Need type annotation for "signals" (hint: "signals: list[<type>] = ...")  [var-annotated]
+src/analysis/analyzer.py:1565: error: Incompatible default for parameter "team_name" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/analyzer.py:1565: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/analyzer.py:1565: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/analyzer.py:1565: error: Incompatible default for parameter "team_id" (default has type "None", parameter has type "int")  [assignment]
+src/analysis/analyzer.py:2051: error: Argument 1 to "get" of "dict" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2067: error: Argument "base_score" to "apply_weight_to_score_with_original" of "StrategyOptimizer" has incompatible type "object"; expected "float"  [arg-type]
+src/analysis/analyzer.py:2069: error: Argument "market" to "apply_weight_to_score_with_original" of "StrategyOptimizer" has incompatible type "None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2070: error: Argument "driver" to "apply_weight_to_score_with_original" of "StrategyOptimizer" has incompatible type "None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2100: error: Argument 1 to "basic_keyword_analysis" has incompatible type "str | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2100: error: Argument 2 to "basic_keyword_analysis" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2128: error: Argument 1 to "enrich_with_player_data" has incompatible type "str | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2192: error: Item "None" of "str | None" has no attribute "upper"  [union-attr]
+src/analysis/analyzer.py:2193: error: Item "None" of "str | None" has no attribute "upper"  [union-attr]
+src/analysis/analyzer.py:2309: error: Argument "match_date" to "get_match_deep_dive" of "PerplexityProvider" has incompatible type "str | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2310: error: Argument "referee" to "get_match_deep_dive" of "PerplexityProvider" has incompatible type "str | Any | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2352: error: Argument "home_team_id" to "get_league_table_context" of "FotMobProvider" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2353: error: Argument "away_team_id" to "get_league_table_context" of "FotMobProvider" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2474: error: Argument 2 to "search" has incompatible type "str | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:2693: error: Item "None" of "BoostType | None" has no attribute "value"  [union-attr]
+src/analysis/analyzer.py:3556: error: Argument 1 to "basic_keyword_analysis" has incompatible type "str | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:3556: error: Argument 2 to "basic_keyword_analysis" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:3676: error: Argument "market" to "apply_weight_to_score_with_original" of "StrategyOptimizer" has incompatible type "None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:3677: error: Argument "driver" to "apply_weight_to_score_with_original" of "StrategyOptimizer" has incompatible type "None"; expected "str"  [arg-type]
+src/analysis/analyzer.py:3683: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/analysis/analyzer.py:3741: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/processing/global_orchestrator.py:65: error: Skipping analyzing "nest_asyncio": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+src/processing/global_orchestrator.py:188: error: Need type annotation for "active_leagues" (hint: "active_leagues: list[<type>] = ...")  [var-annotated]
+src/processing/global_orchestrator.py:214: error: Item "None" of "SupabaseProvider | None" has no attribute "get_active_leagues_for_continent"  [union-attr]
+src/processing/global_orchestrator.py:224: error: Item "None" of "SupabaseProvider | None" has no attribute "validate_api_keys"  [union-attr]
+src/processing/global_orchestrator.py:234: error: Item "None" of "SupabaseProvider | None" has no attribute "update_mirror"  [union-attr]
+src/processing/global_orchestrator.py:393: error: Unsupported target for indexed assignment ("object")  [index]
+src/alerting/orchestration_metrics.py:34: error: Library stubs not installed for "psutil"  [import-untyped]
+src/alerting/orchestration_metrics.py:779: error: Argument "supabase_cache_wait_count" to "LockContentionMetrics" has incompatible type "float"; expected "int"  [arg-type]
+src/alerting/orchestration_metrics.py:782: error: Argument "supabase_cache_timeout_count" to "LockContentionMetrics" has incompatible type "float"; expected "int"  [arg-type]
+src/alerting/orchestration_metrics.py:783: error: Argument "referee_cache_wait_count" to "LockContentionMetrics" has incompatible type "float"; expected "int"  [arg-type]
+src/alerting/orchestration_metrics.py:786: error: Argument "referee_cache_timeout_count" to "LockContentionMetrics" has incompatible type "float"; expected "int"  [arg-type]
+src/utils/test_sniper_handshake.py:330: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_sniper_handshake.py:338: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_sniper_handshake.py:356: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_sniper_handshake.py:362: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_sniper_handshake.py:365: error: Unsupported operand types for <= ("float" and "object")  [operator]
+src/utils/test_sniper_handshake.py:406: error: Item "bool" of "Literal[True] | str" has no attribute "lower"  [union-attr]
+src/analysis/step_by_step_feedback.py:149: error: Argument 1 to "_log_for_manual_review" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:150: error: Argument 2 to "_log_for_manual_review" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:151: error: Argument 3 to "_log_for_manual_review" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:152: error: Argument 4 to "_log_for_manual_review" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:164: error: Argument 1 to "_execute_automatic_feedback_loop" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:165: error: Argument 2 to "_execute_automatic_feedback_loop" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:166: error: Argument 3 to "_execute_automatic_feedback_loop" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:167: error: Argument 4 to "_execute_automatic_feedback_loop" of "StepByStepFeedbackLoop" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:217: error: Need type annotation for "execution_state"  [var-annotated]
+src/analysis/step_by_step_feedback.py:248: error: Argument "alert_id" to "_persist_modification" of "StepByStepFeedbackLoop" has incompatible type "Column[int]"; expected "int"  [arg-type]
+src/analysis/step_by_step_feedback.py:284: error: Argument 1 to "_intermediate_verification" of "StepByStepFeedbackLoop" has incompatible type "SimpleNamespace"; expected "Match"  [arg-type]
+src/analysis/step_by_step_feedback.py:296: error: Argument "alert_id" to "_persist_modification" of "StepByStepFeedbackLoop" has incompatible type "Column[int]"; expected "int"  [arg-type]
+src/analysis/step_by_step_feedback.py:308: error: Argument "alert_id" to "_persist_modification" of "StepByStepFeedbackLoop" has incompatible type "Column[int]"; expected "int"  [arg-type]
+src/analysis/step_by_step_feedback.py:364: error: Argument 1 to "_update_learning_patterns" of "StepByStepFeedbackLoop" has incompatible type "Column[int]"; expected "str"  [arg-type]
+src/analysis/step_by_step_feedback.py:492: error: Incompatible types in assignment (expression has type "str", variable has type "Column[str]")  [assignment]
+src/analysis/step_by_step_feedback.py:1137: error: Incompatible default for parameter "error_message" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/step_by_step_feedback.py:1137: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/step_by_step_feedback.py:1137: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/step_by_step_feedback.py:1138: error: Incompatible default for parameter "component_communications" (default has type "None", parameter has type "dict[Any, Any]")  [assignment]
+src/analysis/step_by_step_feedback.py:1138: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/step_by_step_feedback.py:1138: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/utils/test_intelligence_handshake.py:361: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:392: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:395: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:410: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:413: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:416: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:419: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:426: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:429: error: Unsupported target for indexed assignment ("object")  [index]
+src/utils/test_intelligence_handshake.py:474: error: Incompatible types in assignment (expression has type "list[Any]", target has type "bool | None")  [assignment]
+src/utils/test_intelligence_handshake.py:497: error: Incompatible types in assignment (expression has type "str", target has type "bool | None")  [assignment]
+src/utils/test_intelligence_handshake.py:500: error: Incompatible types in assignment (expression has type "dict[str, Collection[str]]", target has type "bool | None")  [assignment]
+src/utils/test_intelligence_handshake.py:547: error: Incompatible types in assignment (expression has type "str", target has type "bool | None")  [assignment]
+src/utils/test_intelligence_handshake.py:565: error: Incompatible default for parameter "match_id" (default has type "None", parameter has type "str")  [assignment]
+src/utils/test_intelligence_handshake.py:565: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/utils/test_intelligence_handshake.py:565: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/utils/check_apis.py:20: error: Library stubs not installed for "requests"  [import-untyped]
+src/entrypoints/launcher.py:212: error: Need type annotation for "PROCESSES" (hint: "PROCESSES: dict[<type>, <type>] = ...")  [var-annotated]
+src/entrypoints/launcher.py:225: error: Incompatible return value type (got "None", expected "Popen[Any]")  [return-value]
+src/analysis/verifier_integration.py:90: error: Incompatible default for parameter "recommended_market" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/verifier_integration.py:90: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verifier_integration.py:90: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verifier_integration.py:91: error: Incompatible default for parameter "combo_suggestion" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/verifier_integration.py:91: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verifier_integration.py:91: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verifier_integration.py:92: error: Incompatible default for parameter "reasoning" (default has type "None", parameter has type "str")  [assignment]
+src/analysis/verifier_integration.py:92: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/analysis/verifier_integration.py:92: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/analysis/verifier_integration.py:460: error: Need type annotation for "context_data" (hint: "context_data: dict[<type>, <type>] = ...")  [var-annotated]
+src/core/analysis_engine.py:69: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str, str, str, str | None, str | None], Any]")  [assignment]
+src/core/analysis_engine.py:241: error: Unsupported left operand type for - ("None")  [operator]
+src/core/analysis_engine.py:241: note: Left operand is of type "Any | None"
+src/core/analysis_engine.py:323: error: Argument "home_motivation" to "get_enhanced_biscotto_analysis" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/analysis_engine.py:324: error: Argument "away_motivation" to "get_enhanced_biscotto_analysis" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/analysis_engine.py:651: error: Argument 1 to "get" of "dict" has incompatible type "CachedTweet | Any | str"; expected "str"  [arg-type]
+src/core/analysis_engine.py:657: error: Item "str" of "CachedTweet | Any | str" has no attribute "handle"  [union-attr]
+src/core/analysis_engine.py:658: error: Item "str" of "CachedTweet | Any | str" has no attribute "content"  [union-attr]
+src/core/analysis_engine.py:659: error: Item "str" of "CachedTweet | Any | str" has no attribute "topics"  [union-attr]
+src/core/analysis_engine.py:1034: error: Argument 1 to "should_verify_alert" has incompatible type "Column[int]"; expected "float"  [arg-type]
+src/core/analysis_engine.py:1035: error: Incompatible return value type (got "tuple[bool, Column[int], Column[str], None]", expected "tuple[bool, float, str | None, VerificationResult | None]")  [return-value]
+src/core/analysis_engine.py:1041: error: Argument "home_stats" to "create_verification_request_from_match" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/analysis_engine.py:1042: error: Argument "away_stats" to "create_verification_request_from_match" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/analysis_engine.py:1043: error: Argument "home_context" to "create_verification_request_from_match" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/analysis_engine.py:1044: error: Argument "away_context" to "create_verification_request_from_match" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/core/analysis_engine.py:1069: error: Incompatible return value type (got "tuple[bool, Column[int], Any | None, None]", expected "tuple[bool, float, str | None, VerificationResult | None]")  [return-value]
+src/core/analysis_engine.py:1476: error: Function "record_error_intelligent" could always be true in boolean context  [truthy-function]
+src/core/analysis_engine.py:1491: error: Argument "analysis" to "run_verification_check" of "AnalysisEngine" has incompatible type "NewsLog | None"; expected "NewsLog"  [arg-type]
+src/core/analysis_engine.py:1511: error: Argument "news_summary" to "build_alert_data_for_verifier" has incompatible type "Column[str] | str"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1512: error: Argument "news_url" to "build_alert_data_for_verifier" has incompatible type "Column[str] | str"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1514: error: Argument "recommended_market" to "build_alert_data_for_verifier" has incompatible type "str | None"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1515: error: Argument "combo_suggestion" to "build_alert_data_for_verifier" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1516: error: Argument "reasoning" to "build_alert_data_for_verifier" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1695: error: Argument "home_team" to "EnhancedMatchAlert" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1696: error: Argument "away_team" to "EnhancedMatchAlert" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1697: error: Argument "league" to "EnhancedMatchAlert" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/core/analysis_engine.py:1716: error: Argument "verification_info" to "EnhancedMatchAlert" has incompatible type "VerificationResult | None"; expected "dict[str, Any] | None"  [arg-type]
+src/core/analysis_engine.py:1718: error: Argument "injury_intel" to "EnhancedMatchAlert" has incompatible type "TeamInjuryImpact | None"; expected "dict[str, Any] | None"  [arg-type]
+src/core/analysis_engine.py:1751: error: Incompatible types in assignment (expression has type "str | None", target has type "float | bool | None")  [assignment]
+src/core/analysis_engine.py:1754: error: Incompatible types in assignment (expression has type "datetime", variable has type "Column[datetime]")  [assignment]
+src/core/analysis_engine.py:1759: error: Incompatible types in assignment (expression has type "str | None", target has type "float | bool | None")  [assignment]
+src/core/analysis_engine.py:1772: error: Incompatible types in assignment (expression has type "str", target has type "float | bool | None")  [assignment]
+src/core/analysis_engine.py:1788: error: Incompatible types in assignment (expression has type "str | None", target has type "float | bool | None")  [assignment]
+src/core/analysis_engine.py:1791: error: Incompatible types in assignment (expression has type "datetime", variable has type "Column[datetime]")  [assignment]
+src/core/analysis_engine.py:1802: error: Incompatible types in assignment (expression has type "str", target has type "float | bool | None")  [assignment]
+src/core/analysis_engine.py:1808: error: Incompatible types in assignment (expression has type "str", target has type "float | bool | None")  [assignment]
+src/utils/debug_funnel.py:201: error: Need type annotation for "trace_result"  [var-annotated]
+src/utils/debug_funnel.py:226: error: Item "float" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:226: error: Item "None" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:252: error: Item "float" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:252: error: Item "None" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:266: error: Item "float" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:266: error: Item "None" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:280: error: Argument 1 to "get_fotmob_team_id" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/debug_funnel.py:281: error: Argument 1 to "get_fotmob_team_id" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/debug_funnel.py:302: error: Argument "home_team" to "enrich_match_parallel" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/debug_funnel.py:303: error: Argument "away_team" to "enrich_match_parallel" has incompatible type "Any | None"; expected "str"  [arg-type]
+src/utils/debug_funnel.py:326: error: Argument "twitter_intel" to "analyze_with_triangulation" has incompatible type "None"; expected "str"  [arg-type]
+src/utils/debug_funnel.py:337: error: Item "None" of "NewsLog | None" has no attribute "score"  [union-attr]
+src/utils/debug_funnel.py:338: error: Item "None" of "NewsLog | None" has no attribute "reason"  [union-attr]
+src/utils/debug_funnel.py:347: error: Item "float" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:347: error: Item "None" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:362: error: Item "float" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:362: error: Item "None" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:375: error: Argument 2 to "calculate_kelly_criterion" has incompatible type "float | list[Any] | Any | None"; expected "float"  [arg-type]
+src/utils/debug_funnel.py:378: error: Unsupported operand types for <= ("float" and "None")  [operator]
+src/utils/debug_funnel.py:378: note: Left operand is of type "float | list[Any] | Any | None"
+src/utils/debug_funnel.py:378: error: Unsupported operand types for >= ("list[Any]" and "float")  [operator]
+src/utils/debug_funnel.py:397: error: Item "float" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/utils/debug_funnel.py:397: error: Item "None" of "float | list[Any] | Any | None" has no attribute "append"  [union-attr]
+src/main.py:68: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str, str, str, str | None, str | None], Any]")  [assignment]
+src/main.py:201: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], SupabaseProvider]")  [assignment]
+src/main.py:353: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[], IntelligenceRouter]")  [assignment]
+src/main.py:355: error: All conditional function variants must have identical signatures  [misc]
+src/main.py:355: note: Original:
+src/main.py:355: note:     def is_intelligence_available() -> bool
+src/main.py:355: note: Redefinition:
+src/main.py:355: note:     def is_intelligence_available() -> Any
+src/main.py:417: error: Incompatible types in assignment (expression has type "None", variable has type "Callable[[str, str, dict[Any, Any] | None, dict[Any, Any] | None, list[str] | None, list[str] | None], InjuryDifferential]")  [assignment]
+src/main.py:750: error: Argument "home_motivation" to "get_enhanced_biscotto_analysis" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/main.py:751: error: Argument "away_motivation" to "get_enhanced_biscotto_analysis" has incompatible type "dict[str, Any] | None"; expected "dict[Any, Any]"  [arg-type]
+src/main.py:1817: error: Module "src.ingestion.brave_budget" has no attribute "get_budget_manager"; maybe "get_brave_budget_manager" or "reset_brave_budget_manager"?  [attr-defined]
+src/main.py:1878: error: "TavilyResponse" has no attribute "get"  [attr-defined]
+src/main.py:1882: error: Value of type "TavilyResponse" is not indexable  [index]
+src/main.py:2346: error: Argument 1 to "get_nitter_intel_for_match" has incompatible type "Column[str]"; expected "str"  [arg-type]
+src/main.py:2711: error: Function "record_error_intelligent" could always be true in boolean context  [truthy-function]
+src/main.py:2743: error: Function "record_error_intelligent" could always be true in boolean context  [truthy-function]
+src/main.py:2929: error: Incompatible default for parameter "forced_narrative" (default has type "None", parameter has type "str")  [assignment]
+src/main.py:2929: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/main.py:2929: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/main.py:2957: error: Incompatible types in assignment (expression has type "str", target has type "float | bool | None")  [assignment]
+src/main.py:2989: error: Argument "market" to "apply_weight_to_score_with_original" of "StrategyOptimizer" has incompatible type "None"; expected "str"  [arg-type]
+src/main.py:2996: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+src/main.py:3061: error: Incompatible types in assignment (expression has type "str", target has type "float | bool | None")  [assignment]
+src/ingestion/opportunity_radar.py:422: error: Incompatible types in assignment (expression has type "BraveSearchProvider", variable has type "SearchProvider")  [assignment]
+src/ingestion/opportunity_radar.py:430: error: Unexpected keyword argument "limit" for "search_news" of "SearchProvider"  [call-arg]
+src/ingestion/opportunity_radar.py:430: note: "search_news" defined in "src.ingestion.search_provider"
+src/ingestion/opportunity_radar.py:430: error: Unexpected keyword argument "component" for "search_news" of "SearchProvider"  [call-arg]
+src/ingestion/opportunity_radar.py:641: error: Incompatible return value type (got "Column[str]", expected "str | None")  [return-value]
+src/ingestion/opportunity_radar.py:696: error: Argument 2 to "_get_next_match_for_team" of "OpportunityRadar" has incompatible type "str | None"; expected "str"  [arg-type]
+src/ingestion/opportunity_radar.py:702: error: Argument 1 to "_find_or_create_match_in_db" of "OpportunityRadar" has incompatible type "str | None"; expected "str"  [arg-type]
+src/ingestion/opportunity_radar.py:710: error: Argument 4 to "_build_forced_narrative" of "OpportunityRadar" has incompatible type "str | None"; expected "str"  [arg-type]
+src/ingestion/opportunity_radar.py:749: error: Incompatible default for parameter "regions" (default has type "None", parameter has type "list[str]")  [assignment]
+src/ingestion/opportunity_radar.py:749: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/opportunity_radar.py:749: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+src/ingestion/opportunity_radar.py:836: error: Incompatible default for parameter "regions" (default has type "None", parameter has type "list[str]")  [assignment]
+src/ingestion/opportunity_radar.py:836: note: PEP 484 prohibits implicit Optional. Accordingly, mypy has changed its default to no_implicit_optional=True
+src/ingestion/opportunity_radar.py:836: note: Use https://github.com/hauntsaninja/no_implicit_optional to automatically upgrade your codebase
+Found 993 errors in 85 files (checked 151 source files)

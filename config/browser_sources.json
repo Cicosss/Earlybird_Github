@@ -78,7 +78,7 @@
       "scan_interval_minutes": 10,
       "priority": 2,
       "name": "96FM Bauru Brazil",
-      "navigation_mode": "paginated",
+      "navigation_mode": "single",
       "link_selector": "a[href*='/noticia/'], a[href*='/esporte/'], article a",
       "max_links": 5,
       "source_timezone": "America/Sao_Paulo"
@@ -133,7 +133,7 @@
       "scan_interval_minutes": 10,
       "priority": 2,
       "name": "Tribun Palembang Superball",
-      "navigation_mode": "paginated",
+      "navigation_mode": "single",
       "link_selector": "a[href*='/superball/'], a[href*='/bola/'], article a",
       "max_links": 5,
       "source_timezone": "Asia/Jakarta"

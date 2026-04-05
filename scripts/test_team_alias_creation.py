@@ -29,7 +29,7 @@ def test_enrichment_function():
     logger.info("=" * 80)
     logger.info("Testing Enrichment Function")
     logger.info("=" * 80)
-    
+
     test_teams = [
         "Manchester United FC",
         "Liverpool FC",
@@ -37,11 +37,11 @@ def test_enrichment_function():
         "Arsenal FC",
         "Galatasaray SK",
     ]
-    
+
     for team_name in test_teams:
         logger.info(f"\nTesting team: {team_name}")
         enriched_data = enrich_team_alias_data(team_name)
-        
+
         logger.info(f"  Twitter Handle: {enriched_data.get('twitter_handle')}")
         logger.info(f"  Telegram Channel: {enriched_data.get('telegram_channel')}")
         logger.info(f"  FotMob ID: {enriched_data.get('fotmob_id')}")
@@ -54,7 +54,7 @@ def test_team_alias_creation():
     logger.info("\n" + "=" * 80)
     logger.info("Testing TeamAlias Creation")
     logger.info("=" * 80)
-    
+
     test_teams = [
         "Manchester United FC",
         "Liverpool FC",
@@ -62,7 +62,7 @@ def test_team_alias_creation():
         "Arsenal FC",
         "Galatasaray SK",
     ]
-    
+
     with get_db_context() as session:
         for team_name in test_teams:
             # Check if already exists
@@ -78,7 +78,7 @@ def test_team_alias_creation():
                 # Create new TeamAlias with enrichment
                 clean_name = team_name.replace(" FC", "").replace(" SK", "").replace(" Club", "")
                 enriched_data = enrich_team_alias_data(team_name)
-                
+
                 alias = TeamAlias(
                     api_name=team_name,
                     search_name=clean_name,
@@ -90,9 +90,9 @@ def test_team_alias_creation():
                     country=enriched_data.get("country"),
                     league=enriched_data.get("league"),
                 )
-                
+
                 session.add(alias)
-                
+
                 # Log enrichment results
                 enriched_fields = [k for k, v in enriched_data.items() if v is not None]
                 if enriched_fields:
@@ -107,7 +107,7 @@ def show_mapping_stats():
     logger.info("\n" + "=" * 80)
     logger.info("Mapping Statistics")
     logger.info("=" * 80)
-    
+
     stats = get_team_mapping_stats()
     logger.info(f"  Total Teams: {stats['total_teams']}")
     logger.info(f"  Twitter Handles: {stats['twitter_handles']}")
@@ -122,13 +122,13 @@ def main():
     try:
         # Test enrichment function
         test_enrichment_function()
-        
+
         # Test TeamAlias creation
         test_team_alias_creation()
-        
+
         # Show mapping stats
         show_mapping_stats()
-        
+
         logger.info("\n" + "=" * 80)
         logger.info("✅ All tests completed successfully!")
         logger.info("=" * 80)
@@ -136,6 +136,7 @@ def main():
     except Exception as e:
         logger.error(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

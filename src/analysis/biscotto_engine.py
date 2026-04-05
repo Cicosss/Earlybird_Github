@@ -397,7 +397,7 @@ def calculate_severity(
     Returns:
         Tuple of (severity, confidence, factors_list)
     """
-    factors = []
+    factors: list[str] = []
     score = 0  # Accumulate severity score
 
     # Factor 1: Absolute draw odds level (V4.3: uses dynamic threshold)
@@ -586,7 +586,7 @@ def analyze_biscotto(
     ]
 
     # Build reasoning (V4.3: use dynamic threshold)
-    reasoning_parts = []
+    reasoning_parts: list[str] = []
 
     if current_draw_odd < dynamic_suspicious_threshold:
         reasoning_parts.append(

@@ -1,14 +1,18 @@
 """
-EarlyBird Radar Light Enrichment Module V1.0
+EarlyBird Radar Light Enrichment Module V1.1
 
 Arricchisce gli alert del News Radar con contesto dal database principale,
 senza appesantire il flusso con chiamate FotMob complete.
 
 Strategia "Light Enrichment":
-1. Cerca match nelle prossime 48h per la squadra menzionata nell'alert
+1. Cerca match nelle prossime 72h per la squadra menzionata nell'alert
 2. Se trovato: aggiungi contesto classifica (zona, posizione)
 3. Se fine stagione (ultime 5 giornate): check biscotto
 4. NON fa chiamate FotMob - usa solo dati già in DB o cache
+
+V1.1: Enhanced find_upcoming_match() with fuzzy matching (thefuzz) for
+accent/partial name mismatches. DeepSeek extracts "São Paulo" but DB has
+"Sao Paulo FC" — fuzzy matching bridges this gap.
 
 Questo approccio:
 - Mantiene il radar veloce e indipendente
@@ -23,7 +27,7 @@ import logging
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +105,7 @@ class EnrichmentContext:
         if not self.has_match():
             return ""
 
-        parts = []
+        parts: list[str] = []
 
         # Match info
         match_str = f"{self.home_team} vs {self.away_team}"
@@ -238,10 +242,14 @@ class RadarLightEnricher:
                 )
 
                 # Cerca match che coinvolge la squadra
+                # V4.0: Enhanced with fuzzy matching fallback for accent/partial name mismatches
+                # Collect all match data for fuzzy fallback if substring match fails
+                all_match_data: list[dict[str, Any]] = []
+
                 for match in matches:
                     # VPS FIX: Extract Match attributes safely to prevent session detachment
                     # This prevents "Trust validation error" when Match object becomes detached
-                    # from session due to connection pool recycling under high load
+                    # from connection pool recycling under high load
                     home_team = getattr(match, "home_team", None)
                     away_team = getattr(match, "away_team", None)
                     match_id = getattr(match, "id", None)
@@ -253,25 +261,36 @@ class RadarLightEnricher:
                     home_lower = (home_team or "").lower()
                     away_lower = (away_team or "").lower()
 
-                    # Match fuzzy: controlla se team_name è contenuto
+                    # V12.4: Active scope guard - skip matches from non-active leagues
+                    if (
+                        active_league_keys is not None
+                        and league
+                        and league not in active_league_keys
+                    ):
+                        continue
+
+                    # Store for potential fuzzy matching later
+                    all_match_data.append(
+                        {
+                            "match_id": match_id,
+                            "home_team": home_team,
+                            "away_team": away_team,
+                            "start_time": start_time,
+                            "league": league,
+                            "current_draw_odd": current_draw_odd,
+                            "opening_draw_odd": opening_draw_odd,
+                            "home_lower": home_lower,
+                            "away_lower": away_lower,
+                        }
+                    )
+
+                    # Match fuzzy: controlla se team_name è contenuto (existing logic)
                     if (
                         team_lower in home_lower
                         or home_lower in team_lower
                         or team_lower in away_lower
                         or away_lower in team_lower
                     ):
-                        # V12.4: Active scope guard - skip matches from non-active leagues
-                        if (
-                            active_league_keys is not None
-                            and league
-                            and league not in active_league_keys
-                        ):
-                            logger.debug(
-                                f"🚫 [SCOPE] Skipping match {home_team} vs {away_team} "
-                                f"- league '{league}' not in active scope"
-                            )
-                            continue
-
                         logger.info(f"🔍 [RADAR-ENRICH] Found match: {home_team} vs {away_team}")
 
                         return {
@@ -284,6 +303,48 @@ class RadarLightEnricher:
                             "opening_draw_odd": opening_draw_odd,
                             "is_home": team_lower in home_lower,
                         }
+
+                # V4.0: FUZZY MATCHING FALLBACK
+                # If substring match failed, try thefuzz for accent/partial name matching
+                # This catches: "São Paulo" → "Sao Paulo FC", "Timão" → "Corinthians"
+                try:
+                    from thefuzz import fuzz
+
+                    best_match = None
+                    best_score = 0
+                    best_is_home = False
+                    FUZZY_THRESHOLD = 80  # Same as verification_layer.py
+
+                    for md in all_match_data:
+                        for is_home, db_team in [(True, md["home_team"]), (False, md["away_team"])]:
+                            if not db_team:
+                                continue
+                            score = fuzz.token_set_ratio(team_name, db_team)
+                            if score > best_score:
+                                best_score = score
+                                best_match = md
+                                best_is_home = is_home
+
+                    if best_score >= FUZZY_THRESHOLD and best_match:
+                        logger.info(
+                            f"🔍 [RADAR-ENRICH] Fuzzy match: '{team_name}' → "
+                            f"{best_match['home_team']} vs {best_match['away_team']} "
+                            f"(score={best_score})"
+                        )
+                        return {
+                            "match_id": best_match["match_id"],
+                            "home_team": best_match["home_team"],
+                            "away_team": best_match["away_team"],
+                            "start_time": best_match["start_time"],
+                            "league": best_match["league"],
+                            "current_draw_odd": best_match["current_draw_odd"],
+                            "opening_draw_odd": best_match["opening_draw_odd"],
+                            "is_home": best_is_home,
+                        }
+                except ImportError:
+                    logger.debug("[RADAR-ENRICH] thefuzz not available for fuzzy matching")
+                except Exception as e:
+                    logger.debug(f"[RADAR-ENRICH] Fuzzy matching failed: {e}")
 
                 return None
 

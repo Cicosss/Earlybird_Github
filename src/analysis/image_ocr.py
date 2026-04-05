@@ -84,7 +84,7 @@ INTENT_KEYWORDS = {
 }
 
 # Combine all keywords for comprehensive intent detection
-ALL_INTENT_KEYWORDS = []
+ALL_INTENT_KEYWORDS: list[str] = []
 for category_keywords in INTENT_KEYWORDS.values():
     ALL_INTENT_KEYWORDS.extend(category_keywords)
 ALL_INTENT_KEYWORDS.extend(SQUAD_KEYWORDS)
@@ -384,7 +384,7 @@ def extract_player_names(ocr_text: str) -> list:
     words = ocr_text.split()
 
     # Filter for capitalized words (2-15 chars) likely to be surnames
-    surnames = []
+    surnames: list[str] = []
     for word in words:
         # Remove special characters
         clean_word = "".join(c for c in word if c.isalnum())

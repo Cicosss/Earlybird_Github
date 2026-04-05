@@ -62,7 +62,7 @@ def migrate():
             logger.info(f"📊 Current columns in news_logs: {len(columns)}")
 
             # Step 4: Define all missing columns based on SQLAlchemy model
-            missing_columns = []
+            missing_columns: list[tuple] = []
 
             # Content fields
             if "summary" not in columns:

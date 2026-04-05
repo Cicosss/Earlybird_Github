@@ -63,6 +63,9 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.info(f"📦 {get_version_with_module('Orchestration Metrics')}")
 
+# P6: Import stop check utility
+from config.settings import is_stop_requested
+
 # ============================================
 # CONFIGURATION
 # ============================================
@@ -342,6 +345,12 @@ class OrchestrationMetricsCollector:
         last_cleanup = 0
 
         while self._running:
+            # P6: Check for full stop
+            if is_stop_requested():
+                logger.info("🛑 Stop requested in metrics collection loop, exiting")
+                self._running = False  # FIX: Mark as stopped for consistent state
+                break
+
             now = time.time()
 
             # Collect system metrics every 5 minutes
@@ -841,7 +850,7 @@ class OrchestrationMetricsCollector:
         to Telegram in addition to logging. Alerts are only sent if notifier
         is available and configured.
         """
-        alerts = []
+        alerts: list[str] = []
 
         if metrics.cpu_percent > CPU_THRESHOLD:
             alerts.append(f"⚠️ HIGH CPU: {metrics.cpu_percent:.1f}% (threshold: {CPU_THRESHOLD}%)")
@@ -885,8 +894,8 @@ class OrchestrationMetricsCollector:
         to prevent alert fatigue. Also implements automated responses to mitigate
         lock contention issues.
         """
-        alerts = []
-        automated_actions = []
+        alerts: list[str] = []
+        automated_actions: list[str] = []
         now = time.time()
 
         # Check Supabase cache lock contention
@@ -986,7 +995,7 @@ class OrchestrationMetricsCollector:
         Returns:
             List of automated actions taken
         """
-        actions = []
+        actions: list[str] = []
 
         # If Supabase cache has high contention, recommend increasing cache TTL
         if (

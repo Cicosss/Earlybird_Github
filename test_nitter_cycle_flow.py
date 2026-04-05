@@ -33,6 +33,7 @@ async def test_nitter_cycle_flow():
     print("\n[1/6] Importing SupabaseProvider...")
     try:
         from src.database.supabase_provider import get_supabase
+
         print("✅ SupabaseProvider imported successfully")
     except Exception as e:
         print(f"❌ Failed to import SupabaseProvider: {e}")
@@ -73,6 +74,7 @@ async def test_nitter_cycle_flow():
     except Exception as e:
         print(f"❌ Failed to get social sources: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -114,7 +116,9 @@ async def test_nitter_cycle_flow():
                 s for s in all_sources_for_continent if s.get("is_active", False)
             ]
 
-            print(f"      Total sources: {len(all_sources_for_continent)}, Active: {len(active_sources_for_continent)}")
+            print(
+                f"      Total sources: {len(all_sources_for_continent)}, Active: {len(active_sources_for_continent)}"
+            )
 
         except Exception as e:
             print(f"   {continent}: Error - {e}")
@@ -153,6 +157,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed with exception: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

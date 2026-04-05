@@ -704,8 +704,8 @@ class StartupValidator:
         Returns:
             StartupValidationReport with complete results
         """
-        critical_results = []
-        optional_results = []
+        critical_results: list[str] = []
+        optional_results: list[str] = []
 
         # Validate Python version FIRST (critical for type hints and ZoneInfo)
         python_version_result = self._validate_python_version()

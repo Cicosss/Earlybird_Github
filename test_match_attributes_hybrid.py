@@ -12,6 +12,7 @@ from src.utils.match_helper import MatchAttributes, extract_match_info, extract_
 
 class MockMatch:
     """Mock Match object for testing."""
+
     def __init__(self):
         self.id = "test_match_123"
         self.home_team = "Team A"
@@ -38,10 +39,7 @@ def test_hybrid_access_patterns():
     print("=" * 80)
 
     attrs = MatchAttributes(
-        match_id="test_123",
-        home_team="Home",
-        away_team="Away",
-        league="test_league"
+        match_id="test_123", home_team="Home", away_team="Away", league="test_league"
     )
 
     # Test type-safe access
@@ -74,20 +72,18 @@ def test_flexible_composition():
     print("TEST 2: Flexible Composition")
     print("=" * 80)
 
-    attrs = MatchAttributes(
-        match_id="test_123",
-        home_team="Home",
-        away_team="Away"
-    )
+    attrs = MatchAttributes(match_id="test_123", home_team="Home", away_team="Away")
 
     # Test update() method
     print("\n✓ Adding extra fields with update():")
-    attrs.update({
-        "custom_field_1": "value_1",
-        "custom_field_2": "value_2",
-        "home_context": {"form": "good"},
-        "away_context": {"form": "bad"}
-    })
+    attrs.update(
+        {
+            "custom_field_1": "value_1",
+            "custom_field_2": "value_2",
+            "home_context": {"form": "good"},
+            "away_context": {"form": "bad"},
+        }
+    )
 
     print(f"  attrs['custom_field_1'] = {attrs['custom_field_1']}")
     print(f"  attrs['home_context'] = {attrs['home_context']}")
@@ -112,7 +108,7 @@ def test_json_serialization():
         home_team="Home",
         away_team="Away",
         league="test_league",
-        start_time=datetime.now()
+        start_time=datetime.now(),
     )
 
     # Test to_dict() with datetime
@@ -122,8 +118,8 @@ def test_json_serialization():
     print(f"  start_time value: {attrs_dict['start_time']}")
 
     # Test that it's ISO format string
-    assert isinstance(attrs_dict['start_time'], str), "start_time should be string in dict"
-    assert 'T' in attrs_dict['start_time'], "start_time should be in ISO format"
+    assert isinstance(attrs_dict["start_time"], str), "start_time should be string in dict"
+    assert "T" in attrs_dict["start_time"], "start_time should be in ISO format"
 
     print("\n✅ TEST 3 PASSED: JSON serialization works correctly\n")
 
@@ -163,16 +159,18 @@ def test_backward_compatibility():
     # Test dict.update() pattern (used in analyzer.py)
     print("\n✓ dict.update() pattern works:")
     snippet_data = {}
-    snippet_data.update({
-        "match_id": match_info["match_id"],
-        "home_team": match_info["home_team"],
-        "away_team": match_info["away_team"],
-        "league": match_info["league"],
-        "start_time": match_info["start_time"],
-        "current_home_odd": match_odds["current_home_odd"],
-        "current_away_odd": match_odds["current_away_odd"],
-        "current_draw_odd": match_odds["current_draw_odd"],
-    })
+    snippet_data.update(
+        {
+            "match_id": match_info["match_id"],
+            "home_team": match_info["home_team"],
+            "away_team": match_info["away_team"],
+            "league": match_info["league"],
+            "start_time": match_info["start_time"],
+            "current_home_odd": match_odds["current_home_odd"],
+            "current_away_odd": match_odds["current_away_odd"],
+            "current_draw_odd": match_odds["current_draw_odd"],
+        }
+    )
     print(f"  snippet_data has {len(snippet_data)} fields")
     print(f"  snippet_data['home_team'] = {snippet_data['home_team']}")
 
@@ -183,7 +181,9 @@ def test_backward_compatibility():
             "home_team": match_info["home_team"],
             "away_team": match_info["away_team"],
             "league": match_info["league"],
-            "start_time": match_info["start_time"].isoformat() if match_info["start_time"] else None,
+            "start_time": match_info["start_time"].isoformat()
+            if match_info["start_time"]
+            else None,
             "opening_home_odd": match_odds["opening_home_odd"],
             "current_home_odd": match_odds["current_home_odd"],
             "opening_draw_odd": match_odds["opening_draw_odd"],
@@ -264,6 +264,7 @@ def run_all_tests():
         print(f"❌ TEST FAILED: {e}")
         print("=" * 80)
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -86,7 +86,7 @@ def analyze_squad_list(image_url: str, team_name: str, match_id: str) -> dict | 
         }
 
         team_upper = team_name.upper()
-        key_players = []
+        key_players: list[str] = []
 
         # Fuzzy match team name
         for team_key in KEY_PLAYERS_DB:
@@ -99,7 +99,7 @@ def analyze_squad_list(image_url: str, team_name: str, match_id: str) -> dict | 
             return None
 
         # Step 5: Check if any key player is MISSING
-        missing_players = []
+        missing_players: list[str] = []
 
         for key_player in key_players:
             # Check if player's surname appears in the OCR text (case-insensitive)

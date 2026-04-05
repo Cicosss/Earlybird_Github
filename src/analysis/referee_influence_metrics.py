@@ -400,7 +400,7 @@ class RefereeInfluenceMetrics:
             List of referee stats sorted by total interventions
         """
         with self._lock:
-            referee_list = []
+            referee_list: list[dict[str, Any]] = []
             for name, stats in self._metrics["referee_stats"].items():
                 total_interventions = (
                     stats["boosts_applied"]

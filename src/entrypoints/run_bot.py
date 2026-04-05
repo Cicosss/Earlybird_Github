@@ -74,7 +74,7 @@ def test_bot_configuration():
 
     # Check environment variables
     required_vars = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_API_ID", "TELEGRAM_API_HASH"]
-    missing_vars = []
+    missing_vars: list[str] = []
 
     for var in required_vars:
         value = os.getenv(var)
@@ -532,7 +532,7 @@ async def setup_handlers():
 
         try:
             # Get Intelligence Router status
-            status_parts = []
+            status_parts: list[str] = []
 
             try:
                 from src.services.intelligence_router import get_intelligence_router

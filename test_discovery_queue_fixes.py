@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -45,8 +45,10 @@ def test_globalradar_singleton():
 
         # Check that the import includes get_discovery_queue
         import src.services.news_radar as news_radar_module
-        assert hasattr(news_radar_module, 'get_discovery_queue'), \
+
+        assert hasattr(news_radar_module, "get_discovery_queue"), (
             "❌ FAILED: news_radar.py should import get_discovery_queue"
+        )
         logger.info("✅ PASSED: news_radar.py imports get_discovery_queue")
 
         # Verify the queue is shared
@@ -62,14 +64,12 @@ def test_globalradar_singleton():
             url="http://test.com",
             source_name="Test Source",
             category="INJURY",
-            confidence=0.9
+            confidence=0.9,
         )
 
         # Verify the item is in the queue
         items = global_queue.pop_for_match(
-            match_id="test_match",
-            team_names=["Test Team"],
-            league_key="soccer_epl"
+            match_id="test_match", team_names=["Test Team"], league_key="soccer_epl"
         )
 
         assert len(items) > 0, "❌ FAILED: GLOBAL items should be retrievable by any league"
@@ -82,6 +82,7 @@ def test_globalradar_singleton():
     except Exception as e:
         logger.error(f"❌ Test 1 FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -106,7 +107,7 @@ def test_lock_hold_optimization():
                 url=f"http://test{i}.com",
                 source_name="Test Source",
                 category="INJURY",
-                confidence=0.8
+                confidence=0.8,
             )
 
         logger.info("✅ Populated queue with 100 test items")
@@ -116,7 +117,7 @@ def test_lock_hold_optimization():
         items = queue.pop_for_match(
             match_id="test_match",
             team_names=["Team 0", "Team 1", "Team 2"],
-            league_key="soccer_epl"
+            league_key="soccer_epl",
         )
         end_time = time.time()
 
@@ -138,9 +139,7 @@ def test_lock_hold_optimization():
         def retrieve_items(thread_id):
             try:
                 items = queue.pop_for_match(
-                    match_id=f"test_{thread_id}",
-                    team_names=["Team 0"],
-                    league_key="soccer_epl"
+                    match_id=f"test_{thread_id}", team_names=["Team 0"], league_key="soccer_epl"
                 )
                 results.append(len(items))
             except Exception as e:
@@ -164,6 +163,7 @@ def test_lock_hold_optimization():
     except Exception as e:
         logger.error(f"❌ Test 2 FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -195,7 +195,7 @@ def test_database_session_management():
                 logger.info(f"✅ Closed session #{self.id}")
 
         # Patch SessionLocal
-        with patch('src.main.SessionLocal', side_effect=lambda: MockSession()):
+        with patch("src.main.SessionLocal", side_effect=lambda: MockSession()):
             # Import after patching
             from src.main import SessionLocal
 
@@ -214,11 +214,15 @@ def test_database_session_management():
             session2.close()
 
             # Verify sessions were created
-            assert len(session_instances) == 2, f"❌ FAILED: Expected 2 sessions, got {len(session_instances)}"
+            assert len(session_instances) == 2, (
+                f"❌ FAILED: Expected 2 sessions, got {len(session_instances)}"
+            )
             logger.info(f"✅ PASSED: Created {len(session_instances)} sessions")
 
             # Verify sessions were closed
-            assert len(session_closed) == 2, f"❌ FAILED: Expected 2 sessions closed, got {len(session_closed)}"
+            assert len(session_closed) == 2, (
+                f"❌ FAILED: Expected 2 sessions closed, got {len(session_closed)}"
+            )
             logger.info(f"✅ PASSED: Closed {len(session_closed)} sessions")
 
             # Verify each session was closed
@@ -231,6 +235,7 @@ def test_database_session_management():
     except Exception as e:
         logger.error(f"❌ Test 3 FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -246,40 +251,39 @@ def test_callback_overwriting_warning():
 
         # Capture log output
         import io
+
         log_capture = io.StringIO()
         handler = logging.StreamHandler(log_capture)
         handler.setLevel(logging.WARNING)
-        queue_logger = logging.getLogger('src.utils.discovery_queue')
+        queue_logger = logging.getLogger("src.utils.discovery_queue")
         queue_logger.addHandler(handler)
         queue_logger.setLevel(logging.WARNING)
 
         # Register first callback
         callback1 = Mock()
         queue.register_high_priority_callback(
-            callback=callback1,
-            threshold=0.85,
-            categories=["INJURY"]
+            callback=callback1, threshold=0.85, categories=["INJURY"]
         )
         logger.info("✅ Registered first callback")
 
         # Register second callback (should trigger warning)
         callback2 = Mock()
         queue.register_high_priority_callback(
-            callback=callback2,
-            threshold=0.9,
-            categories=["INJURY", "SUSPENSION"]
+            callback=callback2, threshold=0.9, categories=["INJURY", "SUSPENSION"]
         )
         logger.info("✅ Registered second callback")
 
         # Check log output for warning
         log_output = log_capture.getvalue()
-        assert "Overwriting existing high-priority callback" in log_output, \
+        assert "Overwriting existing high-priority callback" in log_output, (
             "❌ FAILED: Should warn when overwriting callback"
+        )
         logger.info("✅ PASSED: Warning logged when callback overwritten")
 
         # Verify callback was actually updated
-        assert queue._high_priority_callback is callback2, \
+        assert queue._high_priority_callback is callback2, (
             "❌ FAILED: Callback should be updated to new callback"
+        )
         logger.info("✅ PASSED: Callback was updated to new callback")
 
         # Clean up
@@ -291,6 +295,7 @@ def test_callback_overwriting_warning():
     except Exception as e:
         logger.error(f"❌ Test 4 FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

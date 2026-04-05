@@ -172,7 +172,7 @@ def get_social_sources_from_supabase(league_key: str) -> list[str]:
                 # Filter social sources by league/country if possible
                 # For now, return all social sources and let caller filter
                 if all_social_sources:
-                    handles = []
+                    handles: list[str] = []
                     for source in all_social_sources:
                         handle = source.get("handle", "")
                         if handle and isinstance(handle, str):
@@ -234,7 +234,7 @@ def get_news_sources_from_supabase(league_key: str) -> list[str]:
                 news_sources = _SUPABASE_PROVIDER.get_news_sources(league_id)
 
                 # Extract domains from news sources
-                domains = []
+                domains: list[str] = []
                 for source in news_sources:
                     domain = source.get("domain", "")
                     is_active = source.get("is_active", True)
@@ -283,7 +283,7 @@ def get_beat_writers_from_supabase(league_key: str) -> list[BeatWriter]:
                 all_social_sources = _SUPABASE_PROVIDER.get_social_sources()
 
                 # Filter for beat writer type accounts
-                beat_writers = []
+                beat_writers: list[BeatWriter] = []
                 for source in all_social_sources:
                     handle = source.get("handle", "")
                     source_type = source.get("source_type", "").lower()
@@ -524,7 +524,7 @@ def _legacy_store_discovery(discovery_data: dict[str, Any], league_key: str) -> 
 
     with _browser_monitor_lock:
         if league_key not in _browser_monitor_discoveries:
-            _browser_monitor_discoveries[league_key] = []
+            _browser_monitor_discoveries[league_key] = list[dict]()
         _browser_monitor_discoveries[league_key].append(discovery_data)
 
 
@@ -566,8 +566,8 @@ def get_browser_monitor_news(match_id: str, team_names: list[str], league_key: s
 
     snapshot_uuids = {d.get("_uuid") for d in discoveries_snapshot if d.get("_uuid")}
 
-    results = []
-    valid_discoveries = []
+    results: list[dict[str, Any]] = []
+    valid_discoveries: list[dict[str, Any]] = []
     valid_uuids = set()
 
     for discovery in discoveries_snapshot:
@@ -616,7 +616,7 @@ def get_browser_monitor_news(match_id: str, team_names: list[str], league_key: s
     if expired_count > 0:
         with _browser_monitor_lock:
             current = _browser_monitor_discoveries.get(league_key, [])
-            new_entries = []
+            new_entries: list[dict[str, Any]] = []
             for d in current:
                 d_uuid = d.get("_uuid")
                 if d_uuid is None:
@@ -653,7 +653,7 @@ def clear_browser_monitor_discoveries(league_key: str | None = None) -> int:
     with _browser_monitor_lock:
         if league_key:
             legacy_count = len(_browser_monitor_discoveries.get(league_key, []))
-            _browser_monitor_discoveries[league_key] = []
+            _browser_monitor_discoveries[league_key] = list[dict]()
             count += legacy_count
         else:
             legacy_count = sum(len(v) for v in _browser_monitor_discoveries.values())
@@ -680,7 +680,7 @@ def cleanup_expired_browser_monitor_discoveries() -> int:
         for league_key in list(_browser_monitor_discoveries.keys()):
             original_count = len(_browser_monitor_discoveries[league_key])
 
-            valid_discoveries = []
+            valid_discoveries: list[dict[str, Any]] = []
             for discovery in _browser_monitor_discoveries[league_key]:
                 discovered_at_str = discovery.get("discovered_at")
                 if not discovered_at_str:
@@ -883,7 +883,7 @@ def search_beat_writers_priority(team_alias: str, league_key: str, match_id: str
     Returns:
         List of search results with HIGH confidence tagging
     """
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Guard: empty team alias
     if not team_alias or not team_alias.strip():
@@ -1314,7 +1314,7 @@ def search_dynamic_country(team_alias: str, league_key: str, match_id: str) -> l
     Returns:
         List of search results
     """
-    results = []
+    results: list[dict[str, Any]] = []
     query, country_code = build_dynamic_search_query(team_alias, league_key)
 
     # ============================================
@@ -1418,7 +1418,7 @@ def search_exotic_league(team_alias: str, league_key: str, match_id: str) -> lis
         logging.warning("No search backend available for exotic league search")
         return []
 
-    results = []
+    results: list[dict[str, Any]] = []
 
     logging.info(f"🌏 EXOTIC SEARCH: {strategy['name']} strategy for {team_alias}")
 
@@ -1529,7 +1529,7 @@ def search_twitter_rumors(team_alias: str, league_key: str, match_id: str) -> li
     Returns:
         List of Twitter results from cache
     """
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Guard: empty team alias
     if not team_alias or not team_alias.strip():
@@ -1661,7 +1661,7 @@ def search_news_local(team_alias: str, league_key: str, match_id: str) -> list[d
     keywords = get_keywords_for_league(league_key)
     country = get_country_from_league(league_key)
 
-    results = []
+    results: list[dict[str, Any]] = []
 
     # ============================================
     # STRATEGY 0: EXOTIC LEAGUE PROXY SEARCH
@@ -1909,7 +1909,7 @@ def search_news_generic(
     """
     # Try Brave first
     if _is_brave_available():
-        results = []
+        results: list[dict[str, Any]] = []
         try:
             from src.ingestion.brave_provider import get_brave_provider
 
@@ -2143,7 +2143,7 @@ def _apply_intelligence_gate_to_news(news_items: list[dict[str, Any]]) -> list[d
     if not news_items:
         return []
 
-    filtered_news = []
+    filtered_news: list[dict[str, Any]] = []
     level_1_discarded = 0
     level_2_discarded = 0
     level_2_processed = 0
@@ -2525,7 +2525,7 @@ def run_hunter_for_match(match: MatchModel, include_insiders: bool = True) -> li
         # Validate each news item against NEWS_ITEM_CONTRACT before returning
         # This ensures data integrity between news_hunter and main.py
         if _CONTRACTS_AVAILABLE and all_news:
-            valid_news = []
+            valid_news: list[dict[str, Any]] = []
             validation_errors = 0
 
             for news_item in all_news:

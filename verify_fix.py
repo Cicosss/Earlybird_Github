@@ -16,7 +16,7 @@ file_path = Path("src/services/nitter_fallback_scraper.py")
 content = file_path.read_text()
 
 # Check for the improved warning message
-if 'No active handles found for continent:' in content:
+if "No active handles found for continent:" in content:
     print("✅ FIX VERIFIED: Improved warning message found in code")
     print("   Message includes continent name")
 else:

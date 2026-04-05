@@ -384,7 +384,7 @@ class MatchOddsMovement:
         Returns:
             String describing market movement (e.g., "Home odds moved -5.2% | Away odds moved +4.8%")
         """
-        parts = []
+        parts: list[str] = []
         if self.home.status != OddsMovementStatus.UNKNOWN:
             parts.append(f"Home odds moved {self.home.movement_percent:+.1f}%")
         if self.away.status != OddsMovementStatus.UNKNOWN:

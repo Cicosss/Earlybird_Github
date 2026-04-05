@@ -165,7 +165,7 @@ def get_value_patterns() -> list[tuple[str, float]]:
     - "Endrick's is €55 million"
     - "valued at £50 million"
     """
-    patterns = []
+    patterns: list[tuple] = []
 
     # Currency symbols: euro, pound, dollar
     symbols = [r"€", r"£", r"\$"]

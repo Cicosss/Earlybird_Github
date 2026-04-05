@@ -9,4 +9,4 @@ Database models, migrations, and connection management.
 # - from src.database.db import get_db_context (not from src.database import get_db_context)
 # - from src.database.migration import check_and_migrate (not from src.database import check_and_migrate)
 
-__all__ = []
+__all__: list[str] = []

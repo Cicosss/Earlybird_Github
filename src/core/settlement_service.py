@@ -166,7 +166,7 @@ class SettlementService:
         Returns:
             List of match data dictionaries ready for settlement
         """
-        matches_to_settle = []
+        matches_to_settle: list[dict] = []
 
         with get_db_context() as db:
             try:
@@ -252,7 +252,7 @@ class SettlementService:
         Returns:
             List of result dictionaries ready for saving
         """
-        results_cache = []
+        results_cache: list[dict] = []
 
         for match_data in matches_to_settle:
             stats["total_checked"] += 1
@@ -1310,8 +1310,8 @@ class SettlementService:
                 "unknown",
             )
 
-        outcomes = []
-        explanations = []
+        outcomes: list[str] = []
+        explanations: list[str] = []
         expansion_type = "unknown"
 
         for i, component in enumerate(components):

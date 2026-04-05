@@ -19,6 +19,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 
 from src.database.models import LearningPattern, Match, NewsLog, get_db_session
 
@@ -68,8 +69,8 @@ class SuggestedModification:
     id: str
     type: ModificationType
     priority: ModificationPriority
-    original_value: any
-    suggested_value: any
+    original_value: Any
+    suggested_value: Any
     reason: str
     confidence: float  # 0-1
     impact_assessment: str
@@ -238,7 +239,7 @@ class IntelligentModificationLogger:
         self, verification_result: dict, alert_data: dict, context_data: dict
     ) -> list[SuggestedModification]:
         """Parse and classify modifications from verifier response."""
-        modifications = []
+        modifications: list[dict[str, Any]] = []
         suggestion_text = verification_result.get("suggested_modifications", "")
         discrepancies = verification_result.get("data_discrepancies", [])
 
@@ -697,7 +698,7 @@ class IntelligentModificationLogger:
 
     def _calculate_data_quality(self, context_data: dict) -> float:
         """Calculate overall data quality score."""
-        quality_factors = []
+        quality_factors: list[dict[str, Any]] = []
 
         # Check verification layer confidence
         if context_data.get("verification_info"):
@@ -723,7 +724,7 @@ class IntelligentModificationLogger:
 
     def _check_component_health(self, context_data: dict) -> float:
         """Check health of all components."""
-        health_scores = []
+        health_scores: list[dict[str, Any]] = []
 
         # Each component contributes to health
         components = [

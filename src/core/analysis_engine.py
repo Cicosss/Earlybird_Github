@@ -443,7 +443,7 @@ class AnalysisEngine:
                 .all()
             )
 
-            suspects = []
+            suspects: list[dict[str, Any]] = []
 
             for match in matches:
                 result = AnalysisEngine.is_biscotto_suspect(match)
@@ -511,7 +511,7 @@ class AnalysisEngine:
                 .all()
             )
 
-            significant_drops = []
+            significant_drops: list[dict[str, Any]] = []
 
             for match in matches:
                 # VPS FIX: Extract Match attributes safely to prevent session detachment
@@ -633,7 +633,7 @@ class AnalysisEngine:
                 self.logger.debug(f"⚠️ [TEAMALIAS] Failed to get TeamAlias data: {e}")
 
             # Search for relevant tweets about both teams
-            relevant_tweets = []
+            relevant_tweets: list[dict[str, Any]] = []
             for team in [home_team, away_team]:
                 tweets = cache.search_intel(
                     team, league_key=league, topics=["injury", "lineup", "squad"]
@@ -861,7 +861,7 @@ class AnalysisEngine:
             return ""
 
         # Build player details with tactical metadata
-        player_details = []
+        player_details: list[str] = []
 
         if injury_impact and injury_impact.players:
             # Use detailed player data from injury_impact_engine
@@ -889,7 +889,7 @@ class AnalysisEngine:
             return f"{team_name}: {len(injuries)} missing"
 
         # Classify offensive/defensive impact levels
-        impact_tags = []
+        impact_tags: list[str] = []
         if injury_impact:
             # Offensive impact classification
             if injury_impact.offensive_impact >= 5.0:
@@ -1202,7 +1202,7 @@ class AnalysisEngine:
             from concurrent.futures import ThreadPoolExecutor
 
             enrichment_data = None
-            news_articles = []
+            news_articles: list[dict[str, Any]] = []
             twitter_intel = ""
 
             def fetch_fotmob():
@@ -1336,7 +1336,7 @@ class AnalysisEngine:
 
                 # Format Twitter intel for AI
                 # V10.5: Add Nitter intel to narrative if available
-                narrative_parts = []
+                narrative_parts: list[str] = []
                 if nitter_intel:
                     narrative_parts.append(f"{nitter_intel}\n")
                 narrative_parts.append(f"Home: {home_injury_str}\nAway: {away_injury_str}")

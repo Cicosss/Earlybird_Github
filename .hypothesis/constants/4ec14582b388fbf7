@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/enhanced_verifier.py
+# hypothesis_version: 6.151.4
+
+['1', '2', '3', 'HIGH', 'LOW', 'MEDIUM', 'confidence_level', 'data_accuracy_score', 'data_discrepancies', 'description', 'discrepancy_summary', 'field', 'fotmob_value', 'high_impact', 'impact', 'intelligence_value', 'logic_score', 'low_impact', 'medium_impact', 'not provided', 'original_confidence', 'perplexity_value', 'total_count', 'unknown', '⚪', '🔴', '🟡', '🟢']

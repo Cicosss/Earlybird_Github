@@ -9,4 +9,4 @@ the overall system behavior.
 # when importing from submodules. All imports should be done directly from modules:
 # - from src.core.analysis_engine import AnalysisEngine (not from src.core import AnalysisEngine)
 
-__all__ = []
+__all__: list[str] = []

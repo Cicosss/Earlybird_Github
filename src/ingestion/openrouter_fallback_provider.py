@@ -1,21 +1,27 @@
 """
-OpenRouter Fallback Provider - V1.0
+OpenRouter Fallback Provider - V1.1
 
-Uses Claude 3 Haiku as fallback for Perplexity.
-Provides identical interface to PerplexityProvider.
+Claude 3 Haiku fallback for the IntelligenceRouter two-level AI fallback chain.
+Provides identical interface to DeepSeekIntelProvider for seamless fallback.
 
+Architecture:
+    IntelligenceRouter routes: DeepSeek (primary) → Claude 3 Haiku (fallback).
+    Tavily serves as pre-enrichment/search provider (NOT as AI analysis fallback).
+
+V1.1: DRY refactor — shared normalizers from src.utils.normalizers
 V1.0: Initial implementation with Claude 3 Haiku as fallback model
        - get_match_deep_dive
        - verify_news_item
        - get_betting_stats
        - confirm_biscotto
+       - verify_final_alert
+       - verify_news_batch
+       - extract_twitter_intel
 
 Requirements:
 - requests
 - OPENROUTER_API_KEY in config/settings.py or environment
 - Model: anthropic/claude-3-haiku
-
-Flow: Analyzer -> IntelligenceRouter -> DeepSeek (primary) / Tavily (fallback 1) / Claude 3 Haiku (fallback 2)
 """
 
 import logging
@@ -36,6 +42,11 @@ from src.schemas.perplexity_schemas import (
     DeepDiveResponse,
 )
 from src.utils.ai_parser import normalize_deep_dive_response, parse_ai_json
+from src.utils.normalizers import (
+    normalize_biscotto_confirmation,
+    normalize_final_alert_verification,
+    normalize_verification_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +60,10 @@ except ImportError as e:
     _TWITTER_INTEL_CACHE_AVAILABLE = False
     logger.warning(f"⚠️ TwitterIntelCache not available for OpenRouter Fallback Provider: {e}")
 
-# Import from settings (with fallback to env)
+# Import API key from settings (with fallback to env var)
 try:
     from config.settings import OPENROUTER_API_KEY
 except ImportError:
-    import os
-
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # MAJOR FIX #1: Read model from environment variable instead of hardcoding
@@ -513,7 +522,7 @@ class OpenRouterFallbackProvider:
         """
         Normalize and validate news verification response.
 
-        Ensures identical structure to PerplexityProvider response.
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
 
         Args:
             data: Raw parsed JSON from Claude 3 Haiku
@@ -521,48 +530,13 @@ class OpenRouterFallbackProvider:
         Returns:
             Normalized dict with all expected fields
         """
-
-        def safe_bool(val, default=False):
-            if val is None:
-                return default
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() in ("true", "yes", "si", "1", "confirmed")
-            return default
-
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        def safe_list(val, default=None):
-            if default is None:
-                default = []
-            if val is None:
-                return default
-            if isinstance(val, list):
-                return [str(v) for v in val if v]
-            if isinstance(val, str):
-                return [val]
-            return default
-
-        return {
-            "verified": safe_bool(data.get("verified")),
-            "verification_status": safe_str(data.get("verification_status"), "UNVERIFIED"),
-            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
-            "verification_sources": safe_list(data.get("verification_sources")),
-            "additional_context": safe_str(data.get("additional_context"), ""),
-            "betting_impact": safe_str(data.get("betting_impact"), "Unknown"),
-            "is_current": safe_bool(data.get("is_current"), True),
-            "notes": safe_str(data.get("notes"), ""),
-        }
+        return normalize_verification_result(data)
 
     def _normalize_biscotto_confirmation(self, data: dict) -> dict:
         """
         Normalize and validate biscotto confirmation response.
 
-        Ensures identical structure to PerplexityProvider response.
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
 
         Args:
             data: Raw parsed JSON from Claude 3 Haiku
@@ -570,46 +544,7 @@ class OpenRouterFallbackProvider:
         Returns:
             Normalized dict with all expected fields
         """
-
-        def safe_bool(val, default=False):
-            if val is None:
-                return default
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() in ("true", "yes", "si", "1", "confirmed")
-            return default
-
-        def safe_int(val, default=0, min_val=0, max_val=30):
-            if val is None:
-                return default
-            try:
-                result = int(val)
-                return max(min_val, min(max_val, result))
-            except (ValueError, TypeError):
-                return default
-
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        return {
-            "biscotto_confirmed": safe_bool(data.get("biscotto_confirmed")),
-            "confidence_boost": safe_int(data.get("confidence_boost"), 0, 0, 30),
-            "home_team_objective": safe_str(data.get("home_team_objective")),
-            "away_team_objective": safe_str(data.get("away_team_objective")),
-            "mutual_benefit_found": safe_bool(data.get("mutual_benefit_found")),
-            "mutual_benefit_reason": safe_str(
-                data.get("mutual_benefit_reason"), "No clear mutual benefit"
-            ),
-            "h2h_pattern": safe_str(data.get("h2h_pattern"), "No data"),
-            "club_relationship": safe_str(data.get("club_relationship"), "None found"),
-            "manager_hints": safe_str(data.get("manager_hints"), "None found"),
-            "market_sentiment": safe_str(data.get("market_sentiment"), "Unknown"),
-            "additional_context": safe_str(data.get("additional_context"), ""),
-            "final_recommendation": safe_str(data.get("final_recommendation"), "MONITOR LIVE"),
-        }
+        return normalize_biscotto_confirmation(data)
 
     def verify_final_alert(self, verification_prompt: str) -> dict | None:
         """
@@ -660,71 +595,11 @@ class OpenRouterFallbackProvider:
             return None
 
     def _normalize_final_alert_verification(self, data: dict) -> dict:
-        """Normalize final alert verification response with safe defaults."""
+        """Normalize final alert verification response.
 
-        def safe_bool(val, default=False):
-            if val is None:
-                return default
-            if isinstance(val, bool):
-                return val
-            if isinstance(val, str):
-                return val.lower() in ("true", "yes", "si", "1", "confirmed")
-            return default
-
-        def safe_int(val, default=0, min_val=0, max_val=10):
-            if val is None:
-                return default
-            try:
-                result = int(val)
-                return max(min_val, min(max_val, result))
-            except (ValueError, TypeError):
-                return default
-
-        def safe_str(val, default="Unknown"):
-            if val is None or val == "":
-                return default
-            return str(val)
-
-        def safe_list(val, default=None):
-            if default is None:
-                default = []
-            if val is None:
-                return default
-            if isinstance(val, list):
-                return [str(v) for v in val if v]
-            if isinstance(val, str):
-                return [val]
-            return default
-
-        return {
-            "verification_status": safe_str(data.get("verification_status"), "NEEDS_REVIEW"),
-            "confidence_level": safe_str(data.get("confidence_level"), "LOW"),
-            "should_send": safe_bool(data.get("should_send"), False),
-            "logic_score": safe_int(data.get("logic_score"), 5, 0, 10),
-            "data_accuracy_score": safe_int(data.get("data_accuracy_score"), 5, 0, 10),
-            "reasoning_quality_score": safe_int(data.get("reasoning_quality_score"), 5, 0, 10),
-            "market_validation": safe_str(data.get("market_validation"), "QUESTIONABLE"),
-            "key_strengths": safe_list(data.get("key_strengths")),
-            "key_weaknesses": safe_list(data.get("key_weaknesses")),
-            "missing_information": safe_list(data.get("missing_information")),
-            "rejection_reason": safe_str(data.get("rejection_reason"), ""),
-            "final_recommendation": safe_str(data.get("final_recommendation"), "NO_BET"),
-            "suggested_modifications": safe_str(data.get("suggested_modifications"), ""),
-            "data_discrepancies": safe_list(data.get("data_discrepancies")),
-            "discrepancy_impact": safe_str(data.get("discrepancy_impact"), "MINOR"),
-            "adjusted_score_if_discrepancy": safe_int(
-                data.get("adjusted_score_if_discrepancy"), 5, 0, 10
-            ),
-            "source_verification": {
-                "source_confirmed": safe_bool(data.get("source_confirmed"), False),
-                "cross_source_found": safe_bool(data.get("cross_source_found"), False),
-                "source_bias_detected": safe_bool(data.get("source_bias_detected"), False),
-                "source_reliability_adjusted": safe_str(
-                    data.get("source_reliability_adjusted"), "LOW"
-                ),
-                "verification_issues": safe_list(data.get("verification_issues")),
-            },
-        }
+        Delegates to shared normalizer from src.utils.normalizers for DRY compliance.
+        """
+        return normalize_final_alert_verification(data)
 
     def verify_news_batch(
         self,
@@ -780,7 +655,7 @@ class OpenRouterFallbackProvider:
         ]
 
         # Filter items that need verification
-        items_to_verify = []
+        items_to_verify: list[dict[str, Any]] = []
         for item in news_items:
             confidence = item.get("confidence", "LOW")
 
@@ -894,7 +769,7 @@ class OpenRouterFallbackProvider:
             ]
 
             # Collect all relevant tweets from cache
-            all_accounts = []
+            all_accounts: list[dict[str, Any]] = []
             for handle in valid_handles:
                 # Search cache for this handle
                 handle_clean = handle.replace("@", "")
@@ -909,7 +784,7 @@ class OpenRouterFallbackProvider:
                     tweets = relevant_tweets[:max_posts_per_account]
 
                     # Format posts to match expected structure
-                    posts = []
+                    posts: list[dict[str, Any]] = []
                     for tweet in tweets:
                         posts.append(
                             {

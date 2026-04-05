@@ -125,6 +125,154 @@ TRIGGER_KEYWORDS = {
 ALL_TRIGGER_KEYWORDS = [kw for kws in TRIGGER_KEYWORDS.values() for kw in kws]
 
 
+# ============================================
+# V12.6: LANGUAGE-AWARE KEYWORD PRIORITIZATION
+# ============================================
+# Maps language codes to their native football keywords for targeted discovery.
+# Used by run_targeted_discovery() to build language-optimized search queries
+# instead of mixing all languages in a single query (which wastes API quota).
+
+_LANGUAGE_KEYWORDS: dict[str, list[str]] = {
+    "es": [
+        "lesión",
+        "lesiones",
+        "convocados",
+        "convocatoria",
+        "baja",
+        "bajas",
+        "suspendido",
+        "expulsado",
+        "fichaje",
+        "contratación",
+        "nómina",
+        "alterna",
+        "rotación",
+        "descartado",
+        "ausente",
+    ],
+    "pt": [
+        "lesão",
+        "lesões",
+        "escalação",
+        "desfalque",
+        "desfalques",
+        "convocados",
+        "contratação",
+        "reforço",
+        "poupados",
+        "reservas",
+        "time misto",
+        "desfalque confirmado",
+    ],
+    "en": [
+        "injury",
+        "injured",
+        "injuries",
+        "squad",
+        "lineup",
+        "starting xi",
+        "absent",
+        "absence",
+        "out",
+        "suspended",
+        "suspension",
+        "transfer",
+        "signing",
+        "loan",
+        "ruled out",
+        "sidelined",
+    ],
+    "tr": [
+        "sakatlık",
+        "sakatlıklar",
+        "kadro",
+        "yedek",
+        "eksik",
+        "yok",
+        "transfer",
+        "rotasyon",
+    ],
+    "pl": [
+        "kontuzja",
+        "kontuzji",
+        "skład",
+        "składem",
+        "nieobecny",
+        "brak",
+        "absencja",
+        "rezerwowy",
+    ],
+    "ro": [
+        "accidentare",
+        "echipa",
+        "absent",
+        "indisponibili",
+        "rezervă",
+    ],
+    "it": [
+        "infortunio",
+        "infortuni",
+        "formazione",
+        "assente",
+        "assenti",
+        "sospeso",
+        "squalificato",
+        "escluso",
+    ],
+    "de": [
+        "verletzung",
+        "verletzungen",
+        "aufstellung",
+        "kader",
+        "ausfall",
+    ],
+    "fr": [
+        "blessure",
+        "blessures",
+        "composition",
+        "absent",
+        "forfait",
+    ],
+}
+
+# Map league_key substrings to language codes for automatic detection
+_LEAGUE_LANGUAGE_MAP: dict[str, str] = {
+    "argentina": "es",
+    "colombia": "es",
+    "chile": "es",
+    "uruguay": "es",
+    "ecuador": "es",
+    "peru": "es",
+    "mexico": "es",
+    "spain": "es",
+    "brazil": "pt",
+    "portugal": "pt",
+    "turkey": "tr",
+    "poland": "pl",
+    "romania": "ro",
+    "italy": "it",
+    "germany": "de",
+    "austria": "de",
+    "france": "fr",
+    "switzerland": "de",
+    "greece": "en",
+    "england": "en",
+    "scotland": "en",
+    "netherlands": "en",
+    "belgium": "en",
+    "norway": "en",
+    "sweden": "en",
+    "denmark": "en",
+    "finland": "en",
+    "usa": "en",
+    "australia": "en",
+    "japan": "en",
+    "china": "en",
+    "korea": "en",
+    "saudi": "en",
+}
+
+
 @dataclass
 class NewsSignal:
     """Represents a discovered news signal with extracted team entity."""
@@ -398,17 +546,22 @@ class AlphaHunter:
             # Potential team name
             return match
 
-        # Strategy 3: Look for common team suffixes
-        suffix_pattern = (
-            r"\b(\w+\s+(?:FC|Club|AS|AC|SC|CF|FK|SK| "
-            r"United|City|Real|Atlético|Inter|Rapid|Wanderers|Dynamo|Spartak)\b"
+        # Strategy 3: Look for common team name markers (prefixes & suffixes)
+        # Prefixes: "AS Roma", "Real Madrid", "Dynamo Kyiv", "Club Brugge", "Atlético Madrid"
+        # Suffixes: "Manchester United", "Bayern FC", "Wanderers FC", "Spartak Moscow"
+        team_markers = (
+            r"\b(?:(?:AS|AC|SC|CF|FK|SK|Real|Atlético|Inter|Rapid"
+            r"|Dynamo|Spartak|Club)\s+\w+"
+            r"|(?:\w+(?:\s+\w+){0,2})\s+"
+            r"(?:FC|Club|United|City|Wanderers))\b"
         )
-        suffix_matches = re.findall(suffix_pattern, full_text, re.IGNORECASE)
+        suffix_matches = re.findall(team_markers, full_text, re.IGNORECASE)
         if suffix_matches:
             self.logger.debug(
-                f"   Found {len(suffix_matches)} potential team suffixes:    {suffix_matches}"
+                f"   Found {len(suffix_matches)} potential team suffixes: {suffix_matches}"
             )
-            return None
+            # Return the longest match — it's most likely the full team name
+            return max(suffix_matches, key=len)
 
         # Strategy 4 (V12.1): AI Fallback - Smart Entity Extraction
         # Only trigger AI if text contains trigger keywords (cost guardrail)
@@ -584,6 +737,170 @@ Team name (or UNKNOWN):"""
 
         # Cap at 1.0
         return min(confidence, 1.0)
+
+    @staticmethod
+    def _get_language_for_league(league_key: str) -> str:
+        """
+        Detect language from league key using pattern matching.
+
+        Args:
+            league_key: League identifier (e.g., 'soccer_argentina_primera_division')
+
+        Returns:
+            Language code (e.g., 'es', 'pt', 'en')
+        """
+        if not league_key:
+            return "en"
+        league_lower = league_key.lower()
+        for country_pattern, lang in _LEAGUE_LANGUAGE_MAP.items():
+            if country_pattern in league_lower:
+                return lang
+        return "en"
+
+    def run_targeted_discovery(
+        self,
+        team_name: str,
+        league_key: str,
+        domains: list[str],
+        trigger_keywords: list[str] | None = None,
+    ) -> list[NewsSignal]:
+        """
+        TARGETED DISCOVERY: Search for news about a specific team (V12.6).
+
+        Unlike run_broad_discovery (which searches trigger keywords without team names),
+        this method builds a targeted dork that includes:
+        1. The specific team name in double quotes
+        2. Language-prioritized keywords (native language first, then English)
+        3. Site restrictions to Supabase domains
+
+        This is the intelligent bridge between "we know the match" and
+        "find relevant news for this match".
+
+        Args:
+            team_name: Team to search for (e.g., "Boca Juniors")
+            league_key: League identifier (e.g., "soccer_argentina_primera_division")
+            domains: List of domains from Supabase news_sources
+            trigger_keywords: Optional keyword override (default: ALL_TRIGGER_KEYWORDS)
+
+        Returns:
+            List of NewsSignal objects with extracted team entity set to team_name
+        """
+        if not trigger_keywords:
+            trigger_keywords = ALL_TRIGGER_KEYWORDS
+
+        signals: list[NewsSignal] = []
+
+        # Import search provider
+        try:
+            from src.ingestion.search_provider import get_search_provider
+
+            provider = get_search_provider()
+            if not provider.is_available():
+                self.logger.warning("⚠️ Search provider not available for targeted discovery")
+                return signals
+        except ImportError:
+            self.logger.warning("⚠️ Search provider not available")
+            return signals
+
+        if not domains:
+            self.logger.warning(f"⚠️ [ALPHA-HUNTER] No domains for targeted discovery: {league_key}")
+            return signals
+
+        # Detect language from league
+        language = self._get_language_for_league(league_key)
+
+        self.logger.info(
+            f'🎯 [ALPHA-HUNTER] Targeted discovery: "{team_name}" '
+            f"in {league_key} (lang: {language}, domains: {len(domains)})"
+        )
+
+        # Build language-prioritized keyword sets
+        native_kws = _LANGUAGE_KEYWORDS.get(language, [])
+        en_kws = _LANGUAGE_KEYWORDS.get("en", [])
+
+        # Cross-reference with TRIGGER_KEYWORDS categories to keep only relevant ones
+        all_injury = [kw.lower() for kw in TRIGGER_KEYWORDS.get("injury", [])]
+        all_absence = [kw.lower() for kw in TRIGGER_KEYWORDS.get("absence", [])]
+        all_squad = [kw.lower() for kw in TRIGGER_KEYWORDS.get("squad", [])]
+        all_suspension = [kw.lower() for kw in TRIGGER_KEYWORDS.get("suspension", [])]
+
+        # Native language keywords filtered by trigger categories
+        native_injury_absence = [
+            kw for kw in native_kws if kw.lower() in all_injury + all_absence + all_suspension
+        ]
+        native_squad = [kw for kw in native_kws if kw.lower() in all_squad]
+
+        # English fallback keywords
+        en_injury_absence = [
+            kw for kw in en_kws if kw.lower() in all_injury + all_absence + all_suspension
+        ][:4]
+
+        # Build site dork from domains (limit to 4 for query length)
+        site_dork = " OR ".join([f"site:{d}" for d in domains[:4]])
+
+        # Build queries (in priority order — stop on first results)
+        queries: list[tuple[str, str]] = []  # (query_string, description)
+
+        # Query 1: Team + Native injury/absence keywords + Domains
+        if native_injury_absence:
+            kw_str = " OR ".join(native_injury_absence[:5])
+            q = f'"{team_name}" ({kw_str}) ({site_dork})'
+            queries.append((q, f"native_{language}_injury"))
+
+        # Query 2: Team + Native squad keywords + Domains
+        if native_squad:
+            kw_str = " OR ".join(native_squad[:4])
+            q = f'"{team_name}" ({kw_str}) ({site_dork})'
+            queries.append((q, f"native_{language}_squad"))
+
+        # Query 3: Team + English keywords + Domains
+        if en_injury_absence:
+            kw_str = " OR ".join(en_injury_absence[:4])
+            q = f'"{team_name}" ({kw_str}) ({site_dork})'
+            queries.append((q, "en_fallback"))
+
+        # Query 4: Broader fallback - team + mixed native+en keywords + domains
+        mixed_kw = (native_injury_absence[:2] + en_injury_absence[:2])[:4]
+        if mixed_kw:
+            kw_str = " OR ".join(mixed_kw)
+            q = f'"{team_name}" ({kw_str}) ({site_dork})'
+            queries.append((q, "mixed_fallback"))
+
+        # Execute queries in priority order, stop on first results
+        for query, desc in queries:
+            try:
+                self.logger.info(f"🔍 [ALPHA-HUNTER] Targeted query ({desc}): {query[:100]}...")
+
+                results = provider.search(query, num_results=5)
+
+                for item in results:
+                    signal = self._process_search_result(item, league_key, trigger_keywords)
+                    if signal:
+                        # We KNOW the team since we searched for it specifically
+                        signal.extracted_team = team_name
+                        # Boost confidence: targeted search is inherently more reliable
+                        signal.confidence = max(signal.confidence, 0.65)
+                        signals.append(signal)
+
+                if signals:
+                    self.logger.info(
+                        f"🎯 [ALPHA-HUNTER] Found {len(signals)} signals "
+                        f"for {team_name} via '{desc}' query"
+                    )
+                    break  # Found results, no need for more queries
+
+            except Exception as e:
+                self.logger.warning(f"⚠️ [ALPHA-HUNTER] Targeted search failed ({desc}): {e}")
+                continue
+
+        # V12.6: Log if no signals found
+        if not signals:
+            self.logger.info(
+                f"📭 [ALPHA-HUNTER] Targeted discovery: 0 signals for "
+                f'"{team_name}" in {league_key} (tried {len(queries)} queries)'
+            )
+
+        return signals
 
     def fetch_on_demand_odds(
         self, team_name: str, league_key: str, hours_ahead: int | None = None

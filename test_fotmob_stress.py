@@ -59,6 +59,7 @@ MATCHES = [
     "4906252",
 ]
 
+
 class StressTestStats:
     """Track statistics during stress test."""
 
@@ -84,30 +85,36 @@ class StressTestStats:
             if error:
                 self.errors[error] += 1
 
-        self.timeline.append({
-            "request_num": self.requests,
-            "url": url,
-            "status_code": status_code,
-            "success": success,
-            "error": error,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.timeline.append(
+            {
+                "request_num": self.requests,
+                "url": url,
+                "status_code": status_code,
+                "success": success,
+                "error": error,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
     def print_summary(self):
         """Print test summary."""
-        duration = (self.end_time - self.start_time).total_seconds() if self.end_time and self.start_time else 0
+        duration = (
+            (self.end_time - self.start_time).total_seconds()
+            if self.end_time and self.start_time
+            else 0
+        )
 
         print("\n" + "=" * 60)
         print("STRESS TEST SUMMARY")
         print("=" * 60)
         print(f"Total Requests: {self.requests}")
-        print(f"Successes: {self.successes} ({self.successes/self.requests*100:.1f}%)")
-        print(f"Failures: {self.failures} ({self.failures/self.requests*100:.1f}%)")
+        print(f"Successes: {self.successes} ({self.successes / self.requests * 100:.1f}%)")
+        print(f"Failures: {self.failures} ({self.failures / self.requests * 100:.1f}%)")
         print(f"Duration: {duration:.1f}s")
-        print(f"Requests/sec: {self.requests/duration:.2f}")
+        print(f"Requests/sec: {self.requests / duration:.2f}")
         print("\nStatus Codes:")
         for code, count in sorted(self.status_codes.items()):
-            print(f"  {code}: {count} ({count/self.requests*100:.1f}%)")
+            print(f"  {code}: {count} ({count / self.requests * 100:.1f}%)")
 
         if self.errors:
             print("\nErrors:")
@@ -121,6 +128,7 @@ class StressTestStats:
             print("  ...")
             for entry in self.timeline[-10:]:
                 print(f"  #{entry['request_num']:3d}: {entry['status_code']} - {entry['url'][:50]}")
+
 
 def make_fotmob_request(url: str, stats: StressTestStats) -> bool:
     """Make a request to FotMob API with production-like behavior."""
@@ -144,7 +152,9 @@ def make_fotmob_request(url: str, stats: StressTestStats) -> bool:
             if resp.status_code == 403:
                 if attempt < FOTMOB_MAX_RETRIES - 1:
                     delay = 5 ** (attempt + 1)
-                    print(f"⚠️  Request #{stats.requests + 1}: 403 - retrying in {delay}s ({attempt + 1}/{FOTMOB_MAX_RETRIES})")
+                    print(
+                        f"⚠️  Request #{stats.requests + 1}: 403 - retrying in {delay}s ({attempt + 1}/{FOTMOB_MAX_RETRIES})"
+                    )
                     time.sleep(delay)
                     continue
                 stats.record_request(url, resp.status_code, False, "403 Forbidden")
@@ -178,6 +188,7 @@ def make_fotmob_request(url: str, stats: StressTestStats) -> bool:
 
     stats.record_request(url, 0, False, "Max retries exceeded")
     return False
+
 
 def run_stress_test(num_requests: int = 50):
     """Run stress test with specified number of requests."""
@@ -241,6 +252,7 @@ def run_stress_test(num_requests: int = 50):
 
     return stats
 
+
 def main():
     """Main entry point."""
     import sys
@@ -266,6 +278,7 @@ def main():
         sys.exit(1)
     else:
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

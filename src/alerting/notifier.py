@@ -92,7 +92,7 @@ print("--- NOTIFIER: Configuration finished ---")
 
 _AUTH_FAILURE_COUNT = 0
 _AUTH_FAILURE_ALERT_THRESHOLD = 3
-_RATE_LIMIT_EVENTS = []
+_RATE_LIMIT_EVENTS: list[dict[str, Any]] = []
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _RATE_LIMIT_THRESHOLD = 3
 _AUTH_LOCK = threading.Lock()  # Thread safety lock for global variables
@@ -612,7 +612,7 @@ def _build_referee_section(
 
         # Team cards stats
         if home_cards or away_cards:
-            team_stats = []
+            team_stats: list[str] = []
             if home_cards:
                 team_stats.append(f"Casa: {home_cards:.1f}")
             if away_cards:
@@ -940,7 +940,7 @@ def _build_confidence_breakdown_section(confidence_breakdown: dict[str, Any] | N
         return breakdown_section
 
     # Create user-friendly explanation
-    drivers = []
+    drivers: list[str] = []
     if news_w >= 10:
         drivers.append(f"📰 Notizia ({news_w}%)")
     if odds_w >= 10:
@@ -1877,7 +1877,7 @@ def send_clv_strategy_report(days_back: int = 30) -> bool:
         strategies = ["INJURY_INTEL", "SHARP_MONEY", "MATH_VALUE", "CONTEXT_PLAY", "CONTRARIAN"]
 
         # Build report message
-        lines = []
+        lines: list[str] = []
         lines.append("📊 <b>STRATEGY PERFORMANCE REPORT (CLV Analysis)</b>")
         lines.append("")
 

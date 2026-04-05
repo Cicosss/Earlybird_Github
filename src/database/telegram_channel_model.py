@@ -8,7 +8,8 @@ Tracks historical performance of each Telegram channel.
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from src.database.models import Base, engine, get_db_session
 
@@ -23,49 +24,57 @@ class TelegramChannel(Base):
 
     __tablename__ = "telegram_channels"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    channel_id = Column(String, unique=True, nullable=False, index=True)
-    channel_name = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    channel_id: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    channel_name: Mapped[str] = mapped_column(String, nullable=False)
 
     # Message counts
-    total_messages = Column(Integer, default=0)
-    messages_with_odds_impact = Column(Integer, default=0)
+    total_messages: Mapped[int] = mapped_column(Integer, default=0)
+    messages_with_odds_impact: Mapped[int] = mapped_column(Integer, default=0)
 
     # Timestamp lag stats
-    avg_timestamp_lag_minutes = Column(Float, default=0.0)
-    insider_hits = Column(Integer, default=0)  # Messages that anticipated market
-    late_messages = Column(Integer, default=0)  # Messages after market moved
+    avg_timestamp_lag_minutes: Mapped[float] = mapped_column(Float, default=0.0)
+    insider_hits: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # Messages that anticipated market
+    late_messages: Mapped[int] = mapped_column(Integer, default=0)  # Messages after market moved
 
     # Edit/Delete tracking
-    total_edits = Column(Integer, default=0)
-    total_deletes = Column(Integer, default=0)
+    total_edits: Mapped[int] = mapped_column(Integer, default=0)
+    total_deletes: Mapped[int] = mapped_column(Integer, default=0)
 
     # Accuracy tracking
-    predictions_made = Column(Integer, default=0)
-    predictions_correct = Column(Integer, default=0)
+    predictions_made: Mapped[int] = mapped_column(Integer, default=0)
+    predictions_correct: Mapped[int] = mapped_column(Integer, default=0)
 
     # Red flags
-    red_flags_count = Column(Integer, default=0)
-    red_flag_types = Column(Text, nullable=True)  # JSON list of flag types
+    red_flags_count: Mapped[int] = mapped_column(Integer, default=0)
+    red_flag_types: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # JSON list of flag types
 
     # Echo chamber
-    echo_messages = Column(Integer, default=0)
+    echo_messages: Mapped[int] = mapped_column(Integer, default=0)
 
     # Computed scores (updated periodically)
-    trust_score = Column(Float, default=0.5)
-    trust_level = Column(
+    trust_score: Mapped[float] = mapped_column(Float, default=0.5)
+    trust_level: Mapped[str] = mapped_column(
         String, default="NEUTRAL"
     )  # VERIFIED, TRUSTED, NEUTRAL, SUSPICIOUS, BLACKLISTED
 
     # Status
-    is_active = Column(Boolean, default=True)
-    is_blacklisted = Column(Boolean, default=False)
-    blacklist_reason = Column(String, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_blacklisted: Mapped[bool] = mapped_column(Boolean, default=False)
+    blacklist_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Timestamps
-    first_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    last_message_time = Column(DateTime, nullable=True)
-    last_updated = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    first_seen: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    last_message_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_updated: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
 
     # Index for trust score queries
     __table_args__ = (Index("idx_channel_trust", "trust_score", "is_active"),)
@@ -79,45 +88,47 @@ class TelegramMessageLog(Base):
 
     __tablename__ = "telegram_message_logs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    channel_id = Column(String, nullable=False, index=True)
-    message_id = Column(String, nullable=True)  # Telegram message ID
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    channel_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    message_id: Mapped[str | None] = mapped_column(String, nullable=True)  # Telegram message ID
 
     # Content (for echo detection)
-    text_hash = Column(String, nullable=True, index=True)  # MD5 hash of normalized text
-    text_preview = Column(String, nullable=True)  # First 200 chars
+    text_hash: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # MD5 hash
+    text_preview: Mapped[str | None] = mapped_column(String, nullable=True)  # First 200 chars
 
     # Timestamps
-    message_time = Column(DateTime, nullable=False)
-    ingested_time = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    message_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ingested_time: Mapped[datetime | None] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
 
     # Validation results
-    was_edited = Column(Boolean, default=False)
-    was_deleted = Column(Boolean, default=False)
-    is_echo = Column(Boolean, default=False)
-    echo_source_channel = Column(String, nullable=True)
+    was_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    was_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_echo: Mapped[bool] = mapped_column(Boolean, default=False)
+    echo_source_channel: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Odds correlation
-    match_id = Column(String, nullable=True)
-    timestamp_lag_minutes = Column(Float, nullable=True)
-    was_insider_hit = Column(Boolean, default=False)
+    match_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    timestamp_lag_minutes: Mapped[float | None] = mapped_column(Float, nullable=True)
+    was_insider_hit: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Trust validation
-    trust_multiplier = Column(Float, nullable=True)
-    validation_reason = Column(String, nullable=True)
-    red_flags_detected = Column(Text, nullable=True)  # JSON list
+    trust_multiplier: Mapped[float | None] = mapped_column(Float, nullable=True)
+    validation_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    red_flags_detected: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
 
     # Prediction tracking (V1.1 - Post-match feedback loop)
-    prediction_type = Column(
+    prediction_type: Mapped[str | None] = mapped_column(
         String, nullable=True
-    )  # HOME_WIN, AWAY_WIN, DRAW, OVER_2.5, UNDER_2.5, BTTS_YES, BTTS_NO, etc.
-    prediction_team = Column(String, nullable=True)  # Team name if prediction is team-specific
-    prediction_verified = Column(
+    )  # HOME_WIN, AWAY_WIN, DRAW, OVER_2.5, etc.
+    prediction_team: Mapped[str | None] = mapped_column(String, nullable=True)
+    prediction_verified: Mapped[bool] = mapped_column(
         Boolean, default=False
-    )  # Has this prediction been checked against match result?
-    prediction_correct = Column(
+    )  # Checked against match result?
+    prediction_correct: Mapped[bool | None] = mapped_column(
         Boolean, nullable=True
-    )  # Was the prediction correct? (None = not verified yet)
+    )  # None = not verified yet
 
     # Index for cleanup queries
     __table_args__ = (

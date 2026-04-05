@@ -403,7 +403,7 @@ class RadarAlert:
 
         # V7.3: Build validation line (odds + cross-source)
         validation_line = ""
-        validation_parts = []
+        validation_parts: list[str] = []
 
         # Add odds suffix if available
         if hasattr(self, "_odds_suffix") and self._odds_suffix:
@@ -986,7 +986,7 @@ def load_config(config_file: str = DEFAULT_CONFIG_FILE) -> RadarConfig:
         )
 
         # Parse sources
-        sources = []
+        sources: list[RadarSource] = []
         for src_data in data.get("sources", []):
             # Skip sources without required 'url' field
             if "url" not in src_data:
@@ -1055,7 +1055,7 @@ def load_config_from_supabase() -> RadarConfig:
             return RadarConfig()
 
         # Filter for web-only sources (exclude social media handles)
-        web_sources = []
+        web_sources: list[RadarSource] = []
         social_domains = {
             "twitter.com",
             "x.com",
@@ -1735,7 +1735,7 @@ class ContentExtractor:
             )
             return []
 
-        results = []
+        results: list[tuple[str, str]] = []
         page = None
         max_retries = 2  # Retry on specific errors
 
@@ -1877,7 +1877,7 @@ class ContentExtractor:
         completed = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process results
-        browser_fallback_urls = []
+        browser_fallback_urls: list[str] = []
         for i, result in enumerate(completed):
             url = urls[i]  # Get original URL by index
             if isinstance(result, Exception):
@@ -1983,6 +1983,8 @@ class DeepSeekFallback:
         content: str,
         detected_signal: str | None = None,
         extracted_number: int | None = None,
+        team_hint: str | None = None,
+        source_context: str | None = None,
         timeout: int = 60,
         max_retries: int = 3,
     ) -> dict[str, Any] | None:
@@ -2001,6 +2003,12 @@ class DeepSeekFallback:
         - Accepts detected_signal and extracted_number from pattern detector
         - Passes signal context to DeepSeek for intelligent cross-validation
         - Enables coordinated two-level analysis architecture
+
+        V4.0 FIX (2026-04-01): Added intelligence context for team extraction:
+        - Accepts team_hint from pattern-based pre-extraction
+        - Accepts source_context from source geographic inference
+        - Passes both to DeepSeek for informed team identification
+        - Enables root-cause fix: components communicate before LLM analysis
 
         Returns dict with:
         - is_high_value: bool
@@ -2021,6 +2029,8 @@ class DeepSeekFallback:
             content: The text content to analyze
             detected_signal: Signal type detected by pattern matching (optional)
             extracted_number: Number extracted from text (optional)
+            team_hint: Team name pre-extracted by pattern matching (optional)
+            source_context: Geographic context string from source analysis (optional)
             timeout: Maximum time to wait for API response in seconds (default: 60)
             max_retries: Maximum number of retries for network errors and empty responses (default: 3)
         """
@@ -2030,7 +2040,11 @@ class DeepSeekFallback:
             return None
 
         model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
-        prompt = build_analysis_prompt_v2(content, detected_signal, extracted_number)
+        prompt = build_analysis_prompt_v2(
+            content, detected_signal, extracted_number,
+            team_hint=team_hint,
+            source_context=source_context,
+        )
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -2958,7 +2972,7 @@ class NewsRadarMonitor:
         # V7.3: Batch HTTP extraction for single-page sources
         if single_sources:
             # Filter by circuit breaker
-            eligible_sources = []
+            eligible_sources: list[RadarSource] = []
             for source in single_sources:
                 breaker = self._get_circuit_breaker(source.url)
                 if breaker.can_execute():
@@ -3197,6 +3211,14 @@ class NewsRadarMonitor:
                 return alert
 
         except Exception as e:
+            # V12.6: Record failure for circuit breaker on scan exceptions.
+            # Previously exceptions (timeouts, network errors) were silently swallowed,
+            # causing infinite retry loops without circuit breaker protection.
+            try:
+                breaker = self._get_circuit_breaker(source.url)
+                breaker.record_failure()
+            except Exception:
+                pass  # Don't let circuit breaker recording mask the original error
             logger.error(f"❌ [NEWS-RADAR] Error scanning {source.name}: {e}")
             return None
 
@@ -3293,7 +3315,7 @@ class NewsRadarMonitor:
             logger.warning(f"⚠️ [NEWS-RADAR] Error checking positive news filter: {e}")
             # Continue to next check
 
-        # Step 4: High-value signal detection
+        # Step 3: High-value signal detection
         signal_detector = get_signal_detector()
         signal = signal_detector.detect(cleaned_content)
 
@@ -3321,8 +3343,37 @@ class NewsRadarMonitor:
                 f"🎯 [NEWS-RADAR] High-value signal: {signal.signal_type} ({signal.matched_pattern})"
             )
 
-        # Step 5: DeepSeek structured extraction with signal context
-        # V3.0: Pass signal detection information to DeepSeek for intelligent cross-validation
+        # Step 4: V4.0 INTELLIGENCE PRE-ENRICHMENT
+        # ROOT CAUSE FIX: Before calling DeepSeek, gather intelligence from:
+        # A) Source context (WHERE is this content from? → narrows team candidates)
+        # B) Pattern-based team extraction (regex found a team? → strong hint for LLM)
+        # This makes the pipeline INTELLIGENT: components communicate BEFORE the LLM call.
+
+        # 5A: Source context intelligence (non-blocking: DB queries run in thread pool)
+        source_country_code = None
+        source_context_str = None
+        try:
+            source_country_code, source_context_str = await asyncio.to_thread(
+                self._infer_source_context, source
+            )
+        except Exception as e:
+            logger.debug(f"⚠️ [NEWS-RADAR] Source context inference failed: {e}")
+
+        # 5B: Pattern-based team hint extraction
+        # Uses the 7-pattern heuristic from content_analysis.py (zero-cost, no API call)
+        team_hint = None
+        try:
+            from src.utils.content_analysis import get_relevance_analyzer
+            analyzer = get_relevance_analyzer()
+            team_hint = analyzer.extract_team_name(cleaned_content)
+            if team_hint:
+                logger.info(f"🧠 [TEAM-HINT] Pattern pre-extracted team: '{team_hint}' from {source.name}")
+        except Exception as e:
+            logger.debug(f"⚠️ [NEWS-RADAR] Team hint extraction failed: {e}")
+
+        # Step 5: DeepSeek structured extraction with ALL intelligence context
+        # V3.0: Pass signal detection information for cross-validation
+        # V4.0: Pass team_hint + source_context for informed team extraction
         detected_signal_str = signal.signal_type.value if signal.detected else None
         extracted_number = signal.extracted_number if signal.detected else None
 
@@ -3330,6 +3381,8 @@ class NewsRadarMonitor:
             cleaned_content,
             detected_signal=detected_signal_str,
             extracted_number=extracted_number,
+            team_hint=team_hint,
+            source_context=source_context_str,
         )
 
         if not deep_result:
@@ -3342,21 +3395,38 @@ class NewsRadarMonitor:
             logger.debug(f"🚫 [NEWS-RADAR] Quality gate failed ({reason}): {url[:50]}...")
             return None
 
-        # Step 7: V3.0 NEW - Convert dict to StructuredAnalysis for intelligent processing
+        # Step 7: V3.0 - Convert dict to StructuredAnalysis for intelligent processing
         # This enables component communication and intelligent validation
         structured_analysis = StructuredAnalysis.from_dict(deep_result)
+
+        # Step 8: V4.0 FUZZY TEAM NORMALIZATION
+        # ROOT CAUSE FIX: DeepSeek extracts "São Paulo" but DB has "Sao Paulo FC"
+        # The substring match in enrichment fails on accents and abbreviations.
+        # Solution: normalize the extracted team against DB teams using thefuzz.
+        if structured_analysis.team:
+            normalized_team = await asyncio.to_thread(
+                self._fuzzy_match_team, structured_analysis.team
+            )
+            if normalized_team and normalized_team != structured_analysis.team:
+                logger.info(
+                    f"🔄 [TEAM-NORMALIZE] '{structured_analysis.team}' → '{normalized_team}' "
+                    f"(fuzzy matched against DB)"
+                )
+                structured_analysis.team = normalized_team
+                # Also update deep_result for consistency
+                deep_result["team"] = normalized_team
 
         # Store pattern detection data for cross-validation
         structured_analysis.pattern_detected_signal = detected_signal_str
         structured_analysis.pattern_extracted_number = extracted_number
 
-        # Step 8: V3.0 NEW - Intelligent self-validation using StructuredAnalysis methods
+        # Step 9: Intelligent self-validation using StructuredAnalysis methods
         # This allows the component to validate itself before proceeding
         if not structured_analysis.is_valid_for_alert():
             logger.debug(f"🚫 [NEWS-RADAR] StructuredAnalysis validation failed: {url[:50]}...")
             return None
 
-        # Step 9: V3.0 NEW - Intelligent cross-validation between signal_detector and DeepSeek
+        # Step 10: Cross-validate signal_detector with DeepSeek analysis
         # This creates a coordinated two-level analysis architecture
         is_valid, confidence_adjustment = structured_analysis.cross_validate_with_pattern(
             signal_type=detected_signal_str,
@@ -3367,7 +3437,7 @@ class NewsRadarMonitor:
             logger.debug(f"🚫 [NEWS-RADAR] Cross-validation failed: {url[:50]}...")
             return None
 
-        # Step 10: V3.0 NEW - Enrich StructuredAnalysis with database context
+        # Step 11: Enrich StructuredAnalysis with database context
         # This enables intelligent component communication with enrichment system
         enrichment_context = None  # Initialize to None for reuse
         if _ENRICHMENT_AVAILABLE:
@@ -3395,15 +3465,15 @@ class NewsRadarMonitor:
             except Exception as e:
                 logger.debug(f"⚠️ [NEWS-RADAR] Enrichment failed: {e}")
 
-        # Step 11: V3.0 NEW - Get intelligent priority from StructuredAnalysis
+        # Step 12: Get intelligent priority from StructuredAnalysis
         # This uses the component's own logic to determine priority
         intelligent_priority = structured_analysis.get_alert_priority()
 
-        # Step 12: Apply confidence adjustment from cross-validation
+        # Step 13: Apply confidence adjustment from cross-validation
         base_confidence = structured_analysis.confidence
         adjusted_confidence = max(0.0, min(1.0, base_confidence + confidence_adjustment))
 
-        # Step 13: Create alert with validated and enriched data
+        # Step 14: Create alert with validated and enriched data
         # Convert StructuredAnalysis back to dict for RadarAlert creation
         alert_dict = structured_analysis.to_dict()
 
@@ -3422,16 +3492,16 @@ class NewsRadarMonitor:
             confidence=adjusted_confidence,  # V3.0: Use adjusted confidence
         )
 
-        # Step 14: Store enrichment context for later use
+        # Step 15: Store enrichment context for later use
         # Reuse the enrichment_context from Step 10 instead of calling again
         if enrichment_context:
             alert.enrichment_context = enrichment_context
 
         # ============================================
-        # V7.3: NEW VALIDATION STEPS
+        # Steps 16-18: Post-creation validation (V7.3)
         # ============================================
 
-        # Step 9: Fixture correlation check
+        # Step 16: Fixture correlation check
         # Skip alert if team doesn't play within 72h
         if alert.enrichment_context and not alert.enrichment_context.has_match():
             logger.info(
@@ -3439,7 +3509,7 @@ class NewsRadarMonitor:
             )
             return None
 
-        # Step 10: Odds movement check
+        # Step 17: Odds movement check
         odds_suffix = ""
         if _ODDS_CHECK_AVAILABLE and alert.affected_team and alert.affected_team != "Unknown":
             try:
@@ -3481,7 +3551,7 @@ class NewsRadarMonitor:
             except Exception as e:
                 logger.debug(f"⚠️ [NEWS-RADAR] Odds check failed: {e}")
 
-        # Step 11: Cross-source validation
+        # Step 18: Cross-source validation
         validation_tag = ""
         if _CROSS_VALIDATOR_AVAILABLE and alert.affected_team and alert.affected_team != "Unknown":
             try:
@@ -3511,6 +3581,318 @@ class NewsRadarMonitor:
         )
 
         return alert
+
+    # ============================================
+    # V4.0: SOURCE CONTEXT INTELLIGENCE
+    # ============================================
+
+    # Timezone → country code mapping for source context inference
+    _TZ_COUNTRY_MAP: dict[str, str] = {
+        "America/Sao_Paulo": "BR", "America/Buenos_Aires": "AR",
+        "America/Mexico_City": "MX", "America/Tegucigalpa": "HN",
+        "America/Bogota": "CO", "America/Lima": "PE", "America/Santiago": "CL",
+        "Europe/London": "GB", "Europe/Rome": "IT", "Europe/Paris": "FR",
+        "Europe/Berlin": "DE", "Europe/Moscow": "RU", "Europe/Prague": "CZ",
+        "Europe/Athens": "GR", "Europe/Istanbul": "TR",
+        "Africa/Lagos": "NG", "Africa/Cairo": "EG", "Africa/Johannesburg": "ZA",
+        "Asia/Singapore": "SG", "Asia/Shanghai": "CN",
+        "Asia/Tokyo": "JP", "Asia/Jakarta": "ID", "Asia/Seoul": "KR",
+    }
+
+    # URL domain suffix → country code
+    _DOMAIN_COUNTRY_MAP: dict[str, str] = {
+        ".com.br": "BR", ".com.ar": "AR", ".com.mx": "MX", ".com.hn": "HN",
+        ".ru": "RU", ".de": "DE", ".it": "IT", ".uk": "GB",
+        ".id": "ID", ".cn": "CN", ".jp": "JP", ".kr": "KR",
+        ".ng": "NG", ".eg": "EG", ".za": "ZA", ".hn": "HN",
+    }
+
+    # Source name/URL keywords → country code
+    _SOURCE_KEYWORD_MAP: dict[str, str] = {
+        "brazil": "BR", "brasil": "BR", "brasileiro": "BR", "brasileirao": "BR",
+        "gazeta": "BR", "esportiva": "BR", "jogada": "BR", "globo": "BR",
+        "bauru": "BR", "correio": "BR",
+        "honduras": "HN", "hondudiario": "HN", "heraldo": "HN",
+        "nigeria": "NG", "nigeriasoccer": "NG", "brila": "NG", "panafrica": "NG",
+        "egypt": "EG", "ahram": "EG",
+        "scotland": "GB", "stv": "GB", "chesterfield": "GB",
+        "germany": "DE", "liga3": "DE",
+        "calcio": "IT", "tuttomercato": "IT",
+        "indonesia": "ID", "palembang": "ID", "superball": "ID", "tribun": "ID",
+        "supersport": "ZA", "flashscore": "INT", "besoccer": "INT",
+    }
+
+    def _infer_source_context(self, source: RadarSource) -> tuple[str | None, str | None]:
+        """
+        V4.0: Infer geographic context from source properties.
+
+        Maps timezone, URL domain, and source name to a country code,
+        then queries DB for team candidates from that country's leagues.
+
+        This is the ROOT CAUSE FIX: the system processes content without knowing
+        WHERE it comes from. A Brazilian portal talks about Brazilian teams,
+        but DeepSeek gets no geographic hint. Now it does.
+
+        Args:
+            source: RadarSource with url, name, source_timezone
+
+        Returns:
+            Tuple of (country_code, source_context_string_for_prompt)
+            country_code is like "BR", "IT", "GB" or None if unknown
+            source_context_string is a formatted hint for DeepSeek or None
+        """
+        # Strategy 1: Timezone → country (most reliable)
+        tz_country = self._TZ_COUNTRY_MAP.get(source.source_timezone or "") if source.source_timezone else None
+
+        # Strategy 2: URL hostname → country (hostname-only to prevent false positives like /player-id/)
+        from urllib.parse import urlparse
+
+        url_lower = (source.url or "").lower()  # Kept for Strategy 3 keyword matching
+        domain_country = None
+        try:
+            parsed_url = urlparse(source.url or "")
+            hostname = parsed_url.netloc.lower()
+        except Exception:
+            hostname = url_lower
+        for suffix, country in sorted(self._DOMAIN_COUNTRY_MAP.items(), key=lambda x: -len(x[0])):
+            if suffix in hostname:
+                domain_country = country
+                break
+
+        # Strategy 3: Source name keywords → country
+        name_lower = (source.name or "").lower()
+        name_country = None
+        for keyword, country in self._SOURCE_KEYWORD_MAP.items():
+            if keyword in name_lower or keyword in url_lower:
+                name_country = country
+                break
+
+        # Merge: timezone > domain > name
+        country_code = tz_country or domain_country or name_country
+
+        if not country_code or country_code == "INT":
+            return None, None
+
+        # Build context string for DeepSeek prompt
+        country_names = {
+            "BR": "Brazil", "AR": "Argentina", "MX": "Mexico", "HN": "Honduras",
+            "GB": "United Kingdom", "IT": "Italy", "DE": "Germany", "FR": "France",
+            "TR": "Turkey", "GR": "Greece", "NL": "Netherlands", "NO": "Norway",
+            "PL": "Poland", "RU": "Russia", "ID": "Indonesia", "CN": "China",
+            "JP": "Japan", "SG": "Singapore", "NG": "Nigeria", "EG": "Egypt",
+            "ZA": "South Africa", "CO": "Colombia", "PE": "Peru", "CL": "Chile",
+            "KR": "South Korea", "CZ": "Czech Republic",
+        }
+
+        country_name = country_names.get(country_code, country_code)
+
+        # Try to get team candidates from DB for this country's leagues
+        team_candidates = self._get_teams_for_country(country_code)
+
+        context_parts = [f"  - Source country: {country_name}"]
+        if team_candidates:
+            candidates_str = ", ".join(team_candidates[:15])
+            context_parts.append(f"  - Likely teams from this source's region: {candidates_str}")
+
+        source_context_str = "\n".join(context_parts)
+        logger.debug(
+            f"🧠 [SOURCE-CONTEXT] {source.name}: country={country_code}, "
+            f"teams={len(team_candidates)}"
+        )
+
+        return country_code, source_context_str
+
+    def _get_teams_for_country(self, country_code: str) -> list[str]:
+        """
+        Get team names from DB for leagues associated with a country.
+
+        Queries upcoming matches in the next 96h to find team names
+        from leagues typically associated with the given country.
+        """
+        # Map country → league key patterns
+        country_league_patterns: dict[str, list[str]] = {
+            "BR": ["brazil"],
+            "AR": ["argentina"],
+            "MX": ["mexico"],
+            "HN": ["honduras"],
+            "GB": ["epl", "england", "championship", "league_one", "national_league"],
+            "IT": ["italy", "serie_a", "serie_b"],
+            "DE": ["germany", "bundesliga", "liga3"],
+            "FR": ["france", "ligue"],
+            "TR": ["turkey"],
+            "GR": ["greece"],
+            "NL": ["netherlands", "eredivisie"],
+            "NO": ["norway"],
+            "PL": ["poland"],
+            "RU": ["russia"],
+            "ID": ["indonesia"],
+            "CN": ["china"],
+            "JP": ["japan"],
+            "KR": ["korea"],
+            "NG": ["nigeria"],
+            "EG": ["egypt"],
+            "ZA": ["south_africa"],
+            "CO": ["colombia"],
+            "PE": ["peru"],
+            "CL": ["chile"],
+            "CZ": ["czech"],
+        }
+
+        patterns = country_league_patterns.get(country_code, [])
+        if not patterns:
+            return []
+
+        try:
+            from src.database.models import Match, SessionLocal
+
+            db = SessionLocal()
+            try:
+                from datetime import timedelta
+                now = datetime.now(timezone.utc)
+                max_time = now + timedelta(hours=96)
+
+                matches = (
+                    db.query(Match)
+                    .filter(Match.start_time >= now.replace(tzinfo=None))
+                    .filter(Match.start_time <= max_time.replace(tzinfo=None))
+                    .all()
+                )
+
+                teams: list[str] = []
+                for m in matches:
+                    league = getattr(m, "league", "") or ""
+                    # Check if this match's league matches any of the country patterns
+                    if any(p in league.lower() for p in patterns):
+                        home = getattr(m, "home_team", None)
+                        away = getattr(m, "away_team", None)
+                        if home:
+                            teams.append(home)
+                        if away:
+                            teams.append(away)
+
+                return sorted(set(teams))[:20]
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"[SOURCE-CONTEXT] DB lookup failed for {country_code}: {e}")
+            return []
+
+    def _fuzzy_match_team(self, extracted_team: str) -> str | None:
+        """
+        V4.0: Normalize extracted team name against DB using fuzzy matching.
+
+        ROOT CAUSE FIX: DeepSeek extracts "São Paulo" but the DB has "Sao Paulo FC".
+        The substring match in radar_enrichment.find_upcoming_match() fails because:
+        - Accents: "São" ≠ "Sao"
+        - Suffixes: "São Paulo" not in "Sao Paulo FC" (the reverse works, but not both ways)
+
+        This method:
+        1. Gets all team names from upcoming matches in DB
+        2. Uses thefuzz (already in requirements.txt) for fuzzy matching
+        3. Returns the canonical DB team name if match found (threshold >= 80)
+        4. Returns the original name if no better match found
+
+        Uses the same thefuzz library already used in:
+        - data_provider.py:338 (team search)
+        - verification_layer.py:1881 (player matching)
+        - text_normalizer.py:88 (general fuzzy matching)
+
+        Args:
+            extracted_team: Team name extracted by DeepSeek
+
+        Returns:
+            Canonical team name from DB, or original if no match found
+        """
+        if not extracted_team:
+            return extracted_team
+
+        # Try thefuzz import (already in requirements.txt, used elsewhere in the bot)
+        try:
+            from thefuzz import fuzz
+        except ImportError:
+            return extracted_team
+
+        # Get accent folding utility (already used in text_normalizer.py)
+        fold_accents_fn = None
+        try:
+            from src.utils.text_normalizer import fold_accents as fa
+            fold_accents_fn = fa
+        except ImportError:
+            pass
+
+        # Get all team names from upcoming matches in DB
+        try:
+            from src.database.models import Match, SessionLocal
+
+            db = SessionLocal()
+            try:
+                now = datetime.now(timezone.utc)
+                max_time = now + timedelta(hours=96)
+
+                matches = (
+                    db.query(Match)
+                    .filter(Match.start_time >= now.replace(tzinfo=None))
+                    .filter(Match.start_time <= max_time.replace(tzinfo=None))
+                    .all()
+                )
+
+                # Build candidate list from DB
+                db_teams: list[str] = []
+                for m in matches:
+                    home = getattr(m, "home_team", None)
+                    away = getattr(m, "away_team", None)
+                    if home:
+                        db_teams.append(home)
+                    if away:
+                        db_teams.append(away)
+
+                if not db_teams:
+                    return extracted_team
+
+                # Deduplicate
+                db_teams = list(set(db_teams))
+
+                # Helper: normalize a string for comparison
+                def _normalize(text: str) -> str:
+                    t = text.lower().strip()
+                    if fold_accents_fn:
+                        t = fold_accents_fn(t)
+                    return t
+
+                extracted_norm = _normalize(extracted_team)
+
+                # Strategy 1: Exact match after accent folding (most common case)
+                for db_team in db_teams:
+                    if _normalize(db_team) == extracted_norm:
+                        return db_team
+
+                # Strategy 2: thefuzz token_set_ratio (handles partial names, word reordering)
+                best_match = None
+                best_score = 0
+                FUZZY_THRESHOLD = 80  # Same threshold used in verification_layer.py
+
+                for db_team in db_teams:
+                    score = fuzz.token_set_ratio(extracted_team, db_team)
+                    if score > best_score:
+                        best_score = score
+                        best_match = db_team
+
+                if best_score >= FUZZY_THRESHOLD and best_match:
+                    logger.debug(
+                        f"[FUZZY-MATCH] '{extracted_team}' → '{best_match}' "
+                        f"(score={best_score})"
+                    )
+                    return best_match
+
+                # No good match found — return original
+                return extracted_team
+
+            finally:
+                db.close()
+
+        except Exception as e:
+            logger.debug(f"[FUZZY-MATCH] Team normalization failed: {e}")
+            return extracted_team
 
     def _has_football_keywords(self, content: str) -> bool:
         """
@@ -3878,7 +4260,7 @@ class NewsRadarMonitor:
             if response:
                 self._tavily_budget.record_call("news_radar")
 
-                enrichment_parts = []
+                enrichment_parts: list[str] = []
 
                 if response.answer:
                     enrichment_parts.append(f"[TAVILY CONTEXT]\n{response.answer}")
@@ -4123,7 +4505,7 @@ class GlobalRadarMonitor:
         if self._scan_tasks:
             await asyncio.gather(*self._scan_tasks, return_exceptions=True)
 
-        self._scan_tasks = []
+        self._scan_tasks: list[dict[str, Any]] = []
 
         # Close all contexts
         for context_name, context in self._contexts.items():

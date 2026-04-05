@@ -16,7 +16,9 @@ print("=" * 60)
 
 # Test 1: Search
 print("\n1. Testing /search/suggest?term=Palermo")
-resp = requests.get("https://www.fotmob.com/api/search/suggest?term=Palermo", headers=headers, timeout=10)
+resp = requests.get(
+    "https://www.fotmob.com/api/search/suggest?term=Palermo", headers=headers, timeout=10
+)
 print(f"Status: {resp.status_code}")
 if resp.status_code == 200:
     data = resp.json()

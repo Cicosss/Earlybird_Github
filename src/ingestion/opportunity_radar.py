@@ -397,7 +397,7 @@ class OpportunityRadar:
                         team_name="", domains=domains, keywords=keywords, num_results=5
                     )
 
-                    results = []
+                    results: list[dict[str, str]] = []
                     for item in ddg_results:
                         results.append(
                             {
@@ -753,7 +753,7 @@ Factor this HEAVILY into your analysis. This is PRE-MARKET intelligence.
         if regions is None:
             regions = list(RADAR_SOURCES.keys())
 
-        triggered = []
+        triggered: list[dict[str, str]] = []
 
         for region in regions:
             if region not in RADAR_SOURCES:

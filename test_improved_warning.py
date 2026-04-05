@@ -30,6 +30,7 @@ async def test_improved_warning():
     # Import nitter scraper
     try:
         from src.services.nitter_fallback_scraper import get_nitter_fallback_scraper
+
         print("✅ NitterFallbackScraper imported successfully")
     except Exception as e:
         print(f"❌ Failed to import NitterFallbackScraper: {e}")
@@ -81,7 +82,9 @@ async def test_improved_warning():
     print("=" * 80)
     print("✅ Improved warning message test completed")
     print("\nExpected improvements:")
-    print("   1. Warning includes continent name (e.g., 'No active handles found for continent: ASIA')")
+    print(
+        "   1. Warning includes continent name (e.g., 'No active handles found for continent: ASIA')"
+    )
     print("   2. Severity reduced to INFO level (ℹ️ instead of ⚠️)")
     print("   3. Less alarming for users")
     return True
@@ -101,6 +104,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed with exception: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

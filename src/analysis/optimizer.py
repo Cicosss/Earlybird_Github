@@ -605,9 +605,9 @@ class StrategyOptimizer:
         # Ensure new fields exist (for migrated data)
         stats = self.data["stats"][league_key][market_type]
         if "returns" not in stats:
-            stats["returns"] = []
+            stats["returns"]: list[dict[str, Any]] = []
         if "pnl_history" not in stats:
-            stats["pnl_history"] = []
+            stats["pnl_history"]: list[dict[str, Any]] = []
         if "sharpe" not in stats:
             stats["sharpe"] = 0.0
         if "sortino" not in stats:
@@ -633,7 +633,7 @@ class StrategyOptimizer:
         # Ensure new fields
         d = self.data["drivers"][driver]
         if "returns" not in d:
-            d["returns"] = []
+            d["returns"]: list[str] = []
         if "sharpe" not in d:
             d["sharpe"] = 0.0
         if "sortino" not in d:
@@ -1110,7 +1110,7 @@ class StrategyOptimizer:
         return round(adjusted, 1), log_msg
 
     def apply_weight_to_score_with_original(
-        self, base_score: float, league: str, market: str = None, driver: str = None
+        self, base_score: float, league: str, market: str | None = None, driver: str | None = None
     ) -> tuple[float, float, str, float]:
         """Apply learned weight to a confidence score while preserving the original AI score.
 
@@ -1201,7 +1201,7 @@ class StrategyOptimizer:
             lines.append(f"   ACTIVE (>{WARMING_SAMPLE_SIZE} bets): {active_count} strategies")
 
             # Show adjusted weights (only ACTIVE strategies)
-            adjusted = []
+            adjusted: list[str] = []
             for league, markets in self.data.get("stats", {}).items():
                 for market_type, stats in markets.items():
                     weight = stats.get("weight", 1.0)
@@ -1483,7 +1483,7 @@ def get_dynamic_alert_threshold() -> tuple[float, str]:
     optimizer = get_optimizer()
 
     threshold = ALERT_THRESHOLD_BASE
-    adjustments = []
+    adjustments: list[tuple] = []
 
     # Get global stats
     global_stats = optimizer.data.get("global", {})
@@ -1494,13 +1494,13 @@ def get_dynamic_alert_threshold() -> tuple[float, str]:
         return threshold, f"Base threshold (n={total_bets} < {DYNAMIC_THRESHOLD_MIN_BETS})"
 
     # Calculate aggregate metrics from all active strategies
-    all_returns = []
+    all_returns: list[tuple] = []
     total_wins = 0
     total_losses = 0
 
     # V6.1 FIX: Collect per-strategy drawdowns for weighted average
     # Old approach concatenated PnL histories which was mathematically incorrect
-    strategy_drawdowns = []  # List of (drawdown, n_bets) tuples
+    strategy_drawdowns: list[tuple] = []
 
     for league, markets in optimizer.data.get("stats", {}).items():
         for market_type, stats in markets.items():

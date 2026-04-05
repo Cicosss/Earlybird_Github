@@ -104,8 +104,14 @@ class TestEnhancedFormatFatigueContext:
 
         result = format_fatigue_context(differential)
 
-        assert "Reasoning: 4 partite negli ultimi 21 giorni | Rosa corta (soffre la congestione)" in result
-        assert "Reasoning: 2 partite negli ultimi 21 giorni | Rosa profonda (gestisce bene la fatica)" in result
+        assert (
+            "Reasoning: 4 partite negli ultimi 21 giorni | Rosa corta (soffre la congestione)"
+            in result
+        )
+        assert (
+            "Reasoning: 2 partite negli ultimi 21 giorni | Rosa profonda (gestisce bene la fatica)"
+            in result
+        )
 
     def test_format_includes_squad_depth_score(self):
         """Should include squad_depth_score field in output."""
@@ -258,7 +264,11 @@ class TestMatchHistoryTracking:
         mock_session.query.return_value = mock_query
         mock_query.filter.return_value = mock_query
         mock_query.order_by.return_value = mock_query
-        mock_query.all.return_value = [Mock(start_time=match1), Mock(start_time=match2), Mock(start_time=match3)]
+        mock_query.all.return_value = [
+            Mock(start_time=match1),
+            Mock(start_time=match2),
+            Mock(start_time=match3),
+        ]
 
         # Execute
         match_dates, hours_since_last = get_team_match_history("Test Team", now)
@@ -306,7 +316,9 @@ class TestMatchHistoryTracking:
         mock_query.all.return_value = []
 
         # Execute
-        match_dates, hours_since_last = get_team_match_history("New Team", datetime.now(timezone.utc))
+        match_dates, hours_since_last = get_team_match_history(
+            "New Team", datetime.now(timezone.utc)
+        )
 
         # Verify
         assert match_dates == []
@@ -362,6 +374,7 @@ class TestMatchHistoryTracking:
         """Should clear the match history cache."""
         # Setup: Add something to cache
         from src.analysis.fatigue_engine import _match_history_cache
+
         _match_history_cache["test_key"] = ([], None, datetime.now(timezone.utc))
 
         assert len(_match_history_cache) > 0
@@ -425,6 +438,7 @@ class TestMatchHistoryCaching:
 
         # Simulate cache expiration by modifying cache timestamp
         from src.analysis.fatigue_engine import _match_history_cache
+
         cache_key = f"{team_name.lower()}_{now.isoformat()}"
         if cache_key in _match_history_cache:
             data, _, _ = _match_history_cache[cache_key]

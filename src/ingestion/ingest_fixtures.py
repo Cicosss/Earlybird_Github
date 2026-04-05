@@ -17,6 +17,7 @@ from src.database.team_alias_enrichment import enrich_team_alias_data
 from src.ingestion.league_manager import (
     MAX_LEAGUES_PER_RUN,
     get_active_niche_leagues,
+    get_all_active_leagues,
 )
 
 # ============================================
@@ -486,9 +487,9 @@ def extract_sharp_odds_analysis(
         return result
 
     # Collect all odds by outcome
-    home_odds = []
-    draw_odds = []
-    away_odds = []
+    home_odds: list[float] = []
+    draw_odds: list[float] = []
+    away_odds: list[float] = []
 
     sharp_home = None
     sharp_draw = None
@@ -571,7 +572,7 @@ def extract_sharp_odds_analysis(
         logging.debug("📊 No sharp bookie - using minimum odds as proxy")
 
     # Calculate sharp differences and signals
-    signals = []
+    signals: list[tuple[str, float]] = []
 
     if result["sharp_home"] and result["avg_home"]:
         diff = result["avg_home"] - result["sharp_home"]
@@ -781,11 +782,9 @@ def ingest_fixtures(
         leagues_to_process = get_active_niche_leagues()
         logging.info(f"🎯 Elite 6 Strategy (fallback): {len(leagues_to_process)} leagues available")
     else:
-        # FALLBACK PATH 2: Config-based
-        from src.ingestion.league_manager import ELITE_LEAGUES
-
-        leagues_to_process = ELITE_LEAGUES[:MAX_LEAGUES_PER_RUN]
-        logging.info(f"📋 Using Elite leagues fallback: {len(leagues_to_process)}")
+        # V11.2: Use all active leagues from Supabase/Mirror (no hardcoded fallback)
+        leagues_to_process = get_all_active_leagues()[:MAX_LEAGUES_PER_RUN]
+        logging.info(f"📋 Using all active leagues from Supabase/Mirror: {len(leagues_to_process)}")
 
     # BUG 6 FIX: Deduplicate leagues to prevent double fetch
     # Convert to set and back to list to remove duplicates
@@ -1165,7 +1164,9 @@ def ingest_fixtures(
         db.close()
 
 
-def fetch_odds_for_team(team_name: str, league_key: str | None = None) -> MatchModel | None:
+def fetch_odds_for_team(
+    team_name: str, league_key: str | None = None, dry_run: bool = False
+) -> MatchModel | None:
     """
     ON-DEMAND ODDS FETCHING (V12.0 Alpha Hunter)
     =============================================
@@ -1176,6 +1177,7 @@ def fetch_odds_for_team(team_name: str, league_key: str | None = None) -> MatchM
     Args:
         team_name: Team name to search for
         league_key: Optional league key to narrow search (e.g., 'soccer_turkey_super_league')
+        dry_run: If True, only check local DB without making API calls (for diagnostics)
 
     Returns:
         Match object if found, None otherwise
@@ -1206,6 +1208,14 @@ def fetch_odds_for_team(team_name: str, league_key: str | None = None) -> MatchM
                 f"✅ [ON-DEMAND] Found existing match for {team_name}: {existing.home_team} vs {existing.away_team}"
             )
             return existing
+
+        # V12.6: In dry-run mode, skip API calls (only check local DB)
+        if dry_run:
+            logger.info(
+                f"📊 [ON-DEMAND] Dry run: skipping API call for {team_name} "
+                f"(no local match found in next 72h)"
+            )
+            return None
 
         # If league_key provided, fetch from that league only
         leagues_to_search = [league_key] if league_key else _get_all_active_leagues()

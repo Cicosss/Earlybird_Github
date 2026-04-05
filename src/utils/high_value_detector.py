@@ -23,6 +23,10 @@ V2.2: Fixed truncated regex, duplicate dict keys, import cleanup.
 V2.3: Added CONFIRMED_LINEUP for early lineup announcements.
 V2.4: Fixed thread safety (separate locks for singletons), removed unused fields (priority, all_matches).
 V2.5: Removed StructuredAnalysis dead code (never used in production, data flows use dict-based approach).
+V3.1: Fixed category round-trip (to_dict preserves LLM category instead of remapping via absent_type),
+      fixed enrichment override (NORMAL values now overridable by DB — league standings beat LLM defaults),
+      fixed is_valid_for_alert for non-absence categories (LOGISTICAL_CRISIS, MOTIVATION, CONFIRMED_LINEUP),
+      fixed get_alert_priority for category-based signals, improved cross-validation with direct category comparison.
 """
 
 import logging
@@ -276,6 +280,10 @@ class StructuredAnalysis:
     Structured analysis result from LLM.
 
     V3.0: Reintegrated with enhanced fields and intelligent workflow integration.
+    V3.1: Fixed category round-trip by adding `category` field (preserved from LLM).
+          Fixed enrichment to allow DB override of "NORMAL" values.
+          Fixed validation/priority for non-absence categories.
+          Improved cross-validation with direct category comparison.
 
     Contains all information needed for a high-value betting alert.
     All fields are extracted by LLM from original content.
@@ -285,6 +293,12 @@ class StructuredAnalysis:
     - Determines priority using get_alert_priority()
     - Converts from dict for seamless integration
     - Communicates with other components (enrichment, validation)
+
+    Architecture:
+    - `category`: External label from LLM (MASS_ABSENCE, LOGISTICAL_CRISIS, etc.)
+      Preserved through the entire pipeline for accurate RadarAlert creation.
+    - `absent_type`: Internal classification (INJURY, ROTATION, etc.)
+      Used for validation and priority logic. Derived from category in from_dict().
     """
 
     # Required fields (alert not sent if missing)
@@ -313,6 +327,12 @@ class StructuredAnalysis:
     summary_en: str = ""  # Summary in English
     summary_it: str = ""  # Summary in Italian
     betting_impact: str = "LOW"  # CRITICAL, HIGH, MEDIUM, LOW
+
+    # V3.1: Category preserved from LLM for accurate external representation.
+    # This is the source of truth for to_dict() → RadarAlert.category.
+    # Must match keys in CATEGORY_EMOJI / CATEGORY_ITALIAN (radar_prompts.py).
+    # Examples: MASS_ABSENCE, DECIMATED, LOGISTICAL_CRISIS, CONFIRMED_LINEUP, etc.
+    category: str = "LOW_VALUE"
 
     # Optional: Cross-validation data from pattern detector
     pattern_detected_signal: str | None = None
@@ -386,6 +406,7 @@ class StructuredAnalysis:
             summary_en=data.get("summary_en", ""),
             summary_it=data.get("summary_italian", ""),
             betting_impact=data.get("betting_impact", "LOW"),
+            category=data.get("category", "LOW_VALUE"),  # V3.1: Preserve LLM category
         )
 
     def is_valid_for_alert(self) -> bool:
@@ -393,6 +414,7 @@ class StructuredAnalysis:
         Check if this analysis has enough info for a valid alert.
 
         V3.0: Enhanced validation with intelligent component communication.
+        V3.1: Added category-based validation for non-absence signals.
 
         Rules:
         - Must have team name
@@ -400,13 +422,20 @@ class StructuredAnalysis:
           - 3+ absent players, OR
           - Goalkeeper absent, OR
           - Youth team fielded, OR
-          - Financial crisis/strike
+          - Financial crisis/strike, OR
+          - Category is LOGISTICAL_CRISIS, CONFIRMED_LINEUP, or MOTIVATION (V3.1)
 
         Returns:
             True if valid for alert, False otherwise
         """
         if not self.team:
             return False
+
+        # V3.1 FIX: Category-based validation for non-absence signals.
+        # These categories represent valuable intelligence regardless of absent_count.
+        # The quality gate in news_radar.py already verified team + betting_impact + confidence.
+        if self.category in ("LOGISTICAL_CRISIS", "CONFIRMED_LINEUP", "MOTIVATION"):
+            return True
 
         # Youth team = always valid
         if self.absent_type == "YOUTH_TEAM":
@@ -439,6 +468,7 @@ class StructuredAnalysis:
         Get alert priority based on analysis.
 
         V3.0: Enhanced priority calculation with multiple factors.
+        V3.1: Added category-based priority for non-absence signals.
 
         Returns:
             Priority level: CRITICAL, HIGH, MEDIUM, LOW
@@ -460,11 +490,17 @@ class StructuredAnalysis:
             return "HIGH"
         if self.match_importance == "CRITICAL":
             return "HIGH"
+        # V3.1 FIX: Category-based high priority for non-absence signals
+        if self.category in ("LOGISTICAL_CRISIS", "CONFIRMED_LINEUP"):
+            return "HIGH"
 
         # Medium impact
         if self.absent_count >= 1:
             return "MEDIUM"
         if self.match_importance == "IMPORTANT":
+            return "MEDIUM"
+        # V3.1 FIX: Motivation mismatch = MEDIUM priority
+        if self.category == "MOTIVATION":
             return "MEDIUM"
 
         return "LOW"
@@ -474,29 +510,44 @@ class StructuredAnalysis:
         Enrich analysis with database context.
 
         V3.0: Intelligent component communication with enrichment system.
+        V3.1: Fixed enrichment override logic.
 
         This method allows StructuredAnalysis to communicate with
         the enrichment system to fill missing fields with database data.
 
-        FIXED: Now only enriches when field is None, empty, or "UNKNOWN".
-        Does NOT override valid values like "NORMAL", "HIGH", "MEDIUM", "LOW".
+        V3.1 FIX: Enrichment now overrides "NORMAL" values (the LLM's generic default).
+        Logic:
+        - None / empty / "UNKNOWN" → always overridable (field not provided by LLM)
+        - "NORMAL" → overridable by DB (LLM detected no specific signal, DB has real standings data)
+        - "HIGH" / "LOW" / "NONE" / "CRITICAL" / "IMPORTANT" → NOT overridable
+          (LLM detected a specific signal from the article text — article intelligence wins)
+
+        This creates a smart priority system:
+        - Article-specific intelligence (LLM) beats generic defaults
+        - Database facts (league standings) beat generic defaults
+        - Both lose to specific observations from the article
 
         Args:
             enrichment_data: Dict with enrichment context
         """
-        # Enrich motivation_home only if not provided by LLM
-        # Only enrich when field is None, empty, or "UNKNOWN"
-        if not self.motivation_home or self.motivation_home == "UNKNOWN":
+        # V3.1 FIX: Allow DB to override "NORMAL" (generic LLM default) but preserve
+        # specific values (HIGH, LOW, NONE, CRITICAL, IMPORTANT) that reflect
+        # article-specific intelligence the DB cannot know about.
+        # "NORMAL" means "I didn't detect any specific signal" — DB data is more accurate.
+        _overridable = (None, "", "UNKNOWN", "NORMAL")
+
+        # Enrich motivation_home
+        if not self.motivation_home or self.motivation_home in _overridable:
             if "motivation_home" in enrichment_data and enrichment_data["motivation_home"]:
                 self.motivation_home = enrichment_data["motivation_home"]
 
-        # Enrich motivation_away only if not provided by LLM
-        if not self.motivation_away or self.motivation_away == "UNKNOWN":
+        # Enrich motivation_away (same logic as motivation_home)
+        if not self.motivation_away or self.motivation_away in _overridable:
             if "motivation_away" in enrichment_data and enrichment_data["motivation_away"]:
                 self.motivation_away = enrichment_data["motivation_away"]
 
-        # Enrich match_importance only if not provided by LLM
-        if not self.match_importance or self.match_importance == "UNKNOWN":
+        # Enrich match_importance (same logic — NORMAL is overridable by DB)
+        if not self.match_importance or self.match_importance in _overridable:
             if "match_importance" in enrichment_data and enrichment_data["match_importance"]:
                 self.match_importance = enrichment_data["match_importance"]
 
@@ -536,23 +587,30 @@ class StructuredAnalysis:
         confidence_adjustment = 0.0
 
         # If pattern detected same category as LLM, boost confidence
+        # V3.1 FIX: Direct category comparison (primary) + absent_type fallback (for manual creation)
         if signal_type:
-            # Map signal types to absent_type
-            signal_to_type = {
-                "MASS_ABSENCE": "INJURY",
-                "DECIMATED": "INJURY",
-                "YOUTH_TEAM": "YOUTH_TEAM",
-                "TURNOVER": "ROTATION",
-                "FINANCIAL_CRISIS": "STRIKE",
-                "LOGISTICAL_CRISIS": "OTHER",
-                "GOALKEEPER_OUT": "INJURY",
-                "MOTIVATION": "OTHER",
-                "CONFIRMED_LINEUP": "OTHER",
-            }
-
-            expected_type = signal_to_type.get(signal_type)
-            if expected_type and self.absent_type == expected_type:
+            # Primary: Direct category comparison — most accurate because it uses
+            # the preserved LLM category directly (no intermediate mapping loss)
+            if signal_type == self.category:
                 confidence_adjustment += 0.05  # 5% boost for agreement
+            else:
+                # Fallback: absent_type comparison for manually created instances
+                # where category might not be set (e.g., tests, direct instantiation)
+                signal_to_type = {
+                    "MASS_ABSENCE": "INJURY",
+                    "DECIMATED": "INJURY",
+                    "YOUTH_TEAM": "YOUTH_TEAM",
+                    "TURNOVER": "ROTATION",
+                    "FINANCIAL_CRISIS": "STRIKE",
+                    "LOGISTICAL_CRISIS": "OTHER",
+                    "GOALKEEPER_OUT": "INJURY",
+                    "MOTIVATION": "OTHER",
+                    "CONFIRMED_LINEUP": "OTHER",
+                }
+
+                expected_type = signal_to_type.get(signal_type)
+                if expected_type and self.absent_type == expected_type:
+                    confidence_adjustment += 0.05  # 5% boost for agreement
 
         # If extracted number matches absent_count, boost confidence
         if extracted_number is not None and self.absent_count > 0:
@@ -572,6 +630,7 @@ class StructuredAnalysis:
         Convert to dict for RadarAlert creation.
 
         V3.0: Seamless integration with existing workflow.
+        V3.1: Uses preserved LLM category instead of remapping via absent_type.
 
         Returns:
             Dict with all fields needed for RadarAlert
@@ -583,7 +642,7 @@ class StructuredAnalysis:
             "absent_players": self.absent_names,  # Map back to absent_players
             "competition": self.competition,
             "match_date": self.match_date,
-            "category": self._map_type_to_category(),
+            "category": self.category,  # V3.1: Use preserved LLM category (no remapping)
             "betting_impact": self.betting_impact,
             "confidence": self.confidence,
             "summary_italian": self.summary_it,
@@ -749,6 +808,15 @@ class HighSignalDetector:
         r"\b(unpaid|salari[eo]s?\s+(non\s+)?paga[td]|wages?\s+unpaid)\b",
         r"\b(financial\s+crisis|crisi\s+finanziaria|crisis\s+financiera)\b",
         r"\b(stipendi\s+arretrati|sueldos\s+atrasados)\b",
+        # V12.7: Arabic/MENA financial crisis patterns
+        r"أزمة\s+المستحقات",  # AR: dues crisis
+        r"تأخر\s+المستحقات",  # AR: delayed payments
+        r"إضراب\s+اللاعبين",  # AR: player strike
+        # V12.7: PT-BR financial crisis patterns
+        r"salários?\s+atrasados?",  # PT-BR: unpaid wages
+        r"greve\s+de\s+treinos?",  # PT-BR: training strike
+        r"crise\s+financeira",  # PT-BR: financial crisis
+        r"crise\s+no\s+clube",  # PT-BR: club crisis
     ]
 
     # Pattern 6: Travel/Logistical disruption
@@ -758,6 +826,11 @@ class HighSignalDetector:
         r"\b(bus\s+journey|viaggio\s+in\s+(autobus|pullman))",
         r"\b(chaotic\s+arrival|arrivo\s+caotico)",
         r"\b(no\s+training|senza\s+allenamento|sin\s+entrenamiento)",
+        # V12.7: Arabic disruption patterns
+        r"حظر\s+الملعب",  # AR: stadium ban
+        r"رحلة\s+(مزدحمة|فوضوية)",  # AR: chaotic journey
+        # V12.7: PT-BR disruption patterns
+        r"problemas\s+financeiros?",  # PT-BR: financial problems
     ]
 
     # Pattern 7: Motivational mismatch
@@ -791,11 +864,11 @@ class HighSignalDetector:
     # GOLD SIGNAL: Some managers announce lineup 24-48h before match
     # This gives betting edge before market reacts
     CONFIRMED_LINEUP_PATTERNS = [
-        # English
-        r"\b(confirmed|official|announced)\s+(lineup|line-up|starting\s+xi|starting\s+eleven|formation)",
+        # English — V3.1 FIX: Added (?:the\s+)? for "confirmed THE lineup", "announces THE formation", etc.
+        r"\b(confirmed|official|announced)\s+(?:the\s+)?(lineup|line-up|starting\s+xi|starting\s+eleven|formation)",
         r"\b(starting\s+xi|starting\s+eleven|starting\s+lineup)\s+(confirmed|announced|revealed)",
         r"\b(lineup|line-up|formation)\s+(revealed|announced|confirmed)",
-        r"\b(manager|coach|boss)\s+(confirms?|announces?|reveals?)\s+(lineup|starting|team|formation)",
+        r"\b(manager|coach|boss)\s+(confirms?|announces?|reveals?)\s+(?:the\s+)?(lineup|starting|team|formation)",
         r"\b(coach|manager|boss)\s+reveals?\s+(the\s+)?(lineup|formation|starting|team)",
         # Italian
         r"\b(formazione\s+ufficiale|undici\s+titolare|formazione\s+confermata)",
@@ -831,6 +904,31 @@ class HighSignalDetector:
         "CONFIRMED_LINEUP": SignalType.CONFIRMED_LINEUP,  # V2.3: Early lineup
     }
 
+    @staticmethod
+    def _is_non_latin_pattern(pattern: str) -> bool:
+        """V12.7: Detect if a regex pattern contains non-Latin script characters.
+
+        Scripts without case distinctions (Arabic, CJK, Greek, Cyrillic)
+        are compiled with re.DOTALL instead of re.IGNORECASE for consistency.
+        re.IGNORECASE is a no-op for these scripts but re.DOTALL is semantically
+        clearer and avoids any edge-case behavior with Unicode property matching.
+        """
+        non_latin_ranges = (
+            "\u0600",
+            "\u06ff",  # Arabic
+            "\u4e00",
+            "\u9fff",  # CJK
+            "\u0370",
+            "\u03ff",  # Greek
+            "\u0400",
+            "\u04ff",  # Cyrillic
+        )
+        for ch in pattern:
+            for i in range(0, len(non_latin_ranges), 2):
+                if non_latin_ranges[i] <= ch <= non_latin_ranges[i + 1]:
+                    return True
+        return False
+
     def __init__(self):
         """Initialize with compiled patterns."""
         self._all_patterns: list[tuple[str, re.Pattern]] = []
@@ -838,6 +936,8 @@ class HighSignalDetector:
         # Compile all pattern groups
         # NOTE: GOALKEEPER must come BEFORE KEY_PLAYER for correct priority
         # NOTE: CONFIRMED_LINEUP added at end (lower priority than absences)
+        # V12.7: Non-Latin patterns (Arabic/CJK) compiled with re.DOTALL,
+        #         Latin patterns compiled with re.IGNORECASE as before.
         pattern_groups = [
             ("CRISIS", self.CRISIS_PATTERNS),
             ("NUMERIC_ABSENCE", self.NUMERIC_ABSENCE_PATTERNS),
@@ -854,7 +954,10 @@ class HighSignalDetector:
         for group_name, patterns in pattern_groups:
             for pattern in patterns:
                 try:
-                    compiled = re.compile(pattern, re.IGNORECASE)
+                    if self._is_non_latin_pattern(pattern):
+                        compiled = re.compile(pattern, re.DOTALL)
+                    else:
+                        compiled = re.compile(pattern, re.IGNORECASE)
                     self._all_patterns.append((group_name, compiled))
                 except re.error as e:
                     logger.warning(f"Invalid regex pattern in {group_name}: {pattern} - {e}")

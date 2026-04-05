@@ -139,7 +139,7 @@ class Contract:
         if not isinstance(data, dict):
             return False, [f"Contract '{self.name}': data non è dict"]
 
-        errors = []
+        errors: list[str] = []
 
         for field_spec in self.fields:
             # Check required fields

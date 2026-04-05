@@ -228,7 +228,7 @@ class EarlyBirdHTTPClient:
             self._rate_limiters[key] = RateLimiter(**config)
 
         # Initialize fingerprint if available
-        if _FINGERPRINT_AVAILABLE and get_fingerprint:
+        if _FINGERPRINT_AVAILABLE and get_fingerprint is not None:
             try:
                 self._fingerprint = get_fingerprint()
             except Exception as e:
@@ -790,7 +790,7 @@ class FallbackHTTPClient:
             self._rate_limiters[key] = RateLimiter(**config)
 
         # Initialize fingerprint if available
-        if _FINGERPRINT_AVAILABLE and get_fingerprint:
+        if _FINGERPRINT_AVAILABLE and get_fingerprint is not None:
             try:
                 self._fingerprint = get_fingerprint()
             except Exception as e:

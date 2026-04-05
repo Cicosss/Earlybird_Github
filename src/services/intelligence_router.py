@@ -1,9 +1,19 @@
 """
-EarlyBird Intelligence Router - V8.1 (DeepSeek + Tavily + Claude 3 Haiku)
+EarlyBird Intelligence Router - V8.2
 
-Routes intelligence requests to DeepSeek provider with Tavily pre-enrichment.
-Three-level fallback: DeepSeek (primary) → Tavily (fallback 1) → Claude 3 Haiku (fallback 2).
+Routes intelligence requests to DeepSeek provider with Tavily pre-enrichment
+and Claude 3 Haiku fallback.
 
+Architecture:
+    Two-level AI fallback: DeepSeek (primary) → Claude 3 Haiku (fallback).
+    Tavily serves as pre-enrichment/search provider (NOT as AI analysis fallback).
+
+    DeepSeek and Claude 3 Haiku share the same response schemas via
+    src.utils.normalizers for guaranteed consistency.
+
+V8.2: DRY refactor — standardized enrich_match_context() and extract_twitter_intel()
+      to use _route_request() for architectural consistency. Updated nomenclature
+      to accurately reflect two-level AI fallback + Tavily enrichment.
 V8.1: Intelligent feature detection via startup_validator.is_feature_disabled()
       - Skips Tavily enrichment if 'tavily_enrichment' is disabled
       - Logs clear status messages for disabled features
@@ -39,18 +49,25 @@ except ImportError:
 
 class IntelligenceRouter:
     """
-    Routes intelligence requests to DeepSeek (primary) with three-level fallback.
+    Routes intelligence requests to DeepSeek (primary) with Claude 3 Haiku fallback
+    and Tavily pre-enrichment.
 
-    V8.0: Three-level fallback - DeepSeek → Tavily → Claude 3 Haiku
-    V7.0: Tavily AI Search for match context enrichment before DeepSeek analysis.
-    V6.0: Simplified routing - DeepSeek has high rate limits, no cooldown needed.
+    Architecture:
+        - AI Fallback: DeepSeek (primary) → Claude 3 Haiku (fallback)
+        - Tavily: Pre-enrichment/search provider (adds context before AI analysis)
+        - Response schemas: Shared normalizers via src.utils.normalizers
 
     Requirements: 2.1-2.6, 3.1-3.4
     """
 
     def __init__(self):
         """
-        Initialize IntelligenceRouter with three-level fallback.
+        Initialize IntelligenceRouter with two-level AI fallback and Tavily enrichment.
+
+        Architecture:
+            - Primary: DeepSeek (via OpenRouter) for AI analysis
+            - Fallback: Claude 3 Haiku (via OpenRouter) when DeepSeek fails
+            - Enrichment: Tavily (AI Search) for pre-enrichment before analysis
 
         Requirements: 2.1-2.4, 3.1
         """
@@ -71,8 +88,9 @@ class IntelligenceRouter:
         fallback_1_status = "enabled" if self._fallback_1_provider.is_available() else "disabled"
         fallback_2_status = "enabled" if self._fallback_2_provider.is_available() else "disabled"
         logger.info(
-            f"🔀 IntelligenceRouter V8.0 initialized "
-            f"(DeepSeek primary, Tavily {fallback_1_status}, Claude 3 Haiku {fallback_2_status})"
+            f"🔀 IntelligenceRouter V8.2 initialized "
+            f"(DeepSeek primary, Tavily enrichment {fallback_1_status}, "
+            f"Claude 3 Haiku fallback {fallback_2_status})"
         )
 
     # ============================================
@@ -120,16 +138,20 @@ class IntelligenceRouter:
         **kwargs,
     ) -> Any | None:
         """
-        Route a request with three-level fallback.
+        Route a request with two-level AI fallback.
 
-        V8.0: Three-level fallback - DeepSeek → Tavily → Claude 3 Haiku
-        No cooldown management needed (DeepSeek has high rate limits).
+        Level 1 (primary): DeepSeek via DeepSeekIntelProvider
+        Level 2 (fallback): Claude 3 Haiku via OpenRouterFallbackProvider
+
+        Tavily is a search/enrichment provider, NOT an AI analysis fallback.
+        It is used for pre-enrichment in specific methods (confirm_biscotto,
+        verify_news_batch, enrich_match_context).
 
         Args:
             operation: Name of the operation for logging
             primary_func: Primary provider (DeepSeek) method to call
-            fallback_1_func: Fallback 1 provider (Tavily) method to call
-            fallback_2_func: Fallback 2 provider (Claude 3 Haiku) method to call, or None
+            fallback_1_func: Fallback provider (Claude 3 Haiku) method to call
+            fallback_2_func: Reserved for future use (currently always None)
             *args, **kwargs: Arguments to pass to the provider method
 
         Returns:
@@ -501,7 +523,7 @@ class IntelligenceRouter:
                 self._budget_manager.record_call("main_pipeline")
 
                 # Format enrichment
-                enrichment_parts = []
+                enrichment_parts: list[str] = []
 
                 if response.answer:
                     enrichment_parts.append(f"[TAVILY SUMMARY]\n{response.answer}")
@@ -685,7 +707,10 @@ class IntelligenceRouter:
         """
         Enrich match context with Tavily before DeepSeek analysis.
 
-        V7.0: Uses Tavily for initial enrichment, then DeepSeek for deep analysis.
+        Architecture:
+            1. Tavily pre-enrichment (adds web search context)
+            2. DeepSeek deep analysis (primary) → Claude 3 Haiku (fallback)
+            3. If both AI providers fail, return Tavily-only enrichment as last resort
 
         Args:
             home_team: Home team name
@@ -705,30 +730,28 @@ class IntelligenceRouter:
         )
 
         # Step 2: Merge Tavily context with existing
-        merged_context = self._merge_tavily_context(existing_context, tavily_enrichment)
+        merged_context = self._merge_tavily_context(existing_context, tavily_enrichment or "")
 
-        # Step 3: Continue with DeepSeek analysis
-        try:
-            result = self._primary_provider.enrich_match_context(
+        # Step 3: Route to DeepSeek → Claude 3 Haiku via _route_request for consistency
+        result = self._route_request(
+            operation="match_context_enrichment",
+            primary_func=lambda: self._primary_provider.enrich_match_context(
                 home_team, away_team, match_date, league, merged_context
-            )
+            ),
+            fallback_1_func=lambda: self._fallback_2_provider.enrich_match_context(
+                home_team, away_team, match_date, league, merged_context
+            ) if hasattr(self._fallback_2_provider, 'enrich_match_context') else None,
+            fallback_2_func=None,
+        )
 
-            # Add Tavily flag to result
-            if result:
-                result["tavily_enriched"] = tavily_enrichment is not None
-                return result
-            else:
-                # DeepSeek returned None - fall back to Tavily enrichment
-                logger.warning(
-                    "⚠️ [DEEPSEEK] Match context enrichment returned None, using Tavily fallback"
-                )
+        # Step 4: Handle result
+        if result:
+            result["tavily_enriched"] = tavily_enrichment is not None
+            return result
 
-        except Exception as e:
-            logger.warning(f"⚠️ [DEEPSEEK] Match context enrichment failed: {e}")
-
-        # Return Tavily-only enrichment if DeepSeek fails or returns None
+        # Step 5: Both AI providers failed — return Tavily-only enrichment as last resort
         if tavily_enrichment:
-            logger.info("✅ [INTELLIGENCEROUTER] Using Tavily-only enrichment as fallback")
+            logger.info("✅ [INTELLIGENCEROUTER] Using Tavily-only enrichment as last resort")
             return {
                 "context": tavily_enrichment,
                 "source": "tavily_only",
@@ -746,7 +769,8 @@ class IntelligenceRouter:
         """
         Extract recent tweets from specified accounts.
 
-        Uses DeepSeek + TwitterIntelCache (V10.0) with fallback to Claude 3 Haiku.
+        Routes via _route_request for architectural consistency:
+        DeepSeek (primary) → Claude 3 Haiku (fallback).
 
         Args:
             handles: List of Twitter handles (with @)
@@ -755,29 +779,16 @@ class IntelligenceRouter:
         Returns:
             Dict with extracted tweets or None
         """
-        try:
-            result = self._primary_provider.extract_twitter_intel(handles, max_posts_per_account)
-            if result is None:
-                logger.debug(f"🐦 [INTEL] No Twitter intel available for {len(handles)} handles")
-            return result
-        except Exception as e:
-            logger.warning(
-                f"⚠️ [DEEPSEEK] Twitter intel extraction failed: {e}, trying Claude fallback..."
-            )
-
-            # Fall back to OpenRouterFallbackProvider (Claude 3 Haiku)
-            try:
-                result = self._fallback_2_provider.extract_twitter_intel(
-                    handles, max_posts_per_account
-                )
-                if result:
-                    logger.info(
-                        "✅ [INTELLIGENCEROUTER] Using Claude 3 Haiku fallback for Twitter intel"
-                    )
-                return result
-            except Exception as fallback_error:
-                logger.warning(f"⚠️ [CLAUDE] Twitter intel fallback failed: {fallback_error}")
-                return None
+        return self._route_request(
+            operation="twitter_intel_extraction",
+            primary_func=lambda: self._primary_provider.extract_twitter_intel(
+                handles, max_posts_per_account
+            ),
+            fallback_1_func=lambda: self._fallback_2_provider.extract_twitter_intel(
+                handles, max_posts_per_account
+            ) if hasattr(self._fallback_2_provider, 'extract_twitter_intel') else None,
+            fallback_2_func=None,
+        )
 
     def format_enrichment_for_prompt(self, enrichment: dict) -> str:
         """

@@ -218,7 +218,7 @@ def simulate_search_hunt(team_name: str, league_key: str) -> list[dict]:
     logger.info(f"🔍 Searching for team: {team_name}")
     logger.info(f"   League: {league_key}")
 
-    raw_results = []
+    raw_results: list[dict[str, Any]] = []
 
     try:
         # Initialize Brave Search directly (most reliable)
@@ -240,7 +240,7 @@ def simulate_search_hunt(team_name: str, league_key: str) -> list[dict]:
             f"{team_name} lineup update",
         ]
 
-        all_results = []
+        all_results: list[dict[str, Any]] = []
         for query in search_queries:
             logger.info(f"   📡 Executing query: {query[:60]}...")
             try:
@@ -319,7 +319,7 @@ def analyze_relevance_filters(raw_results: list[dict], team_name: str) -> tuple[
         re.IGNORECASE,
     )
 
-    filtered_results = []
+    filtered_results: list[dict[str, Any]] = []
     filter_stats = {
         "total": len(raw_results),
         "excluded_sports": 0,
@@ -430,7 +430,7 @@ def check_verification_layer(
         "skipped": 0,
     }
 
-    verified_results = []
+    verified_results: list[dict[str, Any]] = []
 
     if not filtered_results:
         logger.info("⚠️ No filtered results to verify")

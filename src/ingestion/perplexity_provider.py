@@ -466,7 +466,7 @@ class PerplexityProvider:
 
         def safe_list(val, default=None):
             if default is None:
-                default = []
+                default: list[dict[str, Any]] = []
             if val is None:
                 return default
             if isinstance(val, list):
@@ -542,7 +542,7 @@ class PerplexityProvider:
         ]
 
         # Filter items that need verification
-        items_to_verify = []
+        items_to_verify: list[dict[str, Any]] = []
         for item in news_items:
             confidence = item.get("confidence", "LOW")
 

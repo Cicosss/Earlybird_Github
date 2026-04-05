@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/referee_influence_metrics.py
+# hypothesis_version: 6.151.4
+
+[0.0, '\nBreakdown:', '\nConfidence Changes:', '\nDecision Changes:', '=', 'BET', 'NO BET', 'avg_decrease', 'avg_increase', 'boost_no_bet_to_bet', 'boosts', 'boosts_applied', 'boosts_by_type', 'cards', 'confidence_changes', 'confidence_only', 'corners', 'data/metrics', 'decision_changes', 'decrease_count', 'goals', 'increase_count', 'influence', 'influence_corners', 'influence_goals', 'influence_winner', 'influences', 'influences_applied', 'intervention_rate', 'last_updated', 'market_influence', 'market_upgrades', 'matches_analyzed', 'name', 'no_bet_to_bet', 'r', 'referee_stats', 'total_analyses', 'total_boosts_applied', 'total_decrease', 'total_increase', 'total_interventions', 'total_vetoes_applied', 'upgrade', 'upgrade_cards_line', 'upgrades', 'upgrades_applied', 'utf-8', 'veto', 'veto_cards', 'vetoes', 'w', 'winner']

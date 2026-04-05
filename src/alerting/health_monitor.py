@@ -519,7 +519,7 @@ class HealthMonitor:
         Returns:
             Lista di tuple (issue_key, severity, message_it)
         """
-        issues = []
+        issues: list[tuple] = []
 
         # --- 1. SYSTEM: Disk Usage ---
         issues.extend(self._check_disk_usage())
@@ -534,7 +534,7 @@ class HealthMonitor:
 
     def _check_disk_usage(self) -> list[tuple[str, str, str]]:
         """Check disk usage and return issues if thresholds exceeded."""
-        issues = []
+        issues: list[tuple] = []
         try:
             disk = psutil.disk_usage("/")
             disk_percent = disk.percent
@@ -566,7 +566,7 @@ class HealthMonitor:
 
     def _check_database(self) -> list[tuple[str, str, str]]:
         """Check database connectivity and return issues if any."""
-        issues = []
+        issues: list[tuple] = []
 
         if not DB_AVAILABLE or SessionLocal is None:
             issues.append(
@@ -599,7 +599,7 @@ class HealthMonitor:
 
     def _check_odds_api(self) -> list[tuple[str, str, str]]:
         """Check Odds API connectivity and return issues if any."""
-        issues = []
+        issues: list[tuple] = []
 
         odds_api_key = os.getenv("ODDS_API_KEY")
         if not odds_api_key:
@@ -674,7 +674,7 @@ class HealthMonitor:
             return []
 
         cooldown = timedelta(hours=ISSUE_COOLDOWN_HOURS)
-        new_issues = []
+        new_issues: list[tuple] = []
 
         # Use lock for thread-safe access to last_alerts
         with self._stats_lock:

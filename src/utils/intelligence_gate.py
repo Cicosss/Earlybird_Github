@@ -70,7 +70,6 @@ INJURY_KEYWORDS = {
     ],
     "spanish": [
         "lesión",  # injury
-        "huelga",  # strike
         "lesionado",  # injured
         "dolor",  # pain
         "problema físico",  # physical problem
@@ -79,16 +78,21 @@ INJURY_KEYWORDS = {
         "descartado",  # ruled out
         "duda",  # doubtful
         "convocatoria",  # call-up/squad announcement
+        "huelga",  # strike
+        # V12.7: Financial/Logistical crisis (synced with content_analysis.py)
+        "sueldos atrasados",  # delayed wages
+        "crisis financiera",  # financial crisis
+        "huelga de jugadores",  # players' strike
     ],
     "arabic": [
         "إصابة",  # injury
-        "أزمة",  # crisis
-        "إصابة طبية",  # medical injury
-        "مشكلة صحية",  # health problem
         "غياب",  # absence
         "مصاب",  # injured
-        "الاحتياط",  # reserve/bench
-        "تشكيلة",  # lineup/formation
+        "تأخر المستحقات",  # Delayed dues/payments
+        "أزمة المستحقات",  # Dues crisis
+        "إضراب اللاعبين",  # Player strike
+        "الفريق الرديف",  # Reserve team
+        "حظر الملعب",  # Stadium ban
     ],
     "french": [
         "blessure",  # injury
@@ -113,13 +117,31 @@ INJURY_KEYWORDS = {
     ],
     "portuguese": [
         "lesão",  # injury
+        "lesões",  # injuries (plural)
+        "lesionado",  # injured
+        "lesionados",  # injured (plural)
+        "ausente",  # absent
+        "fora",  # out
+        "machucado",  # hurt/injured (BR slang)
+        "contundido",  # injured (BR formal)
+        "desfalque",  # absence/loss (BR)
+        "baixa",  # absence/casualty
+        "dores",  # pains
+        "tratamento",  # treatment
         "greve",  # strike
         "dor",  # pain
         "problema físico",  # physical problem
         "ausência",  # absence
-        "lesionado",  # injured
         "reserva",  # reserve/bench
         "escalação",  # lineup/formation
+        # V12.7: Financial/Logistical crisis (synced with content_analysis.py)
+        "salários atrasados",  # delayed wages (plural)
+        "salario atrasado",  # delayed wage (singular)
+        "greve de treinos",  # training strike
+        "greve dos jogadores",  # players' strike
+        "problemas financeiros",  # financial problems
+        "crise no clube",  # club crisis
+        "crise financeira",  # financial crisis
     ],
     "polish": [
         "kontuzja",  # injury
@@ -174,6 +196,10 @@ TEAM_KEYWORDS = {
         "once titular",  # starting eleven
         "banquillo",  # bench
         "convocatoria",  # call-up/squad
+        # V12.7: B-Team/rotation slang (synced with content_analysis.py)
+        "equipo reserva",  # reserve team
+        "segundo equipo",  # second team
+        "plantilla alternativa",  # alternative squad
     ],
     "arabic": [
         "فريق",  # team
@@ -214,6 +240,14 @@ TEAM_KEYWORDS = {
         "titular",  # starter
         "reserva",  # substitute
         "elenco",  # squad
+        "escalacao",  # lineup (unaccented variant - common in URLs/informal text)
+        "titulares",  # starters (plural)
+        "desfalques",  # absences/losses (plural, BR)
+        # V12.8: B-Team/rotation insider slang - NOW SYNCED with content_analysis.py YOUTH_CALLUP_KEYWORDS
+        "time misto",  # mixed team (B-team + reserves)
+        "time reserva",  # reserve team
+        "elenco alternativo",  # alternative squad
+        "time b",  # B-team
     ],
     "polish": [
         "drużyna",  # team
@@ -258,11 +292,11 @@ TEAM_KEYWORDS = {
 }
 
 # Flatten all keywords for efficient matching
-ALL_INJURY_KEYWORDS = []
+ALL_INJURY_KEYWORDS: list[str] = []
 for lang, keywords in INJURY_KEYWORDS.items():
     ALL_INJURY_KEYWORDS.extend(keywords)
 
-ALL_TEAM_KEYWORDS = []
+ALL_TEAM_KEYWORDS: list[str] = []
 for lang, keywords in TEAM_KEYWORDS.items():
     ALL_TEAM_KEYWORDS.extend(keywords)
 
@@ -393,16 +427,23 @@ def build_level_2_prompt(text: str) -> str:
     Returns:
         Formatted prompt for DeepSeek-V3
     """
-    prompt = f"""Translate the following text to Italian and determine if it contains relevant injury or team information.
+    prompt = f"""Translate the following text to Italian and determine if it contains relevant injury or team, or crisis information.
 Reply ONLY with JSON in this exact format: {{"translation": "str", "is_relevant": bool}}
 
 Text: {text}
 
 IMPORTANT:
 - Translate to Italian in one sentence
-- Set is_relevant to true ONLY if the text discusses injuries (infortuni) or lineup changes (cambi formazione)
-- If the text is about salaries, transfers, or other non-betting topics, set is_relevant to false
+- Set is_relevant to true ONLY if the text discusses:
+  - Injuries (infortuni) or lineup changes (cambi formazione)
+  - Internal/financial crisis: unpaid wages, player strikes, delayed payments, club financial problems
+  - Logistical disruption: flight delays, stadium bans, travel chaos
+- Arabic financial crisis terms like "تأخر المستحقات", "أزمة المستحقات", "إضراب اللاعبين" indicate INTERNAL CRISIS
+- Portuguese B-Team slang like "time misto", "time reserva", "elenco alternativo" indicate ROTATION/YOUTH lineup
+- If the text is about salaries, transfers ONLY (no crisis), or other non-betting topics, set is_relevant to false
 - Return ONLY valid JSON, no other text
+
+- IMPORTANT: Preserve the original Arabic/Portuguese text in the translation so the reader understands the source context.
 
 Respond with JSON only."""
     return prompt

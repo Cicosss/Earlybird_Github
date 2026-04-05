@@ -16,4 +16,4 @@ Analysis engines, verifiers, and optimization components.
 # - from src.analysis.final_alert_verifier import get_final_verifier
 #     (instead of from src.analysis import get_final_verifier)
 
-__all__ = []
+__all__: list[str] = []

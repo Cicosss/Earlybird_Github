@@ -182,7 +182,7 @@ class MediaStackQueryBuilder:
         cleaned_questions.sort(key=len)
 
         # Pack questions into bins using greedy algorithm
-        bins = []
+        bins: list[list[str]] = []
         OR_LENGTH = len(" OR ")  # Length of separator between questions
 
         for question in cleaned_questions:
@@ -210,7 +210,7 @@ class MediaStackQueryBuilder:
                 bins.append([question])
 
         # Combine questions in each bin with OR operator and URL-encode
-        result_queries = []
+        result_queries: list[str] = []
         for i, bin_questions in enumerate(bins):
             combined = " OR ".join(bin_questions)
             encoded_query = quote(combined, safe=" ")

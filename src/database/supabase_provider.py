@@ -35,7 +35,7 @@ load_dotenv(env_file)
 
 # Type hint for Client (avoid import error if not installed)
 if TYPE_CHECKING:
-    pass
+    from supabase._sync.client import Client as SupabaseClient
 
 try:
     from supabase import create_client
@@ -78,7 +78,7 @@ class SupabaseProvider:
     """
 
     _instance: Optional["SupabaseProvider"] = None
-    _client: Any | None = None
+    _client: "SupabaseClient | None" = None
     _instance_lock = threading.Lock()  # Thread-safe singleton creation (V11.1)
 
     def __new__(cls):
@@ -273,36 +273,6 @@ class SupabaseProvider:
             self._cache_lock_wait_time = 0.0
             self._cache_lock_wait_count = 0
             self._cache_lock_timeout_count = 0
-
-    def invalidate_cache(self, cache_key: str | None = None) -> None:
-        """
-        Invalidate cache for a specific key or all cache entries.
-
-        V12.5: Add cache invalidation mechanism for manual cache clearing.
-
-        Args:
-            cache_key: Specific cache key to invalidate. If None, clears all cache.
-        """
-        if self._acquire_cache_lock_with_monitoring(timeout=CACHE_LOCK_TIMEOUT):
-            try:
-                if cache_key:
-                    # Invalidate specific cache key
-                    if cache_key in self._cache:
-                        del self._cache[cache_key]
-                        del self._cache_timestamps[cache_key]
-                        logger.info(f"🗑️ Cache invalidated for key: {cache_key}")
-                    else:
-                        logger.debug(f"Cache key not found: {cache_key}")
-                else:
-                    # Invalidate all cache
-                    cleared_count = len(self._cache)
-                    self._cache.clear()
-                    self._cache_timestamps.clear()
-                    logger.info(f"🗑️ All cache cleared ({cleared_count} entries)")
-            finally:
-                self._cache_lock.release()
-        else:
-            logger.warning("Failed to acquire cache lock for invalidation")
 
     def invalidate_leagues_cache(self) -> None:
         """
@@ -602,7 +572,7 @@ class SupabaseProvider:
                     # The social_sources table may have records without explicit "name" field
                     required_fields = ["id", "league_id"]
                 else:
-                    required_fields = []
+                    required_fields: list[str] = []
 
                 if required_fields:
                     missing_fields = [f for f in required_fields if f not in first_item]
@@ -1024,9 +994,9 @@ class SupabaseProvider:
         hierarchical_data = {"continents": []}
 
         # V13.0: Collect all data during iteration to avoid redundant fetches
-        all_countries = []
-        all_leagues = []
-        all_sources = []
+        all_countries: list[dict[str, Any]] = []
+        all_leagues: list[dict[str, Any]] = []
+        all_sources: list[dict[str, Any]] = []
 
         for continent in continents:
             continent_data = {
@@ -1160,7 +1130,7 @@ class SupabaseProvider:
                 continent_map[continent["id"]] = continent
 
         # Enrich leagues with country and continent data
-        enriched_leagues = []
+        enriched_leagues: list[dict[str, Any]] = []
         for league in leagues:
             country_id = league.get("country_id")
             country = country_map.get(country_id)
@@ -1237,8 +1207,8 @@ class SupabaseProvider:
         """
         continents = self.fetch_continents()
 
-        active_blocks = []
-        continents_without_hours = []
+        active_blocks: list[str] = []
+        continents_without_hours: list[str] = []
 
         for continent in continents:
             active_hours = continent.get("active_hours_utc", [])
@@ -1326,8 +1296,8 @@ class SupabaseProvider:
                 "total": 10
             }
         """
-        valid_keys = []
-        invalid_keys = []
+        valid_keys: list[str] = []
+        invalid_keys: list[dict[str, Any]] = []
 
         for league in leagues:
             api_key = league.get("api_key")
@@ -1526,7 +1496,7 @@ class SupabaseProvider:
                     cache_data = json.load(f)
 
             # Extract tweets from cache (simplified - removed dead Layer2 fields)
-            tweets = []
+            tweets: list[dict[str, Any]] = []
             for handle_key, entry in cache_data.items():
                 if isinstance(entry, dict) and "tweets" in entry:
                     for tweet in entry["tweets"]:
@@ -1591,6 +1561,9 @@ class SupabaseProvider:
         """
         Invalidate cache entries (thread-safe).
 
+        V12.5: Add cache invalidation mechanism for manual cache clearing.
+        V12.7: Merged duplicate definition — unified with safe .pop() and count logging.
+
         Args:
             cache_key: Specific cache key to invalidate. If None, clears all cache.
         """
@@ -1599,13 +1572,16 @@ class SupabaseProvider:
         if self._acquire_cache_lock_with_monitoring(timeout=CACHE_LOCK_TIMEOUT):
             try:
                 if cache_key:
+                    # Invalidate specific cache key (safe with .pop — no KeyError)
                     self._cache.pop(cache_key, None)
                     self._cache_timestamps.pop(cache_key, None)
-                    logger.info(f"Invalidated cache for key: {cache_key}")
+                    logger.info(f"🗑️ Cache invalidated for key: {cache_key}")
                 else:
+                    # Invalidate all cache
+                    cleared_count = len(self._cache)
                     self._cache.clear()
                     self._cache_timestamps.clear()
-                    logger.info("Invalidated all cache")
+                    logger.info(f"🗑️ All cache cleared ({cleared_count} entries)")
             finally:
                 self._cache_lock.release()
         else:
@@ -1633,6 +1609,8 @@ class SupabaseProvider:
         Returns:
             True if connection is successful, False otherwise
         """
+        # V12.6 COVE FIX: Corrected condition — was `or self._client` (wrong),
+        # should be `or not self._client` (client must exist to test connection).
         if not self._connected or not self._client:
             logger.error("Not connected to Supabase")
             return False
@@ -1647,6 +1625,151 @@ class SupabaseProvider:
             self._connected = False
             self._connection_error = str(e)
             return False
+
+    # ============================================
+    # V12.6: DATABASE AUTO-HEALING (Idempotent Data Fixes)
+    # ============================================
+
+    def update_news_source(self, source_id: str | int, updates: dict[str, Any]) -> bool:
+        """
+        Update a news source in Supabase by ID.
+
+        V12.7: Public API for updating news sources. Centralizes all write access
+        to the news_sources table through a single method, eliminating direct _client
+        access from external scripts. Provides proper None-safety and connection validation.
+
+        Args:
+            source_id: The source ID to update.
+            updates: Dict of field names and their new values
+                     (e.g., {"navigation_mode": "single"}).
+
+        Returns:
+            True if the update was applied successfully, False otherwise.
+        """
+        if not self._connected or not self._client:
+            logger.error("Cannot update source: Supabase not connected")
+            return False
+
+        try:
+            result = (
+                self._client.table("news_sources").update(updates).eq("id", source_id).execute()
+            )
+            if result.data:
+                logger.debug(f"Updated source {source_id}: {updates}")
+                return True
+            else:
+                logger.warning(f"No rows updated for source {source_id}")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to update source {source_id}: {e}")
+            return False
+
+    # Known problematic source configurations that need correction.
+    # Each entry: (URL/domain substring to match, field to fix, correct value)
+    # This list is the SINGLE SOURCE OF TRUTH for all known source misconfigurations.
+    KNOWN_SOURCE_FIXES: list[tuple[str, str, Any]] = [
+        # palembang.tribunnews.com/superball/ returns 147k+ chars via plain HTTP.
+        # It does NOT need Playwright-based paginated scanning. Forcing paginated
+        # causes it to fail within the 3s timeout.
+        ("palembang.tribunnews.com", "navigation_mode", "single"),
+        # 96fmbauru.com.br is a Brazilian radio station site. It blocks plain HTTP
+        # requests (needs Scrapling/stealth) but does NOT have meaningful pagination.
+        # Single-page stealth scan is sufficient and avoids timeout failures.
+        ("96fmbauru.com.br", "navigation_mode", "single"),
+    ]
+
+    def apply_known_data_fixes(self) -> int:
+        """
+        Apply idempotent data fixes to Supabase news_sources.
+
+        V12.6: Integrates the manual fix_paginated_sources.py script into the
+        standard migration flow. This method is called during `make migrate`
+        and is safe to run multiple times (idempotent).
+
+        Logic:
+        1. Fetch all news_sources from Supabase (bypassing cache for fresh data).
+        2. For each source, check if its URL/domain matches any known problematic pattern.
+        3. If the current field value is not optimal, execute an UPDATE query.
+        4. Log each action taken.
+
+        Returns:
+            Number of sources that were corrected (0 if all already correct or no connection).
+        """
+        if not self._connected or not self._client:
+            logger.warning("🛠️ [DB-MIGRATION] Skipping data fixes - Supabase not connected")
+            return 0
+
+        fixes_applied = 0
+
+        try:
+            # Fetch all news sources, bypassing cache to get latest data
+            all_sources = self.fetch_all_news_sources()
+
+            if not all_sources:
+                logger.info("🛠️ [DB-MIGRATION] No news sources found - nothing to fix")
+                return 0
+
+            logger.info(
+                f"🛠️ [DB-MIGRATION] Checking {len(all_sources)} sources "
+                f"against {len(self.KNOWN_SOURCE_FIXES)} known fix rules..."
+            )
+
+            for src in all_sources:
+                url = src.get("url", "") or src.get("domain", "")
+                source_id = src.get("id")
+
+                if not url or not source_id:
+                    continue
+
+                # Check each known fix rule against this source
+                for url_substring, field_name, correct_value in self.KNOWN_SOURCE_FIXES:
+                    if url_substring not in url:
+                        continue
+
+                    # V12.6 COVE FIX: Skip fix if the target column doesn't exist in the
+                    # Supabase schema. The column may not have been added yet, or may have
+                    # a different name. This prevents PGRST204 errors on every migration run.
+                    if field_name not in src:
+                        logger.debug(
+                            f"🛠️ [DB-MIGRATION] Skipping {url}: column '{field_name}' "
+                            f"not found in Supabase schema (will use local default)"
+                        )
+                        continue
+
+                    current_value = src.get(field_name)
+
+                    # Idempotent: only update if the value is NOT already correct
+                    if current_value == correct_value:
+                        continue
+
+                    # Apply the fix via centralized update method (V12.7)
+                    success = self.update_news_source(source_id, {field_name: correct_value})
+                    if success:
+                        logger.info(
+                            f"🛠️ [DB-MIGRATION] Fixed {url}: "
+                            f"{field_name} '{current_value}' → '{correct_value}'"
+                        )
+                        fixes_applied += 1
+                    else:
+                        logger.warning(
+                            f"🛠️ [DB-MIGRATION] No rows updated for {url} (id={source_id})"
+                        )
+
+                    break  # Only apply first matching fix per source
+
+            if fixes_applied > 0:
+                logger.info(
+                    f"🛠️ [DB-MIGRATION] Applied {fixes_applied} data fix(es) to Supabase sources."
+                )
+                # Invalidate sources cache so fresh data is used
+                self.invalidate_cache()
+            else:
+                logger.info("🛠️ [DB-MIGRATION] All sources already correct - no fixes needed.")
+
+        except Exception as e:
+            logger.error(f"🛠️ [DB-MIGRATION] Error during data fixes: {e}")
+
+        return fixes_applied
 
 
 def get_supabase() -> SupabaseProvider:

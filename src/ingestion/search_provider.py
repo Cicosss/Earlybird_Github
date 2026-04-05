@@ -21,6 +21,7 @@ import logging
 import re
 import threading
 import time
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,19 @@ from src.utils.http_client import get_http_client
 # ============================================
 # V9.2: DATABASE-DRIVEN HIERARCHICAL SOURCE FETCHING
 # ============================================
-try:
-    from src.database.supabase_provider import get_supabase
+from typing import Any, Callable
 
+# Type annotation for optional Supabase provider (may be None if import fails)
+get_supabase: Callable[[], Any] | None = None
+
+try:
+    from src.database.supabase_provider import get_supabase as _get_supabase_impl
+
+    get_supabase = _get_supabase_impl
     _SUPABASE_PROVIDER_AVAILABLE = True
     logger.info("✅ Supabase Provider available for hierarchical source fetching")
 except ImportError as e:
     _SUPABASE_PROVIDER_AVAILABLE = False
-    get_supabase = None
     logger.warning(f"⚠️ Supabase Provider not available: {e}")
 
 # ============================================
@@ -109,7 +115,7 @@ def _fetch_news_sources_from_supabase(league_key: str) -> list[str] | None:
         news_sources = sb.get_news_sources(league_id)
 
         # Extract domain names
-        domains = []
+        domains: list[str] = []
         for source in news_sources:
             domain = source.get("domain")
             if domain and source.get("is_active"):
@@ -125,7 +131,7 @@ def _fetch_news_sources_from_supabase(league_key: str) -> list[str] | None:
         return None
 
 
-def get_news_domains_for_league(league_key: str) -> list[str]:
+def get_news_domains_for_league(league_key: str | None) -> list[str]:
     """
     Get news source domains for a specific league with Supabase-first strategy.
 
@@ -139,11 +145,13 @@ def get_news_domains_for_league(league_key: str) -> list[str]:
     V10.3: Added timeout to Supabase query to prevent indefinite hangs.
 
     Args:
-        league_key: API league key (e.g., 'soccer_brazil_campeonato')
+        league_key: API league key (e.g., 'soccer_brazil_campeonato'), or None
 
     Returns:
-        List of domain names
+        List of domain names (empty if league_key is None)
     """
+    if not league_key:
+        return []
     current_time = time.time()
 
     # Check cache first (thread-safe)
@@ -488,7 +496,7 @@ class SearchProvider:
         Returns:
             List of query variations in order of preference
         """
-        variations = []
+        variations: list[str] = []
 
         # Variation 1: Optimized query (current behavior)
         optimized = self._optimize_query_for_ddg(query)
@@ -644,7 +652,7 @@ class SearchProvider:
                         f"[DDG] Query variation {i + 1} succeeded: {len(raw_results)} results"
                     )
 
-                    results = []
+                    results: list[dict[str, str]] = []
                     for item in raw_results:
                         # Clean and truncate snippet to save tokens (unescape HTML + limit to 350 chars)
                         raw_snippet = item.get("body", "")
@@ -755,7 +763,7 @@ class SearchProvider:
             logger.warning(f"⚠️ Mediastack search failed: {e}")
             return []
 
-    def _build_insider_query(self, team: str, keywords: str, league_key: str = None) -> str:
+    def _build_insider_query(self, team: str, keywords: str, league_key: str | None = None) -> str:
         """
         Build search query with insider domain dorking for Elite leagues.
 
@@ -882,7 +890,9 @@ class SearchProvider:
         logger.warning(f"All search backends failed for: {query[:50]}...")
         return []
 
-    def search_news(self, query: str, num_results: int = 5, league_key: str = None) -> list[dict]:
+    def search_news(
+        self, query: str, num_results: int = 5, league_key: str | None = None
+    ) -> list[dict]:
         """Search specifically for news (football only, excludes basketball).
 
         If league_key is provided and has insider domains configured,
@@ -919,7 +929,7 @@ class SearchProvider:
         domains: list[str],
         keywords: list[str],
         num_results: int = 5,
-        league_key: str = None,
+        league_key: str | None = None,
     ) -> list[dict]:
         """Search local news sources for team information (football only).
 
@@ -931,7 +941,7 @@ class SearchProvider:
             league_key: Optional league key for localized sport keyword
         """
         # Build query parts
-        query_parts = []
+        query_parts: list[str] = []
 
         # Add team name if provided
         if team_name and team_name.strip():
@@ -982,23 +992,30 @@ class SearchProvider:
 # SINGLETON & CONVENIENCE FUNCTIONS
 # ============================================
 _provider_instance: SearchProvider | None = None
+_provider_lock = threading.Lock()  # Thread-safe lock for singleton creation
 
 
 def get_search_provider() -> SearchProvider:
-    """Get or create the singleton SearchProvider instance."""
+    """Get or create the singleton SearchProvider instance (thread-safe).
+
+    Uses double-checked locking pattern consistent with get_verification_orchestrator()
+    and get_radar() to prevent race conditions on VPS multi-threaded execution.
+    """
     global _provider_instance
     if _provider_instance is None:
-        _provider_instance = SearchProvider()
+        with _provider_lock:
+            if _provider_instance is None:
+                _provider_instance = SearchProvider()
     return _provider_instance
 
 
-def search_news(query: str, num_results: int = 5, league_key: str = None) -> list[dict]:
+def search_news(query: str, num_results: int = 5, league_key: str | None = None) -> list[dict]:
     """Convenience function for news search."""
     return get_search_provider().search_news(query, num_results, league_key=league_key)
 
 
 def search_local(
-    team: str, domains: list[str], keywords: list[str], league_key: str = None
+    team: str, domains: list[str], keywords: list[str], league_key: str | None = None
 ) -> list[dict]:
     """Convenience function for local news search."""
     return get_search_provider().search_local_news(team, domains, keywords, league_key=league_key)

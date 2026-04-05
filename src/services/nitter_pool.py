@@ -22,7 +22,7 @@ import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 from dateutil import parser as date_parser
@@ -212,7 +212,7 @@ class CircuitBreaker:
         self._last_failure_time = None
         self._half_open_calls = 0
 
-    def get_stats(self) -> Dict[str, any]:
+    def get_stats(self) -> Dict[str, Any]:
         """
         Get circuit breaker statistics.
 
@@ -435,7 +435,7 @@ class NitterPool:
         Returns:
             List of instance URLs that are not in OPEN state
         """
-        healthy = []
+        healthy: list[str] = []
         for instance, circuit_breaker in self.circuit_breakers.items():
             if circuit_breaker.can_call():
                 healthy.append(instance)
@@ -467,7 +467,7 @@ class NitterPool:
         for instance in self.instances:
             self.reset_instance(instance)
 
-    def get_pool_stats(self) -> Dict[str, any]:
+    def get_pool_stats(self) -> Dict[str, Any]:
         """
         Get overall pool statistics.
 
@@ -579,7 +579,7 @@ class NitterPool:
             return []
 
         content_lower = content.lower()
-        topics = []
+        topics: list[str] = []
 
         # Topic detection patterns (same as TwitterIntelCache)
         topic_patterns = {
@@ -627,7 +627,7 @@ class NitterPool:
 
     def _parse_rss_response(
         self, content: str, instance: str, username: str
-    ) -> List[Dict[str, any]]:
+    ) -> List[Dict[str, Any]]:
         """
         Parse RSS XML response to extract tweets.
 
@@ -639,7 +639,7 @@ class NitterPool:
         Returns:
             List of standardized tweet dictionaries
         """
-        tweets = []
+        tweets: list[dict[str, Any]] = []
         try:
             soup = BeautifulSoup(content, "xml")
             items = soup.find_all("item")
@@ -695,7 +695,7 @@ class NitterPool:
 
     def _parse_html_response(
         self, content: str, instance: str, username: str
-    ) -> List[Dict[str, any]]:
+    ) -> List[Dict[str, Any]]:
         """
         Parse HTML response to extract tweets (fallback method).
 
@@ -707,7 +707,7 @@ class NitterPool:
         Returns:
             List of standardized tweet dictionaries
         """
-        tweets = []
+        tweets: list[dict[str, Any]] = []
         try:
             soup = BeautifulSoup(content, "lxml")
 
@@ -732,7 +732,11 @@ class NitterPool:
                 if not tweet_date:
                     continue
 
-                date_text = tweet_date.get("title") or tweet_date.get_text()
+                date_attr = tweet_date.get("title")
+                if isinstance(date_attr, str):
+                    date_text = date_attr
+                else:
+                    date_text = tweet_date.get_text()
                 published_at = self._normalize_date(date_text)
                 if not published_at:
                     continue
@@ -782,9 +786,10 @@ class NitterPool:
             Exception: If the fetch fails
         """
         try:
-            # Use synchronous Fetcher with browser impersonation
-            fetcher = Fetcher()
-            response = fetcher.get(url, timeout=15, impersonate="chrome", stealthy_headers=True)
+            # V15.0 FIX: Use Fetcher class directly (no instantiation).
+            # Scrapling 0.4: Fetcher.get is already a bound method on a pre-created singleton.
+            # Calling Fetcher() triggers a deprecation warning and is a no-op.
+            response = Fetcher.get(url, timeout=15, impersonate="chrome", stealthy_headers=True)
 
             # Return response text
             return response.text
@@ -794,7 +799,7 @@ class NitterPool:
 
     async def fetch_tweets_async(
         self, username: str, max_retries: Optional[int] = None
-    ) -> List[Dict[str, any]]:
+    ) -> List[Dict[str, Any]]:
         """
         Fetch tweets from a Twitter username using Nitter instances with hybrid scraping.
 
@@ -827,7 +832,7 @@ class NitterPool:
         # Strip @ prefix if present
         username = username.lstrip("@")
 
-        tweets = []
+        tweets: list[dict[str, Any]] = []
         retry_count = 0
 
         # COVE FIX: Use all instances by default, not just 3
@@ -838,10 +843,11 @@ class NitterPool:
         instances_tried = 0
         last_error = None
 
-        # Initialize Scrapling fetcher with stealth capabilities (V11.0 optimization: create once outside retry loop)
+        # V11.0 optimization: use AsyncFetcher class directly (no instantiation).
+        # Scrapling 0.4: AsyncFetcher.get is already a bound method on a pre-created singleton.
+        # Calling AsyncFetcher() triggers a deprecated deprecation warning and is a no-op.
         # Note: Scrapling handles User-Agent rotation automatically via stealthy_headers
-        # V11.0.1: Using AsyncFetcher directly with parameters in get() calls
-        fetcher = AsyncFetcher()
+        fetcher = AsyncFetcher
 
         while retry_count < effective_max_retries:
             # CRITICAL BUG #2 FIX: get_healthy_instance() is now sync, no await needed

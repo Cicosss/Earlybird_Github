@@ -152,7 +152,7 @@ def get_social_sources_from_supabase(league_key: str = None) -> list[str]:
     Returns:
         List of Twitter handles (with @)
     """
-    handles = []
+    handles: list[str] = []
 
     # Try Supabase first
     if _SUPABASE_AVAILABLE and _SUPABASE_PROVIDER:
@@ -550,7 +550,7 @@ class TwitterIntelCache:
         # Ottieni handle da interrogare
         if tier:
             handles_by_country = get_handles_by_tier(tier)
-            all_handles = []
+            all_handles: list[dict[str, Any]] = []
             for handles in handles_by_country.values():
                 all_handles.extend(handles)
         else:
@@ -622,7 +622,7 @@ class TwitterIntelCache:
         # V7.0: Attempt Tavily recovery for accounts without data
         if self._tavily and hasattr(self._tavily, "is_available") and self._tavily.is_available():
             # COVE FIX: Refactored anti-pattern - use proper None check instead of creating empty entry
-            failed_handles = []
+            failed_handles: list[dict[str, Any]] = []
             for h in all_handles:
                 handle_key = self._normalize_handle(h)
                 entry = self._cache.get(handle_key)
@@ -726,7 +726,7 @@ class TwitterIntelCache:
             Lista di tweet rilevanti per la lega
         """
         accounts = get_twitter_intel_accounts(league_key)
-        tweets = []
+        tweets: list[dict[str, Any]] = []
 
         with self._cache_lock:
             for account in accounts:
@@ -753,7 +753,7 @@ class TwitterIntelCache:
         if not query or not isinstance(query, str):
             return []
 
-        results = []
+        results: list[dict[str, Any]] = []
         query_lower = query.lower()
 
         # Determina quali entry cercare
@@ -811,7 +811,7 @@ class TwitterIntelCache:
 
             # Combine and deduplicate tweets
             seen_tweets = set()
-            unique_tweets = []
+            unique_tweets: list[dict[str, Any]] = []
 
             for tweet in home_tweets + away_tweets:
                 # Create unique identifier (handle + content + date)
@@ -986,7 +986,7 @@ class TwitterIntelCache:
                     logging.debug(f"🐦 Budget recording failed: {e}")
 
             # Normalize Tavily results to CachedTweet format
-            recovered_tweets = []
+            recovered_tweets: list[dict[str, Any]] = []
             for result in response.results[:max_results]:
                 tweet = self._normalize_tavily_to_tweet(handle, result)
                 if tweet:
@@ -1083,7 +1083,7 @@ class TwitterIntelCache:
             return []
 
         content_lower = content.lower()
-        topics = []
+        topics: list[str] = []
 
         # Topic detection patterns
         topic_patterns = {
@@ -1281,7 +1281,7 @@ class TwitterIntelCache:
         # V12.5.1 COVE FIX: Limit recovery to prevent excessive latency on VPS
         MAX_NITTER_RECOVERY_ACCOUNTS = int(os.getenv("MAX_NITTER_RECOVERY_ACCOUNTS", "10"))
 
-        handles_still_without_data = []
+        handles_still_without_data: list[dict[str, Any]] = []
 
         # Identify accounts that still don't have data after Tavily
         for handle in failed_handles:
@@ -1366,20 +1366,20 @@ class TwitterIntelCache:
                     logging.warning(
                         f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned None for @{handle}"
                     )
-                    tweets_data = []
+                    tweets_data: list[dict[str, Any]] = []
                 elif not isinstance(tweets_data, list):
                     logging.warning(
                         f"⚠️ [NITTER-RECOVERY] fetch_tweets_async returned unexpected type "
                         f"{type(tweets_data).__name__} for @{handle}, expected list"
                     )
-                    tweets_data = []
+                    tweets_data: list[dict[str, Any]] = []
 
                 if tweets_data:
                     # V10.5: Apply TweetRelevanceFilter for precision gating
                     filter_instance = _get_tweet_relevance_filter()
 
                     # Convert to CachedTweet format and filter
-                    cached_tweets = []
+                    cached_tweets: list[dict[str, Any]] = []
                     for tweet in tweets_data[:max_results]:
                         content = tweet.get("content", "")
 
@@ -1527,7 +1527,7 @@ class TwitterIntelCache:
                 return []
 
             # Convert Brave results to tweet-like format
-            tweets = []
+            tweets: list[dict[str, Any]] = []
             for item in results:
                 tweets.append(
                     {
