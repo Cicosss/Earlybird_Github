@@ -26625,3 +26625,101 @@ Call log:
 2026-04-03 22:36:50,425 - INFO - ✅ [V2.6] Perplexity corners: home=5.0, away=4.5, signal=Medium, cards=Unknown, confidence=Medium (0.00s)
 2026-04-03 22:36:50,425 - INFO - ✅ [V2.6] Perplexity rescued data after Tavily failure
 2026-04-03 22:36:51,147 - WARNING - 🔍 Budget monitoring not active
+2026-04-08 14:00:54,601 - INFO - 📦 Main Pipeline V11.2
+2026-04-08 14:00:54,617 - INFO - ✅ Supabase Provider module loaded
+2026-04-08 14:00:54,617 - INFO - ✅ Intelligence Router module loaded
+2026-04-08 14:00:54,617 - INFO - ✅ Intelligent Deduplication module loaded
+2026-04-08 14:00:54,617 - INFO - ✅ Market Intelligence module loaded
+2026-04-08 14:00:54,617 - INFO - ✅ Fatigue Engine V2.0 loaded
+2026-04-08 14:00:54,617 - INFO - ✅ Injury Impact Engine V8.0 loaded
+2026-04-08 14:00:54,622 - INFO - ✅ Biscotto Engine V2.0 loaded
+2026-04-08 14:00:54,622 - INFO - ✅ Twitter Intel Cache loaded
+2026-04-08 14:00:54,622 - INFO - ✅ Nitter Intel Cache module loaded
+2026-04-08 14:00:54,622 - INFO - ✅ PASS: src.main module imported successfully
+2026-04-08 14:00:54,624 - INFO - 
+======================================================================
+2026-04-08 14:00:54,625 - INFO - TEST 2: Verify analyze_single_match function exists
+2026-04-08 14:00:54,625 - INFO - ======================================================================
+2026-04-08 14:00:54,625 - INFO - ✅ PASS: analyze_single_match function exists and is callable
+2026-04-08 14:00:54,625 - INFO - 
+======================================================================
+2026-04-08 14:00:54,625 - INFO - TEST 3: Verify function signature
+2026-04-08 14:00:54,625 - INFO - ======================================================================
+2026-04-08 14:00:54,626 - INFO - Function parameters: ['match_id', 'forced_narrative']
+2026-04-08 14:00:54,626 - INFO - ✅ forced_narrative has default value: None
+2026-04-08 14:00:54,626 - INFO - ✅ PASS: Function signature is correct
+2026-04-08 14:00:54,626 - INFO - 
+======================================================================
+2026-04-08 14:00:54,626 - INFO - TEST 4: Verify database initialization
+2026-04-08 14:00:54,626 - INFO - ======================================================================
+2026-04-08 14:00:54,628 - INFO - Database initialized successfully at sqlite:///data/earlybird.db
+2026-04-08 14:00:54,628 - INFO - ✅ PASS: Database initialized successfully
+2026-04-08 14:00:54,628 - INFO - ✅ PASS: Database session created successfully
+2026-04-08 14:00:54,629 - INFO - 
+======================================================================
+2026-04-08 14:00:54,629 - INFO - TEST 5: Create test match in database
+2026-04-08 14:00:54,629 - INFO - ======================================================================
+2026-04-08 14:00:54,636 - INFO - ✅ Test match already exists: Test Home Team vs Test Away Team
+2026-04-08 14:00:54,637 - INFO - 
+======================================================================
+2026-04-08 14:00:54,638 - INFO - TEST 6: Call analyze_single_match with valid match_id
+2026-04-08 14:00:54,638 - INFO - ======================================================================
+2026-04-08 14:00:54,639 - INFO - 🎯 RADAR ANALYSIS: Test Home Team vs Test Away Team (ID: test_radar_match_001)
+2026-04-08 14:00:54,639 - INFO - ✅ Loaded optimizer data from data/optimizer_weights.json
+2026-04-08 14:00:54,639 - INFO - 📊 Optimizer V3.0 initialized with 310 historical bets
+2026-04-08 14:00:54,644 - INFO - ✅ Radar narrative logged in NewsLog
+2026-04-08 14:00:54,644 - INFO - ✅ FotMob Provider initialized (UA rotation + Aggressive SWR caching enabled)
+2026-04-08 14:00:54,647 - INFO - 
+🔍 Investigating Test Home Team vs Test Away Team (soccer_epl)...
+2026-04-08 14:00:54,647 - INFO - ⚡ [PARALLEL] Starting enrichment for Test Home Team vs Test Away Team
+2026-04-08 14:00:54,648 - INFO - 🔑 TavilyKeyRotator V8.0 initialized with 7 keys
+2026-04-08 14:00:54,648 - INFO - 🎭 BrowserFingerprint singleton created (6 profiles)
+2026-04-08 14:00:54,648 - INFO - EarlyBirdHTTPClient initialized (HTTPX mode)
+2026-04-08 14:00:54,649 - INFO - 📦 [SHARED-CACHE] Global shared cache initialized
+2026-04-08 14:00:54,650 - INFO - ✅ Tavily AI Search initialized with circuit breaker (with shared cache)
+2026-04-08 14:00:54,650 - INFO - 🐦 TwitterIntelCache initialized with Tavily recovery
+2026-04-08 14:00:55,181 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:00:58,048 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:00:59,893 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:00:59,893 - WARNING - ⚠️ Team not found: Test Home Team
+2026-04-08 14:00:59,894 - WARNING - ⚠️ Team ID not found for: Test Home Team
+2026-04-08 14:01:01,838 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:04,397 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:05,837 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:05,837 - WARNING - ⚠️ Team not found: Test Away Team
+2026-04-08 14:01:05,838 - WARNING - ⚠️ Team ID not found for: Test Away Team
+2026-04-08 14:01:07,980 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:10,029 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:12,190 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:12,191 - WARNING - ⚠️ Team not found: Test Home Team
+2026-04-08 14:01:12,191 - WARNING - ⚠️ Team ID not found for: Test Home Team
+2026-04-08 14:01:14,227 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:16,422 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:18,581 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:18,581 - WARNING - ⚠️ Team not found: Test Away Team
+2026-04-08 14:01:18,582 - WARNING - ⚠️ Team ID not found for: Test Away Team
+2026-04-08 14:01:20,782 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:22,931 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:24,996 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 14:01:24,996 - WARNING - ⚠️ Team not found: Test Home Team
+2026-04-08 14:01:27,342 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 21:04:10,543 - WARNING - ⚠️ [PARALLEL] Total timeout (90s) exceeded
+2026-04-08 21:04:10,548 - WARNING - ⚠️ [FOTMOB] Timeout. Retry 1/3 in 2s
+2026-04-08 21:04:10,828 - INFO - 🛑 Received signal 15, cleaning up...
+2026-04-08 21:04:10,829 - INFO - ✅ Cleanup completed: requests session closed
+2026-04-08 21:04:10,830 - INFO - ✅ SQLite WAL mode enabled for better concurrency
+2026-04-08 21:04:10,831 - INFO - ✅ Metrics database initialized at /home/linux/Earlybird_Github/data/earlybird.db
+2026-04-08 21:04:10,848 - INFO - 📊 No restart count found in database, starting from 0
+2026-04-08 21:04:10,862 - INFO - ✅ Cleanup completed: orchestration metrics collector stopped
+2026-04-08 21:04:10,896 - INFO - ✅ [FOTMOB] Cleanup completed
+2026-04-08 21:04:10,898 - INFO - ✅ Cleanup completed: FotMob provider (Playwright)
+2026-04-08 21:04:10,952 - INFO - 🔍 BudgetIntelligenceIntegration initialized: 3600s monitoring, 24h reporting
+2026-04-08 21:04:10,952 - WARNING - 🔍 Budget monitoring not active
+2026-04-08 21:04:10,953 - INFO - ✅ Cleanup completed: budget intelligence monitoring stopped
+2026-04-08 21:04:10,961 - INFO - 🌐 [BROWSER-MONITOR] V13.1 Created (Scrapling WAF bypass + Thread-safe config)
+2026-04-08 21:04:18,183 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 21:04:19,038 - ERROR - ❌ [FOTMOB] HTTP error 404
+2026-04-08 21:04:19,041 - WARNING - ⚠️ Team not found: Test Home Team
+2026-04-08 21:04:19,041 - WARNING - ⚠️ Team ID not found for: Test Home Team
+2026-04-08 21:04:19,042 - INFO - ⚡ [PARALLEL] Completed in 25404394ms: 5/10 successful
+2026-04-08 21:04:21,163 - WARNING - 🔍 Budget monitoring not active

@@ -248,13 +248,14 @@ class SetupVerifier:
             "ODDS_API_KEY",
             "OPENROUTER_API_KEY",
             "BRAVE_API_KEY",
-            "TELEGRAM_TOKEN",
+            "TELEGRAM_BOT_TOKEN",
+            "TELEGRAM_TOKEN",  # Fallback if TELEGRAM_BOT_TOKEN not set
             "TELEGRAM_CHAT_ID",
         ]
 
         optional_vars = [
             "GEMINI_API_KEY",
-            "SERPER_API_KEY",
+            "SERPER_API_KEY",  # DEPRECATED: Use BRAVE_API_KEY instead (Serper is no longer maintained)
             "PERPLEXITY_API_KEY",
         ]
 

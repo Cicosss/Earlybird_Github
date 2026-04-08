@@ -1345,16 +1345,35 @@ class TwitterIntelCache:
 
             logging.info(f"🐦 [NITTER] Attempting recovery for {len(handles)} handles...")
 
+            # V14.0 COVE FIX: Use reusable event loop instead of asyncio.run() per handle.
+            # asyncio.run() creates/destroys an event loop each call (inefficient).
+            # With nest_asyncio applied at module level, we can safely use
+            # get_event_loop().run_until_complete() which reuses the existing loop.
+            # This is faster and avoids the "event loop already running" RuntimeError.
+            try:
+                _event_loop = asyncio.get_event_loop()
+                _loop_is_new = not _event_loop.is_running()
+            except RuntimeError:
+                # No event loop in this thread - create one (nest_asyncio handles this)
+                _event_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(_event_loop)
+                _loop_is_new = True
+
             for handle in handles:
                 try:
-                    # V10.5 FIX: Use nest_asyncio to avoid event loop conflict
-                    # when called from within an already-running asyncio.run() in main.py
-                    # V11.1 FIX: nest_asyncio.apply() already called at module level
-                    # MODERATE BUG #7 FIX: asyncio import moved to module level to avoid overhead
-                    tweets_data = asyncio.run(pool.fetch_tweets_async(handle))
+                    tweets_data = _event_loop.run_until_complete(pool.fetch_tweets_async(handle))
                 except RuntimeError as e:
-                    logging.error(f"❌ [NITTER-RECOVERY] Failed to fetch tweets: {e}")
-                    tweets_data = None
+                    # V14.0: Fallback if event loop is somehow still conflicting
+                    # Create fresh loop for this specific call
+                    logging.warning(f"⚠️ [NITTER-RECOVERY] Event loop conflict for @{handle}: {e}")
+                    try:
+                        _fresh_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(_fresh_loop)
+                        tweets_data = _fresh_loop.run_until_complete(
+                            pool.fetch_tweets_async(handle)
+                        )
+                    finally:
+                        _fresh_loop.close()
                 except Exception as e:
                     # COVE FIX: Fallback to Brave Search when NitterPool is exhausted
                     logging.warning(f"⚠️ [NITTER-RECOVERY] NitterPool exhausted for @{handle}: {e}")

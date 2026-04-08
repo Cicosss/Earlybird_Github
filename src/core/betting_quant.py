@@ -178,6 +178,71 @@ class BettingQuant:
     # PUBLIC INTERFACE
     # ============================================
 
+    def pre_flight_volatility_check(self, match: Match) -> tuple[bool, str | None]:
+        """
+        V12.8 Pre-Flight Volatility Check: Detect massive odds drops BEFORE calling AI.
+
+        This lightweight check evaluates the 1X2 Market odds drops to identify matches
+        where bookmakers have already priced in all value. If detected, the caller
+        (AnalysisEngine) should abort before spending DeepSeek tokens.
+
+        Unlike the full evaluate_bet() which runs AFTER AI and checks the AI's chosen
+        specific market, this check runs BEFORE AI and checks ALL primary 1X2 markets
+        as a coarse "is this match burned?" filter.
+
+        Token Savings: Each avoided DeepSeek call saves ~0.03-0.05 USD in API costs.
+        On a typical cycle with 50+ matches, this can save $1-2/cycle on dead matches.
+
+        Args:
+            match: Match database object with opening_*_odd and current_*_odd fields
+
+        Returns:
+            Tuple of (is_market_crashed, reason):
+            - (True, reason_string): Market crashed → DO NOT call AI, abort immediately
+            - (False, None): Market stable → proceed to DeepSeek triangulation
+        """
+        # VPS FIX: Use getattr() to prevent session detachment errors
+        # Match objects can become detached under high connection pool load
+        markets_to_check = [
+            ("Home", "opening_home_odd", "current_home_odd"),
+            ("Draw", "opening_draw_odd", "current_draw_odd"),
+            ("Away", "opening_away_odd", "current_away_odd"),
+        ]
+
+        for market_name, opening_attr, current_attr in markets_to_check:
+            opening_odd = getattr(match, opening_attr, None)
+            current_odd = getattr(match, current_attr, None)
+
+            # Skip if odds data is incomplete (can't evaluate this market)
+            if not opening_odd or not current_odd:
+                continue
+
+            # Validate numeric values
+            if not isinstance(opening_odd, (int, float)) or not isinstance(
+                current_odd, (int, float)
+            ):
+                continue
+
+            if opening_odd <= 0:
+                continue
+
+            # Calculate percentage drop
+            drop_pct = (opening_odd - current_odd) / opening_odd
+
+            if drop_pct >= MARKET_VETO_THRESHOLD:
+                reason = (
+                    f"{market_name} odds crashed {drop_pct * 100:.1f}% "
+                    f"(>={MARKET_VETO_THRESHOLD * 100:.0f}%): "
+                    f"{opening_odd:.2f} → {current_odd:.2f}. "
+                    f"Value destroyed by bookmaker movement."
+                )
+                self.logger.info(f"🛑 PRE-FLIGHT VETO: {reason}")
+                return True, reason
+
+        # Market is stable — safe to proceed to AI analysis
+        self.logger.debug("✅ Pre-flight check passed: 1X2 markets stable, proceeding to DeepSeek")
+        return False, None
+
     def evaluate_bet(
         self,
         match: Match,
@@ -230,25 +295,6 @@ class BettingQuant:
                 veto_reason=VetoReason.SAFETY_VIOLATION,
                 ai_prob=ai_prob,
             )
-
-        # VPS FIX: Copy all needed Match attributes before using them
-        # This prevents session detachment issues when Match object becomes detached
-        # from session due to connection pool recycling under high load
-        match_id = match.id
-        home_team = match.home_team
-        away_team = match.away_team
-        league = match.league
-        match_start_time = (
-            match.start_time
-        )  # VPS FIX: Renamed to avoid shadowing performance monitoring variable
-        opening_home_odd = match.opening_home_odd
-        opening_draw_odd = match.opening_draw_odd
-        opening_away_odd = match.opening_away_odd
-        current_home_odd = match.current_home_odd
-        current_draw_odd = match.current_draw_odd
-        current_away_odd = match.current_away_odd
-        current_over_2_5 = match.current_over_2_5
-        current_under_2_5 = match.current_under_2_5
 
         # Step 1: Run Poisson simulation
         poisson_result = self.predictor.simulate_match(
@@ -355,7 +401,7 @@ class BettingQuant:
         elapsed_ms = (time.time() - start_time) * 1000
         self.logger.debug(
             f"⏱️ BettingQuant.evaluate_bet() completed in {elapsed_ms:.2f}ms "
-            f"(match={match_id}, verdict={betting_decision.verdict})"
+            f"(match={match.id}, verdict={betting_decision.verdict})"
         )
 
         return betting_decision
@@ -622,53 +668,6 @@ class BettingQuant:
         # Safety: Clamp probability - no certainty exists in sports
         if math_prob >= SAFETY_MAX_PROB:
             return f"Probability too high ({math_prob:.2f} >= {SAFETY_MAX_PROB})"
-
-        return None
-
-    def _apply_market_veto(
-        self, match: Match, analysis: NewsLog, edge_result: EdgeResult
-    ) -> VetoReason | None:
-        """
-        Apply the 25% Market Veto (Value Guard).
-
-        If odds have dropped >= 25%, the market has already priced in
-        the news, so there's no value left.
-
-        Args:
-            match: Match database object
-            analysis: NewsLog analysis object
-            edge_result: Edge calculation result
-
-        Returns:
-            VetoReason if vetoed, None otherwise
-        """
-        # Extract odds drop from analysis summary or match data
-        odds_drop = 0.0
-
-        # Try to extract from analysis summary
-        summary = getattr(analysis, "summary", "")
-        if summary and "dropped" in summary.lower():
-            import re
-
-            drop_match = re.search(r"dropped\s+(\d+(?:\.\d+)?)\s*%", summary, re.IGNORECASE)
-            if drop_match:
-                odds_drop = float(drop_match.group(1)) / 100.0
-
-        # Try to extract from match odds
-        # VPS FIX: Use getattr with default values to prevent session detachment
-        if odds_drop == 0.0 and match:
-            opening_odd = getattr(match, "opening_home_odd", None)
-            current_odd = getattr(match, "current_home_odd", None)
-            if opening_odd and current_odd and opening_odd > 0:
-                odds_drop = (opening_odd - current_odd) / opening_odd
-
-        # Apply veto if drop >= 25%
-        if odds_drop >= MARKET_VETO_THRESHOLD:
-            self.logger.info(
-                f"🛑 MARKET VETO: Odds dropped {odds_drop * 100:.1f}% "
-                f"(>={MARKET_VETO_THRESHOLD * 100:.0f}%), value is gone"
-            )
-            return VetoReason.MARKET_CRASHED
 
         return None
 

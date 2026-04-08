@@ -25,12 +25,10 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler("earlybird_main.log")],
-)
+# Configure logging using centralized config
+from src.config.logging_config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # CRITICAL: Load .env BEFORE any other imports that read env vars
@@ -577,486 +575,16 @@ from config.settings import (
 from src.alerting.health_monitor import get_health_monitor
 from src.alerting.notifier import send_biscotto_alert, send_status_message
 
-# ============================================
-# INTELLIGENCE-ONLY LEAGUES (No Odds Available)
-# ============================================
-# These leagues are analyzed purely on News + Stats (FotMob)
-# No odds tracking - alerts marked with "NEWS SIGNAL ONLY"
-
-INTELLIGENCE_ONLY_LEAGUES = {
-    "soccer_africa_cup_of_nations",  # AFCON - Radar only
-    # Add more as needed
-}
-
-# ============================================
-# INVESTIGATOR MODE: CASE CLOSED COOLDOWN
-# ============================================
-# Once a verdict is reached, "Close the Case" for 6 hours to save API credits
-# Exception: If match starts in < 2 hours, ignore cooldown (Final Check allowed)
-
-CASE_CLOSED_COOLDOWN_HOURS = 6  # Hours to wait before re-investigating
-FINAL_CHECK_WINDOW_HOURS = 2  # Hours before kickoff when cooldown is ignored
-
-
-def is_intelligence_only_league(league_key: str) -> bool:
-    """Check if a league is Intelligence-Only (no odds available)."""
-    if not league_key:
-        return False
-    # Check exact match or partial match for Africa-related leagues
-    if league_key in INTELLIGENCE_ONLY_LEAGUES:
-        return True
-    if "africa" in league_key.lower() or "egypt" in league_key.lower():
-        return True
-    return False
-
-
-def is_case_closed(match, now: datetime) -> tuple:
-    """
-    CASE CLOSED COOLDOWN: Check if match investigation is on cooldown.
-
-    Rules:
-    - If last_deep_dive_time > (now - 6 hours) AND time_to_kickoff > 2 hours:
-      -> SKIP ANALYSIS (Case Closed - Cooldown Active)
-    - Exception: If match starts in < 2 hours, ignore cooldown (Final Check allowed)
-
-    Args:
-        match: Match object with last_deep_dive_time
-        now: Current UTC time
-
-    Returns:
-        Tuple of (is_closed, reason)
-    """
-    # VPS FIX: Extract Match attributes safely to prevent session detachment
-    # This prevents "Trust validation error" when Match object becomes detached
-    # from session due to connection pool recycling under high load
-    from src.utils.match_helper import extract_match_info
-
-    match_info = extract_match_info(match)
-
-    # No previous investigation - case is open
-    if not match_info["last_deep_dive_time"]:
-        return False, "First investigation"
-
-    # Calculate time since last investigation
-    hours_since_dive = (now - match_info["last_deep_dive_time"]).total_seconds() / 3600
-
-    # Calculate time to kickoff
-    hours_to_kickoff = (match_info["start_time"] - now).total_seconds() / 3600
-
-    # EXCEPTION: Final Check window - always allow investigation
-    if hours_to_kickoff <= FINAL_CHECK_WINDOW_HOURS:
-        return False, f"Final Check ({hours_to_kickoff:.1f}h to kickoff)"
-
-    # Check cooldown
-    if hours_since_dive < CASE_CLOSED_COOLDOWN_HOURS:
-        return (
-            True,
-            f"Case Closed - Cooldown ({hours_since_dive:.1f}h since last dive, {hours_to_kickoff:.1f}h to kickoff)",
-        )
-
-    return False, f"Cooldown expired ({hours_since_dive:.1f}h since last dive)"
-
-
-# Configure logging - force reconfiguration
-from logging.handlers import RotatingFileHandler
-
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-
-# Remove any existing handlers
-for handler in root_logger.handlers[:]:
-    root_logger.removeHandler(handler)
-
-# Add our handlers
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-
-# Console handler with immediate flush
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(formatter)
-console_handler.stream.reconfigure(line_buffering=True) if hasattr(
-    console_handler.stream, "reconfigure"
-) else None
-
-# File handler with rotation (5MB max, 3 backups = 15MB total max)
-file_handler = RotatingFileHandler("earlybird.log", maxBytes=5_000_000, backupCount=3)
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-
-root_logger.addHandler(console_handler)
-root_logger.addHandler(file_handler)
-
-
-def is_biscotto_suspect(match) -> dict:
-    """
-    🍪 BISCOTTO DETECTION: Check if Draw odds indicate a "mutually beneficial draw".
-
-    V6.1: Added edge case protection for invalid odds values.
-    VPS FIX: Extract Match attributes safely to prevent session detachment
-    V13.0: MIGRATED to Advanced Biscotto Engine V2.0 with multi-factor analysis
-
-    Returns:
-        dict with 'is_suspect', 'reason', 'draw_odd', 'drop_pct', 'severity', 'confidence', 'factors'
-    """
-    # Try to use advanced biscotto engine if available
-    if _BISCOTTO_ENGINE_AVAILABLE:
-        try:
-            from src.analysis.biscotto_engine import get_enhanced_biscotto_analysis
-
-            # Try to fetch motivation data from FotMob for enhanced analysis
-            home_motivation = None
-            away_motivation = None
-
-            try:
-                from src.ingestion.data_provider import get_data_provider
-
-                provider = get_data_provider()
-
-                # Get team names safely
-                home_team = getattr(match, "home_team", None)
-                away_team = getattr(match, "away_team", None)
-
-                if home_team and away_team:
-                    # Fetch motivation context for both teams
-                    home_context = provider.get_table_context(home_team)
-                    away_context = provider.get_table_context(away_team)
-
-                    # Build motivation dicts for biscotto engine
-                    if home_context and not home_context.get("error"):
-                        home_motivation = {
-                            "zone": home_context.get("zone", "Unknown"),
-                            "position": home_context.get("position", 0),
-                            "total_teams": home_context.get("total_teams", 20),
-                            "points": home_context.get("points", 0),
-                            "matches_remaining": home_context.get("matches_remaining"),
-                        }
-
-                    if away_context and not away_context.get("error"):
-                        away_motivation = {
-                            "zone": away_context.get("zone", "Unknown"),
-                            "position": away_context.get("position", 0),
-                            "total_teams": away_context.get("total_teams", 20),
-                            "points": away_context.get("points", 0),
-                            "matches_remaining": away_context.get("matches_remaining"),
-                        }
-
-            except Exception as e:
-                # If motivation data fetch fails, continue without it (advanced engine has fallbacks)
-                logger.debug(f"⚠️ Could not fetch motivation data for biscotto analysis: {e}")
-
-            # Use advanced biscotto engine with available motivation data
-            analysis, _ = get_enhanced_biscotto_analysis(
-                match_obj=match,
-                home_motivation=home_motivation,
-                away_motivation=away_motivation,
-            )
-
-            # Convert BiscottoAnalysis to legacy dict format for backward compatibility
-            result = {
-                "is_suspect": analysis.is_suspect,
-                "severity": analysis.severity.value,
-                "reason": analysis.reasoning,
-                "draw_odd": analysis.current_draw_odd,
-                "drop_pct": analysis.drop_percentage,
-                # New fields from advanced engine
-                "confidence": analysis.confidence,
-                "factors": analysis.factors,
-                "pattern": analysis.pattern.value,
-                "zscore": analysis.zscore,
-                "mutual_benefit": analysis.mutual_benefit,
-                "betting_recommendation": analysis.betting_recommendation,
-            }
-
-            return result
-
-        except Exception as e:
-            # If advanced engine fails, fall back to legacy implementation
-            logger.warning(f"⚠️ Advanced biscotto engine failed, falling back to legacy: {e}")
-
-    # Legacy implementation (fallback)
-    result = {
-        "is_suspect": False,
-        "reason": None,
-        "draw_odd": None,
-        "drop_pct": 0,
-        "severity": "NONE",
-        "confidence": 0,
-        "factors": [],
-        "pattern": "STABLE",
-        "zscore": 0.0,
-        "mutual_benefit": False,
-        "betting_recommendation": "AVOID",
-    }
-
-    # VPS FIX: Extract Match attributes safely to prevent session detachment
-    # This prevents "Trust validation error" when Match object becomes detached
-    # from session due to connection pool recycling under high load
-    draw_odd = getattr(match, "current_draw_odd", None)
-    opening_draw = getattr(match, "opening_draw_odd", None)
-
-    # V6.1: Validate draw_odd is a positive number
-    if not draw_odd or not isinstance(draw_odd, (int, float)) or draw_odd <= 0:
-        return result
-
-    result["draw_odd"] = draw_odd
-
-    # Calculate drop percentage with full validation
-    # V6.1: Ensure both values are valid before division
-    # V8.3: Initialize drop_pct to avoid UnboundLocalError
-    drop_pct = 0
-    if (
-        opening_draw
-        and isinstance(opening_draw, (int, float))
-        and opening_draw > 0
-        and isinstance(draw_odd, (int, float))
-        and draw_odd > 0
-    ):
-        drop_pct = ((opening_draw - draw_odd) / opening_draw) * 100
-        result["drop_pct"] = drop_pct
-
-    # Check thresholds
-    if draw_odd < BISCOTTO_EXTREME_LOW:
-        result["is_suspect"] = True
-        result["severity"] = "EXTREME"
-        result["reason"] = f"🍪 EXTREME: Draw @ {draw_odd:.2f} (below {BISCOTTO_EXTREME_LOW})"
-        result["confidence"] = 90
-        result["factors"] = [f"🟠 Quota X estrema: {draw_odd:.2f}"]
-        result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT" if drop_pct > 8 else "STABLE"
-    elif draw_odd < BISCOTTO_SUSPICIOUS_LOW:
-        result["is_suspect"] = True
-        result["severity"] = "HIGH"
-        result["reason"] = f"🍪 SUSPICIOUS: Draw @ {draw_odd:.2f} (below {BISCOTTO_SUSPICIOUS_LOW})"
-        result["confidence"] = 75
-        result["factors"] = [f"🟡 Quota X sospetta: {draw_odd:.2f}"]
-        result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT" if drop_pct > 8 else "STABLE"
-    elif drop_pct > BISCOTTO_SIGNIFICANT_DROP and opening_draw:
-        # V6.1: Extra check that opening_draw exists before using in message
-        result["is_suspect"] = True
-        result["severity"] = "MEDIUM"
-        result["reason"] = (
-            f"🍪 DROPPING: Draw dropped {drop_pct:.1f}% ({opening_draw:.2f} → {draw_odd:.2f})"
-        )
-        result["confidence"] = 60
-        result["factors"] = [f"📉 Drop significativo: -{drop_pct:.1f}%"]
-        result["pattern"] = "CRASH" if drop_pct > 20 else "DRIFT"
-
-    return result
-
-
-# ============================================
-# ODDS DROP DETECTION (V2.0)
-# ============================================
-def check_odds_drops():
-    """
-    Check for significant odds movements in the database.
-
-    This function scans all matches in the database and identifies
-    significant odds drops that may indicate market movement or
-    insider information.
-
-    VPS FIX: Extract Match attributes safely to prevent session detachment
-    """
-    db = SessionLocal()
-    try:
-        # Get all matches with odds data
-        matches = (
-            db.query(Match)
-            .filter(
-                Match.start_time > datetime.now(timezone.utc),
-                Match.current_home_odd.isnot(None),
-                Match.opening_home_odd.isnot(None),
-            )
-            .all()
-        )
-
-        significant_drops: list[dict] = []
-
-        for match in matches:
-            # VPS FIX: Extract Match attributes safely to prevent session detachment
-            # This prevents "Trust validation error" when Match object becomes detached
-            # from session due to connection pool recycling under high load
-            home_team = getattr(match, "home_team", None)
-            away_team = getattr(match, "away_team", None)
-            opening_home_odd = getattr(match, "opening_home_odd", None)
-            current_home_odd = getattr(match, "current_home_odd", None)
-            opening_away_odd = getattr(match, "opening_away_odd", None)
-            current_away_odd = getattr(match, "current_away_odd", None)
-
-            # Calculate home odd drop
-            if opening_home_odd and current_home_odd:
-                home_drop_pct = ((opening_home_odd - current_home_odd) / opening_home_odd) * 100
-                if home_drop_pct > 25:  # 25%+ drop is significant
-                    significant_drops.append(
-                        {
-                            "match": match,
-                            "type": "HOME_DROP",
-                            "drop_pct": home_drop_pct,
-                            "opening": opening_home_odd,
-                            "current": current_home_odd,
-                        }
-                    )
-
-            # Calculate away odd drop
-            if opening_away_odd and current_away_odd:
-                away_drop_pct = ((opening_away_odd - current_away_odd) / opening_away_odd) * 100
-                if away_drop_pct > 25:  # 25%+ drop is significant
-                    significant_drops.append(
-                        {
-                            "match": match,
-                            "type": "AWAY_DROP",
-                            "drop_pct": away_drop_pct,
-                            "opening": opening_away_odd,
-                            "current": current_away_odd,
-                        }
-                    )
-
-        if significant_drops:
-            logging.info(f"💹 Found {len(significant_drops)} significant odds drops")
-            for drop in significant_drops:
-                match = drop["match"]
-                # Extract team names safely
-                home_team = getattr(match, "home_team", "Unknown")
-                away_team = getattr(match, "away_team", "Unknown")
-                logging.info(
-                    f"   📉 {home_team} vs {away_team}: {drop['type']} {drop['drop_pct']:.1f}% ({drop['opening']:.2f} → {drop['current']:.2f})"
-                )
-
-        return significant_drops
-
-    finally:
-        db.close()
-
-
-# ============================================
-# BISCOTTO SCANNER (V2.0)
-# ============================================
-def check_biscotto_suspects():
-    """
-    Scan for Biscotto suspects (suspicious Draw odds).
-
-    This function identifies matches with unusually low Draw odds
-    that may indicate a "mutually beneficial draw" scenario.
-
-    VPS FIX: Extract Match attributes safely to prevent session detachment
-    """
-    db = SessionLocal()
-    try:
-        # Get all matches with draw odds data
-        matches = (
-            db.query(Match)
-            .filter(
-                Match.start_time > datetime.now(timezone.utc), Match.current_draw_odd.isnot(None)
-            )
-            .all()
-        )
-
-        suspects: list[dict] = []
-
-        for match in matches:
-            result = is_biscotto_suspect(match)
-            if result["is_suspect"]:
-                suspects.append(
-                    {
-                        "match": match,
-                        "severity": result["severity"],
-                        "reason": result["reason"],
-                        "draw_odd": result["draw_odd"],
-                        "drop_pct": result["drop_pct"],
-                        # Enhanced fields from advanced engine
-                        "confidence": result.get("confidence", 0),
-                        "factors": result.get("factors", []),
-                        "pattern": result.get("pattern", "STABLE"),
-                        "zscore": result.get("zscore", 0.0),
-                        "mutual_benefit": result.get("mutual_benefit", False),
-                        "betting_recommendation": result.get("betting_recommendation", "AVOID"),
-                    }
-                )
-
-        if suspects:
-            logging.info(f"🍪 Found {len(suspects)} Biscotto suspects")
-            for suspect in suspects:
-                match = suspect["match"]
-                # VPS FIX: Extract team names safely to prevent session detachment
-                home_team = getattr(match, "home_team", "Unknown")
-                away_team = getattr(match, "away_team", "Unknown")
-
-                # Enhanced logging with confidence and factors
-                confidence = suspect.get("confidence", 0)
-                factors = suspect.get("factors", [])
-                pattern = suspect.get("pattern", "STABLE")
-
-                logging.info(
-                    f"   🍪 {home_team} vs {away_team}: {suspect['reason']} "
-                    f"| Confidence: {confidence}% | Pattern: {pattern}"
-                )
-
-                # Log factors if available
-                if factors:
-                    for factor in factors[:3]:  # Log top 3 factors
-                        logging.info(f"      - {factor}")
-
-                # Send alert for EXTREME suspects
-                if suspect["severity"] == "EXTREME":
-                    try:
-                        # Verify alert before sending (Final Verifier)
-                        if _FINAL_VERIFIER_AVAILABLE:
-                            should_send, final_verification_info = (
-                                verify_biscotto_alert_before_telegram(
-                                    match=match,
-                                    draw_odd=suspect["draw_odd"],
-                                    drop_pct=suspect["drop_pct"],
-                                    severity=suspect["severity"],
-                                    reasoning=suspect["reason"],
-                                    news_url=None,  # Biscotto alerts don't have news_url
-                                )
-                            )
-
-                            if should_send:
-                                send_biscotto_alert(
-                                    match=match,
-                                    reason=suspect["reason"],
-                                    draw_odd=suspect["draw_odd"],
-                                    drop_pct=suspect["drop_pct"],
-                                    final_verification_info=final_verification_info,
-                                    # Enhanced fields
-                                    confidence=suspect.get("confidence"),
-                                    factors=suspect.get("factors"),
-                                    pattern=suspect.get("pattern"),
-                                    zscore=suspect.get("zscore"),
-                                    mutual_benefit=suspect.get("mutual_benefit"),
-                                    betting_recommendation=suspect.get("betting_recommendation"),
-                                    # COVE FIX: Pass database session for updating alert flags
-                                    db_session=db,
-                                )
-                            else:
-                                logging.warning(
-                                    f"🍪 Biscotto alert blocked by Final Verifier: "
-                                    f"{final_verification_info.get('reason', 'Unknown')}"
-                                )
-                        else:
-                            # Final Verifier not available, send without verification
-                            send_biscotto_alert(
-                                match=match,
-                                reason=suspect["reason"],
-                                draw_odd=suspect["draw_odd"],
-                                drop_pct=suspect["drop_pct"],
-                                # Enhanced fields
-                                confidence=suspect.get("confidence"),
-                                factors=suspect.get("factors"),
-                                pattern=suspect.get("pattern"),
-                                zscore=suspect.get("zscore"),
-                                mutual_benefit=suspect.get("mutual_benefit"),
-                                betting_recommendation=suspect.get("betting_recommendation"),
-                                # COVE FIX: Pass database session for updating alert flags
-                                db_session=db,
-                            )
-                    except Exception as e:
-                        logging.error(f"Failed to send Biscotto alert: {e}")
-
-        return suspects
-
-    finally:
-        db.close()
+# NOTE: INTELLIGENCE_ONLY_LEAGUES, CASE_CLOSED_COOLDOWN_HOURS, and FINAL_CHECK_WINDOW_HOURS
+# constants have been moved to src/core/analysis_engine.py
+# Functions is_intelligence_only_league, is_case_closed, is_biscotto_suspect,
+# check_odds_drops, and check_biscotto_suspects have been removed from main.py
+# as they are duplicated in src/core/analysis_engine.py (AnalysisEngine class methods)
+
+# Configure logging - force reconfiguration using centralized config
+from src.config.logging_config import setup_logging
+
+setup_logging(reconfigure=True)
 
 
 # ============================================
@@ -1285,7 +813,7 @@ def run_pipeline():
             active_leagues: list[str] = []
 
     # V11.0: Initialize Intelligence Queue for Global Parallel Architecture
-    _discovery_queue = None
+    discovery_queue = None
     try:
         from src.utils.discovery_queue import DiscoveryQueue
 
@@ -1494,8 +1022,8 @@ def run_pipeline():
 
                         if should_send:
                             send_biscotto_alert(
-                                match=suspect["match"],
-                                reason=suspect["reason"],
+                                match_obj=suspect["match"],
+                                reasoning=suspect["reason"],
                                 draw_odd=suspect["draw_odd"],
                                 drop_pct=suspect["drop_pct"],
                                 final_verification_info=final_verification_info,
@@ -1517,8 +1045,8 @@ def run_pipeline():
                     else:
                         # Final Verifier not available, send without verification
                         send_biscotto_alert(
-                            match=suspect["match"],
-                            reason=suspect["reason"],
+                            match_obj=suspect["match"],
+                            reasoning=suspect["reason"],
                             draw_odd=suspect["draw_odd"],
                             drop_pct=suspect["drop_pct"],
                             # Enhanced fields from Advanced Biscotto Engine V2.0
@@ -1844,7 +1372,6 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
                 continue
 
             # Extract item data
-            item.data.copy()
             team_name = item.team
             title = item.title
             url = item.url
@@ -1875,11 +1402,11 @@ def process_intelligence_queue(discovery_queue: DiscoveryQueue, db_session, fotm
                             )
 
                             tavily_result = tavily.search(query=tavily_query, max_results=3)
-                            if tavily_result and tavily_result.get("results"):
+                            if tavily_result and tavily_result.results:
                                 # FIX: Record the budget call after successful Tavily API call
                                 tavily_budget.record_call("news_radar")
                                 logging.info(
-                                    f"📊 [INTELLIGENCE-QUEUE] Tavily enrichment for {team_name}: {len(tavily_result['results'])} results"
+                                    f"📊 [INTELLIGENCE-QUEUE] Tavily enrichment for {team_name}: {len(tavily_result.results)} results"
                                 )
                                 # Could save enriched data to database here
                         except Exception as e:

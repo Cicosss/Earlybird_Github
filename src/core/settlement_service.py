@@ -787,16 +787,16 @@ class SettlementService:
 
         if odds_taken and closing_odds:
             clv_value = self._calculate_clv(odds_taken, closing_odds)
-
-            clv_emoji = "📈" if clv_value > 0 else "📉"
-            logger.info(
-                f"   {clv_emoji} CLV: {clv_value:+.2f}% (taken @{odds_taken:.2f} vs closing @{closing_odds:.2f})"
-            )
+            if clv_value is not None:
+                clv_emoji = "📈" if clv_value > 0 else "📉"
+                logger.info(
+                    f"   {clv_emoji} CLV: {clv_value:+.2f}% (taken @{odds_taken:.2f} vs closing @{closing_odds:.2f})"
+                )
 
         return clv_value
 
     def _calculate_clv(
-        self, odds_taken: float, closing_odds: float, margin: float = 0.05
+        self, odds_taken: float | None, closing_odds: float | None, margin: float = 0.05
     ) -> float | None:
         """
         Calculate Closing Line Value (CLV).
@@ -809,8 +809,8 @@ class SettlementService:
         2. CLV = (odds_taken / fair_closing_odds) - 1
 
         Args:
-            odds_taken: The decimal odds when we placed/recommended the bet
-            closing_odds: The decimal odds at match kickoff
+            odds_taken: The decimal odds when we placed/recommended the bet (can be None)
+            closing_odds: The decimal odds at match kickoff (can be None)
             margin: Estimated bookmaker margin (default 5%)
 
         Returns:
@@ -1028,12 +1028,12 @@ class SettlementService:
 
     def _evaluate_bet(
         self,
-        recommended_market: str,
+        recommended_market: str | None,
         home_score: int,
         away_score: int,
-        home_odd: float = None,
+        home_odd: float | None = None,
         match_status: str = "FINISHED",
-        match_stats: dict = None,
+        match_stats: dict | None = None,
     ) -> tuple[str, str]:
         """
         Evaluate if a bet won or lost based on the result.
@@ -1044,7 +1044,7 @@ class SettlementService:
         - Non-standard AI output formats
 
         Args:
-            recommended_market: The market we recommended (e.g., "Home Win", "Over 2.5 Goals")
+            recommended_market: The market we recommended (e.g., "Home Win", "Over 2.5 Goals") - can be None
             home_score: Final home score
             away_score: Final away score
             home_odd: Home odds (for context)
@@ -1282,7 +1282,11 @@ class SettlementService:
                 return RESULT_LOSS, f"❌ Over {limit} {stat_type.title()}s ({actual_total} totali)"
 
     def _evaluate_combo_bet(
-        self, combo_suggestion: str, home_score: int, away_score: int, match_stats: dict = None
+        self,
+        combo_suggestion: str,
+        home_score: int,
+        away_score: int,
+        match_stats: dict | None = None,
     ) -> tuple[str, str, str]:
         """
         Evaluate a combo bet like "1 + over2.5" or "X2 + over cards".
@@ -1291,7 +1295,7 @@ class SettlementService:
             combo_suggestion: Combo string like "1 + over2.5" or "Home Win + Over 9.5 Corners"
             home_score: Final home score
             away_score: Final away score
-            match_stats: Dict with corner/card stats
+            match_stats: Dict with corner/card stats (can be None)
 
         Returns:
             Tuple of (outcome, explanation, expansion_type)

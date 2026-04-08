@@ -2502,7 +2502,7 @@ def analyze_with_triangulation(  # type: ignore[reportGeneralTypeIssues]
             # V10.6 TRACER: Market Veto rejection
             match_name = f"{snippet_data.get('home_team', 'Unknown')} vs {snippet_data.get('away_team', 'Unknown')}"
             logging.info(
-                f"🔴 [TRACER] Match {match_name} rejected. Reason: Market Veto (Odds dropped {odds_drop * 100:.1f}%). Score: {score}"
+                f"🔴 [TRACER] Match {match_name} rejected. Reason: Market Veto (Odds dropped {odds_drop * 100:.1f}%). Confidence: {confidence}"
             )
             logging.info(
                 f"🛑 PROGRAMMATIC MARKET VETO: Odds dropped {odds_drop * 100:.1f}% (>=25%), overriding verdict to NO BET"
@@ -2572,13 +2572,12 @@ def analyze_with_triangulation(  # type: ignore[reportGeneralTypeIssues]
                             f"⚖️ REFEREE VETO: Arbitro permissivo ({referee_info.name}: "
                             f"{referee_info.cards_per_game:.1f} cards/game) → sconsigliato Over Cards"
                         )
-                        original_verdict = verdict
                         verdict = "NO BET"
                         reasoning = f"{veto_reason}\n\n{reasoning}"
                         # V10.6 TRACER: Referee Veto rejection
                         match_name = f"{snippet_data.get('home_team', 'Unknown')} vs {snippet_data.get('away_team', 'Unknown')}"
                         logging.info(
-                            f"🔴 [TRACER] Match {match_name} rejected. Reason: Referee Veto ({referee_info.name}). Score: {score}"
+                            f"🔴 [TRACER] Match {match_name} rejected. Reason: Referee Veto ({referee_info.name}). Confidence: {confidence}"
                         )
                         logging.info(f"   {veto_reason} → overriding verdict to NO BET")
 

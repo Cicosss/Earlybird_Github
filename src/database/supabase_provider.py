@@ -1033,11 +1033,13 @@ class SupabaseProvider:
         self._set_cache(cache_key, hierarchical_data)
 
         # V13.0: Use collected data instead of fetching again
+        # V13.0 FIX: Include "social_sources" key to pass _validate_data_completeness
         mirror_data = {
             "continents": continents,
             "countries": all_countries,
             "leagues": all_leagues,
             "news_sources": all_sources,
+            "social_sources": [],
         }
         self._save_to_mirror(mirror_data)
 

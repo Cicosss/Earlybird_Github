@@ -12,6 +12,7 @@ import logging
 import math
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import and_
 from sqlalchemy.orm import joinedload
@@ -107,7 +108,9 @@ def _tavily_post_match_search(home_team: str, away_team: str, match_date: dateti
         return None
 
 
-def calculate_clv(odds_taken: float, closing_odds: float, margin: float = 0.05) -> float | None:
+def calculate_clv(
+    odds_taken: float | None, closing_odds: float | None, margin: float = 0.05
+) -> float | None:
     """
     Calculate Closing Line Value (CLV) - V4.2 NEW.
 
@@ -119,16 +122,16 @@ def calculate_clv(odds_taken: float, closing_odds: float, margin: float = 0.05) 
     2. CLV = (odds_taken / fair_closing_odds) - 1
 
     Args:
-        odds_taken: The decimal odds when we placed/recommended the bet
-        closing_odds: The decimal odds at match kickoff
+        odds_taken: The decimal odds when we placed/recommended the bet (can be None)
+        closing_odds: The decimal odds at match kickoff (can be None)
         margin: Estimated bookmaker margin (default 5%)
 
     Returns:
         CLV as percentage (e.g., 3.5 means +3.5% CLV), or None if invalid
 
     Edge Cases:
+        - Returns None if odds_taken or closing_odds is None
         - Returns None if odds_taken or closing_odds <= 1.0 (invalid)
-        - Returns None if closing_odds is None
         - Returns None if odds are unreasonably high (> 1000) or infinite
     """
     # Validate inputs
@@ -166,13 +169,13 @@ def calculate_clv(odds_taken: float, closing_odds: float, margin: float = 0.05) 
 
 
 def evaluate_over_under(
-    market_string: str, actual_total: int, stat_available: bool = True
+    market_string: str | None, actual_total: int, stat_available: bool = True
 ) -> tuple[str, str]:
     """
     Generic Over/Under evaluator for Corners, Cards, Goals.
 
     Args:
-        market_string: e.g., "Over 9.5 Corners", "Under 4.5 Cards", "Over 2.5 Goals"
+        market_string: e.g., "Over 9.5 Corners", "Under 4.5 Cards", "Over 2.5 Goals" (can be None)
         actual_total: The actual stat total from the match
         stat_available: Whether the stat data is available (False = PENDING)
 
@@ -182,6 +185,9 @@ def evaluate_over_under(
     V5.1 FIX: Pattern regex now explicitly requires .5 to avoid wrong matches.
     Supports integer formats (Over 9 Corners) for backward compatibility.
     """
+    if market_string is None:
+        return RESULT_PENDING, "⏳ Mercato non disponibile"
+
     if not stat_available:
         return RESULT_PENDING, f"⏳ Stats non disponibili per: {market_string}"
 
@@ -309,7 +315,7 @@ def get_match_result(home_team: str, away_team: str, match_time: datetime) -> di
 
 
 def evaluate_combo_bet(
-    combo_suggestion: str, home_score: int, away_score: int, match_stats: dict = None
+    combo_suggestion: str, home_score: int, away_score: int, match_stats: dict | None = None
 ) -> tuple[str, str, str]:
     """
     V7.4: Evaluate a combo bet like "1 + over2.5" or "X2 + over cards"
@@ -318,7 +324,7 @@ def evaluate_combo_bet(
         combo_suggestion: Combo string like "1 + over2.5" or "Home Win + Over 9.5 Corners"
         home_score: Final home score
         away_score: Final away score
-        match_stats: Dict with corner/card stats
+        match_stats: Dict with corner/card stats (can be None)
 
     Returns:
         Tuple of (outcome, explanation, expansion_type)
@@ -377,23 +383,23 @@ def evaluate_combo_bet(
 
 
 def evaluate_bet(
-    recommended_market: str,
+    recommended_market: str | None,
     home_score: int,
     away_score: int,
-    home_odd: float = None,
+    home_odd: float | None = None,
     match_status: str = "FINISHED",
-    match_stats: dict = None,
+    match_stats: dict | None = None,
 ) -> tuple[str, str]:
     """
     Evaluate if a bet won or lost based on the result.
 
     Args:
-        recommended_market: The market we recommended (e.g., "Home Win", "Over 2.5 Goals", "Over 9.5 Corners")
+        recommended_market: The market we recommended (e.g., "Home Win", "Over 2.5 Goals", "Over 9.5 Corners") - can be None
         home_score: Final home score
         away_score: Final away score
-        home_odd: Home odds (for context)
+        home_odd: Home odds (for context) - can be None
         match_status: Match status ('FINISHED', 'CANCELLED', 'POSTPONED')
-        match_stats: Dict with corner/card stats (home_corners, away_corners, home_yellow_cards, etc.)
+        match_stats: Dict with corner/card stats (home_corners, away_corners, home_yellow_cards, etc.) - can be None
 
     Returns:
         Tuple of (result_status, explanation)
@@ -438,6 +444,7 @@ def evaluate_bet(
             return RESULT_PENDING, "⏳ Corner stats non validi (negativi)"
 
         total_corners = home_corners + away_corners
+        assert recommended_market is not None
         return evaluate_over_under(recommended_market, total_corners, stat_available=True)
 
     # CARDS MARKET
@@ -636,6 +643,7 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
                         "recommended_market": news_log.recommended_market,
                         "combo_suggestion": getattr(news_log, "combo_suggestion", None),
                         "news_log_score": news_log.score,
+                        "sent": getattr(news_log, "sent", False),
                         # V8.3: Include new odds fields for proper ROI/CLV calculation
                         "closing_odds": getattr(news_log, "closing_odds", None),
                         "odds_taken": getattr(news_log, "odds_taken", None),
@@ -897,10 +905,10 @@ def settle_pending_bets(lookback_hours: int = 48) -> dict:
                             if news_log:
                                 news_log.clv_percent = clv_value
 
-                    clv_emoji = "📈" if clv_value > 0 else "📉"
-                    logger.info(
-                        f"   {clv_emoji} CLV: {clv_value:+.2f}% (taken @{odds_taken:.2f} vs closing @{closing_odds:.2f})"
-                    )
+                        clv_emoji = "📈" if clv_value > 0 else "📉"
+                        logger.info(
+                            f"   {clv_emoji} CLV: {clv_value:+.2f}% (taken @{odds_taken:.2f} vs closing @{closing_odds:.2f})"
+                        )
 
                 stats["details"].append(
                     {

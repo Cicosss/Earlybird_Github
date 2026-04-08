@@ -470,6 +470,7 @@ class TestTelegramChannelTracking:
                 .filter(TelegramChannel.channel_id == "test_metrics")
                 .first()
             )
+            assert saved is not None
 
             # Expected: (10.0 * 5 + (-5.0)) / 6 = 45 / 6 = 7.5
             assert saved.messages_with_odds_impact == 6
@@ -530,6 +531,27 @@ class TestDatabaseMigrations:
             )
         """)
 
+        # Create old-style modification_history table (missing V15.0 columns)
+        cursor.execute("""
+            CREATE TABLE modification_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                alert_id INTEGER,
+                match_id TEXT,
+                modification_type TEXT,
+                original_value TEXT,
+                suggested_value TEXT,
+                reason TEXT,
+                priority TEXT,
+                applied BOOLEAN DEFAULT 0,
+                success BOOLEAN,
+                error_message TEXT,
+                verification_context TEXT,
+                component_communications TEXT,
+                created_at DATETIME,
+                applied_at DATETIME
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -545,6 +567,7 @@ class TestDatabaseMigrations:
 
             matches_cols = get_table_columns(cursor, "matches")
             news_logs_cols = get_table_columns(cursor, "news_logs")
+            modification_cols = get_table_columns(cursor, "modification_history")
 
             conn.close()
 
@@ -564,9 +587,13 @@ class TestDatabaseMigrations:
         assert "primary_driver" in news_logs_cols
         assert "source" in news_logs_cols
 
+        # Check V15.0 columns added to modification_history
+        assert "confidence" in modification_cols, "V15.0 confidence migration missing"
+        assert "impact_assessment" in modification_cols, "V15.0 impact_assessment migration missing"
+
     def test_migration_idempotent(self, temp_db):
         """Test that running migration multiple times is safe."""
-        # Create full schema
+        # Create partial schema (some columns already exist, some missing)
         conn = sqlite3.connect(temp_db)
         cursor = conn.cursor()
 
@@ -601,21 +628,62 @@ class TestDatabaseMigrations:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE modification_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                alert_id INTEGER,
+                match_id TEXT,
+                modification_type TEXT,
+                priority TEXT,
+                confidence REAL,
+                impact_assessment TEXT,
+                applied BOOLEAN DEFAULT 0,
+                created_at DATETIME
+            )
+        """)
+
         conn.commit()
         conn.close()
 
         # Run migration twice - should not fail
         with patch("src.database.migration.DB_PATH", temp_db):
-            from src.database.migration import check_and_migrate
+            from src.database.migration import check_and_migrate, get_table_columns
 
             check_and_migrate()  # First run
+
+            # Verify first run actually added missing columns
+            conn = sqlite3.connect(temp_db)
+            cursor = conn.cursor()
+            matches_cols = get_table_columns(cursor, "matches")
+            news_logs_cols = get_table_columns(cursor, "news_logs")
+            mod_cols = get_table_columns(cursor, "modification_history")
+
+            # First run should have added these missing columns
+            assert "last_deep_dive_time" in matches_cols
+            assert "home_xg" in matches_cols
+            assert "primary_driver" in news_logs_cols
+            assert "confidence" in mod_cols
+            conn.close()
+
             check_and_migrate()  # Second run - should be idempotent
 
-        # Verify DB still works
-        conn = sqlite3.connect(temp_db)
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM matches")
-        conn.close()
+            # Verify columns still exist after second run (no corruption)
+            conn = sqlite3.connect(temp_db)
+            cursor = conn.cursor()
+            matches_cols_2 = get_table_columns(cursor, "matches")
+            news_logs_cols_2 = get_table_columns(cursor, "news_logs")
+            mod_cols_2 = get_table_columns(cursor, "modification_history")
+
+            assert "last_deep_dive_time" in matches_cols_2
+            assert "home_xg" in matches_cols_2
+            assert "primary_driver" in news_logs_cols_2
+            assert "confidence" in mod_cols_2
+
+            # Verify DB still works
+            cursor.execute("SELECT * FROM matches")
+            cursor.execute("SELECT * FROM news_logs")
+            cursor.execute("SELECT * FROM modification_history")
+            conn.close()
 
     def test_get_table_columns_invalid_table(self, temp_db):
         """Test that invalid table names are rejected (SQL injection prevention)."""
@@ -636,6 +704,74 @@ class TestDatabaseMigrations:
         assert cols_invalid == set()
 
         conn.close()
+
+    def test_migration_graceful_without_modification_history(self, temp_db):
+        """Test that migration succeeds even when modification_history doesn't exist.
+
+        This tests the exact scenario that caused the original bug:
+        - Old database created before V15.0 has no modification_history table
+        - Migration should skip modification_history section gracefully
+        - All OTHER table migrations should succeed (not be rolled back)
+        """
+        # Create minimal DB without modification_history (simulates pre-V15.0 DB)
+        conn = sqlite3.connect(temp_db)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE matches (
+                id TEXT PRIMARY KEY,
+                league TEXT,
+                home_team TEXT,
+                away_team TEXT,
+                start_time DATETIME
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE news_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id TEXT,
+                url TEXT,
+                summary TEXT,
+                score INTEGER,
+                category TEXT,
+                affected_team TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE team_aliases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                api_name TEXT UNIQUE,
+                search_name TEXT
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+
+        # Run migration - should NOT crash
+        with patch("src.database.migration.DB_PATH", temp_db):
+            from src.database.migration import check_and_migrate, get_table_columns
+
+            check_and_migrate()
+
+            # Verify matches columns were added (proving no rollback occurred)
+            conn = sqlite3.connect(temp_db)
+            cursor = conn.cursor()
+            matches_cols = get_table_columns(cursor, "matches")
+            news_logs_cols = get_table_columns(cursor, "news_logs")
+            conn.close()
+
+        # These prove the migration succeeded for core tables
+        # even though modification_history didn't exist
+        assert "last_deep_dive_time" in matches_cols, (
+            "matches migration rolled back due to modification_history failure"
+        )
+        assert "home_corners" in matches_cols
+        assert "highest_score_sent" in matches_cols
+        assert "primary_driver" in news_logs_cols
+        assert "source" in news_logs_cols
 
 
 # ============================================
@@ -1140,6 +1276,7 @@ class TestConcurrencyHandling:
         # Verify original still exists
         session3 = Session()
         saved = session3.query(Match).filter(Match.id == "rollback_test").first()
+        assert saved is not None
         assert saved.home_team == "Team A"  # Original preserved
         session3.close()
 

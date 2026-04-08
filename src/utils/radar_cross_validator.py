@@ -1,5 +1,5 @@
 """
-EarlyBird Radar Cross-Source Validator V1.0
+EarlyBird Radar Cross-Source Validator V1.1
 
 Aggrega alert da fonti multiple per aumentare la confidence.
 
@@ -10,6 +10,8 @@ Logica:
 
 Questo riduce i falsi positivi e aumenta la qualità degli alert.
 
+V1.1: Added unknown team guard to prevent false cross-source confirmations
+      for unidentifiable teams (V11.2 fix)
 V1.0: Initial implementation
 """
 
@@ -18,6 +20,15 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from threading import RLock
+
+# V11.2: Import centralized unknown team detection
+try:
+    from src.version import is_unknown_team
+
+    _UNKNOWN_TEAM_CHECK_AVAILABLE = True
+except ImportError:
+    _UNKNOWN_TEAM_CHECK_AVAILABLE = False
+    is_unknown_team = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +190,15 @@ class CrossSourceValidator:
         Returns:
             Tuple of (boosted_confidence, is_multi_source, validation_tag)
         """
+        # V11.2: Reject unknown team to prevent false cross-source confirmations.
+        # An alert for "Unknown Team" should never be confirmed across sources because
+        # "Unknown Team" from source A and "Unknown Team" from source B are NOT the same team.
+        # This fix addresses the root cause: even if browser_monitor creates an alert with
+        # UNKNOWN_TEAM sentinel, the cross-validator will not group it with other unknown team alerts.
         if not team or not category:
+            return confidence, False, ""
+        if _UNKNOWN_TEAM_CHECK_AVAILABLE and is_unknown_team(team):
+            logger.debug(f"⏭️ [CROSS-VALIDATOR] Skipping unknown team: '{team}'")
             return confidence, False, ""
 
         with self._lock:

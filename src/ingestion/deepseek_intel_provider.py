@@ -726,7 +726,7 @@ Be conservative in your assessments when lacking current data.
         """
         return normalize_match_enrichment(data)
 
-    def _normalize_betting_stats(self, data: dict) -> dict:
+    def _normalize_betting_stats(self, data: dict) -> dict | None:
         """
         Normalize betting stats response using Pydantic validation.
 
@@ -737,7 +737,8 @@ Be conservative in your assessments when lacking current data.
             data: Raw parsed JSON from DeepSeek API
 
         Returns:
-            Validated dict with correct field names matching BettingStatsResponse schema
+            Validated dict with correct field names matching BettingStatsResponse schema,
+            or None if data is empty or validation fails
         """
         from src.schemas.perplexity_schemas import BettingStatsResponse
 

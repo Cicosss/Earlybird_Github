@@ -38,6 +38,27 @@ def get_table_columns(cursor, table_name: str) -> set:
     return columns
 
 
+def _table_exists(cursor, table_name: str) -> bool:
+    """Check if a table exists in the database.
+
+    Uses parameterized query against sqlite_master to prevent SQL injection.
+    This is distinct from get_table_columns() which returns column info
+    for a table assumed to exist.
+
+    Args:
+        cursor: SQLite cursor
+        table_name: Table name to check
+
+    Returns:
+        True if table exists, False otherwise
+    """
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
 def _apply_supabase_data_fixes() -> None:
     """
     Apply known data fixes to Supabase news_sources.
@@ -94,6 +115,7 @@ def check_and_migrate():
 
     logger.info("🔍 Checking database schema for migrations...")
 
+    conn = None
     try:
         # Use timeout to wait for lock release (matches SQLAlchemy config)
         conn = sqlite3.connect(DB_PATH, timeout=60)
@@ -281,6 +303,50 @@ def check_and_migrate():
             cursor.execute("ALTER TABLE news_logs ADD COLUMN line_movement_explanation TEXT")
             migrations_applied += 1
 
+        # V15.3: Add timestamp and updated_at columns
+        # COVE FIX: These columns are required by the NewsLog model but were missing
+        # from the migration script, causing OperationalError on INSERT:
+        # "table news_logs has no column named timestamp"
+        # and "table news_logs has no column named updated_at"
+        if "timestamp" not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.timestamp (V15.3 - Analysis timestamp)")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN timestamp DATETIME")
+            # Backfill existing rows with current time
+            cursor.execute(
+                "UPDATE news_logs SET timestamp = datetime('now') WHERE timestamp IS NULL"
+            )
+            migrations_applied += 1
+
+        if "updated_at" not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.updated_at (V15.3 - Last update timestamp)")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN updated_at DATETIME")
+            # Backfill existing rows with current time
+            cursor.execute(
+                "UPDATE news_logs SET updated_at = datetime('now') WHERE updated_at IS NULL"
+            )
+            migrations_applied += 1
+
+        # V15.3: Add outcome and outcome_explanation columns
+        # COVE FIX: These columns are required by the NewsLog model (V13.0) but were
+        # missing from the migration script. They are NOT NULL in the DB schema
+        # and need to be added to complete the V13.0 schema alignment.
+        if "outcome" not in news_logs_columns:
+            logger.info("   📝 Adding column: news_logs.outcome (V15.3 - Primary bet outcome)")
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN outcome VARCHAR(10)")
+            cursor.execute("UPDATE news_logs SET outcome = 'PENDING' WHERE outcome IS NULL")
+            migrations_applied += 1
+
+        if "outcome_explanation" not in news_logs_columns:
+            logger.info(
+                "   📝 Adding column: news_logs.outcome_explanation (V15.3 - Outcome explanation)"
+            )
+            cursor.execute("ALTER TABLE news_logs ADD COLUMN outcome_explanation TEXT")
+            migrations_applied += 1
+
+        # Commit news_logs migrations independently
+        # This prevents a failure in later sections from rolling back news_logs changes
+        conn.commit()
+
         # ============================================
         # MIGRATION: matches table
         # ============================================
@@ -393,124 +459,146 @@ def check_and_migrate():
             cursor.execute("ALTER TABLE matches ADD COLUMN last_alert_time DATETIME")
             migrations_applied += 1
 
+        # Commit matches migrations independently
+        # This prevents a failure in later sections from rolling back matches changes
+        conn.commit()
+
         # ============================================
         # MIGRATION: modification_history table
         # ============================================
-        modification_history_columns = get_table_columns(cursor, "modification_history")
+        # COVE FIX: Guard entire section with table existence check.
+        # On databases created before V15.0, modification_history may not exist yet.
+        # It will be created by init_db() (Base.metadata.create_all) on next startup.
+        # Without this guard, ALTER TABLE on a nonexistent table causes:
+        #   1. OperationalError that crashes the migration
+        #   2. Transaction rollback that undoes ALL prior successful migrations
+        if _table_exists(cursor, "modification_history"):
+            modification_history_columns = get_table_columns(cursor, "modification_history")
 
-        # V15.0: Add confidence column for SuggestedModification persistence
-        if "confidence" not in modification_history_columns:
-            logger.info(
-                "   📝 Adding column: modification_history.confidence (V15.0 - SuggestedModification)"
+            # V15.0: Add confidence column for SuggestedModification persistence
+            if "confidence" not in modification_history_columns:
+                logger.info(
+                    "   📝 Adding column: modification_history.confidence (V15.0 - SuggestedModification)"
+                )
+                cursor.execute("ALTER TABLE modification_history ADD COLUMN confidence REAL")
+                migrations_applied += 1
+
+            # V15.0: Add impact_assessment column for SuggestedModification persistence
+            if "impact_assessment" not in modification_history_columns:
+                logger.info(
+                    "   📝 Adding column: modification_history.impact_assessment (V15.0 - SuggestedModification)"
+                )
+                cursor.execute("ALTER TABLE modification_history ADD COLUMN impact_assessment TEXT")
+                migrations_applied += 1
+
+            # Commit modification_history column migrations
+            conn.commit()
+
+            # ============================================
+            # MIGRATION: Priority Validation Triggers
+            # ============================================
+            # V15.1: Add triggers to validate priority column values
+            # These triggers ensure only valid priority values can be inserted/updated
+
+            # Check if triggers already exist
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_insert'"
             )
-            cursor.execute("ALTER TABLE modification_history ADD COLUMN confidence REAL")
-            migrations_applied += 1
+            insert_trigger_exists = cursor.fetchone()
 
-        # V15.0: Add impact_assessment column for SuggestedModification persistence
-        if "impact_assessment" not in modification_history_columns:
-            logger.info(
-                "   📝 Adding column: modification_history.impact_assessment (V15.0 - SuggestedModification)"
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_update'"
             )
-            cursor.execute("ALTER TABLE modification_history ADD COLUMN impact_assessment TEXT")
-            migrations_applied += 1
+            update_trigger_exists = cursor.fetchone()
 
-        # ============================================
-        # MIGRATION: Priority Validation Triggers
-        # ============================================
-        # V15.1: Add triggers to validate priority column values
-        # These triggers ensure only valid priority values can be inserted/updated
+            # Create INSERT trigger if it doesn't exist
+            if not insert_trigger_exists:
+                logger.info(
+                    "   📝 Creating trigger: validate_priority_insert (V15.1 - Priority Validation)"
+                )
+                cursor.execute("""
+                    CREATE TRIGGER validate_priority_insert
+                    BEFORE INSERT ON modification_history
+                    FOR EACH ROW
+                    WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
+                    BEGIN
+                        SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
+                    END;
+                """)
+                migrations_applied += 1
 
-        # Check if triggers already exist
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_insert'"
-        )
-        insert_trigger_exists = cursor.fetchone()
+            # Create UPDATE trigger if it doesn't exist
+            if not update_trigger_exists:
+                logger.info(
+                    "   📝 Creating trigger: validate_priority_update (V15.1 - Priority Validation)"
+                )
+                cursor.execute("""
+                    CREATE TRIGGER validate_priority_update
+                    BEFORE UPDATE OF priority ON modification_history
+                    FOR EACH ROW
+                    WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
+                    BEGIN
+                        SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
+                    END;
+                """)
+                migrations_applied += 1
 
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_priority_update'"
-        )
-        update_trigger_exists = cursor.fetchone()
+            # ============================================
+            # MIGRATION: Modification Type Validation Triggers
+            # ============================================
+            # V15.2: Add triggers to validate modification_type column values
+            # These triggers ensure only valid modification_type values can be inserted/updated
 
-        # Create INSERT trigger if it doesn't exist
-        if not insert_trigger_exists:
-            logger.info(
-                "   📝 Creating trigger: validate_priority_insert (V15.1 - Priority Validation)"
+            # Check if triggers already exist
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_insert'"
             )
-            cursor.execute("""
-                CREATE TRIGGER validate_priority_insert
-                BEFORE INSERT ON modification_history
-                FOR EACH ROW
-                WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
-                BEGIN
-                    SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
-                END;
-            """)
-            migrations_applied += 1
+            insert_type_trigger_exists = cursor.fetchone()
 
-        # Create UPDATE trigger if it doesn't exist
-        if not update_trigger_exists:
-            logger.info(
-                "   📝 Creating trigger: validate_priority_update (V15.1 - Priority Validation)"
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_update'"
             )
-            cursor.execute("""
-                CREATE TRIGGER validate_priority_update
-                BEFORE UPDATE OF priority ON modification_history
-                FOR EACH ROW
-                WHEN NEW.priority NOT IN ('critical', 'high', 'medium', 'low')
-                BEGIN
-                    SELECT RAISE(ABORT, 'Invalid priority value: must be critical, high, medium, or low');
-                END;
-            """)
-            migrations_applied += 1
+            update_type_trigger_exists = cursor.fetchone()
 
-        # ============================================
-        # MIGRATION: Modification Type Validation Triggers
-        # ============================================
-        # V15.2: Add triggers to validate modification_type column values
-        # These triggers ensure only valid modification_type values can be inserted/updated
+            # Create INSERT trigger if it doesn't exist
+            if not insert_type_trigger_exists:
+                logger.info(
+                    "   📝 Creating trigger: validate_modification_type_insert (V15.2 - Modification Type Validation)"
+                )
+                cursor.execute("""
+                    CREATE TRIGGER validate_modification_type_insert
+                    BEFORE INSERT ON modification_history
+                    FOR EACH ROW
+                    WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
+                    BEGIN
+                        SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
+                    END;
+                """)
+                migrations_applied += 1
 
-        # Check if triggers already exist
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_insert'"
-        )
-        insert_type_trigger_exists = cursor.fetchone()
+            # Create UPDATE trigger if it doesn't exist
+            if not update_type_trigger_exists:
+                logger.info(
+                    "   📝 Creating trigger: validate_modification_type_update (V15.2 - Modification Type Validation)"
+                )
+                cursor.execute("""
+                    CREATE TRIGGER validate_modification_type_update
+                    BEFORE UPDATE OF modification_type ON modification_history
+                    FOR EACH ROW
+                    WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
+                    BEGIN
+                        SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
+                    END;
+                """)
+                migrations_applied += 1
 
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='trigger' AND name='validate_modification_type_update'"
-        )
-        update_type_trigger_exists = cursor.fetchone()
-
-        # Create INSERT trigger if it doesn't exist
-        if not insert_type_trigger_exists:
+            # Commit trigger migrations
+            conn.commit()
+        else:
             logger.info(
-                "   📝 Creating trigger: validate_modification_type_insert (V15.2 - Modification Type Validation)"
+                "   ℹ️ Table 'modification_history' does not exist yet - "
+                "skipping column migrations and triggers (will be created by init_db)"
             )
-            cursor.execute("""
-                CREATE TRIGGER validate_modification_type_insert
-                BEFORE INSERT ON modification_history
-                FOR EACH ROW
-                WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
-                BEGIN
-                    SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
-                END;
-            """)
-            migrations_applied += 1
-
-        # Create UPDATE trigger if it doesn't exist
-        if not update_type_trigger_exists:
-            logger.info(
-                "   📝 Creating trigger: validate_modification_type_update (V15.2 - Modification Type Validation)"
-            )
-            cursor.execute("""
-                CREATE TRIGGER validate_modification_type_update
-                BEFORE UPDATE OF modification_type ON modification_history
-                FOR EACH ROW
-                WHEN NEW.modification_type NOT IN ('market_change', 'score_adjustment', 'data_correction', 'reasoning_update')
-                BEGIN
-                    SELECT RAISE(ABORT, 'Invalid modification_type value: must be market_change, score_adjustment, data_correction, or reasoning_update');
-                END;
-            """)
-            migrations_applied += 1
 
         # ============================================
         # MIGRATION: Performance Indexes
@@ -535,9 +623,8 @@ def check_and_migrate():
             cursor.execute("CREATE INDEX idx_news_logs_clv_percent ON news_logs (clv_percent)")
             migrations_applied += 1
 
-        # Commit all changes
+        # Commit index changes
         conn.commit()
-        conn.close()
 
         if migrations_applied > 0:
             logger.info(f"✅ Database schema updated: {migrations_applied} migration(s) applied")
@@ -548,6 +635,15 @@ def check_and_migrate():
         logger.error(f"❌ Database migration failed: {e}")
     except Exception as e:
         logger.error(f"❌ Unexpected migration error: {e}")
+    finally:
+        # COVE FIX: Always close connection, even on error.
+        # Without this, a failed migration leaves the SQLite connection open,
+        # causing database lock on VPS (subsequent operations hang indefinitely).
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def get_schema_version() -> dict:

@@ -29,7 +29,7 @@ class RefereeCache:
     def __init__(self, cache_file: Path = CACHE_FILE, ttl_days: int = CACHE_TTL_DAYS):
         self.cache_file = cache_file
         self.ttl_days = ttl_days
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock allows reentrant locking (same thread can acquire multiple times)
         self._cache = {}
 
         # V12.1: Lock contention monitoring for production observability

@@ -1155,10 +1155,11 @@ def create_skip_result(request: VerificationRequest, reason: str) -> Verificatio
 
     Requirements: 7.1
     """
+    score = request.preliminary_score or 0.0
     return VerificationResult(
         status=VerificationStatus.CONFIRM,
-        original_score=request.preliminary_score,
-        adjusted_score=request.preliminary_score,
+        original_score=score,
+        adjusted_score=score,
         score_adjustment_reason=None,
         original_market=request.suggested_market,
         recommended_market=None,
@@ -1192,16 +1193,17 @@ def create_fallback_result(
 
     Requirements: 7.4
     """
+    score = request.preliminary_score or 0.0
     # V12.4: Elite signals ALWAYS pass through, with warning
-    if request.preliminary_score >= 9.0:
+    if score >= 9.0:
         logger.warning(
-            f"⚠️ [V12.4] Elite signal (score {request.preliminary_score}) unverifiable - "
+            f"⚠️ [V12.4] Elite signal (score {score}) unverifiable - "
             f"PASSING THROUGH with Low confidence. Reason: {reason}"
         )
         return VerificationResult(
             status=VerificationStatus.CONFIRM,
-            original_score=request.preliminary_score,
-            adjusted_score=request.preliminary_score,
+            original_score=score,
+            adjusted_score=score,
             score_adjustment_reason=None,
             original_market=request.suggested_market,
             recommended_market=None,
@@ -1223,8 +1225,8 @@ def create_fallback_result(
     # For lower scores (< 9.0), proceed with caution but allow alert
     return VerificationResult(
         status=VerificationStatus.CONFIRM,
-        original_score=request.preliminary_score,
-        adjusted_score=request.preliminary_score,
+        original_score=score,
+        adjusted_score=score,
         score_adjustment_reason=None,
         original_market=request.suggested_market,
         recommended_market=None,
@@ -1238,16 +1240,17 @@ def create_fallback_result(
 
 
 def create_rejection_result(
-    request: VerificationRequest, reason: str, inconsistencies: list[str] = None
+    request: VerificationRequest, reason: str, inconsistencies: list[str] | None = None
 ) -> VerificationResult:
     """
     Create a rejection result.
 
     Requirements: 6.3
     """
+    score = request.preliminary_score or 0.0
     return VerificationResult(
         status=VerificationStatus.REJECT,
-        original_score=request.preliminary_score,
+        original_score=score,
         adjusted_score=0.0,
         score_adjustment_reason=f"Respinto: {reason}",
         original_market=request.suggested_market,
@@ -1275,8 +1278,8 @@ try:
     TAVILY_AVAILABLE = True
 except ImportError:
     TAVILY_AVAILABLE = False
-    TavilyProvider = None  # Type stub for annotations
-    get_tavily_provider = None
+    TavilyProvider = None  # type: ignore
+    get_tavily_provider = None  # type: ignore
     logger.warning("⚠️ Tavily provider not available")
 
 # Import Perplexity provider for fallback
@@ -1286,8 +1289,8 @@ try:
     PERPLEXITY_AVAILABLE = True
 except ImportError:
     PERPLEXITY_AVAILABLE = False
-    PerplexityProvider = None  # Type stub for annotations
-    get_perplexity_provider = None
+    PerplexityProvider = None  # type: ignore
+    get_perplexity_provider = None  # type: ignore
     logger.warning("⚠️ Perplexity provider not available")
 
 # V12.0: Import startup validator for intelligent feature detection
@@ -1312,13 +1315,18 @@ try:
 except ImportError:
     AI_PARSER_AVAILABLE = False
     import json
+    from typing import Any
 
-    def parse_ai_json(text: str) -> dict:
+    def parse_ai_json(  # type: ignore
+        text_response: str, 
+        model_class: type | None = None, 
+        default_values: dict[Any, Any] | None = None
+    ) -> dict[Any, Any]:
         """Fallback JSON parser."""
         try:
-            return json.loads(text)
+            return json.loads(text_response)
         except json.JSONDecodeError:
-            return {}
+            return default_values or {}
 
 
 # V12.4: Import Tavily budget manager for budget-aware verification
@@ -1329,7 +1337,6 @@ try:
 except ImportError:
     _TAVILY_BUDGET_AVAILABLE = False
     _get_tavily_budget_manager = None  # type: ignore
-    _get_tavily_budget_manager = None
     logger.debug("Tavily budget manager not available for verification budget checks")
 
 
@@ -1655,7 +1662,7 @@ class OptimizedResponseParser:
         # Intelligent type validation for players
         # Handle edge cases: None, string, or other types
         if players is None:
-            self.players_original: list[dict[str, Any]] = []
+            self.players_original: list[str] = []
             logger.warning("⚠️ [OptimizedResponseParser] players is None, using empty list")
         elif isinstance(players, str):
             # If a string was passed instead of a list, log warning and convert
@@ -1900,7 +1907,7 @@ class OptimizedResponseParser:
 
         # Fuzzy match if available - most expensive, optimize it
         if TEXT_NORMALIZER_AVAILABLE and FUZZY_AVAILABLE:
-            from thefuzz import fuzz
+            from thefuzz import fuzz  # type: ignore
 
             # Performance optimization: Limit fuzzy matching to reasonable number of candidates
             # If values dict is very large (>50), limit to first 50 to avoid O(n) slowdown
@@ -2135,7 +2142,7 @@ class OptimizedResponseParser:
         """Extract team season stats with fuzzy team matching."""
         import re
 
-        stats = {}
+        stats: dict[str, float] = {}
 
         # Find team in text using fuzzy matching
         if TEXT_NORMALIZER_AVAILABLE:
@@ -2222,9 +2229,9 @@ class OptimizedResponseParser:
         """
         import re
 
-        stats = {}
+        stats: dict[str, float] = {}
 
-        # Normalize team name for matching
+        # First find team block in text for matching
         if TEXT_NORMALIZER_AVAILABLE:
             found, _ = find_team_in_text(team, text)
             if not found:
@@ -2467,9 +2474,9 @@ class OptimizedResponseParser:
 
                     if form_match:
                         # Groups: won_word, wins, drew_word, draws, lost_word, losses
-                        wins = int(form_match.group(2))
-                        draws = int(form_match.group(4))
-                        losses = int(form_match.group(6))
+                        wins: int | None = int(form_match.group(2))
+                        draws: int | None = int(form_match.group(4))
+                        losses: int | None = int(form_match.group(6))
 
                         # V7.2: Try to find goals in the same context
                         goals_scored = 0.0
@@ -3030,7 +3037,7 @@ class TavilyVerifier:
 
         Requirements: 1.4
         """
-        impacts: list[dict[str, Any]] = []
+        impacts: list[PlayerImpact] = []
         text_lower = text.lower()
 
         # High impact keywords
@@ -3617,7 +3624,7 @@ class TavilyVerifier:
         logger.info(f"🔍 [VERIFICATION] Starting optimized queries for {request.match_id}")
         start_time = time.time()
 
-        all_answers: list[dict[str, Any]] = []
+        all_answers: list[str] = []
         all_results: list[dict[str, Any]] = []
         query_times = {}
 
@@ -3797,19 +3804,19 @@ class TavilyVerifier:
 
             if perplexity_data:
                 total_time = time.time() - start_time
-            logger.info("✅ [V2.6] Perplexity rescued data after Tavily failure")
-            return {
-                "query": "perplexity_rescue_v2.6",
-                "answer": f"Perplexity corner data: home={safe_dict_get(perplexity_data, 'home_corners_avg', default='Unknown')}, away={safe_dict_get(perplexity_data, 'away_corners_avg', default='Unknown')}",
-                "results": [],
-                "response_time": total_time,
-                "provider": "perplexity_v2.6_rescue",
-                "queries_executed": 1,
-                "primary_extraction_rate": 0,
-                "fallback_executed": False,
-                "perplexity_corners": perplexity_data,
-                "perplexity_fallback_executed": True,
-            }
+                logger.info("✅ [V2.6] Perplexity rescued data after Tavily failure")
+                return {
+                    "query": "perplexity_rescue_v2.6",
+                    "answer": f"Perplexity corner data: home={safe_dict_get(perplexity_data, 'home_corners_avg', default='Unknown')}, away={safe_dict_get(perplexity_data, 'away_corners_avg', default='Unknown')}",
+                    "results": [],
+                    "response_time": total_time,
+                    "provider": "perplexity_v2.6_rescue",
+                    "queries_executed": 1,
+                    "primary_extraction_rate": 0,
+                    "fallback_executed": False,
+                    "perplexity_corners": perplexity_data,
+                    "perplexity_fallback_executed": True,
+                }
 
             logger.error("❌ [VERIFICATION V2.4] Primary queries failed and Perplexity unavailable")
             return None
@@ -3917,13 +3924,13 @@ class TavilyVerifier:
         perplexity_data = None
 
         if corners_missing or form_missing:
-            missing_types: list[str] = []
+            missing_categories: list[str] = []
             if corners_missing:
-                missing_types.append("corners")
+                missing_categories.append("corners")
             if form_missing:
-                missing_types.append("form")
+                missing_categories.append("form")
             logger.info(
-                f"🔮 [V2.6] {', '.join(missing_types)} missing (extraction >= 75%), trying Perplexity..."
+                f"🔮 [V2.6] {', '.join(missing_categories)} missing (extraction >= 75%), trying Perplexity..."
             )
             perplexity_data = self._execute_perplexity_fallback(request, verified)
 
@@ -4002,7 +4009,7 @@ class TavilyVerifier:
         if not fallback_queries:
             return None
 
-        all_answers: list[dict[str, Any]] = []
+        all_answers: list[str] = []
         all_results: list[dict[str, Any]] = []
         query_times = {}
 
@@ -4263,14 +4270,14 @@ class PerplexityVerifier:
         self._call_count_lock = threading.Lock()  # Thread safety for counter
 
     @property
-    def provider(self) -> TavilyProvider | None:
-        """Get Tavily provider (lazy initialization)."""
-        if self._provider is None and TAVILY_AVAILABLE:
-            self._provider = get_tavily_provider()
+    def provider(self) -> PerplexityProvider | None:
+        """Get Perplexity provider (lazy initialization)."""
+        if self._provider is None and PERPLEXITY_AVAILABLE:
+            self._provider = get_perplexity_provider()
         return self._provider
 
-    def _require_provider(self) -> TavilyProvider:
-        """Get guaranteed non-None Tavily provider.
+    def _require_provider(self) -> PerplexityProvider:
+        """Get guaranteed non-None Perplexity provider.
 
         Must be called only after is_available() returns True.
         Raises RuntimeError if provider is unexpectedly None.
@@ -4278,13 +4285,13 @@ class PerplexityVerifier:
         p = self.provider
         if p is None:
             raise RuntimeError(
-                "TavilyProvider is None despite is_available()=True. This should never happen."
+                "PerplexityProvider is None despite is_available()=True. This should never happen."
             )
         return p
 
     def is_available(self) -> bool:
-        """Check if Tavily is available for queries."""
-        if not TAVILY_AVAILABLE:
+        """Check if Perplexity is available for queries."""
+        if not PERPLEXITY_AVAILABLE:
             return False
         provider = self.provider
         return provider is not None and provider.is_available()
@@ -4558,7 +4565,8 @@ class VerificationOrchestrator:
         Returns:
             True if verification should be skipped
         """
-        return request.preliminary_score < VERIFICATION_SCORE_THRESHOLD
+        score = request.preliminary_score or 0.0
+        return score < VERIFICATION_SCORE_THRESHOLD
 
     def get_verified_data(self, request: VerificationRequest) -> VerifiedData:
         """
@@ -4832,9 +4840,8 @@ class LogicValidator:
         Returns:
             VerificationResult with status, adjustments, and reasoning
         """
-        inconsistencies: list[dict[str, Any]] = []
-        alternative_markets: list[dict[str, Any]] = []
-        score_adjustments: list[dict[str, Any]] = []
+        inconsistencies: list[str] = []
+        alternative_markets: list[str] = []
 
         # 1. Check injury-market consistency
         injury_issues = self._check_injury_market_consistency(request, verified)
@@ -4870,7 +4877,7 @@ class LogicValidator:
                 alternative_markets.append(alt)
 
         # Calculate score adjustment
-        adjusted_score = request.preliminary_score
+        adjusted_score: float = request.preliminary_score or 0.0
         adjustment_reasons: list[str] = []
 
         # Apply penalty for critical injury + Over market
@@ -4925,7 +4932,7 @@ class LogicValidator:
 
         return VerificationResult(
             status=status,
-            original_score=request.preliminary_score,
+            original_score=request.preliminary_score or 0.0,
             adjusted_score=adjusted_score,
             score_adjustment_reason="; ".join(adjustment_reasons) if adjustment_reasons else None,
             original_market=request.suggested_market,
@@ -5129,7 +5136,7 @@ class LogicValidator:
 
         Requirements: 4.2, 4.3
         """
-        issues: list[dict[str, Any]] = []
+        issues: list[str] = []
 
         if not verified.referee:
             return issues
@@ -5331,7 +5338,7 @@ class LogicValidator:
             return VerificationStatus.REJECT
 
         # REJECT if adjusted score dropped too much
-        score_drop = request.preliminary_score - adjusted_score
+        score_drop = (request.preliminary_score or 0.0) - adjusted_score
         if score_drop >= 2.0:
             return VerificationStatus.REJECT
 
@@ -5355,11 +5362,11 @@ class LogicValidator:
         """
         # Start with data confidence
         if verified.data_confidence == "High":
-            base = 3
+            base: float = 3.0
         elif verified.data_confidence == "Medium":
-            base = 2
+            base = 2.0
         else:
-            base = 1
+            base = 1.0
 
         # Reduce for inconsistencies
         base -= len(inconsistencies) * 0.5
@@ -5590,10 +5597,10 @@ def should_verify_alert(preliminary_score: float) -> bool:
 def create_verification_request_from_match(
     match,  # Match database object
     analysis,  # NewsLog analysis object
-    home_stats: dict = None,
-    away_stats: dict = None,
-    home_context: dict = None,
-    away_context: dict = None,
+    home_stats: dict | None = None,
+    away_stats: dict | None = None,
+    home_context: dict | None = None,
+    away_context: dict | None = None,
     home_team_injury_impact: Any = None,  # TeamInjuryImpact object
     away_team_injury_impact: Any = None,  # TeamInjuryImpact object
 ) -> VerificationRequest:
@@ -5637,8 +5644,8 @@ def create_verification_request_from_match(
     )
 
     # Extract injury info - prioritize FotMob context, fallback to analysis object
-    home_missing: list[dict[str, Any]] = []
-    away_missing: list[dict[str, Any]] = []
+    home_missing: list[str] = []
+    away_missing: list[str] = []
     home_severity = "LOW"
     away_severity = "LOW"
     home_impact = 0.0

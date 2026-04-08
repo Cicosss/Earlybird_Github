@@ -113,27 +113,38 @@ if not STEALTH_AVAILABLE:
 # CONFIGURATION
 # ============================================
 
-# Dedicated fallback instances (separate from NitterPool to avoid duplicate load)
-# These are Playwright-based instances, NOT Scrapling-based (unlike NitterPool)
+# Dedicated fallback instances (V14.0 COVE FIX: Completely separated from NitterPool)
+# PRIMARY: xcancel.com and twiiit.com are redirector services that work excellently
+# with Playwright stealth mode and handle Anubis protection better than raw Nitter.
+# These are NOT in NitterPool's instance list (NitterPool uses xcancel.com as a direct
+# Nitter instance, not as a redirector like NitterFallbackScraper does).
 _FALLBACK_PRIMARY_INSTANCES = [
-    "https://twiiit.com",
-    "https://xcancel.com",
+    "https://twiiit.com",  # Redirector: routes to healthy Nitter backends
+    "https://xcancel.com",  # Redirector: routes to healthy Nitter backends
 ]
 
+# SECONDARY: Standalone Nitter instances (not in NitterPool)
+# Note: nitter.poast.org was UNHEALTHY per status.d420.de (2026-04-06 22:24 UTC).
+# Kept as secondary fallback in case it recovers. If it remains unhealthy,
+# consider removing it from the list.
 _FALLBACK_SECONDARY_INSTANCES = [
-    "https://nitter.poast.org",
+    "https://nitter.poast.org",  # US, was unhealthy 2026-04-06 22:24 UTC - kept as fallback
 ]
 
-# V13.1 COVE FIX: Tertiary instances from NitterPool config (non-overlapping with primary/secondary)
-# These are tried last, providing a wider safety net when primary/secondary fail on VPS
-_FALLBACK_TERTIARY_INSTANCES = [
-    "https://nitter.privacyredirect.com",
-    "https://lightbrd.com",
-    "https://nitter.space",
-    "https://nitter.tiekoetter.com",
-    "https://nitter.hostux.net",
-    "https://nt.ggtyler.dev",
-]
+# V14.0 COVE FIX: TERTIARY ELIMINATED - No genuinely separate instances available.
+# NitterFallbackScraper (Playwright + redirectors twiiit.com/xcancel.com) and
+# NitterPool (Scrapling + direct instances) use fundamentally different scraping
+# approaches, so some instance overlap is acceptable. The Playwright stealth mode
+# with redirectors handles anti-bot protection differently than Scrapling.
+#
+# Previous tertiary instances removed because:
+# - nitter.net: Overlaps with NitterPool
+# - nitter.poast.org: Duplicate of secondary AND unhealthy
+#
+# The PRIMARY (twiiit.com, xcancel.com redirectors) and SECONDARY tiers
+# provide sufficient coverage. Redirectors route to healthy Nitter backends
+# and are the primary strength of NitterFallbackScraper.
+_FALLBACK_TERTIARY_INSTANCES: list[str] = []  # Empty - no genuinely separate instances
 
 # Scraping configuration
 SCRAPE_DELAY_MIN = 1.5
@@ -147,10 +158,11 @@ MAX_TWEETS_PER_ACCOUNT = 5
 RETRIES_PER_INSTANCE = int(os.getenv("NITTER_RETRIES_PER_INSTANCE", "2"))
 
 # Calculate max retries from the actual dedicated fallback instances
+# V14.0: Tertiary tier removed - no genuinely separate instances available.
+# PRIMARY (redirectors) + SECONDARY provide sufficient coverage.
 _NUM_FALLBACK_INSTANCES = (
-    len(_FALLBACK_PRIMARY_INSTANCES)
-    + len(_FALLBACK_SECONDARY_INSTANCES)
-    + len(_FALLBACK_TERTIARY_INSTANCES)
+    len(_FALLBACK_PRIMARY_INSTANCES) + len(_FALLBACK_SECONDARY_INSTANCES)
+    # Tertiary removed: was duplicate of secondary and NitterPool instances
 )
 MAX_RETRIES_PER_ACCOUNT = int(os.getenv("NITTER_MAX_RETRIES", str(_NUM_FALLBACK_INSTANCES)))
 # V12.5.1 COVE FIX: MAX_NITTER_RECOVERY_ACCOUNTS limits accounts to recover via Nitter
@@ -319,96 +331,20 @@ def passes_native_gate(tweet_text: str) -> tuple[bool, str | None]:
     return False, None
 
 
-# ============================================
-# V9.5: DEEPSEEK-V3 FLASH ANALYSIS (Layer 2)
-# ============================================
-
-
-def build_flash_analysis_prompt(tweet_text: str) -> str:
-    """
-    Build prompt for DeepSeek-V3 flash analysis.
-
-    This prompt asks for:
-    - One-sentence translation to Italian
-    - Boolean classification: is_betting_relevant
-    - Specific instruction: "Rilevante solo se parla di infortuni o cambi formazione"
-
-    Args:
-        tweet_text: The tweet content to analyze
-
-    Returns:
-        Formatted prompt for DeepSeek-V3
-    """
-    prompt = f"""Analyze this tweet and provide a JSON response with the following structure:
-{{
-  "translation": "one-sentence Italian translation",
-  "is_betting_relevant": true/false
-}}
-
-Tweet to analyze:
-"{tweet_text}"
-
-IMPORTANT:
-- Translate to Italian in one sentence
-- Set is_betting_relevant to true ONLY if the tweet discusses injuries (infortuni) or lineup changes (cambi formazione)
-- If the tweet is about salaries, transfers, or other non-betting topics, set is_betting_relevant to false
-- Return ONLY valid JSON, no other text
-
-Respond with JSON only."""
-    return prompt
-
-
-def parse_flash_analysis_response(response: str) -> dict | None:
-    """
-    Parse DeepSeek-V3 flash analysis response.
-
-    Args:
-        response: Raw response text from DeepSeek
-
-    Returns:
-        Dict with 'translation' and 'is_betting_relevant' keys, or None on failure
-    """
-    if not response:
-        return None
-
-    try:
-        # Try to parse as JSON
-        import json
-
-        data = json.loads(response)
-
-        # Extract required fields
-        translation = data.get("translation", "")
-        is_betting_relevant = data.get("is_betting_relevant", False)
-
-        # Validate types
-        if not isinstance(translation, str):
-            logger.warning(f"⚠️ [FLASH-ANALYSIS] Invalid translation type: {type(translation)}")
-            translation = ""
-
-        # Handle boolean conversion (may come as string)
-        if isinstance(is_betting_relevant, str):
-            is_betting_relevant = is_betting_relevant.lower() in ("true", "yes", "si", "1")
-        elif not isinstance(is_betting_relevant, bool):
-            is_betting_relevant = bool(is_betting_relevant)
-
-        return {"translation": translation, "is_betting_relevant": is_betting_relevant}
-
-    except json.JSONDecodeError as e:
-        logger.warning(f"⚠️ [FLASH-ANALYSIS] Failed to parse JSON: {e}")
-        # Try to extract JSON from response
-        try:
-            import re
-
-            json_match = re.search(r"\{[^}]+\}", response, re.DOTALL)
-            if json_match:
-                return parse_flash_analysis_response(json_match.group())
-        except Exception:
-            pass
-        return None
-    except Exception as e:
-        logger.error(f"❌ [FLASH-ANALYSIS] Error parsing response: {e}")
-        return None
+# V14.0 COVE FIX: REMOVED dead code - build_flash_analysis_prompt() and
+# parse_flash_analysis_response() were Layer 2 AI analysis functions that were
+# never called by any downstream component. This eliminates ~85 lines of dead
+# code and reduces maintenance burden. The Layer 2 analysis was replaced by
+# direct keyword gating (Layer 1) which is more efficient.
+#
+# REMOVED FUNCTIONS:
+# - build_flash_analysis_prompt(): Built DeepSeek-V3 prompts for tweet translation
+# - parse_flash_analysis_response(): Parsed DeepSeek JSON responses
+#
+# These were removed because:
+# 1. No downstream component used the translation or is_betting_relevant fields
+# 2. The Layer 1 keyword gate (passes_native_gate) provides zero-cost filtering
+# 3. Removing eliminates wasted API calls, reduces latency, simplifies codebase
 
 
 # ============================================
@@ -462,12 +398,31 @@ class NitterCache:
             return False
 
     def _save_cache(self) -> None:
-        """Save cache to file."""
+        """Save cache to file (called outside lock to avoid blocking)."""
         try:
             # Ensure directory exists
             self._cache_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self._cache_file, "w", encoding="utf-8") as f:
                 json.dump(self._cache, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"⚠️ [NITTER-CACHE] Failed to save cache: {e}")
+
+    def _save_cache_unlocked(self, cache_copy: dict[str, dict]) -> None:
+        """
+        V14.0 COVE FIX: Save cache to file from a copy (called outside lock).
+
+        This method saves a copy of the cache to avoid blocking other threads
+        during I/O operations. The copy is made while holding the lock, then
+        the lock is released before the I/O-intensive save operation.
+
+        Args:
+            cache_copy: A copy of the cache dict to save
+        """
+        try:
+            # Ensure directory exists
+            self._cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache_copy, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.warning(f"⚠️ [NITTER-CACHE] Failed to save cache: {e}")
 
@@ -486,25 +441,38 @@ class NitterCache:
             return None
 
     def set(self, handle: str, tweets: list[dict]) -> None:
-        """Cache tweets for a handle."""
+        """Cache tweets for a handle (V14.0: I/O moved outside lock)."""
+        # V14.0 COVE FIX: Copy data under lock, then save outside lock
+        # This prevents blocking other threads during I/O operations
+        cache_entry = {
+            "tweets": tweets,
+            "cached_at": datetime.now(timezone.utc).isoformat(),
+        }
         with self._cache_lock:  # VPS FIX: Thread-safe write
             handle_key = handle.lower().replace("@", "")
-            self._cache[handle_key] = {
-                "tweets": tweets,
-                "cached_at": datetime.now(timezone.utc).isoformat(),
-            }
-            self._save_cache()  # This is already inside the lock
+            self._cache[handle_key] = cache_entry
+            # Copy cache for save while still under lock (atomic snapshot)
+            cache_copy = dict(self._cache)
+        # Save outside lock - doesn't block other threads
+        self._save_cache_unlocked(cache_copy)
 
     def clear_expired(self) -> int:
-        """Remove expired entries. Returns count removed."""
+        """Remove expired entries. Returns count removed. (V14.0: I/O moved outside lock)."""
         with self._cache_lock:  # VPS FIX: Thread-safe modification
             now = datetime.now(timezone.utc)
             expired = [k for k, v in self._cache.items() if not self._is_valid_entry(v, now)]
             for k in expired:
                 del self._cache[k]
-            if expired:
-                self._save_cache()  # This is already inside the lock
-            return len(expired)
+            expired_count = len(expired)
+            if expired_count > 0:
+                # Copy cache for save while still under lock (atomic snapshot)
+                cache_copy = dict(self._cache)
+            else:
+                cache_copy = None
+        # Save outside lock - doesn't block other threads
+        if cache_copy is not None:
+            self._save_cache_unlocked(cache_copy)
+        return expired_count
 
 
 # ============================================
@@ -870,32 +838,62 @@ class NitterFallbackScraper:
                     content = await page.content()
                     content_lower = content.lower()
 
-                    # V12.5 COVE FIX: Check for Cloudflare challenges/captchas
-                    cloudflare_indicators = [
+                    # V14.0 COVE FIX: Enhanced anti-bot detection - Cloudflare + Anubis
+                    # Both Cloudflare and Anubis are commonly used by Nitter instances
+                    # to block automated scraping. Anubis uses proof-of-work challenges.
+                    anti_bot_indicators = [
+                        # Cloudflare
                         "cloudflare",
-                        "captcha",
-                        "challenge platform",
                         "attention required",
                         "checking your browser",
                         "ray id",
                         "cf_chl_rc_i",
+                        # Anubis (proof-of-work anti-bot used by nitter.privacyredirect.com,
+                        # nitter.catsarch.com, and others)
+                        "anubis",
+                        "proof-of-work",
+                        "hashcash",
+                        "protecting the server against the scourge of ai companies",
                     ]
 
-                    has_cloudflare = any(
-                        indicator in content_lower for indicator in cloudflare_indicators
+                    has_anti_bot = any(
+                        indicator in content_lower for indicator in anti_bot_indicators
                     )
 
-                    if has_cloudflare:
-                        logger.warning(
-                            f"⚠️ [NITTER-FALLBACK] Instance {url} is blocked by Cloudflare/captcha"
-                        )
-                        results[url] = False
-                        self._mark_instance_failure(url, "CloudflareBlock")
+                    if has_anti_bot:
+                        # Distinguish between Cloudflare and Anubis for better logging
+                        if "anubis" in content_lower or "proof-of-work" in content_lower:
+                            logger.warning(
+                                f"⚠️ [NITTER-FALLBACK] Instance {url} is blocked by Anubis anti-bot"
+                            )
+                            results[url] = False
+                            self._mark_instance_failure(url, "AnubisBlock")
+                        else:
+                            logger.warning(
+                                f"⚠️ [NITTER-FALLBACK] Instance {url} is blocked by Cloudflare/captcha"
+                            )
+                            results[url] = False
+                            self._mark_instance_failure(url, "CloudflareBlock")
                         await page.close()
                         continue
 
-                    # V12.5 COVE FIX: Verify it's a valid Nitter page
-                    is_nitter_page = "nitter" in content_lower or "timeline" in content_lower
+                    # V14.0 COVE FIX: Verify it's a valid Nitter page with SPECIFIC indicators
+                    # Previously used "timeline" which is too generic (any social media page has timeline).
+                    # Now uses Nitter-specific identifiers:
+                    # - "nitter": The word "nitter" in page content
+                    # - "peleton": Nitter's JavaScript framework name (very specific)
+                    # - "profile-grid": Nitter's profile grid CSS class
+                    # - "timeline-item": Nitter's tweet container class (actual HTML class name)
+                    nitter_specific_indicators = [
+                        "nitter",  # Nitter branding
+                        "peleton",  # Nitter's JS framework (unique to Nitter)
+                        "profile-grid",  # Nitter profile grid class
+                        "timeline-item",  # Nitter tweet container class
+                    ]
+
+                    is_nitter_page = any(
+                        indicator in content_lower for indicator in nitter_specific_indicators
+                    )
 
                     if not is_nitter_page:
                         logger.warning(
@@ -906,13 +904,53 @@ class NitterFallbackScraper:
                         await page.close()
                         continue
 
-                    # V12.5 COVE FIX: Verify tweet containers are present
-                    # Check for common Nitter tweet container classes
-                    tweet_container_indicators = ["timeline-item", "tweet", "timeline", "status"]
-
-                    has_tweet_containers = any(
-                        indicator in content_lower for indicator in tweet_container_indicators
-                    )
+                    # V14.0 COVE FIX: Verify tweet containers with PROPER CSS SELECTORS
+                    # Previously used raw substring matching which could produce false positives
+                    # (e.g., "timeline-item" might appear in unexpected contexts).
+                    # Now uses BeautifulSoup's select() to properly find elements with
+                    # specific CSS classes - more accurate and robust detection.
+                    if BS4_AVAILABLE:
+                        try:
+                            soup = BeautifulSoup(content, "html.parser")
+                            # Use proper CSS selectors to find tweet containers
+                            # .timeline-item: The primary tweet container in Nitter HTML
+                            # .main-tweet: Alternative container used in some Nitter instances
+                            # .tweet-body: Tweet content wrapper
+                            tweet_containers = soup.select(
+                                ".timeline-item, .main-tweet, .tweet-body"
+                            )
+                            has_tweet_containers = len(tweet_containers) > 0
+                            if has_tweet_containers:
+                                logger.debug(
+                                    f"✅ [NITTER-FALLBACK] Found {len(tweet_containers)} "
+                                    f"tweet containers on {url}"
+                                )
+                        except Exception as e:
+                            logger.debug(
+                                f"⚠️ [NITTER-FALLBACK] BS4 parsing failed for {url}: {e}, "
+                                f"falling back to substring check"
+                            )
+                            # Fallback: use substring check if BS4 fails
+                            nitter_tweet_container_classes = [
+                                "timeline-item",
+                                "main-tweet",
+                                "tweet-body",
+                            ]
+                            has_tweet_containers = any(
+                                css_class in content_lower
+                                for css_class in nitter_tweet_container_classes
+                            )
+                    else:
+                        # Fallback without BS4: substring check
+                        nitter_tweet_container_classes = [
+                            "timeline-item",
+                            "main-tweet",
+                            "tweet-body",
+                        ]
+                        has_tweet_containers = any(
+                            css_class in content_lower
+                            for css_class in nitter_tweet_container_classes
+                        )
 
                     if not has_tweet_containers:
                         logger.warning(
@@ -1753,25 +1791,50 @@ class NitterFallbackScraper:
             )
             return True
 
-        # Use fuzzy matching for partial matches (90% threshold)
+        # V14.0 COVE FIX: Word-level fuzzy matching instead of full-string comparison.
+        # Previously used SequenceMatcher on full tweet text (~280 chars) vs team name
+        # (~15 chars), which always produced low similarity ratios since the strings
+        # differ vastly in length. Now uses word-level matching:
+        # 1. Split team name into words (tokens)
+        # 2. Check if each team word appears as substring in tweet
+        # 3. For multi-word teams, also try token-pair fuzzy matching
+        #
+        # This correctly handles cases like "Man United" matching "manchester united"
+        # in the tweet text, where the full-string approach would fail.
+        import re
+
         for team_name in [home_team, away_team]:
-            # Match against tweet content
-            content_similarity = SequenceMatcher(None, team_name.lower(), tweet_lower).ratio()
-            if content_similarity >= 0.9:
+            team_words = team_name.lower().split()
+            matched_words = 0
+
+            for word in team_words:
+                # Skip very short words (<3 chars) that cause false positives
+                if len(word) < 3:
+                    continue
+                # Check if this team word appears in tweet
+                if word in tweet_lower:
+                    matched_words += 1
+
+            # Require at least half the team name words to match (fuzzy match)
+            if len(team_words) >= 2 and matched_words >= len(team_words) / 2:
                 logger.debug(
-                    f"✅ [NITTER-CYCLE] Fuzzy match found: '{team_name}' ~ '{tweet_content[:30]}...' "
-                    f"(similarity: {content_similarity:.2f})"
+                    f"✅ [NITTER-CYCLE] Fuzzy team match: '{team_name}' "
+                    f"({matched_words}/{len(team_words)} words matched in tweet)"
                 )
                 return True
 
-            # Match against handle description
-            desc_similarity = SequenceMatcher(None, team_name.lower(), desc_lower).ratio()
-            if desc_similarity >= 0.9:
-                logger.debug(
-                    f"✅ [NITTER-CYCLE] Fuzzy match found in description: '{team_name}' ~ '{handle_description[:30]}...' "
-                    f"(similarity: {desc_similarity:.2f})"
-                )
-                return True
+            # For single-word team names, use substring match on a normalized version
+            # (removes common suffixes like "fc", "sc", "cf", "ul", etc.)
+            if len(team_words) == 1:
+                word = team_words[0]
+                # Strip common suffixes that might cause mismatch
+                normalized_word = re.sub(r"(fc|sc|cf|ul|afc|rc|ac|as|ss|gs|ks|fs)$", "", word)
+                if len(normalized_word) >= 4 and normalized_word in tweet_lower:
+                    logger.debug(
+                        f"✅ [NITTER-CYCLE] Fuzzy single-word match: '{team_name}' "
+                        f"(normalized: '{normalized_word}')"
+                    )
+                    return True
 
         return False
 

@@ -1,0 +1,4 @@
+# file: /home/linux/Earlybird_Github/src/analysis/referee_cache.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.001, 0.1, 0.5, 'cached_at', 'data/cache', 'expired_entries', 'lock_wait_count', 'lock_wait_time_avg', 'lock_wait_time_total', 'r', 'referee_cache', 'referee_stats.json', 'referee_strictness', 'stats', 'strictness', 'timeout_count', 'total_entries', 'ttl_days', 'unknown', 'utf-8', 'valid_entries', 'w', 'wait_count', 'wait_time_avg', 'wait_time_total']

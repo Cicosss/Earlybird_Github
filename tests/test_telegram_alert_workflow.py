@@ -7,12 +7,21 @@ It simulates the analysis engine workflow and sends a test alert.
 
 Usage:
     python tests/test_telegram_alert_workflow.py
+
+⚠️  WARNING: This test sends a REAL Telegram alert.
+    Only run manually or with: pytest -m integration
 """
 
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+
+import pytest
 from dotenv import load_dotenv
+
+# Mark all tests in this file as integration tests
+# They send real Telegram messages and should NOT run during make test-unit
+pytestmark = pytest.mark.integration
 
 # Load environment variables
 load_dotenv()

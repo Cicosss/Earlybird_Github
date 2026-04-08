@@ -87,9 +87,9 @@ def build_alert_data_for_verifier(
     news_summary: str,
     news_url: str,
     score: float,
-    recommended_market: str = None,
-    combo_suggestion: str = None,
-    reasoning: str = None,
+    recommended_market: str | None = None,
+    combo_suggestion: str | None = None,
+    reasoning: str | None = None,
     **kwargs,
 ) -> dict:
     """

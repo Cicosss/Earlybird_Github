@@ -89,6 +89,9 @@ from src.utils.content_analysis import (
     get_relevance_analyzer,
 )
 
+# V11.2: Import unknown team detection for safe team handling
+from src.version import is_unknown_team
+
 # V14.0: Import shared cache for cross-component deduplication
 try:
     from src.utils.shared_cache import get_shared_cache
@@ -2622,8 +2625,9 @@ class BrowserMonitor:
             is_relevant = True
             confidence = local_result.confidence
             category = local_result.category
-            # V7.6: Safe handling of empty/None affected_team
-            affected_team = (local_result.affected_team or "").strip() or "Unknown Team"
+            # V11.2: Safely handle empty/None affected_team using centralized detection
+            raw_team = (local_result.affected_team or "").strip()
+            affected_team = raw_team if not is_unknown_team(raw_team) else ""
             summary = local_result.summary
         else:
             # Medium confidence (0.5 - 0.7) → DeepSeek FALLBACK
@@ -2657,9 +2661,11 @@ class BrowserMonitor:
                 )
                 return None
 
-            # V7.6: Safe handling of empty/None values from DeepSeek
+            # V11.2: Safe handling of empty/None values from DeepSeek
+            # V11.2: Use centralized unknown team detection
             category = (analysis.get("category") or "").strip() or "OTHER"
-            affected_team = (analysis.get("affected_team") or "").strip() or "Unknown Team"
+            raw_team = (analysis.get("affected_team") or "").strip()
+            affected_team = raw_team if not is_unknown_team(raw_team) else ""
             summary = (analysis.get("summary") or "").strip()
 
         # Validate category is one of the allowed values
@@ -2678,6 +2684,29 @@ class BrowserMonitor:
         }
         if category not in valid_categories:
             category = "OTHER"
+
+        # V11.2: CRITICAL FIX - Root cause of unknown team propagation
+        # Skip alert if team is unknown AND confidence is below threshold.
+        # An article about "player injured" with no identifiable team has limited
+        # betting value. We require strong confidence to create an alert without a team.
+        # For DeepSeek path (else branch), we skip entirely if team is unknown since
+        # the second opinion also failed to identify the team.
+        # V11.2: Use UNKNOWN_TEAM constant for consistent downstream detection
+        from src.version import UNKNOWN_TEAM
+
+        if is_unknown_team(affected_team):
+            # Check if this is the high-confidence direct path (confidence >= ALERT_CONFIDENCE_THRESHOLD)
+            # or the DeepSeek fallback path. DeepSeek path should skip if no team identified.
+            if confidence < 0.85:
+                # Low-medium confidence without team = skip alert entirely
+                logger.debug(
+                    f"⏭️ [BROWSER-MONITOR] Skipping - unknown team and confidence "
+                    f"{confidence:.2f} below 0.85 threshold: {article_url[:50]}..."
+                )
+                return None
+            # High confidence (>= 0.85) with unknown team - use sentinel
+            # This ensures downstream guards can detect and handle it
+            affected_team = UNKNOWN_TEAM
 
         news = DiscoveredNews(
             url=article_url,  # V7.4: Use article URL, not source URL

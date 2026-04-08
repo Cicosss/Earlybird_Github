@@ -8,7 +8,11 @@ instances when fetching Twitter/X content, helping to avoid 403 errors
 and rate limiting.
 """
 
-# List of working public Nitter instances
+# List of working public Nitter instances (V14.0 COVE FIX: Removed 6 dead instances)
+# Verified alive per status.d420.de monitoring (2026-04-06):
+# - nitter.net (NL, latest 2026.03.31), nitter.space (US, outdated),
+# - nitter.tiekoetter.com (DE), nuku.trabun.org (CL), nitter.catsarch.com (US/DE)
+# - nitter.privacyredirect.com (FI, Anubis-protected), lightbrd.com (TR, NSFW)
 NITTER_INSTANCES = [
     "https://nitter.net",
     "https://xcancel.com",
@@ -17,13 +21,16 @@ NITTER_INSTANCES = [
     "https://nitter.space",
     "https://nitter.tiekoetter.com",
     "https://nuku.trabun.org",
-    "https://nitter.kuuro.net",
-    "https://nitter.privacydev.net",
-    "https://nitter.hostux.net",
-    "https://nitter.at",
-    "https://nt.ggtyler.dev",
-    "https://nitter.private.coffee",
+    "https://nitter.catsarch.com",
 ]
+
+# REMOVED dead instances (2026-04-07 COVE FIX):
+# - nitter.kuuro.net: 403 Forbidden
+# - nitter.privacydev.net: Connection refused
+# - nitter.hostux.net: Connection refused
+# - nitter.at: Connection refused
+# - nt.ggtyler.dev: Connection refused
+# - nitter.private.coffee: Connection refused
 
 # Circuit breaker configuration
 CIRCUIT_BREAKER_CONFIG = {

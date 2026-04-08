@@ -322,8 +322,8 @@ def calculate_advanced_weight(
     sharpe: float,
     max_drawdown: float = 0.0,
     n_samples: int = 0,
-    sortino: float = None,
-    previous_weight: float = None,
+    sortino: float | None = None,
+    previous_weight: float | None = None,
 ) -> float:
     """
     Calculate weight using advanced quantitative formula.
@@ -1126,8 +1126,9 @@ class StrategyOptimizer:
                 - log_msg: Human-readable weight application message
                 - weight: The actual weight factor applied
         """
-        if not market:
-            return base_score, base_score, "", 1.0
+        # V14.1 FIX: Allow driver-level weights to be applied even without specific market.
+        # This enables radar intelligence (market=None) to benefit from DRIVER-level historical weights.
+        # The early return was preventing driver weight application.
 
         # V5.3 FIX: Validate league parameter
         if not league:

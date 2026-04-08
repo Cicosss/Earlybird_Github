@@ -222,8 +222,6 @@ class TestSendAlertValidatedTeams:
 
     def test_send_alert_uses_validated_names(self):
         """send_alert should use validated_home_team/validated_away_team if provided."""
-        import os
-
         from src.alerting.notifier import send_alert
 
         # Create mock match object
@@ -234,8 +232,12 @@ class TestSendAlertValidatedTeams:
         mock_match.current_home_odd = 1.75
         mock_match.start_time = None
 
-        # Patch Telegram to avoid actual API calls
-        with patch.dict(os.environ, {"TELEGRAM_TOKEN": "", "TELEGRAM_CHAT_ID": ""}):
+        # Patch module-level Telegram credentials to prevent real API calls
+        # (os.environ patching doesn't work because notifier.py caches credentials at import time)
+        with (
+            patch("src.alerting.notifier.TELEGRAM_TOKEN", ""),
+            patch("src.alerting.notifier.TELEGRAM_CHAT_ID", ""),
+        ):
             # This should not raise and should use validated names
             # (won't actually send because no token)
             send_alert(
@@ -253,8 +255,6 @@ class TestSendAlertValidatedTeams:
 
     def test_send_alert_falls_back_to_match_obj(self):
         """send_alert should fall back to match_obj names if validated not provided."""
-        import os
-
         from src.alerting.notifier import send_alert
 
         mock_match = Mock()
@@ -264,7 +264,12 @@ class TestSendAlertValidatedTeams:
         mock_match.current_home_odd = 1.75
         mock_match.start_time = None
 
-        with patch.dict(os.environ, {"TELEGRAM_TOKEN": "", "TELEGRAM_CHAT_ID": ""}):
+        # Patch module-level Telegram credentials to prevent real API calls
+        # (os.environ patching doesn't work because notifier.py caches credentials at import time)
+        with (
+            patch("src.alerting.notifier.TELEGRAM_TOKEN", ""),
+            patch("src.alerting.notifier.TELEGRAM_CHAT_ID", ""),
+        ):
             # Call without validated names - should use match_obj names
             send_alert(
                 match_obj=mock_match,

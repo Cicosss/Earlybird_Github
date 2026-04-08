@@ -6,6 +6,7 @@ This module provides centralized version tracking for entire EarlyBird system.
 All modules should import version information from this module to ensure consistency.
 
 Version History:
+- V11.2: Centralized UNKNOWN_TEAM constant to fix unknown team propagation bug (2026-04-06)
 - V11.1: Centralized version tracking implementation (2026-02-23)
 - V11.0: Global Parallel Architecture (2026-02-19)
 - V10.5: Previous version with various module-specific versions
@@ -28,18 +29,74 @@ from typing import Final
 # ============================================
 # CENTRALIZED VERSION INFORMATION
 # ============================================
-VERSION: Final[str] = "V11.1"
+VERSION: Final[str] = "V11.2"
 VERSION_MAJOR: Final[int] = 11
-VERSION_MINOR: Final[int] = 1
+VERSION_MINOR: Final[int] = 2
 VERSION_PATCH: Final[int] = 0  # Reserved for future use
 
 # Version metadata
-VERSION_DATE: Final[str] = "2026-02-23"
-VERSION_NAME: Final[str] = "Centralized Version Tracking"
+VERSION_DATE: Final[str] = "2026-04-06"
+VERSION_NAME: Final[str] = "Unknown Team Propagation Fix"
 VERSION_DESCRIPTION: Final[str] = (
     "Centralized version tracking implementation with unified version number "
     "across all modules for better version management and tracking."
 )
+
+
+# ============================================
+# CENTRALIZED TEAM PLACEHOLDER CONSTANTS
+# ============================================
+# V11.2: Unified sentinel values for unknown team detection.
+# Previously browser_monitor used "Unknown Team" while guards checked "Unknown",
+# causing unknown team alerts to bypass all safety guards and get falsely confirmed.
+UNKNOWN_TEAM: Final[str] = "Unknown"
+UNKNOWN_TEAM_DISPLAY: Final[str] = "Da verificare"
+
+# All lowercase variants that should be treated as unknown team
+_UNKNOWN_TEAM_VARIANTS: Final[frozenset[str]] = frozenset(
+    {
+        "unknown",
+        "unknown team",
+        "",
+    }
+)
+
+
+def is_unknown_team(team: str | None) -> bool:
+    """
+    Check if a team value represents an unknown/unidentifiable team.
+
+    V11.2 FIX: Replaces fragmented string comparisons across the codebase.
+    Previously browser_monitor.py used "Unknown Team" while safety guards
+    checked "Unknown", causing unknown team alerts to bypass guards and get
+    falsely confirmed by the cross-validator.
+
+    Args:
+        team: Team name to check (can be None, empty, or any string)
+
+    Returns:
+        True if the team is unknown/unidentifiable, False otherwise
+    """
+    if team is None:
+        return True
+    return team.lower().strip() in _UNKNOWN_TEAM_VARIANTS
+
+
+def get_team_display_name(team: str | None) -> str:
+    """
+    Get the display name for a team, showing 'Da verificare' for unknown teams.
+
+    V11.2 FIX: Ensures unknown teams are always displayed as 'Da verificare'
+    instead of leaking "Unknown Team" or other variants to users.
+
+    Args:
+        team: Team name (can be None or unknown)
+
+    Returns:
+        "Da verificare" for unknown teams, the original team name otherwise
+    """
+    result: str = UNKNOWN_TEAM_DISPLAY if is_unknown_team(team) else str(team)
+    return result
 
 
 def get_version() -> str:
@@ -224,6 +281,10 @@ __all__ = [
     "VERSION_DATE",
     "VERSION_NAME",
     "VERSION_DESCRIPTION",
+    "UNKNOWN_TEAM",
+    "UNKNOWN_TEAM_DISPLAY",
+    "is_unknown_team",
+    "get_team_display_name",
     "get_version",
     "get_version_tuple",
     "get_version_dict",

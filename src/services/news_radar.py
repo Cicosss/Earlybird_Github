@@ -38,7 +38,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
+import requests  # type: ignore
 
 # V1.1: Import shared content analysis utilities
 from src.utils.content_analysis import (
@@ -74,7 +74,7 @@ try:
     _ENRICHMENT_AVAILABLE = True
 except ImportError:
     _ENRICHMENT_AVAILABLE = False
-    EnrichmentContext = None
+    EnrichmentContext = Any  # type: ignore
 
 # V7.3: Import odds movement checker
 try:
@@ -83,7 +83,7 @@ try:
     _ODDS_CHECK_AVAILABLE = True
 except ImportError:
     _ODDS_CHECK_AVAILABLE = False
-    OddsMovementStatus = None
+    OddsMovementStatus = Any  # type: ignore
 
 # V7.3: Import cross-source validator
 try:
@@ -95,7 +95,7 @@ except ImportError:
 
 # V12.1: playwright-stealth import with fallback (COVE FIX)
 try:
-    from playwright_stealth import Stealth
+    from playwright_stealth import Stealth  # type: ignore
 
     STEALTH_AVAILABLE = True
 except ImportError:
@@ -113,6 +113,26 @@ except ImportError:
 
 # V11.0: Import DiscoveryQueue for GlobalRadarMonitor intelligence queue
 from src.utils.discovery_queue import DiscoveryQueue, get_discovery_queue
+
+# V11.2: Import centralized unknown team detection
+try:
+    from src.version import UNKNOWN_TEAM, get_team_display_name, is_unknown_team
+except ImportError:
+    def is_unknown_team(team: str | None) -> bool:  # type: ignore
+        return team is None or team == "" or team.lower() == "unknown"
+    
+    UNKNOWN_TEAM = "Unknown"  # type: ignore
+    
+    def get_team_display_name(team: str | None) -> str:  # type: ignore
+        return team if team else "Unknown"
+
+
+def _is_unknown_team_safe(team: str | None) -> bool:
+    """Safe wrapper for is_unknown_team that handles import failure."""
+    if is_unknown_team is None:
+        return team is None or team == "" or team.lower() == "unknown"
+    return is_unknown_team(team)
+
 
 logger = logging.getLogger(__name__)
 
@@ -176,11 +196,11 @@ try:
 
     # Keep trafilatura import for backward compatibility in type hints
     if TRAFILATURA_AVAILABLE:
-        import trafilatura
+        import trafilatura  # type: ignore
 except ImportError:
     TRAFILATURA_AVAILABLE = False
-    _central_extract = None
-    _extract_with_fallback = None
+    _central_extract = None  # type: ignore
+    _extract_with_fallback = None  # type: ignore
     is_valid_html = lambda x: True  # type: ignore
     record_extraction = lambda x, y: None  # type: ignore
     logger.warning("⚠️ [NEWS-RADAR] trafilatura_extractor not available, using raw text extraction")
@@ -327,6 +347,8 @@ class RadarAlert:
     betting_impact: str = "MEDIUM"
     discovered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     enrichment_context: Any | None = None
+    _odds_suffix: str = ""
+    _validation_tag: str = ""
 
     def __post_init__(self):
         """
@@ -368,11 +390,9 @@ class RadarAlert:
         impact_emoji = BETTING_IMPACT_EMOJI.get(self.betting_impact, "")
 
         # Handle unknown team
-        team_display = (
-            self.affected_team
-            if self.affected_team and self.affected_team != "Unknown"
-            else "Da verificare"
-        )
+        # V11.2: Use centralized get_team_display_name() which handles all variants
+        # including "Unknown", "Unknown Team", "", and None
+        team_display = get_team_display_name(self.affected_team)
 
         # Build match info line
         match_info = ""
@@ -864,7 +884,7 @@ class CircuitBreaker:
                 return True
             logger.debug(
                 f"🧊 [CIRCUIT-BREAKER] Source in COOLDOWN (will retry after {self.COOLDOWN_SECONDS / 3600:.0f}h). "
-                f"Elapsed: {(time.time() - self.last_failure_time) / 3600:.1f}h"
+                f"Elapsed: {(time.time() - (self.last_failure_time or 0.0)) / 3600:.1f}h"
             )
             return False
 
@@ -1192,8 +1212,8 @@ class ContentExtractor:
 
     def __init__(self, page_timeout: int = DEFAULT_PAGE_TIMEOUT_SECONDS):
         self._page_timeout = page_timeout
-        self._playwright = None
-        self._browser = None
+        self._playwright: Any | None = None
+        self._browser: Any | None = None
         self._browser_lock: asyncio.Lock | None = None  # V1.3: Lock for browser recreation
 
         # V13.1: Scrapling-based stealth extractor (WAF bypass)
@@ -1223,7 +1243,7 @@ class ContentExtractor:
 
         Returns dict with diagnostic results.
         """
-        diagnostics = {
+        diagnostics: dict[str, Any] = {
             "playwright_installed": False,
             "chromium_binaries_installed": False,
             "system_dependencies_installed": False,
@@ -1238,7 +1258,7 @@ class ContentExtractor:
             # V12.5: Add error handling for version access (COVE FIX 2026-03-04)
             # Playwright 1.58.0 removed __version__ from main module
             try:
-                version = playwright.__version__
+                version = playwright.__version__  # type: ignore
                 diagnostics["details"].append(f"✅ Playwright v{version} installed")
             except AttributeError:
                 # Fallback: try to get version from _repo_version
@@ -1630,7 +1650,7 @@ class ContentExtractor:
 
         page = None
         try:
-            page = await self._browser.new_page()
+            page = await self._browser.new_page()  # type: ignore[union-attr]
             await page.set_viewport_size({"width": 1280, "height": 720})
 
             # V12.1: Apply stealth if available (COVE FIX)
@@ -1741,7 +1761,7 @@ class ContentExtractor:
 
         for attempt in range(max_retries):
             try:
-                page = await self._browser.new_page()
+                page = await self._browser.new_page()  # type: ignore[union-attr]
                 await page.set_viewport_size({"width": 1280, "height": 720})
 
                 # V12.1: Apply stealth if available (COVE FIX)
@@ -1880,7 +1900,7 @@ class ContentExtractor:
         browser_fallback_urls: list[str] = []
         for i, result in enumerate(completed):
             url = urls[i]  # Get original URL by index
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 # Exception occurred - add to fallback
                 logger.debug(f"⚠️ [NEWS-RADAR] Batch task exception for {url[:40]}: {result}")
                 browser_fallback_urls.append(url)
@@ -2041,7 +2061,9 @@ class DeepSeekFallback:
 
         model = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324")
         prompt = build_analysis_prompt_v2(
-            content, detected_signal, extracted_number,
+            content,
+            detected_signal,
+            extracted_number,
             team_hint=team_hint,
             source_context=source_context,
         )
@@ -2062,7 +2084,7 @@ class DeepSeekFallback:
 
         # V2.1 FIX: Retry logic with exponential backoff
         retry_count = 0
-        last_error = None
+        last_error: Exception | None = None
 
         while retry_count <= max_retries:
             try:
@@ -2561,8 +2583,8 @@ class NewsRadarMonitor:
         self._alerter: TelegramAlerter | None = None
 
         # V7.0: Optional Tavily
-        self._tavily = None
-        self._tavily_budget = None
+        self._tavily: Any | None = None
+        self._tavily_budget: Any | None = None
 
         # Circuit breakers per source
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
@@ -2985,7 +3007,7 @@ class NewsRadarMonitor:
                 urls = [s.url for s in eligible_sources]
                 logger.info(f"⚡ [NEWS-RADAR] Batch extracting {len(urls)} single-page sources")
 
-                contents = await self._extractor.extract_batch_http(urls, max_concurrent=5)
+                contents = await self._extractor.extract_batch_http(urls, max_concurrent=5)  # type: ignore[union-attr]
 
                 # Process each result
                 for source in eligible_sources:
@@ -3140,7 +3162,7 @@ class NewsRadarMonitor:
 
             # Aggregate results
             for i, result in enumerate(results):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     logger.error(f"❌ [NEWS-RADAR] Chunk {i + 1} failed: {result}")
                 else:
                     chunk_alerts, chunk_scanned = result
@@ -3171,7 +3193,7 @@ class NewsRadarMonitor:
             # Extract content
             if source.navigation_mode == "paginated" and source.link_selector:
                 # Paginated extraction
-                results = await self._extractor.extract_with_navigation(
+                results = await self._extractor.extract_with_navigation(  # type: ignore[union-attr]
                     source.url,
                     source.link_selector,
                     max_links=self._config.global_settings.max_links_per_paginated_source,
@@ -3195,7 +3217,7 @@ class NewsRadarMonitor:
                 return None
             else:
                 # Single page extraction
-                content = await self._extractor.extract(source.url)
+                content = await self._extractor.extract(source.url)  # type: ignore[union-attr]
 
                 if not content:
                     breaker.record_failure()
@@ -3364,10 +3386,13 @@ class NewsRadarMonitor:
         team_hint = None
         try:
             from src.utils.content_analysis import get_relevance_analyzer
+
             analyzer = get_relevance_analyzer()
-            team_hint = analyzer.extract_team_name(cleaned_content)
+            team_hint = analyzer._extract_team_name(cleaned_content)
             if team_hint:
-                logger.info(f"🧠 [TEAM-HINT] Pattern pre-extracted team: '{team_hint}' from {source.name}")
+                logger.info(
+                    f"🧠 [TEAM-HINT] Pattern pre-extracted team: '{team_hint}' from {source.name}"
+                )
         except Exception as e:
             logger.debug(f"⚠️ [NEWS-RADAR] Team hint extraction failed: {e}")
 
@@ -3376,6 +3401,10 @@ class NewsRadarMonitor:
         # V4.0: Pass team_hint + source_context for informed team extraction
         detected_signal_str = signal.signal_type.value if signal.detected else None
         extracted_number = signal.extracted_number if signal.detected else None
+
+        if self._deepseek is None:
+            logger.warning("⚠️ [NEWS-RADAR] DeepSeek not initialized")
+            return None
 
         deep_result = await self._deepseek.analyze_v2(
             cleaned_content,
@@ -3444,7 +3473,7 @@ class NewsRadarMonitor:
             # Get enrichment context before creating alert
             try:
                 enrichment_context = await enrich_radar_alert_async(
-                    affected_team=structured_analysis.team,
+                    affected_team=structured_analysis.team or UNKNOWN_TEAM,
                     team=structured_analysis.team,  # Alias for compatibility
                     opponent=structured_analysis.opponent,
                     competition=structured_analysis.competition,
@@ -3480,13 +3509,13 @@ class NewsRadarMonitor:
         alert = RadarAlert(
             source_name=source.name,
             source_url=url,
-            affected_team=alert_dict.get("team", "Unknown"),
+            affected_team=alert_dict.get("team", UNKNOWN_TEAM),
             opponent=alert_dict.get("opponent"),
             competition=alert_dict.get("competition"),
             match_date=alert_dict.get("match_date"),
-            category=alert_dict.get("category"),
-            absent_count=alert_dict.get("absent_count"),
-            absent_players=alert_dict.get("absent_players"),
+            category=alert_dict.get("category") or "OTHER",
+            absent_count=alert_dict.get("absent_count") or 0,
+            absent_players=alert_dict.get("absent_players") or [],
             betting_impact=intelligent_priority,  # V3.0: Use intelligent priority
             summary=alert_dict.get("summary_italian", "Notizia rilevante per betting"),
             confidence=adjusted_confidence,  # V3.0: Use adjusted confidence
@@ -3511,7 +3540,7 @@ class NewsRadarMonitor:
 
         # Step 17: Odds movement check
         odds_suffix = ""
-        if _ODDS_CHECK_AVAILABLE and alert.affected_team and alert.affected_team != "Unknown":
+        if _ODDS_CHECK_AVAILABLE and not _is_unknown_team_safe(alert.affected_team):
             try:
                 match_id = alert.enrichment_context.match_id if alert.enrichment_context else None
 
@@ -3553,7 +3582,7 @@ class NewsRadarMonitor:
 
         # Step 18: Cross-source validation
         validation_tag = ""
-        if _CROSS_VALIDATOR_AVAILABLE and alert.affected_team and alert.affected_team != "Unknown":
+        if _CROSS_VALIDATOR_AVAILABLE and not _is_unknown_team_safe(alert.affected_team):
             try:
                 validator = get_cross_validator()
                 boosted_confidence, is_multi_source, validation_tag = validator.register_alert(
@@ -3588,38 +3617,86 @@ class NewsRadarMonitor:
 
     # Timezone → country code mapping for source context inference
     _TZ_COUNTRY_MAP: dict[str, str] = {
-        "America/Sao_Paulo": "BR", "America/Buenos_Aires": "AR",
-        "America/Mexico_City": "MX", "America/Tegucigalpa": "HN",
-        "America/Bogota": "CO", "America/Lima": "PE", "America/Santiago": "CL",
-        "Europe/London": "GB", "Europe/Rome": "IT", "Europe/Paris": "FR",
-        "Europe/Berlin": "DE", "Europe/Moscow": "RU", "Europe/Prague": "CZ",
-        "Europe/Athens": "GR", "Europe/Istanbul": "TR",
-        "Africa/Lagos": "NG", "Africa/Cairo": "EG", "Africa/Johannesburg": "ZA",
-        "Asia/Singapore": "SG", "Asia/Shanghai": "CN",
-        "Asia/Tokyo": "JP", "Asia/Jakarta": "ID", "Asia/Seoul": "KR",
+        "America/Sao_Paulo": "BR",
+        "America/Buenos_Aires": "AR",
+        "America/Mexico_City": "MX",
+        "America/Tegucigalpa": "HN",
+        "America/Bogota": "CO",
+        "America/Lima": "PE",
+        "America/Santiago": "CL",
+        "Europe/London": "GB",
+        "Europe/Rome": "IT",
+        "Europe/Paris": "FR",
+        "Europe/Berlin": "DE",
+        "Europe/Moscow": "RU",
+        "Europe/Prague": "CZ",
+        "Europe/Athens": "GR",
+        "Europe/Istanbul": "TR",
+        "Africa/Lagos": "NG",
+        "Africa/Cairo": "EG",
+        "Africa/Johannesburg": "ZA",
+        "Asia/Singapore": "SG",
+        "Asia/Shanghai": "CN",
+        "Asia/Tokyo": "JP",
+        "Asia/Jakarta": "ID",
+        "Asia/Seoul": "KR",
     }
 
     # URL domain suffix → country code
     _DOMAIN_COUNTRY_MAP: dict[str, str] = {
-        ".com.br": "BR", ".com.ar": "AR", ".com.mx": "MX", ".com.hn": "HN",
-        ".ru": "RU", ".de": "DE", ".it": "IT", ".uk": "GB",
-        ".id": "ID", ".cn": "CN", ".jp": "JP", ".kr": "KR",
-        ".ng": "NG", ".eg": "EG", ".za": "ZA", ".hn": "HN",
+        ".com.br": "BR",
+        ".com.ar": "AR",
+        ".com.mx": "MX",
+        ".com.hn": "HN",
+        ".ru": "RU",
+        ".de": "DE",
+        ".it": "IT",
+        ".uk": "GB",
+        ".id": "ID",
+        ".cn": "CN",
+        ".jp": "JP",
+        ".kr": "KR",
+        ".ng": "NG",
+        ".eg": "EG",
+        ".za": "ZA",
+        ".hn": "HN",
     }
 
     # Source name/URL keywords → country code
     _SOURCE_KEYWORD_MAP: dict[str, str] = {
-        "brazil": "BR", "brasil": "BR", "brasileiro": "BR", "brasileirao": "BR",
-        "gazeta": "BR", "esportiva": "BR", "jogada": "BR", "globo": "BR",
-        "bauru": "BR", "correio": "BR",
-        "honduras": "HN", "hondudiario": "HN", "heraldo": "HN",
-        "nigeria": "NG", "nigeriasoccer": "NG", "brila": "NG", "panafrica": "NG",
-        "egypt": "EG", "ahram": "EG",
-        "scotland": "GB", "stv": "GB", "chesterfield": "GB",
-        "germany": "DE", "liga3": "DE",
-        "calcio": "IT", "tuttomercato": "IT",
-        "indonesia": "ID", "palembang": "ID", "superball": "ID", "tribun": "ID",
-        "supersport": "ZA", "flashscore": "INT", "besoccer": "INT",
+        "brazil": "BR",
+        "brasil": "BR",
+        "brasileiro": "BR",
+        "brasileirao": "BR",
+        "gazeta": "BR",
+        "esportiva": "BR",
+        "jogada": "BR",
+        "globo": "BR",
+        "bauru": "BR",
+        "correio": "BR",
+        "honduras": "HN",
+        "hondudiario": "HN",
+        "heraldo": "HN",
+        "nigeria": "NG",
+        "nigeriasoccer": "NG",
+        "brila": "NG",
+        "panafrica": "NG",
+        "egypt": "EG",
+        "ahram": "EG",
+        "scotland": "GB",
+        "stv": "GB",
+        "chesterfield": "GB",
+        "germany": "DE",
+        "liga3": "DE",
+        "calcio": "IT",
+        "tuttomercato": "IT",
+        "indonesia": "ID",
+        "palembang": "ID",
+        "superball": "ID",
+        "tribun": "ID",
+        "supersport": "ZA",
+        "flashscore": "INT",
+        "besoccer": "INT",
     }
 
     def _infer_source_context(self, source: RadarSource) -> tuple[str | None, str | None]:
@@ -3642,7 +3719,11 @@ class NewsRadarMonitor:
             source_context_string is a formatted hint for DeepSeek or None
         """
         # Strategy 1: Timezone → country (most reliable)
-        tz_country = self._TZ_COUNTRY_MAP.get(source.source_timezone or "") if source.source_timezone else None
+        tz_country = (
+            self._TZ_COUNTRY_MAP.get(source.source_timezone or "")
+            if source.source_timezone
+            else None
+        )
 
         # Strategy 2: URL hostname → country (hostname-only to prevent false positives like /player-id/)
         from urllib.parse import urlparse
@@ -3675,13 +3756,32 @@ class NewsRadarMonitor:
 
         # Build context string for DeepSeek prompt
         country_names = {
-            "BR": "Brazil", "AR": "Argentina", "MX": "Mexico", "HN": "Honduras",
-            "GB": "United Kingdom", "IT": "Italy", "DE": "Germany", "FR": "France",
-            "TR": "Turkey", "GR": "Greece", "NL": "Netherlands", "NO": "Norway",
-            "PL": "Poland", "RU": "Russia", "ID": "Indonesia", "CN": "China",
-            "JP": "Japan", "SG": "Singapore", "NG": "Nigeria", "EG": "Egypt",
-            "ZA": "South Africa", "CO": "Colombia", "PE": "Peru", "CL": "Chile",
-            "KR": "South Korea", "CZ": "Czech Republic",
+            "BR": "Brazil",
+            "AR": "Argentina",
+            "MX": "Mexico",
+            "HN": "Honduras",
+            "GB": "United Kingdom",
+            "IT": "Italy",
+            "DE": "Germany",
+            "FR": "France",
+            "TR": "Turkey",
+            "GR": "Greece",
+            "NL": "Netherlands",
+            "NO": "Norway",
+            "PL": "Poland",
+            "RU": "Russia",
+            "ID": "Indonesia",
+            "CN": "China",
+            "JP": "Japan",
+            "SG": "Singapore",
+            "NG": "Nigeria",
+            "EG": "Egypt",
+            "ZA": "South Africa",
+            "CO": "Colombia",
+            "PE": "Peru",
+            "CL": "Chile",
+            "KR": "South Korea",
+            "CZ": "Czech Republic",
         }
 
         country_name = country_names.get(country_code, country_code)
@@ -3748,6 +3848,7 @@ class NewsRadarMonitor:
             db = SessionLocal()
             try:
                 from datetime import timedelta
+
                 now = datetime.now(timezone.utc)
                 max_time = now + timedelta(hours=96)
 
@@ -3808,7 +3909,7 @@ class NewsRadarMonitor:
 
         # Try thefuzz import (already in requirements.txt, used elsewhere in the bot)
         try:
-            from thefuzz import fuzz
+            from thefuzz import fuzz  # type: ignore[import-untyped]
         except ImportError:
             return extracted_team
 
@@ -3816,6 +3917,7 @@ class NewsRadarMonitor:
         fold_accents_fn = None
         try:
             from src.utils.text_normalizer import fold_accents as fa
+
             fold_accents_fn = fa
         except ImportError:
             pass
@@ -3879,8 +3981,7 @@ class NewsRadarMonitor:
 
                 if best_score >= FUZZY_THRESHOLD and best_match:
                     logger.debug(
-                        f"[FUZZY-MATCH] '{extracted_team}' → '{best_match}' "
-                        f"(score={best_score})"
+                        f"[FUZZY-MATCH] '{extracted_team}' → '{best_match}' (score={best_score})"
                     )
                     return best_match
 
@@ -4193,7 +4294,7 @@ class NewsRadarMonitor:
             return alert
 
         # Skip if no team to enrich
-        if not alert.affected_team or alert.affected_team == "Unknown":
+        if not alert.affected_team or _is_unknown_team_safe(alert.affected_team):
             return alert
 
         try:
@@ -4346,8 +4447,8 @@ class GlobalRadarMonitor:
         self._config: RadarConfig = RadarConfig()
 
         # Browser and contexts
-        self._playwright = None
-        self._browser = None
+        self._playwright: Any | None = None
+        self._browser: Any | None = None
         self._contexts: dict[str, Any] = {}  # context_name -> BrowserContext
 
         # Components
@@ -4359,10 +4460,10 @@ class GlobalRadarMonitor:
         self._discovery_queue: DiscoveryQueue | None = None
 
         # Budget managers
-        self._tavily = None
-        self._tavily_budget = None
-        self._brave = None
-        self._brave_budget = None
+        self._tavily: Any | None = None
+        self._tavily_budget: Any | None = None
+        self._brave: Any | None = None
+        self._brave_budget: Any | None = None
 
         # Circuit breakers per source
         self._circuit_breakers: dict[str, CircuitBreaker] = {}
@@ -4436,7 +4537,7 @@ class GlobalRadarMonitor:
                 logger.debug("⚠️ [GLOBAL-RADAR] Tavily not available")
 
             try:
-                from src.ingestion.brave_budget import get_budget_manager as get_brave_budget
+                from src.ingestion.brave_budget import get_brave_budget_manager as get_brave_budget
                 from src.ingestion.brave_provider import get_brave_provider
 
                 self._brave = get_brave_provider()
@@ -4505,7 +4606,7 @@ class GlobalRadarMonitor:
         if self._scan_tasks:
             await asyncio.gather(*self._scan_tasks, return_exceptions=True)
 
-        self._scan_tasks: list[dict[str, Any]] = []
+        self._scan_tasks = []
 
         # Close all contexts
         for context_name, context in self._contexts.items():
@@ -4566,7 +4667,7 @@ class GlobalRadarMonitor:
         """
         for context_name in self.CONTINENT_CONTEXTS:
             try:
-                context = await self._browser.new_context(
+                context = await self._browser.new_context(  # type: ignore[union-attr]
                     user_agent=f"EarlyBird-Radar-{context_name}/11.0"
                 )
                 self._contexts[context_name] = context
@@ -4581,7 +4682,7 @@ class GlobalRadarMonitor:
         Returns:
             Dict mapping context_name -> list of sources
         """
-        context_sources = {ctx: [] for ctx in self.CONTINENT_CONTEXTS}
+        context_sources: dict[str, list[RadarSource]] = {ctx: [] for ctx in self.CONTINENT_CONTEXTS}
 
         for source in self._config.sources:
             # Determine which context this source belongs to
@@ -4720,7 +4821,7 @@ class GlobalRadarMonitor:
                     # Push to intelligence queue
                     # V11.0 FIX: Use "GLOBAL" as league key so items can be retrieved during match analysis
                     # The pop_for_match() method now includes GLOBAL items for all matches
-                    self._discovery_queue.push(
+                    self._discovery_queue.push(  # type: ignore[union-attr]
                         data=signal,
                         league_key="GLOBAL",  # Use GLOBAL key for cross-league discoveries
                         team=signal.get("team", "Unknown"),
@@ -4857,7 +4958,7 @@ class GlobalRadarMonitor:
             Signal dict or None
         """
         # Check cache
-        if await self._content_cache.is_cached(content):
+        if self._content_cache and await self._content_cache.is_cached(content):
             return None
 
         # Apply exclusion filter
@@ -4877,10 +4978,13 @@ class GlobalRadarMonitor:
             return None
 
         # Add to cache
-        await self._content_cache.add(content)
+        if self._content_cache:
+            await self._content_cache.add(content)
 
         return {
-            "team": analysis.affected_team or "Unknown",  # COVE FIX 2026-03-07: Use correct field
+            "team": analysis.affected_team
+            if analysis.affected_team
+            else UNKNOWN_TEAM,  # V11.2: Use centralized constant
             "title": analysis.summary,  # COVE FIX 2026-03-07: Use summary as title
             "snippet": analysis.summary,  # COVE FIX 2026-03-07: Use summary as snippet
             "url": source.url,

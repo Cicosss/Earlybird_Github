@@ -80,15 +80,12 @@ from src.processing.news_hunter import run_hunter_for_match
 
 # V12.0: Import ValidationResult validators for defense-in-depth validation
 try:
-    from src.utils.validators import ValidationResult, validate_news_log
+    from src.utils.validators import validate_news_log
 
     _VALIDATORS_AVAILABLE = True
 except ImportError:
     _VALIDATORS_AVAILABLE = False
     logging.debug("Validators module not available for analysis_engine")
-
-# Configure logger
-logger = logging.getLogger(__name__)
 
 # ============================================
 # ANALYSIS-SPECIFIC CONSTANTS
@@ -128,7 +125,7 @@ except ImportError:
 
 # Parallel Enrichment V6.0
 try:
-    from src.utils.parallel_enrichment import EnrichmentResult, enrich_match_parallel
+    from src.utils.parallel_enrichment import enrich_match_parallel
 
     _PARALLEL_ENRICHMENT_AVAILABLE = True
     logger.debug("✅ Parallel Enrichment loaded")
@@ -237,18 +234,27 @@ class AnalysisEngine:
         # Calculate time since last investigation
         hours_since_dive = (now - last_deep_dive_time).total_seconds() / 3600
 
-        # Calculate time to kickoff
-        hours_to_kickoff = (start_time - now).total_seconds() / 3600
+        # COVE FIX: Guard against None start_time — compute hours_to_kickoff only if start_time is set
+        if start_time is None:
+            # Unknown kickoff time — skip kickoff-based cooldown check but enforce time-since-dive check
+            hours_to_kickoff = None
+        else:
+            hours_to_kickoff = (start_time - now).total_seconds() / 3600
 
-        # EXCEPTION: Final Check window - always allow investigation
-        if hours_to_kickoff <= FINAL_CHECK_WINDOW_HOURS:
+        # EXCEPTION: Final Check window - always allow investigation (only if kickoff time is known)
+        if hours_to_kickoff is not None and hours_to_kickoff <= FINAL_CHECK_WINDOW_HOURS:
             return False, f"Final Check ({hours_to_kickoff:.1f}h to kickoff)"
 
         # Check cooldown
         if hours_since_dive < CASE_CLOSED_COOLDOWN_HOURS:
+            kickoff_str = (
+                f"{hours_to_kickoff:.1f}h to kickoff"
+                if hours_to_kickoff is not None
+                else "kickoff time unknown"
+            )
             return (
                 True,
-                f"Case Closed - Cooldown ({hours_since_dive:.1f}h since last dive, {hours_to_kickoff:.1f}h to kickoff)",
+                f"Case Closed - Cooldown ({hours_since_dive:.1f}h since last dive, {kickoff_str})",
             )
 
         return False, f"Cooldown expired ({hours_since_dive:.1f}h since last dive)"
@@ -560,7 +566,9 @@ class AnalysisEngine:
                     home_team = getattr(match, "home_team", "Unknown")
                     away_team = getattr(match, "away_team", "Unknown")
                     logger.info(
-                        f"   📉 {home_team} vs {away_team}: {drop['type']} {drop['drop_pct']:.1f}% ({drop['opening']:.2f} → {drop['current']:.2f})"
+                        f"   📉 {home_team} vs {away_team}: "
+                        f"{drop['type']} {drop['drop_pct']:.1f}% "
+                        f"({drop['opening']:.2f} → {drop['current']:.2f})"
                     )
 
             return significant_drops
@@ -665,7 +673,8 @@ class AnalysisEngine:
 
             label = f"[{context_label}] " if context_label else ""
             self.logger.info(
-                f"   🐦 {label}Twitter Intel: {len(relevant_tweets)} relevant tweets found (top 5 by relevance)"
+                f"   🐦 {label}Twitter Intel: "
+                f"{len(relevant_tweets)} relevant tweets found (top 5 by relevance)"
             )
             return twitter_intel_data
 
@@ -1054,7 +1063,8 @@ class AnalysisEngine:
                 return True, result.adjusted_score, result.original_market, result
             elif result.status == VerificationStatus.CHANGE_MARKET:
                 self.logger.info(
-                    f"🔄 {label}Verification Layer changed market from {analysis.recommended_market} to {result.recommended_market}"
+                    f"🔄 {label}Verification Layer changed market from "
+                    f"{analysis.recommended_market} to {result.recommended_market}"
                 )
                 return True, result.adjusted_score, result.recommended_market, result
             elif result.status == VerificationStatus.REJECT:
@@ -1062,6 +1072,14 @@ class AnalysisEngine:
                     f"❌ {label}Alert DENIED by Verification Layer: {result.rejection_reason}"
                 )
                 return False, result.adjusted_score, result.recommended_market, result
+            else:
+                # COVE FIX: Defensive handling for unexpected VerificationStatus values.
+                # If status enum is extended in the future, allow alert to proceed safely.
+                self.logger.warning(
+                    f"⚠️ {label}Unknown VerificationStatus: {result.status}, "
+                    f"allowing alert to proceed"
+                )
+                return True, analysis.score, getattr(analysis, "recommended_market", None), None
 
         except Exception as e:
             self.logger.error(f"❌ {label}Verification Layer error: {e}")
@@ -1139,7 +1157,8 @@ class AnalysisEngine:
             current_home_odd = getattr(match, "current_home_odd", None)
             if current_home_odd is None:
                 self.logger.info(
-                    f"⏭️  Skipping {home_team} vs {away_team}: No odds available (current_home_odd is None)"
+                    f"⏭️  Skipping {home_team} vs {away_team}: "
+                    f"No odds available (current_home_odd is None)"
                 )
                 return result
 
@@ -1174,12 +1193,13 @@ class AnalysisEngine:
                                 and home_team != fotmob_home_name
                             ):
                                 self.logger.warning(
-                                    f"⚠️ Team order mismatch detected: DB has {home_team} vs {away_team}, FotMob has {fotmob_home_name} vs {fotmob_away_name}"
+                                    f"⚠️ Team order mismatch: DB has {home_team} vs {away_team}, "
+                                    f"FotMob has {fotmob_home_name} vs {fotmob_away_name}"
                                 )
                                 # Swap team names
                                 home_team_valid, away_team_valid = away_team_valid, home_team_valid
                                 self.logger.info(
-                                    f"✅ Corrected team order to: {home_team_valid} vs {away_team_valid}"
+                                    f"✅ Corrected team order: {home_team_valid} vs {away_team_valid}"
                                 )
                 except Exception as e:
                     self.logger.debug(f"Team order validation skipped: {e}")
@@ -1203,7 +1223,8 @@ class AnalysisEngine:
 
             enrichment_data = None
             news_articles: list[dict[str, Any]] = []
-            twitter_intel = ""
+            # twitter_data: dict from get_twitter_intel_for_match (NOT passed to AI - see twitter_intel_for_ai below)
+            twitter_data = ""
 
             def fetch_fotmob():
                 if _PARALLEL_ENRICHMENT_AVAILABLE and fotmob:
@@ -1238,7 +1259,7 @@ class AnalysisEngine:
                 # Wait for all futures to complete
                 enrichment_data = fotmob_future.result()
                 news_articles = news_future.result()
-                twitter_intel = twitter_future.result()
+                twitter_data = twitter_future.result()
 
             self.logger.info(f"   📰 Found {len(news_articles)} relevant news articles")
 
@@ -1322,8 +1343,35 @@ class AnalysisEngine:
             # V11.0 TURBO: NOTE - STEP 6 (News) and STEP 7 (Twitter) are now executed
             # in parallel with FotMob enrichment via ThreadPoolExecutor above
 
+            # --- STEP 5.5: PRE-FLIGHT VOLATILITY CHECK (V12.8) ---
+            # V12.8 "Token Scrooge": Check for massive 1X2 odds drops BEFORE calling DeepSeek.
+            # If bookmakers already destroyed the value on any primary outcome, abort immediately.
+            # This prevents wasting ~$0.03-0.05 per DeepSeek call on matches that are already "priced in".
+            # The AI would only confirm what the math already tells us: NO VALUE.
+            try:
+                pre_check_crashed, pre_check_reason = (
+                    self.betting_quant.pre_flight_volatility_check(match)
+                )
+                if pre_check_crashed:
+                    self.logger.info(
+                        f"🛑 PRE-FLIGHT VETO: {home_team_valid} vs {away_team_valid} — "
+                        f"Skipping DeepSeek call. {pre_check_reason}"
+                    )
+                    result["error"] = f"Pre-flight market veto: {pre_check_reason}"
+                    # Update last_deep_dive_time so this dead match enters cooldown
+                    # and doesn't get re-checked every cycle (same pattern as Step 10 veto)
+                    match.last_deep_dive_time = now_utc
+                    db_session.commit()
+                    return result
+            except Exception as e:
+                # VPS SAFETY: If pre-flight check itself fails (e.g., detached session),
+                # DO NOT block the analysis. Log and proceed to AI call.
+                # Better to waste a token than miss a genuine opportunity.
+                self.logger.warning(f"⚠️ V12.8: Pre-flight check failed (non-blocking): {e}")
+
             # --- STEP 8: AI ANALYSIS (V6.0) ---
             # Run triangulation analysis with all available data
+            # V12.8: We only reach this point if the pre-flight check PASSED (market stable)
 
             try:
                 # Format injury data for AI
@@ -1347,6 +1395,8 @@ class AnalysisEngine:
                 )
 
                 # Run triangulation analysis
+                # Note: twitter_intel parameter is omitted — twitter_data (dict) is not used by AI.
+                # All AI-formatted Twitter intel flows through twitter_intel_for_ai (str) below.
                 analysis_result = analyze_with_triangulation(
                     match=match,
                     home_context=home_context,
@@ -1354,7 +1404,6 @@ class AnalysisEngine:
                     home_stats=home_stats,
                     away_stats=away_stats,
                     news_articles=news_articles,
-                    twitter_intel=twitter_intel,
                     twitter_intel_for_ai=twitter_intel_str,
                     fatigue_differential=fatigue_differential,
                     injury_impact_home=home_injury_impact,
@@ -1367,11 +1416,13 @@ class AnalysisEngine:
                 # COVE DEBUG: AI Response trace
                 if forced_narrative and analysis_result:
                     self.logger.info(
-                        f"🧠 [DEBUG] AI Response: Summary={getattr(analysis_result, 'summary', 'N/A')[:100]}..."
+                        f"🧠 [DEBUG] AI Response: "
+                        f"Summary={getattr(analysis_result, 'summary', 'N/A')[:100]}..."
                     )
                     self.logger.info(
-                        f"🧠 [DEBUG] AI Response: Confidence={getattr(analysis_result, 'confidence', 'N/A')}, "
-                        f"Recommended Market={getattr(analysis_result, 'recommended_market', 'N/A')}"
+                        f"🧠 [DEBUG] AI Response: "
+                        f"Confidence={getattr(analysis_result, 'confidence', 'N/A')}, "
+                        f"Market={getattr(analysis_result, 'recommended_market', 'N/A')}"
                     )
 
                 # --- V12.0: Validate analysis_result with ValidationResult ---
@@ -1396,12 +1447,17 @@ class AnalysisEngine:
                     try:
                         # Extract team stats for BettingQuant
                         # Use goals_avg from stats, fallback to league default (1.35)
+                        # COVE FIX: Add or 1.35 to handle case where key exists but value is None
                         home_scored = home_stats.get("goals_avg") if home_stats else 1.35
                         away_scored = away_stats.get("goals_avg") if away_stats else 1.35
+                        home_scored = home_scored if home_scored is not None else 1.35
+                        away_scored = away_scored if away_scored is not None else 1.35
 
                         # FotMob doesn't provide goals_conceded_avg, use goals_avg as fallback
                         home_conceded = home_stats.get("goals_avg") if home_stats else 1.35
                         away_conceded = away_stats.get("goals_avg") if away_stats else 1.35
+                        home_conceded = home_conceded if home_conceded is not None else 1.35
+                        away_conceded = away_conceded if away_conceded is not None else 1.35
 
                         # VPS FIX: Copy odds attributes before using them to prevent session detachment
                         # This prevents "Trust validation error" when Match object becomes detached
@@ -1413,7 +1469,9 @@ class AnalysisEngine:
                         under_25_odd = getattr(match, "current_under_2_5", None)
                         btts_yes_odd = getattr(match, "current_btts_yes", None)  # V12.7: BTTS odds
 
-                        # Build market odds dict from copied attributes
+                        # COVE FIX: Build market_odds filtering out None values.
+                        # _calculate_all_edges guards with "market_odds[key] > 1" so None would be
+                        # skipped, but explicit filtering makes types honest and avoids edge-case bugs.
                         market_odds = {
                             "home": home_odd,
                             "draw": draw_odd,
@@ -1422,6 +1480,8 @@ class AnalysisEngine:
                             "under_25": under_25_odd,
                             "btts": btts_yes_odd,  # V12.7: BTTS odds now available from DB
                         }
+                        # Filter None values so type is dict[str, float] (not dict[str, float | None])
+                        market_odds = {k: v for k, v in market_odds.items() if v is not None}
 
                         # Call BettingQuant to evaluate bet and generate market warning
                         betting_decision = self.betting_quant.evaluate_bet(
@@ -1440,7 +1500,8 @@ class AnalysisEngine:
                         # COVE DEBUG: Mathematical Decision trace
                         if forced_narrative:
                             self.logger.info(
-                                f"💰 [DEBUG] Mathematical Decision: Verdict={betting_decision.verdict}, "
+                                f"💰 [DEBUG] Mathematical Decision: "
+                                f"Verdict={betting_decision.verdict}, "
                                 f"Stake={getattr(betting_decision, 'stake', 'N/A')}, "
                                 f"Market={getattr(betting_decision, 'market', 'N/A')}"
                             )
@@ -1534,12 +1595,14 @@ class AnalysisEngine:
                         # Update should_send based on final verifier result
                         if not should_send_final:
                             self.logger.warning(
-                                f"❌ Alert blocked by Final Verifier: {final_verification_info.get('reason', 'Unknown reason')}"
+                                f"❌ Alert blocked by Final Verifier: "
+                                f"{final_verification_info.get('reason', 'Unknown reason')}"
                             )
                             should_send = False
                         else:
                             self.logger.info(
-                                f"✅ Alert passed Final Verifier (status: {final_verification_info.get('status', 'unknown')})"
+                                f"✅ Alert passed Final Verifier "
+                                f"(status: {final_verification_info.get('status', 'unknown')})"
                             )
 
                     except Exception as e:
@@ -1568,7 +1631,8 @@ class AnalysisEngine:
                             )
                             if data_discrepancies:
                                 self.logger.info(
-                                    f"📊 [INTELLIGENT LOOP] Passing {len(data_discrepancies)} data discrepancies to modification system"
+                                    f"📊 [INTELLIGENT LOOP] Passing "
+                                    f"{len(data_discrepancies)} data discrepancies to modification system"
                                 )
                                 for i, d in enumerate(data_discrepancies, 1):
                                     if isinstance(d, dict):
@@ -1634,7 +1698,8 @@ class AnalysisEngine:
                                     "✅ [INTELLIGENT LOOP] Feedback loop completed successfully"
                                 )
                                 self.logger.info(
-                                    f"   Modified score: {final_score:.1f}/10 | Market: {final_market}"
+                                    f"   Modified score: {final_score:.1f}/10 | "
+                                    f"Market: {final_market}"
                                 )
                             else:
                                 self.logger.warning(
@@ -1675,7 +1740,8 @@ class AnalysisEngine:
                 if should_send and final_score >= alert_threshold:
                     # V10.6 TRACER: Match APPROVED - Sending to Notifier
                     self.logger.info(
-                        f"🟢 [TRACER] Match {home_team_valid} vs {away_team_valid} APPROVED. Score: {final_score:.1f}. Sending to Notifier."
+                        f"🟢 [TRACER] Match {home_team_valid} vs {away_team_valid} "
+                        f"APPROVED. Score: {final_score:.1f}. Sending to Notifier."
                     )
                     self.logger.info(f"🚨 ALERT: {final_score:.1f}/10 - {final_market}")
 
@@ -1710,7 +1776,7 @@ class AnalysisEngine:
                             referee_intel=dataclasses.asdict(referee_info)
                             if referee_info
                             else None,  # Convert RefereeStats to dict
-                            twitter_intel=twitter_intel,
+                            twitter_intel=twitter_data,
                             validated_home_team=None,  # Not available in current scope
                             validated_away_team=None,  # Not available in current scope
                             verification_info=verification_result,
@@ -1758,7 +1824,8 @@ class AnalysisEngine:
                             result["score"] = final_score
                             result["market"] = final_market
                             self.logger.warning(
-                                f"⚠️ COVE: Alert delivery failed for match {match.home_team} vs {match.away_team}. "
+                                f"⚠️ COVE: Alert delivery failed for "
+                                f"{match.home_team} vs {match.away_team}. "
                                 f"Match will NOT enter cooldown and will be retried on next scan."
                             )
                             # Do NOT update last_deep_dive_time or commit - match stays eligible for retry
@@ -1781,7 +1848,8 @@ class AnalysisEngine:
                         f"🔴 [TRACER] Match {home_team_valid} vs {away_team_valid} rejected. Reason: Score Threshold. Score: {final_score:.1f}"
                     )
                     self.logger.info(
-                        f"🛑 MATCH VETOED: Final Score {final_score:.1f} < {alert_threshold} [Reason: {veto_reason}]"
+                        f"🛑 MATCH VETOED: Final Score {final_score:.1f} < {alert_threshold} "
+                        f"[Reason: {veto_reason}]"
                     )
 
                     result["score"] = final_score

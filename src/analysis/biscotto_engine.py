@@ -770,7 +770,7 @@ def _estimate_matches_remaining_from_date(match_start_time, league_key: str = No
 
 
 def get_enhanced_biscotto_analysis(
-    match_obj, home_motivation: dict = None, away_motivation: dict = None
+    match_obj, home_motivation: dict | None = None, away_motivation: dict | None = None
 ) -> tuple[BiscottoAnalysis, str]:
     """
     Integration helper for main.py - analyzes match for biscotto signals.

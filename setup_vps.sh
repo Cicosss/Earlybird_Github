@@ -69,6 +69,11 @@ sudo apt-get install -y \
     libxml2-dev \
     libxslt1-dev \
     libcurl4-openssl-dev \
+    libssl-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libfreetype6-dev \
+    pkg-config \
     screen \
     tmux \
     git \
@@ -409,7 +414,7 @@ if [ -f ".env" ]; then
 else
     echo -e "${RED}   ❌ .env file not found!${NC}"
     echo -e "${YELLOW}   📝 Creating from template...${NC}"
-    cp .env.example .env
+    cp .env.template .env
     echo -e "${RED}   ⚠️ IMPORTANT: Edit .env and add your REAL API keys before starting!${NC}"
     echo -e "${RED}   ⚠️ Or copy .env from your backup: cp ../earlybird_backup_*/.env .${NC}"
 fi

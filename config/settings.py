@@ -141,9 +141,6 @@ ENABLE_ALPHA_HUNTER_MODE = os.getenv("ENABLE_ALPHA_HUNTER_MODE", "false").lower(
 # Keys rotate automatically: when Key 1 exhausts (429), switches to Key 2, Key 3, Key 4, then loops
 # https://the-odds-api.com/ - Live odds for betting analysis
 
-# Existing (keep unchanged for backward compatibility)
-ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
-
 # API Keys for rotation (loaded in order)
 # SECURITY FIX: Removed hardcoded API keys - use only environment variables
 _ODDS_API_KEYS_RAW = [
@@ -654,10 +651,10 @@ def cleanup_stale_stop_lock() -> bool:
         if boot_time is not None and lock_mtime < boot_time:
             # Lock file predates boot → stale from previous session
             import logging
+
             os.remove(STOP_FILE)
             logging.getLogger(__name__).warning(
-                "🔄 Removed stale stop.lock (predates system boot) — "
-                "VPS reboot clears /stop state"
+                "🔄 Removed stale stop.lock (predates system boot) — VPS reboot clears /stop state"
             )
             return True
 
@@ -665,6 +662,7 @@ def cleanup_stale_stop_lock() -> bool:
         pass
 
     return False
+
 
 # ========================================
 # ANALYZER LIMITS (V6.1)

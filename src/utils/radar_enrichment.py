@@ -1,5 +1,5 @@
 """
-EarlyBird Radar Light Enrichment Module V1.1
+EarlyBird Radar Light Enrichment Module V1.2
 
 Arricchisce gli alert del News Radar con contesto dal database principale,
 senza appesantire il flusso con chiamate FotMob complete.
@@ -10,6 +10,7 @@ Strategia "Light Enrichment":
 3. Se fine stagione (ultime 5 giornate): check biscotto
 4. NON fa chiamate FotMob - usa solo dati già in DB o cache
 
+V1.2: Added unknown team guard using centralized is_unknown_team() (V11.2 fix)
 V1.1: Enhanced find_upcoming_match() with fuzzy matching (thefuzz) for
 accent/partial name mismatches. DeepSeek extracts "São Paulo" but DB has
 "Sao Paulo FC" — fuzzy matching bridges this gap.
@@ -28,6 +29,12 @@ import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
+
+# V11.2: Import centralized unknown team detection
+try:
+    from src.version import is_unknown_team
+except ImportError:
+    is_unknown_team = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -564,8 +571,15 @@ class RadarLightEnricher:
         """
         context = EnrichmentContext()
 
-        if not affected_team or affected_team == "Unknown":
-            return context
+        # V11.2: Use centralized unknown team detection to handle all variants
+        # ("Unknown", "Unknown Team", "", None) with a single check
+        if is_unknown_team is None:
+            # Fallback if import failed
+            if not affected_team or affected_team == "Unknown":
+                return context
+        else:
+            if is_unknown_team(affected_team):
+                return context
 
         # Step 1: Cerca match nelle prossime 48h
         match_info = self.find_upcoming_match(affected_team)
@@ -695,8 +709,13 @@ async def enrich_radar_alert_async(
     # team parameter is accepted but ignored (alias for compatibility)
     team_to_enrich = affected_team if affected_team else team
 
-    if not team_to_enrich or team_to_enrich == "Unknown":
-        return EnrichmentContext()
+    # V11.2: Use centralized unknown team detection
+    if is_unknown_team is None:
+        if not team_to_enrich or team_to_enrich == "Unknown":
+            return EnrichmentContext()
+    else:
+        if is_unknown_team(team_to_enrich):
+            return EnrichmentContext()
 
     enricher = get_radar_enricher()
 

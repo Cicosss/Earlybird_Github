@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-Simple Telegram Alert Test
+Telegram Alert Workflow Test
 
-Tests if Telegram alerts can be sent from the notifier module.
+This script tests the complete Telegram alert workflow from trigger to delivery.
+
+Usage:
+    python tests/test_telegram_workflow.py
+
+⚠️  WARNING: This test sends a REAL Telegram alert.
+    Only run manually or with: pytest -m integration
 """
 
 import os
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -20,6 +28,10 @@ load_dotenv()
 
 # Import after loading env
 from src.alerting.notifier import send_alert
+
+# Mark all tests in this file as integration tests
+# They send real Telegram messages and should NOT run during make test-unit
+pytestmark = pytest.mark.integration
 
 
 def test_simple_alert():
@@ -34,12 +46,12 @@ def test_simple_alert():
 
     if not token:
         print("❌ TELEGRAM_TOKEN not configured")
-        return False
+        pytest.skip("TELEGRAM_TOKEN not configured")
     print(f"✅ Token: {token[:10]}...{token[-5:]}")
 
     if not chat_id:
         print("❌ TELEGRAM_CHAT_ID not configured")
-        return False
+        pytest.skip("TELEGRAM_CHAT_ID not configured")
     print(f"✅ Chat ID: {chat_id}")
 
     # Create mock match object
@@ -82,13 +94,12 @@ def test_simple_alert():
             market_warning=None,  # V11.1 FIX: Explicitly pass market_warning (None for test)
         )
         print("✅ Test alert sent successfully!")
-        return True
     except Exception as e:
         print(f"❌ Failed to send test alert: {e}")
         import traceback
 
         traceback.print_exc()
-        return False
+        pytest.fail(f"Failed to send test alert: {e}")
 
 
 if __name__ == "__main__":
